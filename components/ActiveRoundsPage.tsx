@@ -12,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import Link from "next/link";
 
 // Mock data for active rounds across different leagues
 const activeRounds = [
