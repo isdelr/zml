@@ -14,7 +14,7 @@ export function LoadingSpinner() {
   const message = loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
 
   return (
-    <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-background text-foreground">
+    <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-background text-foreground" suppressHydrationWarning>
       <div className="relative flex items-center justify-center">
         {/* We use the Music icon and a pulse animation that fits the theme */}
         <Music className="size-16 animate-pulse text-primary [animation-duration:1.5s]" />

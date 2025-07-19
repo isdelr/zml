@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { AddLeagueDialog } from "./AddLeagueDialog";
+import Link from "next/link";
 
 // Mock data for active rounds across different leagues
 const activeRounds = [
@@ -69,12 +69,12 @@ export function ActiveRoundsPage() {
               className="h-10 w-full rounded-md border-none bg-secondary pl-10 pr-4 text-sm"
             />
           </div>
-          <AddLeagueDialog>
+          <Link href="/leagues/create">
             <Button>
               <Plus className="mr-2 size-4" />
               Create League
             </Button>
-          </AddLeagueDialog>
+          </Link>
         </header>
 
         {/* Rounds Grid */}
@@ -96,7 +96,10 @@ export function ActiveRoundsPage() {
                 </div>
                 <CardTitle>{round.roundTitle}</CardTitle>
                 <CardDescription>
-                  In <span className="font-semibold text-foreground">{round.leagueName}</span>
+                  In{" "}
+                  <span className="font-semibold text-foreground">
+                    {round.leagueName}
+                  </span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-grow">
@@ -108,21 +111,21 @@ export function ActiveRoundsPage() {
                 </div>
               </CardContent>
               <CardFooter>
-                 <Link href={`/league/${round.leagueId}`} className="w-full">
-                    <Button className="w-full font-bold">
-                      {round.status === "Voting Active" ? (
-                        <>
-                          <Play className="mr-2 size-4 fill-primary-foreground" />
-                          Vote Now
-                        </>
-                      ) : (
-                        <>
-                          <Send className="mr-2 size-4" />
-                          Submit Track
-                        </>
-                      )}
-                    </Button>
-                  </Link>
+                <Link href={`/leagues/${round.leagueId}`} className="w-full">
+                  <Button className="w-full font-bold">
+                    {round.status === "Voting Active" ? (
+                      <>
+                        <Play className="mr-2 size-4 fill-primary-foreground" />
+                        Vote Now
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 size-4" />
+                        Submit Track
+                      </>
+                    )}
+                  </Button>
+                </Link>
               </CardFooter>
             </Card>
           ))}

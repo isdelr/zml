@@ -122,7 +122,7 @@ export function MySubmissionsPage() {
               <section key={leagueName}>
                 <h2 className="mb-4 text-xl font-bold">
                   <Link
-                    href={`/league/${submissions[0].leagueId}`}
+                    href={`/leagues/${submissions[0].leagueId}`}
                     className="hover:underline"
                   >
                     {leagueName}
@@ -188,7 +188,7 @@ export function MySubmissionsPage() {
                           </div>
                         </div>
                         <div className="flex w-24 justify-end">
-                          <Link href={`/league/${submission.leagueId}`}>
+                          <Link href={`/leagues/${submission.leagueId}`}>
                             <Button
                               variant="ghost"
                               className="opacity-0 transition-opacity group-hover:opacity-100"

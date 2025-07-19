@@ -95,7 +95,7 @@ export function BookmarkedPage() {
                 </div>
                 <div>
                   <Link
-                    href={`/league/${song.leagueId}`}
+                    href={`/leagues/${song.leagueId}`}
                     className="hover:underline"
                   >
                     {song.leagueName}

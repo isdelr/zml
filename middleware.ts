@@ -9,7 +9,7 @@ const isProtectedRoute = createRouteMatcher([
   "/active-rounds(.*)",
   "/bookmarked(.*)",
   "/explore(.*)",
-  "/league/(.*)",
+  "/leagues/(.*)",
   "/my-submissions(.*)",
   "/server(.*)",
 ]);

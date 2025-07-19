@@ -19,9 +19,13 @@ import {
   CardTitle,
 } from "./ui/card";
 import { RoundDetail } from "./RoundDetail";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { Skeleton } from "./ui/skeleton";
 
-// Mock data for rounds in a league
+// Mock data for rounds in a league (to be replaced in a future step)
 const rounds = [
   {
     id: 1,
@@ -36,28 +40,68 @@ const rounds = [
     submissions: 10,
     status: "Voting Closed",
   },
-  {
-    id: 3,
-    title: "90s One-Hit Wonders",
-    submissions: 12,
-    status: "Voting Closed",
-  },
-  {
-    id: 4,
-    title: "Upcoming: Rainy Day Vibes",
-    submissions: 0,
-    status: "Submissions Open",
-  },
 ];
 
-export function LeaguePage() {
+interface LeaguePageProps {
+  leagueId: string;
+}
+
+export function LeaguePage({ leagueId }: LeaguePageProps) {
+  const leagueData = useQuery(api.leagues.get, {
+    id: leagueId as Id<"leagues">,
+  });
   const selectedRound = rounds.find((r) => r.isSelected);
 
-  // State for the user's pool of votes
-  const [positiveVotesRemaining, setPositiveVotesRemaining] = useState(5);
-  const [negativeVotesRemaining, setNegativeVotesRemaining] = useState(1);
-  const totalPositiveVotes = 5;
-  const totalNegativeVotes = 1;
+  const [positiveVotesRemaining, setPositiveVotesRemaining] = useState(0);
+  const [negativeVotesRemaining, setNegativeVotesRemaining] = useState(0);
+
+  useEffect(() => {
+    if (leagueData) {
+      setPositiveVotesRemaining(leagueData.maxPositiveVotes);
+      setNegativeVotesRemaining(leagueData.maxNegativeVotes);
+    }
+  }, [leagueData]);
+
+  if (leagueData === undefined) {
+    return (
+      <div className="flex-1 overflow-y-auto bg-background p-8 text-white">
+        <header className="mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-9 w-9 rounded-full" />
+            <Skeleton className="h-9 w-9 rounded-full" />
+          </div>
+          <Skeleton className="h-10 w-full max-w-xs" />
+          <Skeleton className="size-6" />
+        </header>
+        <div className="mb-12">
+          <Skeleton className="mb-4 h-16 w-3/4" />
+          <div className="flex items-center gap-6">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-6 w-48" />
+          </div>
+        </div>
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">Loading League...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (leagueData === null) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background text-white">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold">League Not Found</h1>
+          <p className="mt-4 text-muted-foreground">
+            This league does not exist or you may not have permission to view it.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalPositiveVotes = leagueData.maxPositiveVotes;
+  const totalNegativeVotes = leagueData.maxNegativeVotes;
 
   return (
     <div className="flex-1 overflow-y-auto bg-background text-white">
@@ -95,14 +139,17 @@ export function LeaguePage() {
 
         {/* League Info */}
         <div className="mb-12">
-          <h1 className="text-6xl font-bold">80s Pop Throwback League</h1>
+          <h1 className="text-6xl font-bold">{leagueData.name}</h1>
           <div className="mt-4 flex items-center gap-6 text-muted-foreground">
             <div className="flex items-center gap-2">
               <Users className="size-5" />
-              <span>12 Members</span>
+              <span>{leagueData.memberCount} Members</span>
             </div>
             <span>
-              Created by <strong className="text-foreground">Erin</strong>
+              Created by{" "}
+              <strong className="text-foreground">
+                {leagueData.creatorName}
+              </strong>
             </span>
           </div>
         </div>

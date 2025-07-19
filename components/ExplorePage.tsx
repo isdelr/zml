@@ -11,14 +11,15 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { AddLeagueDialog } from "./AddLeagueDialog";
+import Link from "next/link";
 
 // Mock data for public leagues
 const publicLeagues = [
   {
     id: 1,
     name: "Global Groove",
-    description: "Discover music from every corner of the world. All genres welcome!",
+    description:
+      "Discover music from every corner of the world. All genres welcome!",
     members: 128,
     theme: "World Music",
     art: "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
@@ -26,7 +27,8 @@ const publicLeagues = [
   {
     id: 2,
     name: "Cinema Sonics",
-    description: "For the love of soundtracks and scores. From blockbuster hits to indie gems.",
+    description:
+      "For the love of soundtracks and scores. From blockbuster hits to indie gems.",
     members: 74,
     theme: "Movie Soundtracks",
     art: "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
@@ -34,7 +36,8 @@ const publicLeagues = [
   {
     id: 3,
     name: "90s Nostalgia Trip",
-    description: "Relive the decade of grunge, boy bands, and everything in between.",
+    description:
+      "Relive the decade of grunge, boy bands, and everything in between.",
     members: 256,
     theme: "90s Music",
     art: "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
@@ -42,7 +45,8 @@ const publicLeagues = [
   {
     id: 4,
     name: "Underground Uncovered",
-    description: "A league dedicated to unearthing hidden talent and unsigned artists.",
+    description:
+      "A league dedicated to unearthing hidden talent and unsigned artists.",
     members: 52,
     theme: "Indie & Unsigned",
     art: "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
@@ -50,7 +54,8 @@ const publicLeagues = [
   {
     id: 5,
     name: "Classical Compositions",
-    description: "From Baroque to Modern, a league for lovers of classical music.",
+    description:
+      "From Baroque to Modern, a league for lovers of classical music.",
     members: 88,
     theme: "Classical",
     art: "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
@@ -65,7 +70,14 @@ const publicLeagues = [
   },
 ];
 
-const filterTabs = ["All", "Popular", "Newest", "Rock", "Hip-Hop", "Electronic"];
+const filterTabs = [
+  "All",
+  "Popular",
+  "Newest",
+  "Rock",
+  "Hip-Hop",
+  "Electronic",
+];
 
 export function ExplorePage() {
   const [activeTab, setActiveTab] = useState("All");
@@ -84,12 +96,12 @@ export function ExplorePage() {
               className="h-10 w-full rounded-md border-none bg-secondary pl-10 pr-4 text-sm"
             />
           </div>
-          <AddLeagueDialog>
+          <Link href="/leagues/create">
             <Button>
               <Plus className="mr-2 size-4" />
               Create League
             </Button>
-          </AddLeagueDialog>
+          </Link>
         </header>
 
         {/* Filter Tabs */}

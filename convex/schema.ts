@@ -15,5 +15,9 @@ export default defineSchema({
     description: v.string(),
     isPublic: v.boolean(),
     creatorId: v.id("users"),
+    submissionDeadline: v.number(),
+    votingDeadline: v.number(),
+    maxPositiveVotes: v.number(),
+    maxNegativeVotes: v.number(),
   }).index("by_creator", ["creatorId"]),
 });

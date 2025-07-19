@@ -34,10 +34,7 @@ export function Sidebar() {
           currentUser && (
             <>
               <Avatar className="size-8">
-                <AvatarImage
-                  src={currentUser.image}
-                  alt={currentUser.name}
-                />
+                <AvatarImage src={currentUser.image} alt={currentUser.name} />
                 <AvatarFallback>
                   {currentUser.name?.[0].toUpperCase()}
                 </AvatarFallback>
@@ -86,11 +83,12 @@ export function Sidebar() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             My Leagues
           </h2>
-          <AddLeagueDialog>
-            <button className="text-muted-foreground hover:text-foreground">
-              <Plus className="size-4" />
-            </button>
-          </AddLeagueDialog>
+          <Link
+            href="/leagues/create"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Plus className="size-4" />
+          </Link>
         </div>
 
         <nav className="flex flex-col gap-4">
@@ -104,9 +102,9 @@ export function Sidebar() {
             myLeagues.map((league) => (
               <Link
                 key={league._id}
-                href={`/league/${league._id}`}
+                href={`/leagues/${league._id}`}
                 className={cn(
-                  "flex items-center gap-3 text-sm font-semibold hover:text-foreground"
+                  "flex items-center gap-3 text-sm font-semibold hover:text-foreground",
                 )}
               >
                 <Trophy className="size-5" />

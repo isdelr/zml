@@ -8,6 +8,10 @@ export const create = mutation({
     name: v.string(),
     description: v.string(),
     isPublic: v.boolean(),
+    submissionDeadline: v.number(),
+    votingDeadline: v.number(),
+    maxPositiveVotes: v.number(),
+    maxNegativeVotes: v.number(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -20,6 +24,10 @@ export const create = mutation({
       description: args.description,
       isPublic: args.isPublic,
       creatorId: userId,
+      submissionDeadline: args.submissionDeadline,
+      votingDeadline: args.votingDeadline,
+      maxPositiveVotes: args.maxPositiveVotes,
+      maxNegativeVotes: args.maxNegativeVotes,
     });
 
     return leagueId;
@@ -40,5 +48,42 @@ export const getLeaguesForUser = query({
       .collect();
 
     return leagues;
+  },
+});
+
+export const get = query({
+  args: { id: v.id("leagues") },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("leagues"),
+      _creationTime: v.number(),
+      name: v.string(),
+      description: v.string(),
+      isPublic: v.boolean(),
+      creatorId: v.id("users"),
+      submissionDeadline: v.number(),
+      votingDeadline: v.number(),
+      maxPositiveVotes: v.number(),
+      maxNegativeVotes: v.number(),
+      creatorName: v.string(),
+      memberCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const league = await ctx.db.get(args.id);
+
+    if (!league) {
+      return null;
+    }
+
+    const creator = await ctx.db.get(league.creatorId);
+
+    // TODO: Implement member count logic
+    return {
+      ...league,
+      creatorName: creator?.name ?? "Unknown",
+      memberCount: 1, // Placeholder for now
+    };
   },
 });
