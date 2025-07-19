@@ -10,4 +10,10 @@ export default defineSchema({
   numbers: defineTable({
     value: v.number(),
   }),
+  leagues: defineTable({
+    name: v.string(),
+    description: v.string(),
+    isPublic: v.boolean(),
+    creatorId: v.id("users"),
+  }).index("by_creator", ["creatorId"]),
 });

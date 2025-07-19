@@ -1,159 +1,124 @@
 "use client";
 
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { api } from "../convex/_generated/api";
-import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { ArrowRight, Music, Users, Vote } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { useConvexAuth } from "convex/react";
 
-export default function Home() {
-  return (
-    <>
-      <header className="sticky top-0 z-10 bg-background p-4 border-b-2 border-slate-200 dark:border-slate-800 flex flex-row justify-between items-center">
-        Convex + Next.js + Convex Auth
-        <SignOutButton />
-      </header>
-      <main className="p-8 flex flex-col gap-8">
-        <h1 className="text-4xl font-bold text-center">
-          Convex + Next.js + Convex Auth
-        </h1>
-        <Content />
-      </main>
-    </>
-  );
-}
-
-function SignOutButton() {
-  const { isAuthenticated } = useConvexAuth();
-  const { signOut } = useAuthActions();
+export default function HomePage() {
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const router = useRouter();
-  return (
-    <>
-      {isAuthenticated && (
-        <button
-          className="bg-slate-200 dark:bg-slate-800 text-foreground rounded-md px-2 py-1"
-          onClick={() =>
-            void signOut().then(() => {
-              router.push("/signin");
-            })
-          }
-        >
-          Sign out
-        </button>
-      )}
-    </>
-  );
-}
+  const { signIn } = useAuthActions();
 
-function Content() {
-  const { viewer, numbers } =
-    useQuery(api.myFunctions.listNumbers, {
-      count: 10,
-    }) ?? {};
-  const addNumber = useMutation(api.myFunctions.addNumber);
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace("/explore"); // Redirect to a default authenticated page
+    }
+  }, [isLoading, isAuthenticated, router]);
 
-  if (viewer === undefined || numbers === undefined) {
-    return (
-      <div className="mx-auto">
-        <p>loading... (consider a loading skeleton)</p>
-      </div>
-    );
+  if (isLoading || isAuthenticated) {
+    // Replace the basic loading text with our new, engaging spinner
+    return <LoadingSpinner />;
   }
 
-  return (
-    <div className="flex flex-col gap-8 max-w-lg mx-auto">
-      <p>Welcome {viewer ?? "Anonymous"}!</p>
-      <p>
-        Click the button below and open this page in another window - this data
-        is persisted in the Convex cloud database!
-      </p>
-      <p>
-        <button
-          className="bg-foreground text-background text-sm px-4 py-2 rounded-md"
-          onClick={() => {
-            void addNumber({ value: Math.floor(Math.random() * 10) });
-          }}
-        >
-          Add a random number
-        </button>
-      </p>
-      <p>
-        Numbers:{" "}
-        {numbers?.length === 0
-          ? "Click the button!"
-          : (numbers?.join(", ") ?? "...")}
-      </p>
-      <p>
-        Edit{" "}
-        <code className="text-sm font-bold font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
-          convex/myFunctions.ts
-        </code>{" "}
-        to change your backend
-      </p>
-      <p>
-        Edit{" "}
-        <code className="text-sm font-bold font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
-          app/page.tsx
-        </code>{" "}
-        to change your frontend
-      </p>
-      <p>
-        See the{" "}
-        <Link href="/server" className="underline hover:no-underline">
-          /server route
-        </Link>{" "}
-        for an example of loading data in a server component
-      </p>
-      <div className="flex flex-col">
-        <p className="text-lg font-bold">Useful resources:</p>
-        <div className="flex gap-2">
-          <div className="flex flex-col gap-2 w-1/2">
-            <ResourceCard
-              title="Convex docs"
-              description="Read comprehensive documentation for all Convex features."
-              href="https://docs.convex.dev/home"
-            />
-            <ResourceCard
-              title="Stack articles"
-              description="Learn about best practices, use cases, and more from a growing
-            collection of articles, videos, and walkthroughs."
-              href="https://www.typescriptlang.org/docs/handbook/2/basic-types.html"
-            />
-          </div>
-          <div className="flex flex-col gap-2 w-1/2">
-            <ResourceCard
-              title="Templates"
-              description="Browse our collection of templates to get started quickly."
-              href="https://www.convex.dev/templates"
-            />
-            <ResourceCard
-              title="Discord"
-              description="Join our developer community to ask questions, trade tips & tricks,
-            and show off your projects."
-              href="https://www.convex.dev/community"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function ResourceCard({
-  title,
-  description,
-  href,
-}: {
-  title: string;
-  description: string;
-  href: string;
-}) {
   return (
-    <div className="flex flex-col gap-2 bg-slate-200 dark:bg-slate-800 p-4 rounded-md h-28 overflow-auto">
-      <a href={href} className="text-sm underline hover:no-underline">
-        {title}
-      </a>
-      <p className="text-xs">{description}</p>
+    <div className="flex min-h-screen flex-col bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex mx-auto h-14 max-w-screen-2xl items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <Music className="size-6 text-primary" />
+            <span className="font-bold">ZML</span>
+          </Link>
+          <nav className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => signIn("discord")}>
+              Sign In
+            </Button>
+            <Button onClick={() => signIn("discord")}>
+              Get Started <ArrowRight className="ml-2 size-4" />
+            </Button>
+          </nav>
+        </div>
+      </header>
+      {/* Main Content */}
+      <main className="flex-1 container mx-auto">
+        {/* Hero Section */}
+        <section className="container grid place-items-center gap-6 pb-8 pt-6 text-center md:pb-12 md:pt-10 lg:py-32">
+          <h1 className="text-4xl font-extrabold tracking-tighter md:text-5xl lg:text-6xl">
+            Create, Compete & Discover Music
+          </h1>
+          <p className="max-w-[700px] text-lg text-muted-foreground">
+            The ultimate platform to challenge your friends&apos; musical tastes.
+            Create leagues, set themed rounds, and vote for the best tracks.
+          </p>
+          <div className="flex gap-4">
+            <Button size="lg" onClick={() => signIn("discord")}>
+              Create Your League
+            </Button>
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section id="features" className="container space-y-6  py-8  md:py-12 lg:py-24">
+          <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-4 text-center">
+            <h2 className="text-3xl font-bold leading-[1.1] md:text-4xl">
+              How It Works
+            </h2>
+            <p className="max-w-[85%] leading-normal text-muted-foreground sm:text-lg sm:leading-7">
+              Starting a music league is simple. Here's a quick rundown of how you can get started and what makes our platform unique.
+            </p>
+          </div>
+          <div className="mx-auto grid justify-center gap-4 sm:grid-cols-2 md:max-w-[64rem] md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-col items-center">
+                 <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Users className="size-6" />
+                </div>
+                <CardTitle>Create or Join a League</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center text-muted-foreground">
+                Invite your friends to a private league. Compete head-to-head to see who has the best music taste.
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-col items-center">
+                <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Music className="size-6" />
+                </div>
+                <CardTitle>Submit Songs</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center text-muted-foreground">
+                Each round has a theme. Submit your best track that fits the prompt and wait for the votes to roll in.
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-col items-center">
+                <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Vote className="size-6" />
+                </div>
+                <CardTitle>Vote and Discover</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center text-muted-foreground">
+                Anonymously vote on submissions. Discover new music from your friends and crown a winner for each round.
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+      </main>
+
+      {/* Footer */}
+      <footer className="py-6 md:px-8 md:py-0 md:h-18">
+          <p className="text-balance text-center text-sm leading-loose text-muted-foreground">
+            Made by Isa.
+          </p>
+      </footer>
     </div>
   );
 }
