@@ -1,4 +1,4 @@
-import { BookmarkedPage } from "@/components/BookmarkedPage";
+import { BookmarkedPage } from "@/components/BookMarkedPage";
 import { Sidebar } from "@/components/Sidebar";
 
 export default function Bookmarked() {
