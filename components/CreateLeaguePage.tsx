@@ -86,7 +86,7 @@ export function CreateLeaguePage() {
     (state) => state.currentTrackIndex,
   );
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
@@ -161,7 +161,7 @@ export function CreateLeaguePage() {
         <CardHeader>
           <CardTitle>Create a New League</CardTitle>
           <CardDescription>
-            Define your league's settings and add its initial rounds.
+            Define your league&apos;s settings and add its initial rounds.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -324,7 +324,7 @@ export function CreateLeaguePage() {
                       <FormField
                         control={form.control}
                         name={`rounds.${index}.imageFile`}
-                        render={({ field: { onChange, value, ...rest } }) => (
+                        render={({ field: { onChange, ...rest } }) => (
                           <FormItem>
                             <FormLabel>Round Image (Optional)</FormLabel>
                             {previews[index] ? (
@@ -389,7 +389,8 @@ export function CreateLeaguePage() {
                                           }));
                                         }
                                       }}
-                                      {...rest}
+                                      // Omit the value prop from rest to avoid the type error
+                                      {...{...rest, value: undefined}}
                                     />
                                   </label>
                                 </FormControl>
@@ -431,7 +432,7 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Submission Period (Days)</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Input type="number" {...field} value={field.value as number || ''} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -443,7 +444,7 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Voting Period (Days)</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Input type="number" {...field} value={field.value as number || ''} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -455,7 +456,7 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Upvotes per Member</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Input type="number" {...field} value={field.value as number || ''} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -467,7 +468,7 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Downvotes per Member</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Input type="number" {...field} value={field.value as number || ''} />
                         </FormControl>
                       </FormItem>
                     )}

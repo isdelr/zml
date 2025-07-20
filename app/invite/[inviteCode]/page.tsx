@@ -96,7 +96,7 @@ export default function InvitePage() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">
-              You've been invited to join
+              You&apos;ve been invited to join
             </CardTitle>
             <CardDescription className="text-xl font-bold text-foreground">
               {inviteInfo.name}

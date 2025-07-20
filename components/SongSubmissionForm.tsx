@@ -114,7 +114,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
     <div className="rounded-lg border bg-card p-6">
       <h2 className="text-2xl font-bold">Submit Your Track</h2>
       <p className="mb-6 text-muted-foreground">
-        Upload a song file, and we'll try to fill in the details for you.
+        Upload a song file, and we&apos;ll try to fill in the details for you.
       </p>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -149,7 +149,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
             <FormField
               control={form.control}
               name="albumArtFile"
-              render={({ field: { onChange, value, ...rest } }) => (
+              render={({ field: { onChange, ...rest } }) => (
                 <FormItem>
                   <FormLabel>Album Art</FormLabel>
                   {albumArtPreview ? (

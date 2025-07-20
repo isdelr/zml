@@ -65,7 +65,7 @@ function EditRoundDialog({
   round,
   onClose,
 }: {
-  round: any;
+  round: Record<string, unknown>;
   onClose: () => void;
 }) {
   const updateRound = useMutation(api.rounds.updateRound);
@@ -131,13 +131,13 @@ function AdminControls({
   votes,
 }: {
   round: Doc<"rounds">;
-  submissions: any[] | undefined;
-  votes: any[] | undefined;
+  submissions: Record<string, unknown>[] | undefined;
+  votes: Record<string, unknown>[] | undefined;
 }) {
   const manageRoundState = useMutation(api.rounds.manageRoundState);
   const adjustRoundTime = useMutation(api.rounds.adjustRoundTime);
   const [isEditRoundOpen, setIsEditRoundOpen] = useState(false);
-  const handleAction = async (mutation: any, args: any, successMsg: string) => {
+  const handleAction = async (mutation: typeof manageRoundState | typeof adjustRoundTime, args: Record<string, unknown>, successMsg: string) => {
     toast.promise(mutation(args), {
       loading: "Processing...",
       success: () => successMsg,
@@ -490,9 +490,9 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           ) : userHasSubmitted ? (
             <Alert>
               <Music className="size-4" />
-              <AlertTitle>You're All Set!</AlertTitle>
+              <AlertTitle>You&apos;re All Set!</AlertTitle>
               <AlertDescription>
-                You've submitted your track for this round. Sit tight until the
+                You&apos;ve submitted your track for this round. Sit tight until the
                 voting period begins!
               </AlertDescription>
             </Alert>
@@ -500,7 +500,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             <SongSubmissionForm roundId={round._id} />
           )}
           <div className="mt-8 rounded-lg border bg-card p-6 text-center">
-            <h3 className="font-semibold">Who's Submitted So Far?</h3>
+            <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
             {submissions && submissions.length > 0 ? (
               <div className="mt-4 flex justify-center">
                 <AvatarStack

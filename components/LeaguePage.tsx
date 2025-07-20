@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Play, Search, Users, Copy, Settings, Edit } from "lucide-react";
+import { Play, Search, Users, Copy, Settings } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   Card,
@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "./ui/card";
 import { RoundDetail } from "./RoundDetail";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -48,7 +48,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -81,25 +80,25 @@ function GeneralSettingsTab({
   league,
   onClose,
 }: {
-  league: any;
+  league: Record<string, unknown>;
   onClose: () => void;
 }) {
   const updateLeague = useMutation(api.leagues.updateLeague);
-  const form = useForm<z.infer<typeof leagueEditSchema>>({
+  const form = useForm({
     resolver: zodResolver(leagueEditSchema),
     defaultValues: {
-      name: league.name,
-      description: league.description,
-      isPublic: league.isPublic,
-      submissionDeadline: league.submissionDeadline,
-      votingDeadline: league.votingDeadline,
-      maxPositiveVotes: league.maxPositiveVotes,
-      maxNegativeVotes: league.maxNegativeVotes,
+      name: league.name as string,
+      description: league.description as string,
+      isPublic: league.isPublic as boolean,
+      submissionDeadline: league.submissionDeadline as number,
+      votingDeadline: league.votingDeadline as number,
+      maxPositiveVotes: league.maxPositiveVotes as number,
+      maxNegativeVotes: league.maxNegativeVotes as number,
     },
   });
 
   async function onSubmit(values: z.infer<typeof leagueEditSchema>) {
-    toast.promise(updateLeague({ leagueId: league._id, ...values }), {
+    toast.promise(updateLeague({ leagueId: league._id as Id<"leagues">, ...values }), {
       loading: "Updating league...",
       success: (msg) => {
         onClose();
@@ -194,13 +193,13 @@ function MembersTab({
   league,
   currentUser,
 }: {
-  league: any;
-  currentUser: any;
+  league: Record<string, unknown>;
+  currentUser: Record<string, unknown>;
 }) {
   const kickMember = useMutation(api.leagues.kickMember);
 
   const handleKick = (memberIdToKick: Id<"users">) => {
-    toast.promise(kickMember({ leagueId: league._id, memberIdToKick }), {
+    toast.promise(kickMember({ leagueId: league._id as Id<"leagues">, memberIdToKick }), {
       loading: "Kicking member...",
       success: "Member kicked.",
       error: (err) => err.data?.message || "Failed to kick member.",
@@ -211,7 +210,7 @@ function MembersTab({
     <div className="space-y-4">
       <h3 className="font-semibold">League Members</h3>
       <div className="max-h-80 space-y-2 overflow-y-auto pr-2">
-        {league.members.map((member: any) => (
+        {league.members.map((member: Record<string, unknown>) => (
           <div
             key={member._id}
             className="flex items-center justify-between rounded-md border p-2"
@@ -220,7 +219,7 @@ function MembersTab({
               <Avatar className="size-8">
                 <AvatarImage src={member.image} />
                 <AvatarFallback>
-                  <div dangerouslySetInnerHTML={{ __html: toSvg(member._id, 32) }} />
+                  <div dangerouslySetInnerHTML={{ __html: toSvg(member._id as string, 32) }} />
                 </AvatarFallback>
               </Avatar>
               <span>{member.name}</span>
@@ -245,14 +244,14 @@ function MembersTab({
   );
 }
 
-function InviteTab({ league }: { league: any }) {
+function InviteTab({ league }: { league: Record<string, unknown> }) {
   const manageInviteCode = useMutation(api.leagues.manageInviteCode);
 
   const handleAction = (
     action: "regenerate" | "disable" | "enable",
     messages: { loading: string; success: string; error: string },
   ) => {
-    toast.promise(manageInviteCode({ leagueId: league._id, action }), {
+    toast.promise(manageInviteCode({ leagueId: league._id as Id<"leagues">, action }), {
       loading: messages.loading,
       success: messages.success,
       error: (err) => err.data?.message || messages.error,
@@ -334,9 +333,9 @@ function LeagueSettingsDialog({
   onClose,
   currentUser,
 }: {
-  league: any;
+  league: Record<string, unknown>;
   onClose: () => void;
-  currentUser: any;
+  currentUser: Record<string, unknown>;
 }) {
   return (
     <Tabs defaultValue="general" className="w-full">
@@ -350,7 +349,7 @@ function LeagueSettingsDialog({
           <CardHeader>
             <CardTitle>General Settings</CardTitle>
             <CardDescription>
-              Update your league's name, description, and rules.
+              Update your league&apos;s name, description, and rules.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -479,9 +478,9 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
           id: toastId,
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error(error.data?.message || "Failed to join league.", {
+      toast.error(error instanceof Error ? error.message : "Failed to join league.", {
         id: toastId,
       });
     }
@@ -775,7 +774,7 @@ if (leagueData === undefined) {
                               variant="ghost"
                               className="flex h-auto items-center justify-start gap-3 p-2 text-left"
                               onClick={() => {
-                                playerActions.playSong(song as unknown as Song);
+                                playerActions.playSong(song as Song);
                                 setSearchTerm("");
                               }}
                             >
@@ -820,7 +819,7 @@ if (leagueData === undefined) {
                   alt={leagueData.creatorName}
                 />
                 <AvatarFallback>
-                  <div dangerouslySetInnerHTML={{ __html: toSvg(leagueData.creatorId, 24) }} />
+                  <div dangerouslySetInnerHTML={{ __html: toSvg(leagueData.creatorId as string, 24) }} />
                 </AvatarFallback>
               </Avatar>
               <strong className="text-foreground">

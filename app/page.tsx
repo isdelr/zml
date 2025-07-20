@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { ArrowRight, Music, Users, Vote } from "lucide-react";
+import { Music, Users, Vote } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -68,7 +68,7 @@ export default function HomePage() {
               How It Works
             </h2>
             <p className="max-w-[85%] leading-normal text-muted-foreground sm:text-lg sm:leading-7">
-              Starting a music league is simple. Here's a quick rundown of how you can get started and what makes our platform unique.
+              Starting a music league is simple. Here&apos;s a quick rundown of how you can get started and what makes our platform unique.
             </p>
           </div>
           <div className="mx-auto grid justify-center gap-4 sm:grid-cols-2 md:max-w-[64rem] md:grid-cols-3">

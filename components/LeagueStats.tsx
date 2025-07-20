@@ -4,7 +4,6 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
-  Award,
   BarChart3,
   Crown,
   ThumbsDown,
@@ -101,7 +100,6 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
     overlord,
     peopleChampion,
     mostControversial,
-    prolificVoter,
     topSong,
     genreBreakdown,
   } = stats;
@@ -120,7 +118,7 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
       color: COLORS[index % COLORS.length],
     };
     return acc;
-  }, {} as any);
+  }, {} as Record<string, {label: string, color: string}>);
 
   return (
     <div className="space-y-8">
@@ -142,7 +140,7 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ThumbsUp className="text-green-400" />
-              People's Champion
+              People&apos;s Champion
             </CardTitle>
             <CardDescription>Most upvotes received</CardDescription>
           </CardHeader>
