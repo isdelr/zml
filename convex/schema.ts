@@ -2,9 +2,6 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 
-// The schema is normally optional, but Convex Auth
-// requires indexes defined on `authTables`.
-// The schema provides more precise TypeScript types.
 export default defineSchema({
   ...authTables,
   numbers: defineTable({
@@ -19,21 +16,36 @@ export default defineSchema({
     votingDeadline: v.number(),
     maxPositiveVotes: v.number(),
     maxNegativeVotes: v.number(),
-  }).index("by_creator", ["creatorId"]),
+    inviteCode: v.union(v.string(), v.null()),
+  })
+    .index("by_creator", ["creatorId"])
+    .index("by_invite_code", ["inviteCode"]),
+
+  memberships: defineTable({
+    userId: v.id("users"),
+    leagueId: v.id("leagues"),
+  })
+    .index("by_league_and_user", ["leagueId", "userId"])
+    .index("by_user", ["userId"])
+    .index("by_league", ["leagueId"]),
+
   rounds: defineTable({
     leagueId: v.id("leagues"),
     title: v.string(),
-    description: v.string(), // New field
-    imageKey: v.optional(v.string()), // CHANGED: from imageUrl to imageKey
+    description: v.string(),
+    imageKey: v.optional(v.string()),
+    genres: v.array(v.string()),
     status: v.union(
       v.literal("submissions"),
       v.literal("voting"),
       v.literal("finished"),
     ),
-     submissionDeadline: v.number(), // as a timestamp
-     votingDeadline: v.number(), // as a timestamp
-   }).index("by_league", ["leagueId"]),
+    submissionDeadline: v.number(),
+    votingDeadline: v.number(),
+  }).index("by_league", ["leagueId"]),
+
   submissions: defineTable({
+    leagueId: v.id("leagues"),
     roundId: v.id("rounds"),
     userId: v.id("users"),
     songTitle: v.string(),
@@ -42,20 +54,45 @@ export default defineSchema({
     songFileKey: v.string(),
   })
     .index("by_round", ["roundId"])
-    .index("by_round_and_user", ["roundId", "userId"]),
+    .index("by_round_and_user", ["roundId", "userId"])
+    .index("by_user", ["userId"])
+    .index("by_user_and_league", ["userId", "leagueId"]),
+
   votes: defineTable({
     roundId: v.id("rounds"),
     submissionId: v.id("submissions"),
     userId: v.id("users"),
-    vote: v.number(), // +1 for upvote, -1 for downvote
+    vote: v.number(),
   })
     .index("by_round", ["roundId"])
     .index("by_round_and_user", ["roundId", "userId"])
     .index("by_submission_and_user", ["submissionId", "userId"]),
+
   bookmarks: defineTable({
     userId: v.id("users"),
     submissionId: v.id("submissions"),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_submission", ["userId", "submissionId"]),
- });
+
+  // Stores the calculated score for each submission in a finished round
+  roundResults: defineTable({
+    roundId: v.id("rounds"),
+    submissionId: v.id("submissions"),
+    userId: v.id("users"), // The user who submitted the song
+    points: v.number(),
+    isWinner: v.boolean(),
+  })
+    .index("by_round", ["roundId"])
+    .index("by_submission", ["submissionId"]),
+
+  // Stores the materialized leaderboard for each league
+  leagueStandings: defineTable({
+    leagueId: v.id("leagues"),
+    userId: v.id("users"),
+    totalPoints: v.number(),
+    totalWins: v.number(),
+  })
+    .index("by_league_and_user", ["leagueId", "userId"])
+    .index("by_league_and_points", ["leagueId", "totalPoints"]),
+});

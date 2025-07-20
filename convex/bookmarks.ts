@@ -6,8 +6,6 @@ import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 
 const r2 = new R2(components.r2);
-const FALLBACK_IMAGE_URL =
-  "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w";
 
 export const toggleBookmark = mutation({
   args: { submissionId: v.id("submissions") },
@@ -67,8 +65,9 @@ export const getBookmarkedSongs = query({
           roundTitle: round?.title ?? "Unknown Round",
           leagueName: league?.name ?? "Unknown League",
           leagueId: league?._id ?? ("" as Id<"leagues">),
-          albumArtUrl: albumArtUrl ?? FALLBACK_IMAGE_URL,
+          albumArtUrl: albumArtUrl,
           songFileUrl: songFileUrl,
+          isBookmarked: true, // Song is definitely bookmarked here
         };
       }),
     );

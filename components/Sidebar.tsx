@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { toSvg } from "jdenticon";
 
 const mainNav = [{ name: "Explore Leagues", icon: Compass, href: "/explore" }];
 
@@ -53,7 +54,7 @@ export function Sidebar() {
     >
       <div className="mb-8 flex items-center justify-between gap-2">
         <DropdownMenu>
-          <DropdownMenuTrigger assChild>
+          <DropdownMenuTrigger asChild>
             <div className="flex min-h-[32px] flex-1 cursor-pointer items-center gap-2 overflow-hidden">
               {currentUser === undefined ? (
                 // Loading Skeleton
@@ -69,9 +70,9 @@ export function Sidebar() {
                         src={currentUser.image}
                         alt={currentUser.name}
                       />
-                      <AvatarFallback>
-                        {currentUser.name?.[0].toUpperCase()}
-                      </AvatarFallback>
+                      <AvatarFallback
+                        dangerouslySetInnerHTML={{ __html: toSvg(currentUser._id, 32) }}
+                      />
                     </Avatar>
                     <span className="truncate font-semibold text-foreground">
                       {currentUser.name}
@@ -83,9 +84,11 @@ export function Sidebar() {
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="start">
-            <DropdownMenuItem disabled>
-              <User className="mr-2 size-4" />
-              <span>Profile</span>
+            <DropdownMenuItem asChild disabled={!currentUser}>
+              <Link href={currentUser ? `/profile/${currentUser._id}` : "#"}>
+                <User className="mr-2 size-4" />
+                <span>Profile</span>
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

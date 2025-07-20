@@ -4,13 +4,13 @@ import {
   ArrowDown,
   ArrowUp,
   Bookmark,
+  Edit,
+  Loader2,
   Music,
   Pause,
   Play,
-  User,
 } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
 import { Button } from "./ui/button";
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
@@ -29,13 +29,102 @@ import {
 } from "./ui/card";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { AvatarStack } from "./AvatarStack";
+import { useState, useMemo, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toSvg } from "jdenticon";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "./ui/form";
+import { Input } from "./ui/input";
+import { Textarea } from "./ui/textarea";
 
-interface RoundDetailProps {
-  round: Doc<"rounds"> & { art: string; submissionCount: number };
-  league: { maxPositiveVotes: number; maxNegativeVotes: number };
-  isOwner: boolean;
+const roundEditSchema = z.object({
+  title: z.string().min(3, "Title must be at least 3 characters."),
+  description: z
+    .string()
+    .min(10, "Description must be at least 10 characters."),
+});
+
+function EditRoundDialog({
+  round,
+  onClose,
+}: {
+  round: any;
+  onClose: () => void;
+}) {
+  const updateRound = useMutation(api.rounds.updateRound);
+  const form = useForm<z.infer<typeof roundEditSchema>>({
+    resolver: zodResolver(roundEditSchema),
+    defaultValues: {
+      title: round.title,
+      description: round.description,
+    },
+  });
+  async function onSubmit(values: z.infer<typeof roundEditSchema>) {
+    toast.promise(updateRound({ roundId: round._id, ...values }), {
+      loading: "Updating round...",
+      success: (msg) => {
+        onClose();
+        return msg;
+      },
+      error: (err) => err.data?.message || "Failed to update round.",
+    });
+  }
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Round Title</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Round Description</FormLabel>
+              <FormControl>
+                <Textarea {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting && (
+            <Loader2 className="mr-2 size-4 animate-spin" />
+          )}
+          Save Changes
+        </Button>
+      </form>
+    </Form>
+  );
 }
-
 function AdminControls({
   round,
   submissions,
@@ -47,11 +136,8 @@ function AdminControls({
 }) {
   const manageRoundState = useMutation(api.rounds.manageRoundState);
   const adjustRoundTime = useMutation(api.rounds.adjustRoundTime);
-  const handleAction = async (
-    mutation: any,
-    args: any,
-    successMsg: string,
-  ) => {
+  const [isEditRoundOpen, setIsEditRoundOpen] = useState(false);
+  const handleAction = async (mutation: any, args: any, successMsg: string) => {
     toast.promise(mutation(args), {
       loading: "Processing...",
       success: () => successMsg,
@@ -60,6 +146,9 @@ function AdminControls({
   };
   const canEndVoting =
     submissions && submissions.length > 0 && votes && votes.length > 0;
+  const canEditRound =
+    round.status === "submissions" &&
+    (!submissions || submissions.length === 0);
   return (
     <Card className="mb-8 border-primary/20 bg-secondary/30">
       <CardHeader>
@@ -71,17 +160,41 @@ function AdminControls({
       </CardHeader>
       <CardContent className="flex flex-wrap items-center gap-4">
         {round.status === "submissions" && (
-          <Button
-            onClick={() =>
-              handleAction(
-                manageRoundState,
-                { roundId: round._id, action: "startVoting" },
-                "Voting has been started!",
-              )
-            }
-          >
-            Start Voting Now
-          </Button>
+          <>
+            <Button
+              onClick={() =>
+                handleAction(
+                  manageRoundState,
+                  { roundId: round._id, action: "startVoting" },
+                  "Voting has been started!",
+                )
+              }
+            >
+              Start Voting Now
+            </Button>
+            <Dialog open={isEditRoundOpen} onOpenChange={setIsEditRoundOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={!canEditRound}
+                  title={
+                    !canEditRound ? "Cannot edit a round with submissions." : ""
+                  }
+                >
+                  <Edit className="mr-2 size-4" /> Edit Round
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Round: {round.title}</DialogTitle>
+                </DialogHeader>
+                <EditRoundDialog
+                  round={round}
+                  onClose={() => setIsEditRoundOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          </>
         )}
         {round.status === "voting" && (
           <Button
@@ -137,6 +250,15 @@ function AdminControls({
     </Card>
   );
 }
+
+interface RoundDetailProps {
+  round: Doc<"rounds"> & { art: string | null; submissionCount: number };
+  league: { maxPositiveVotes: number; maxNegativeVotes: number };
+  isOwner: boolean;
+}
+
+type PendingVotes = Record<string, { up: number; down: number }>;
+
 export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   const {
     actions: playerActions,
@@ -144,7 +266,6 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     isPlaying,
     queue,
   } = useMusicPlayerStore();
-
   const submissions = useQuery(api.submissions.getForRound, {
     roundId: round._id,
   });
@@ -153,26 +274,113 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   });
   const votes = useQuery(api.votes.getForRound, { roundId: round._id });
   const currentUser = useQuery(api.users.getCurrentUser);
-  const castVote = useMutation(api.votes.castVote);
+  const submitVotes = useMutation(api.votes.submitVotes);
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
 
-  const positiveVotesRemaining =
-    league.maxPositiveVotes - (userVoteStatus?.upvotesUsed ?? 0);
-  const negativeVotesRemaining =
-    league.maxNegativeVotes - (userVoteStatus?.downvotesUsed ?? 0);
+  const [pendingVotes, setPendingVotes] = useState<PendingVotes>({});
+
+  useEffect(() => {
+    if (userVoteStatus?.votes && submissions) {
+      const initialVotes: PendingVotes = {};
+      submissions.forEach((sub) => {
+        initialVotes[sub._id] = { up: 0, down: 0 };
+      });
+
+      userVoteStatus.votes.forEach((vote) => {
+        if (vote.vote > 0) {
+          initialVotes[vote.submissionId].up += 1;
+        } else if (vote.vote < 0) {
+          initialVotes[vote.submissionId].down += 1;
+        }
+      });
+      setPendingVotes(initialVotes);
+    }
+  }, [userVoteStatus, submissions]);
+
+  const { pendingUpvotes, pendingDownvotes } = useMemo(() => {
+    let up = 0;
+    let down = 0;
+    for (const subId in pendingVotes) {
+      up += pendingVotes[subId].up;
+      down += pendingVotes[subId].down;
+    }
+    return { pendingUpvotes: up, pendingDownvotes: down };
+  }, [pendingVotes]);
+
+  const positiveVotesRemaining = league.maxPositiveVotes - pendingUpvotes;
+  const negativeVotesRemaining = league.maxNegativeVotes - pendingDownvotes;
+
+  const canSubmit =
+    positiveVotesRemaining === 0 && negativeVotesRemaining === 0;
 
   const userHasSubmitted = submissions?.some(
     (s) => s.userId === currentUser?._id,
   );
 
-  const handleVote = (
+  const handleVoteClick = (
     submissionId: Id<"submissions">,
     voteType: "up" | "down",
   ) => {
-    toast.promise(castVote({ submissionId, voteType }), {
-      loading: "Casting vote...",
-      success: (msg) => msg,
-      error: (err) => err.data?.message || "Failed to vote.",
+    setPendingVotes((prev) => {
+      const newVotes = JSON.parse(JSON.stringify(prev));
+      const currentSongVotes = newVotes[submissionId] || { up: 0, down: 0 };
+
+      if (voteType === "up") {
+        if (currentSongVotes.down > 0) {
+          // Cancel a downvote first
+          currentSongVotes.down -= 1;
+        } else if (positiveVotesRemaining > 0) {
+          // Add an upvote
+          currentSongVotes.up += 1;
+        } else {
+          toast.warning("No upvotes remaining.");
+        }
+      } else if (voteType === "down") {
+        if (currentSongVotes.up > 0) {
+          // Cancel an upvote first
+          currentSongVotes.up -= 1;
+        } else if (negativeVotesRemaining > 0) {
+          // Add a downvote
+          currentSongVotes.down += 1;
+        } else {
+          toast.warning("No downvotes remaining.");
+        }
+      }
+      newVotes[submissionId] = currentSongVotes;
+      return newVotes;
+    });
+  };
+
+  const handleSubmitVotes = () => {
+    if (!canSubmit) {
+      toast.error("You must use all your available votes before submitting.");
+      return;
+    }
+
+    const votesToSubmit: {
+      submissionId: Id<"submissions">;
+      voteType: "up" | "down";
+    }[] = [];
+    for (const submissionId in pendingVotes) {
+      const { up, down } = pendingVotes[submissionId];
+      for (let i = 0; i < up; i++) {
+        votesToSubmit.push({
+          submissionId: submissionId as Id<"submissions">,
+          voteType: "up",
+        });
+      }
+      for (let i = 0; i < down; i++) {
+        votesToSubmit.push({
+          submissionId: submissionId as Id<"submissions">,
+          voteType: "down",
+        });
+      }
+    }
+
+    toast.promise(submitVotes({ roundId: round._id, votes: votesToSubmit }), {
+      loading: "Submitting votes...",
+      success: "Votes submitted successfully!",
+      error: (err) => err.data?.message || "Failed to submit votes.",
     });
   };
 
@@ -182,6 +390,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       success: (data) =>
         data.bookmarked ? "Song bookmarked!" : "Bookmark removed.",
       error: (err) => err.data?.message || "Failed to update bookmark.",
+      position: "bottom-left",
     });
   };
 
@@ -191,13 +400,17 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         <AdminControls round={round} submissions={submissions} votes={votes} />
       )}
       <div className="mb-8 flex flex-col gap-8 md:flex-row">
-        <Image
-          src={round.art}
-          alt="Round Art"
-          width={256}
-          height={256}
-          className="h-64 w-64 flex-shrink-0 rounded-md object-cover"
-        />
+        {round.art ? (
+          <Image
+            src={round.art}
+            alt="Round Art"
+            width={256}
+            height={256}
+            className="h-64 w-64 flex-shrink-0 rounded-md object-cover"
+          />
+        ) : (
+          <div className="h-64 w-64 flex-shrink-0 rounded-md bg-muted" dangerouslySetInnerHTML={{ __html: toSvg(round._id, 256) }} />
+        )}
         <div className="flex flex-1 flex-col justify-between gap-6">
           <div className="flex flex-col justify-end gap-2">
             <div>
@@ -216,18 +429,20 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                   : `Voting ends in ${formatDistanceToNow(round.votingDeadline)}`}
               </p>
             </div>
-            {submissions && submissions.length > 0 && (
-              <Button
-                onClick={() =>
-                  playerActions.playRound(submissions as Song[], 0)
-                }
-                size="lg"
-                className="mt-4 w-fit bg-primary text-primary-foreground"
-              >
-                <Play className="mr-2 size-5" />
-                Play All
-              </Button>
-            )}
+            {round.status !== "submissions" &&
+              submissions &&
+              submissions.length > 0 && (
+                <Button
+                  onClick={() =>
+                    playerActions.playRound(submissions as Song[], 0)
+                  }
+                  size="lg"
+                  className="mt-4 w-fit bg-primary text-primary-foreground"
+                >
+                  <Play className="mr-2 size-5" />
+                  Play All
+                </Button>
+              )}
           </div>
           {round.status === "voting" && (
             <div className="flex items-center justify-between rounded-lg border bg-card p-4">
@@ -236,7 +451,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                   Your Vote Budget
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Use your votes on the submissions below.
+                  You must use all votes to submit.
                 </p>
               </div>
               <div className="flex items-center gap-4">
@@ -264,8 +479,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           <span className="w-10 text-center">#</span>
           <span>TRACK</span>
           <span>SUBMITTED BY</span>
-          <span className="text-right">POINTS</span>
-          <span className="text-center">ACTIONS</span>
+          <span className="text-right">TOTAL POINTS</span>
+          <span className="text-center">YOUR VOTES</span>
         </div>
       </div>
       {round.status === "submissions" && (
@@ -287,11 +502,14 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           <div className="mt-8 rounded-lg border bg-card p-6 text-center">
             <h3 className="font-semibold">Who's Submitted So Far?</h3>
             {submissions && submissions.length > 0 ? (
-              <ul className="mt-2 text-sm text-muted-foreground">
-                {submissions.map((s) => (
-                  <li key={s._id}>{s.submittedBy}</li>
-                ))}
-              </ul>
+              <div className="mt-4 flex justify-center">
+                <AvatarStack
+                  users={submissions.map((s) => ({
+                    name: s.submittedBy,
+                    image: s.submittedByImage,
+                  }))}
+                />
+              </div>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">
                 No one has submitted yet. Be the first!
@@ -319,13 +537,18 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                 isPlaying && currentTrack?._id === song._id;
               const isThisSongCurrent = currentTrack?._id === song._id;
 
-              const { points, userVoteValue, isBookmarked } = song;
+              const { points, isBookmarked } = song;
+              const pendingSongVotes = pendingVotes[song._id] || {
+                up: 0,
+                down: 0,
+              };
+
               const pointColor =
                 points > 0
                   ? "text-green-400"
                   : points < 0
-                    ? "text-red-400"
-                    : "text-muted-foreground";
+                  ? "text-red-400"
+                  : "text-muted-foreground";
               const userIsSubmitter = song.userId === currentUser?._id;
 
               return (
@@ -380,7 +603,28 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <User className="size-4" />
+                    <Avatar className="size-6">
+                      <AvatarImage
+                        src={
+                          round.status === "voting"
+                            ? undefined
+                            : song.submittedByImage ?? undefined
+                        }
+                        alt={
+                          round.status === "voting"
+                            ? "Anonymous"
+                            : song.submittedBy
+                        }
+                      />
+                      <AvatarFallback
+                        dangerouslySetInnerHTML={{
+                          __html: toSvg(
+                            round.status === "voting" ? song._id : song.submittedBy ?? song.userId,
+                            24,
+                          ),
+                        }}
+                      />
+                    </Avatar>
                     {round.status === "voting" ? "Anonymous" : song.submittedBy}
                   </div>
                   <div className={cn("text-right font-bold", pointColor)}>
@@ -391,39 +635,44 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                       variant="ghost"
                       size="icon"
                       aria-label="Upvote"
-                      onClick={() => handleVote(song._id, "up")}
-                      disabled={
-                        round.status !== "voting" ||
-                        userIsSubmitter ||
-                        (positiveVotesRemaining <= 0 && userVoteValue !== 1)
-                      }
+                      onClick={() => handleVoteClick(song._id, "up")}
+                      disabled={round.status !== "voting" || userIsSubmitter}
+                      className="relative"
                     >
                       <ArrowUp
                         className={cn(
                           "size-5",
-                          userVoteValue === 1 &&
+                          pendingSongVotes.up > 0 &&
                             "fill-green-400/20 text-green-400",
                         )}
                       />
+                      {pendingSongVotes.up > 0 && (
+                        <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-green-500 text-xs text-white">
+                          {pendingSongVotes.up}
+                        </span>
+                      )}
                     </Button>
+
                     <Button
                       variant="ghost"
                       size="icon"
                       aria-label="Downvote"
-                      onClick={() => handleVote(song._id, "down")}
-                      disabled={
-                        round.status !== "voting" ||
-                        userIsSubmitter ||
-                        (negativeVotesRemaining <= 0 && userVoteValue !== -1)
-                      }
+                      onClick={() => handleVoteClick(song._id, "down")}
+                      disabled={round.status !== "voting" || userIsSubmitter}
+                      className="relative"
                     >
                       <ArrowDown
                         className={cn(
                           "size-5",
-                          userVoteValue === -1 &&
+                          pendingSongVotes.down > 0 &&
                             "fill-red-400/20 text-red-400",
                         )}
                       />
+                      {pendingSongVotes.down > 0 && (
+                        <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+                          {pendingSongVotes.down}
+                        </span>
+                      )}
                     </Button>
                     <Button
                       variant="ghost"
@@ -434,8 +683,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                     >
                       <Bookmark
                         className={cn(
-                          "size-5 hover:text-foreground",
-                          isBookmarked && "fill-yellow-400 text-yellow-400",
+                          "size-5",
+                          isBookmarked && "fill-primary text-primary",
                         )}
                       />
                     </Button>
@@ -443,6 +692,23 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                 </div>
               );
             })}
+
+          {round.status === "voting" &&
+            submissions &&
+            submissions.length > 0 &&
+            !userHasSubmitted && (
+              <div className="mt-8 flex justify-end">
+                <Button
+                  onClick={handleSubmitVotes}
+                  disabled={!canSubmit}
+                  size="lg"
+                >
+                  {canSubmit
+                    ? "Submit Final Votes"
+                    : "Use All Votes to Submit"}
+                </Button>
+              </div>
+            )}
         </>
       )}
     </section>

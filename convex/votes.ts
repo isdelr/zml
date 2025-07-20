@@ -36,80 +36,93 @@ export const getForUserInRound = query({
     let downvotesUsed = 0;
 
     userVotes.forEach((v) => {
-      if (v.vote > 0) upvotesUsed++;
-      if (v.vote < 0) downvotesUsed++;
+      if (v.vote > 0) upvotesUsed += 1;
+      if (v.vote < 0) downvotesUsed += 1;
     });
 
     return {
-      votes: userVotes, // The actual vote documents
+      votes: userVotes,
       upvotesUsed,
       downvotesUsed,
     };
   },
 });
 
-export const castVote = mutation({
+export const submitVotes = mutation({
   args: {
-    submissionId: v.id("submissions"),
-    voteType: v.union(v.literal("up"), v.literal("down")),
+    roundId: v.id("rounds"),
+    votes: v.array(
+      v.object({
+        submissionId: v.id("submissions"),
+        voteType: v.union(v.literal("up"), v.literal("down")),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated.");
 
-    const submission = await ctx.db.get(args.submissionId);
-    if (!submission) throw new Error("Submission not found.");
-
-    const round = await ctx.db.get(submission.roundId);
-    if (!round || round.status !== "voting") {
+    const round = await ctx.db.get(args.roundId);
+    if (!round) throw new Error("Round not found.");
+    if (round.status !== "voting") {
       throw new Error("Voting is not open for this round.");
-    }
-
-    if (submission.userId === userId) {
-      throw new Error("You cannot vote on your own submission.");
     }
 
     const league = await ctx.db.get(round.leagueId);
     if (!league) throw new Error("League not found.");
 
-    const userVotes = await ctx.db
+    const upvotesCount = args.votes.filter((v) => v.voteType === "up").length;
+    const downvotesCount = args.votes.filter(
+      (v) => v.voteType === "down",
+    ).length;
+
+    if (upvotesCount !== league.maxPositiveVotes) {
+      throw new Error(
+        `You must use exactly ${league.maxPositiveVotes} upvotes.`,
+      );
+    }
+    if (downvotesCount !== league.maxNegativeVotes) {
+      throw new Error(
+        `You must use exactly ${league.maxNegativeVotes} downvotes.`,
+      );
+    }
+
+    const userSubmission = await ctx.db
+      .query("submissions")
+      .withIndex("by_round_and_user", (q) =>
+        q.eq("roundId", args.roundId).eq("userId", userId),
+      )
+      .first();
+
+    if (userSubmission) {
+      const votedOnOwnSubmission = args.votes.some(
+        (v) => v.submissionId === userSubmission._id,
+      );
+      if (votedOnOwnSubmission) {
+        throw new Error("You cannot vote on your own submission.");
+      }
+    }
+
+    const existingVotes = await ctx.db
       .query("votes")
       .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", round._id).eq("userId", userId),
+        q.eq("roundId", args.roundId).eq("userId", userId),
       )
       .collect();
 
-    const upvotesUsed = userVotes.filter((v) => v.vote > 0).length;
-    const downvotesUsed = userVotes.filter((v) => v.vote < 0).length;
-
-    const existingVote = userVotes.find(
-      (v) => v.submissionId === args.submissionId,
-    );
-    const newVoteValue = args.voteType === "up" ? 1 : -1;
-
-    if (existingVote) {
-      if (existingVote.vote === newVoteValue) {
-        await ctx.db.delete(existingVote._id);
-        return "Vote removed.";
-      } else {
-        await ctx.db.patch(existingVote._id, { vote: newVoteValue });
-        return "Vote changed.";
-      }
-    } else {
-      if (args.voteType === "up" && upvotesUsed >= league.maxPositiveVotes) {
-        throw new Error("You have no upvotes left.");
-      }
-      if (args.voteType === "down" && downvotesUsed >= league.maxNegativeVotes) {
-        throw new Error("You have no downvotes left.");
-      }
-
-      await ctx.db.insert("votes", {
-        roundId: round._id,
-        submissionId: args.submissionId,
-        userId,
-        vote: newVoteValue,
-      });
-      return "Vote cast.";
+    for (const vote of existingVotes) {
+      await ctx.db.delete(vote._id);
     }
+
+    for (const vote of args.votes) {
+      await ctx.db.insert("votes", {
+        roundId: args.roundId,
+        submissionId: vote.submissionId,
+        userId,
+        vote: vote.voteType === "up" ? 1 : -1,
+      });
+    }
+
+    return "Votes submitted successfully.";
   },
 });

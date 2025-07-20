@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { cn } from "@/lib/utils";
 import { Clock, Play, Plus, Search, Send } from "lucide-react";
@@ -18,6 +19,7 @@ import {
   CardTitle,
 } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
+import { toSvg } from "jdenticon";
 
 const formatStatus = (status: "submissions" | "voting" | "finished") => {
   if (status === "submissions") return "Submissions Open";
@@ -26,10 +28,22 @@ const formatStatus = (status: "submissions" | "voting" | "finished") => {
 };
 
 export function ActiveRoundsPage() {
+  const [searchTerm, setSearchTerm] = useState("");
   const activeRounds = useQuery(api.rounds.getActiveForUser);
   const currentTrackIndex = useMusicPlayerStore(
     (state) => state.currentTrackIndex,
   );
+
+  const filteredRounds = useMemo(() => {
+    if (!activeRounds) return [];
+    if (!searchTerm) return activeRounds;
+
+    return activeRounds.filter(
+      (round) =>
+        round.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        round.leagueName.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+  }, [activeRounds, searchTerm]);
 
   const RoundsSkeleton = () => (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -68,6 +82,8 @@ export function ActiveRoundsPage() {
               type="text"
               placeholder="Search in your active rounds..."
               className="h-10 w-full rounded-md border-none bg-secondary pl-10 pr-4 text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <Link href="/leagues/create">
@@ -81,29 +97,40 @@ export function ActiveRoundsPage() {
         {/* Rounds Grid */}
         {activeRounds === undefined ? (
           <RoundsSkeleton />
-        ) : activeRounds.length === 0 ? (
+        ) : filteredRounds.length === 0 ? (
           <div className="rounded-lg border border-dashed py-20 text-center">
-            <h2 className="text-xl font-semibold">No Active Rounds</h2>
+            <h2 className="text-xl font-semibold">
+              {searchTerm ? "No Rounds Found" : "No Active Rounds"}
+            </h2>
             <p className="mt-2 text-muted-foreground">
-              Join or create a league to get started!
+              {searchTerm
+                ? "Try a different search term."
+                : "Join or create a league to get started!"}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {activeRounds.map((round) => (
+            {filteredRounds.map((round) => (
               <Card
                 key={round._id}
                 className="group flex flex-col bg-card transition-colors hover:bg-accent"
               >
                 <CardHeader>
                   <div className="relative mb-4">
-                    <Image
-                      src={round.art}
-                      alt={round.leagueName}
-                      width={250}
-                      height={250}
-                      className="aspect-square w-full rounded-md object-cover"
-                    />
+                    {round.art ? (
+                      <Image
+                        src={round.art}
+                        alt={round.leagueName}
+                        width={250}
+                        height={250}
+                        className="aspect-square w-full rounded-md object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="aspect-square w-full rounded-md bg-muted"
+                        dangerouslySetInnerHTML={{ __html: toSvg(round._id, 250) }}
+                      />
+                    )}
                   </div>
                   <CardTitle>{round.title}</CardTitle>
                   <CardDescription>

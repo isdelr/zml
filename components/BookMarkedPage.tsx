@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Bookmark, Play, Search } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,9 +15,23 @@ import { toast } from "sonner";
 import { Skeleton } from "./ui/skeleton";
 
 export function BookmarkedPage() {
+  const [searchTerm, setSearchTerm] = useState("");
   const { actions: playerActions, currentTrackIndex } = useMusicPlayerStore();
   const bookmarkedSongs = useQuery(api.bookmarks.getBookmarkedSongs);
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
+
+  const filteredSongs = useMemo(() => {
+    if (!bookmarkedSongs) return [];
+    if (!searchTerm) return bookmarkedSongs;
+
+    return bookmarkedSongs.filter(
+      (song) =>
+        song.songTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        song.artist.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        song.roundTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        song.leagueName.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+  }, [bookmarkedSongs, searchTerm]);
 
   const handleUnbookmark = (submissionId: Id<"submissions">) => {
     toast.promise(toggleBookmark({ submissionId }), {
@@ -73,22 +88,28 @@ export function BookmarkedPage() {
             type="text"
             placeholder="Search in your bookmarks..."
             className="h-10 w-full rounded-md border-none bg-secondary pl-10 pr-4 text-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </header>
 
       {bookmarkedSongs === undefined && <BookmarksSkeleton />}
 
-      {bookmarkedSongs && bookmarkedSongs.length === 0 && (
+      {bookmarkedSongs && filteredSongs.length === 0 && (
         <div className="rounded-lg border border-dashed py-20 text-center">
-          <h2 className="text-xl font-semibold">No Bookmarked Songs</h2>
+          <h2 className="text-xl font-semibold">
+            {searchTerm ? "No Songs Found" : "No Bookmarked Songs"}
+          </h2>
           <p className="mt-2 text-muted-foreground">
-            Click the bookmark icon on a song to save it here.
+            {searchTerm
+              ? "Try a different search term."
+              : "Click the bookmark icon on a song to save it here."}
           </p>
         </div>
       )}
 
-      {bookmarkedSongs && bookmarkedSongs.length > 0 && (
+      {bookmarkedSongs && filteredSongs.length > 0 && (
         <div className="overflow-hidden rounded-md border">
           <div className="grid grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
             <span className="w-4 text-center">#</span>
@@ -98,7 +119,7 @@ export function BookmarkedPage() {
             <span className="w-32"></span>
           </div>
           <div>
-            {bookmarkedSongs.map((song, index) => (
+            {filteredSongs.map((song, index) => (
               <div
                 key={song._id}
                 className="group grid grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b px-4 py-3 transition-colors last:border-b-0 hover:bg-accent"
@@ -151,7 +172,7 @@ export function BookmarkedPage() {
                       handleUnbookmark(song._id as Id<"submissions">)
                     }
                   >
-                    <Bookmark className="size-4 fill-yellow-400 text-yellow-400" />
+                    <Bookmark className="size=5 fill-primary text-primary" />
                   </Button>
                 </div>
               </div>

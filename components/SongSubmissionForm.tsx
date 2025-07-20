@@ -22,6 +22,12 @@ import { FileAudio, ImagePlus, Loader2, Music, X } from "lucide-react";
 import { useUploadFile } from "@convex-dev/r2/react";
 import { useState } from "react";
 import Image from "next/image";
+import * as mm from "music-metadata-browser";
+
+const MAX_IMAGE_SIZE_MB = 5;
+const MAX_SONG_SIZE_MB = 50;
+const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+const MAX_SONG_SIZE_BYTES = MAX_SONG_SIZE_MB * 1024 * 1024;
 
 const formSchema = z
   .object({
@@ -29,10 +35,18 @@ const formSchema = z
     artist: z.string().min(1, { message: "Artist is required." }),
     albumArtFile: z
       .instanceof(File)
-      .refine((file) => file.size > 0, "Album art file is required."),
+      .refine((file) => file.size > 0, "Album art file is required.")
+      .refine(
+        (file) => file.size <= MAX_IMAGE_SIZE_BYTES,
+        `Album art must be less than ${MAX_IMAGE_SIZE_MB}MB.`,
+      ),
     songFile: z
       .instanceof(File)
-      .refine((file) => file.size > 0, "A song file is required."),
+      .refine((file) => file.size > 0, "A song file is required.")
+      .refine(
+        (file) => file.size <= MAX_SONG_SIZE_BYTES,
+        `Song file must be less than ${MAX_SONG_SIZE_MB}MB.`,
+      ),
   })
   .refine((data) => data.albumArtFile.type.startsWith("image/"), {
     message: "Album art must be an image file.",
@@ -100,7 +114,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
     <div className="rounded-lg border bg-card p-6">
       <h2 className="text-2xl font-bold">Submit Your Track</h2>
       <p className="mb-6 text-muted-foreground">
-        Find your song on YouTube, Spotify, etc., and paste the details below.
+        Upload a song file, and we'll try to fill in the details for you.
       </p>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -143,9 +157,9 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                       <Image
                         src={albumArtPreview}
                         alt="Album art preview"
-                        width={128}
-                        height={128}
-                        className="aspect-square w-full rounded-md object-cover"
+                        width={192}
+                        height={192}
+                        className="aspect-square w-48 rounded-md object-cover"
                       />
                       <Button
                         type="button"
@@ -163,13 +177,14 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                     </div>
                   ) : (
                     <FormControl>
-                      <label className="flex h-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary">
+                      <label className="flex h-48 w-48 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary">
                         <ImagePlus className="size-8" />
                         <span className="text-sm font-medium">
                           Click to upload image
                         </span>
                         <Input
                           type="file"
+                          style={{ top: 0, left: 0 }}
                           className="sr-only"
                           accept="image/*"
                           onChange={(e) => {
@@ -200,7 +215,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                 <FormItem>
                   <FormLabel>Song File</FormLabel>
                   <FormControl>
-                    <label className="flex h-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary">
+                    <label className="flex h-48 w-48 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary">
                       <FileAudio className="size-8" />
                       <span className="text-sm font-medium">
                         {value?.name && value.size > 0
@@ -209,11 +224,63 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                       </span>
                       <Input
                         type="file"
+                        style={{ top: 0, left: 0 }}
                         className="sr-only"
                         accept="audio/*,.flac"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
+                          if (!file) return;
+
+                          // Update the form state for the song file immediately
                           onChange(file);
+
+                          // Now, parse metadata and autofill other fields
+                          try {
+                            const metadata = await mm.parseBlob(file);
+                            toast.success("Successfully read song metadata!");
+
+                            if (metadata.common.title) {
+                              form.setValue(
+                                "songTitle",
+                                metadata.common.title,
+                                { shouldValidate: true },
+                              );
+                            }
+                            if (metadata.common.artist) {
+                              form.setValue("artist", metadata.common.artist, {
+                                shouldValidate: true,
+                              });
+                            }
+
+                            const picture = metadata.common.picture?.[0];
+                            if (picture) {
+                              const artFile = new File(
+                                [picture.data],
+                                `cover.${picture.format.split("/")[1]}`,
+                                { type: picture.format },
+                              );
+
+                              if (artFile.size <= MAX_IMAGE_SIZE_BYTES) {
+                                form.setValue("albumArtFile", artFile, {
+                                  shouldValidate: true,
+                                });
+                                const newPreviewUrl =
+                                  URL.createObjectURL(artFile);
+                                if (albumArtPreview)
+                                  URL.revokeObjectURL(albumArtPreview);
+                                setAlbumArtPreview(newPreviewUrl);
+                              } else {
+                                toast.warning(
+                                  "Embedded album art is too large, please upload manually.",
+                                );
+                              }
+                            }
+                          } catch (error) {
+                            toast.info(
+                              "Could not read metadata from this file. Please enter details manually.",
+                            );
+                            console.warn("Metadata parsing error:", error);
+                          }
                         }}
                         {...rest}
                       />

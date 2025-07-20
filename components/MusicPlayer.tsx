@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   Bookmark,
+  List,
   MoreHorizontal,
   Pause,
   Play,
   Repeat,
+  Repeat1, // Import the 'Repeat1' icon for "repeat one" mode
   Shuffle,
   SkipBack,
   SkipForward,
@@ -16,58 +18,104 @@ import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Slider } from "./ui/slider";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { toast } from "sonner";
+import { useConvexAuth } from "convex/react";
+import { MusicQueue } from "./MusicQueue";
 
 export function MusicPlayer() {
-  const { queue, currentTrackIndex, isPlaying, actions } =
-    useMusicPlayerStore();
+  const {
+    queue,
+    currentTrackIndex,
+    isPlaying,
+    repeatMode,
+    isShuffled,
+    actions,
+  } = useMusicPlayerStore();
   const currentTrack =
     currentTrackIndex !== null ? queue[currentTrackIndex] : null;
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isLiked, setIsLiked] = useState(false);
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
 
-  // --- Start of Changed Section ---
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
+  const { isAuthenticated } = useConvexAuth();
 
-  // Consolidated effect to manage all playback logic
+  useEffect(() => {
+    if (currentTrack) {
+      setIsBookmarked(currentTrack.isBookmarked ?? false);
+    }
+  }, [currentTrack]);
+
+  const handleBookmarkToggle = () => {
+    if (!isAuthenticated) {
+      toast.error("You must be logged in to bookmark a song.");
+      return;
+    }
+    if (!currentTrack?._id) return;
+
+    const newBookmarkState = !isBookmarked;
+    setIsBookmarked(newBookmarkState);
+
+    toast.promise(
+      toggleBookmark({ submissionId: currentTrack._id as Id<"submissions"> }),
+      {
+        loading: "Updating bookmark...",
+        success: (data) =>
+          data.bookmarked ? "Song bookmarked!" : "Bookmark removed.",
+        error: (err) => {
+          setIsBookmarked(!newBookmarkState);
+          return err.data?.message || "Failed to update bookmark.";
+        },
+      },
+    );
+  };
+
   useEffect(() => {
     const audioElement = audioRef.current;
     if (!audioElement || !currentTrack) return;
 
     const handlePlayback = async () => {
-      // 1. Set the new song source if it's different
       if (audioElement.src !== currentTrack.songFileUrl) {
         audioElement.src = currentTrack.songFileUrl!;
-        setProgress(0); // Reset progress for the new track
+        setProgress(0);
       }
 
-      // 2. Handle play/pause state
       try {
         if (isPlaying) {
-          // Awaiting the play() promise is the key to fixing the interruption error.
-          // It tells the browser to wait until it's ready to play the new source.
           await audioElement.play();
         } else {
           audioElement.pause();
         }
       } catch (error) {
-        // This is important for handling browser autoplay restrictions
         console.error("Error during playback:", error);
-        actions.setIsPlaying(false); // Update state to show that playback failed
+        actions.setIsPlaying(false);
       }
     };
 
     handlePlayback();
   }, [currentTrack, isPlaying, actions]);
 
-  // --- End of Changed Section ---
-
   const handleTimeUpdate = () => {
     const audioElement = audioRef.current;
     if (audioElement && !isNaN(audioElement.duration)) {
       setProgress(audioElement.currentTime);
       setDuration(audioElement.duration);
+    }
+  };
+
+  // New handler for when a track ends
+  const handleEnded = () => {
+    if (repeatMode === "one" && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play();
+    } else {
+      actions.playNext();
     }
   };
 
@@ -86,7 +134,7 @@ export function MusicPlayer() {
   };
 
   if (!currentTrack) {
-    return null; // Don't render the player if there's no track
+    return null;
   }
 
   return (
@@ -95,12 +143,12 @@ export function MusicPlayer() {
         ref={audioRef}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleTimeUpdate}
-        onEnded={actions.playNext}
+        onEnded={handleEnded} // Use the new ended handler
         className="hidden"
       />
+      <MusicQueue isOpen={isQueueOpen} onOpenChange={setIsQueueOpen} />
       <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background text-foreground">
         <div className="flex h-24 items-center justify-between px-4">
-          {/* Left Section: Track Info */}
           <div className="flex w-1/4 min-w-0 items-center gap-3">
             <Image
               src={currentTrack.albumArtUrl}
@@ -120,25 +168,34 @@ export function MusicPlayer() {
             <Button
               variant="ghost"
               size="icon"
-              className="ml-auto flex-shrink-0"
+              className="ml-4 flex-shrink-0"
+              onClick={handleBookmarkToggle}
+              title={
+                !isAuthenticated
+                  ? "Sign in to bookmark songs"
+                  : "Bookmark song"
+              }
             >
               <Bookmark
-                className={cn("size-5", isLiked && "fill-primary text-primary")}
-                onClick={() => setIsLiked(!isLiked)}
+                className={cn(
+                  "size-5",
+                  isBookmarked && "fill-primary text-primary",
+                )}
               />
-            </Button>
-            <Button variant="ghost" size="icon" className="flex-shrink-0">
-              <MoreHorizontal className="size-5" />
             </Button>
           </div>
 
-          {/* Center Section: Player Controls & Progress */}
           <div className="flex w-1/2 flex-col items-center gap-2">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground hover:text-foreground"
+                className={cn(
+                  "text-muted-foreground hover:text-foreground",
+                  isShuffled && "text-primary",
+                )}
+                onClick={actions.toggleShuffle}
+                title="Shuffle"
               >
                 <Shuffle className="size-5" />
               </Button>
@@ -147,6 +204,7 @@ export function MusicPlayer() {
                 size="icon"
                 className="text-muted-foreground hover:text-foreground"
                 onClick={actions.playPrevious}
+                title="Previous"
               >
                 <SkipBack className="size-5" />
               </Button>
@@ -155,6 +213,7 @@ export function MusicPlayer() {
                 size="icon"
                 className="h-10 w-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={actions.togglePlayPause}
+                title={isPlaying ? "Pause" : "Play"}
               >
                 {isPlaying ? (
                   <Pause className="size-5 fill-primary-foreground" />
@@ -167,15 +226,25 @@ export function MusicPlayer() {
                 size="icon"
                 className="text-muted-foreground hover:text-foreground"
                 onClick={actions.playNext}
+                title="Next"
               >
                 <SkipForward className="size-5" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground hover:text-foreground"
+                className={cn(
+                  "text-muted-foreground hover:text-foreground",
+                  repeatMode !== "none" && "text-primary",
+                )}
+                onClick={actions.toggleRepeat}
+                title={`Repeat: ${repeatMode}`}
               >
-                <Repeat className="size-5" />
+                {repeatMode === "one" ? (
+                  <Repeat1 className="size-5" />
+                ) : (
+                  <Repeat className="size-5" />
+                )}
               </Button>
             </div>
             <div className="flex w-full max-w-xl items-center gap-2">
@@ -195,8 +264,19 @@ export function MusicPlayer() {
             </div>
           </div>
 
-          {/* Right Section: Other Controls (kept empty for now) */}
-          <div className="flex w-1/4 items-center justify-end gap-2"></div>
+          <div className="flex w-1/4 items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="flex-shrink-0"
+              onClick={() => setIsQueueOpen(true)}
+            >
+              <List className="size-5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="flex-shrink-0">
+              <MoreHorizontal className="size-5" />
+            </Button>
+          </div>
         </div>
       </footer>
     </>

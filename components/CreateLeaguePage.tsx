@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { ImagePlus, Loader2, PlusCircle, Trash2, X } from "lucide-react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { cn } from "@/lib/utils";
+import { genres } from "@/lib/genres";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +36,11 @@ import { Separator } from "./ui/separator";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useUploadFile } from "@convex-dev/r2/react";
+import { Badge } from "./ui/badge";
+import { toSvg } from "jdenticon";
+
+const MAX_ROUND_IMAGE_SIZE_MB = 5;
+const MAX_ROUND_IMAGE_SIZE_BYTES = MAX_ROUND_IMAGE_SIZE_MB * 1024 * 1024;
 
 const formSchema = z.object({
   name: z.string().min(3, {
@@ -55,7 +61,14 @@ const formSchema = z.object({
         description: z
           .string()
           .min(10, "Description must be at least 10 characters."),
-        imageFile: z.instanceof(File).optional(),
+        genres: z.array(z.string()).optional(),
+        imageFile: z
+          .instanceof(File)
+          .optional()
+          .refine(
+            (file) => !file || file.size <= MAX_ROUND_IMAGE_SIZE_BYTES,
+            `Image must be less than ${MAX_ROUND_IMAGE_SIZE_MB}MB.`,
+          ),
       }),
     )
     .min(1, "You must add at least one round."),
@@ -83,7 +96,7 @@ export function CreateLeaguePage() {
       votingDeadline: 3,
       maxPositiveVotes: 5,
       maxNegativeVotes: 1,
-      rounds: [{ title: "", description: "" }],
+      rounds: [{ title: "", description: "", genres: [] }],
     },
   });
 
@@ -100,37 +113,39 @@ export function CreateLeaguePage() {
   }, [previews]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    const toastId = toast.loading("Creating your league...");
     try {
+      // 1. Upload all files and wait for their keys
       const processedRounds = await Promise.all(
         values.rounds.map(async (round) => {
+          let imageKey: string | undefined = undefined;
           if (round.imageFile) {
-            // The hook uploads the file and returns the R2 object key
-            const imageKey = await uploadFile(round.imageFile);
-            return {
-              title: round.title,
-              description: round.description,
-              imageKey: imageKey,
-            };
-          } else {
-            // If no image, just return the text data
-            return {
-              title: round.title,
-              description: round.description,
-            };
+            // The uploadFile promise will not resolve until syncMetadata is done.
+            imageKey = await uploadFile(round.imageFile);
           }
+          return {
+            title: round.title,
+            description: round.description,
+            genres: round.genres ?? [],
+            imageKey: imageKey,
+          };
         }),
       );
 
-      // Call the createLeague mutation with the processed data
+      // 2. Call the createLeague mutation with the processed data
+      // By this point, all metadata is guaranteed to be in the database.
       const leagueId = await createLeague({
         ...values,
         rounds: processedRounds,
       });
-      toast.success("League and rounds created successfully!");
+
+      toast.success("League and rounds created successfully!", { id: toastId });
       form.reset();
       router.push(`/leagues/${leagueId}`);
     } catch (error) {
-      toast.error("Failed to create league. Please try again.");
+      toast.error("Failed to create league. Please try again.", {
+        id: toastId,
+      });
       console.error(error);
     }
   }
@@ -217,7 +232,9 @@ export function CreateLeaguePage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => append({ title: "", description: "" })}
+                    onClick={() =>
+                      append({ title: "", description: "", genres: [] })
+                    }
                   >
                     <PlusCircle className="mr-2 size-4" />
                     Add Round
@@ -227,9 +244,9 @@ export function CreateLeaguePage() {
                 {fields.map((field, index) => (
                   <div
                     key={field.id}
-                    className="relative grid gap-6 rounded-lg border p-4 md:grid-cols-3"
+                    className="relative flex flex-col gap-6 rounded-lg border p-4 md:flex-row"
                   >
-                    <div className="space-y-4 md:col-span-2">
+                    <div className="flex-1 space-y-4">
                       <h4 className="font-semibold">Round {index + 1}</h4>
                       <FormField
                         control={form.control}
@@ -263,73 +280,126 @@ export function CreateLeaguePage() {
                           </FormItem>
                         )}
                       />
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name={`rounds.${index}.imageFile`}
-                      render={({ field: { onChange, value, ...rest } }) => (
-                        <FormItem>
-                          <FormLabel>Round Image (Optional)</FormLabel>
-                          {previews[index] ? (
-                            <div className="relative">
-                              <Image
-                                src={previews[index]}
-                                alt={`Preview for round ${index + 1}`}
-                                width={200}
-                                height={200}
-                                className="aspect-square w-full rounded-md object-cover"
-                              />
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="icon"
-                                className="absolute -right-2 -top-2 z-10 size-6 rounded-full"
-                                onClick={() => {
-                                  form.setValue(
-                                    `rounds.${index}.imageFile`,
-                                    undefined,
-                                  );
-                                  setPreviews((p) => {
-                                    const newPreviews = { ...p };
-                                    URL.revokeObjectURL(p[index]); // Clean up old URL
-                                    delete newPreviews[index];
-                                    return newPreviews;
-                                  });
-                                }}
-                              >
-                                <X className="size-4" />
-                              </Button>
-                            </div>
-                          ) : (
+                      <FormField
+                        control={form.control}
+                        name={`rounds.${index}.genres`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Genres (Optional)</FormLabel>
+                            <FormDescription>
+                              Click on genres to select or unselect them.
+                            </FormDescription>
                             <FormControl>
-                              <label className="flex h-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary">
-                                <ImagePlus className="size-8" />
-                                <span className="text-sm font-medium">
-                                  Click to upload
-                                </span>
-                                <Input
-                                  type="file"
-                                  className="sr-only"
-                                  accept="image/png, image/jpeg, image/gif"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      onChange(file);
-                                      setPreviews((p) => ({
-                                        ...p,
-                                        [index]: URL.createObjectURL(file),
-                                      }));
+                              <div className="flex flex-wrap gap-2">
+                                {genres.map((genre) => (
+                                  <Badge
+                                    key={genre}
+                                    variant={
+                                      field.value?.includes(genre)
+                                        ? "default"
+                                        : "outline"
                                     }
-                                  }}
-                                  {...rest}
-                                />
-                              </label>
+                                    onClick={() => {
+                                      const newValue = field.value ?? [];
+                                      const newSelected = newValue.includes(
+                                        genre,
+                                      )
+                                        ? newValue.filter((g) => g !== genre)
+                                        : [...newValue, genre];
+                                      field.onChange(newSelected);
+                                    }}
+                                    className="cursor-pointer"
+                                  >
+                                    {genre}
+                                  </Badge>
+                                ))}
+                              </div>
                             </FormControl>
-                          )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="w-full md:w-52">
+                      <FormField
+                        control={form.control}
+                        name={`rounds.${index}.imageFile`}
+                        render={({ field: { onChange, value, ...rest } }) => (
+                          <FormItem>
+                            <FormLabel>Round Image (Optional)</FormLabel>
+                            {previews[index] ? (
+                              <div className="relative">
+                                <Image
+                                  src={previews[index]}
+                                  alt={`Preview for round ${index + 1}`}
+                                  width={200}
+                                  height={200}
+                                  className="aspect-square w-full rounded-md object-cover"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="icon"
+                                  className="absolute -right-2 -top-2 z-10 size-6 rounded-full"
+                                  onClick={() => {
+                                    form.setValue(
+                                      `rounds.${index}.imageFile`,
+                                      undefined,
+                                    );
+                                    setPreviews((p) => {
+                                      const newPreviews = { ...p };
+                                      URL.revokeObjectURL(p[index]); // Clean up old URL
+                                      delete newPreviews[index];
+                                      return newPreviews;
+                                    });
+                                  }}
+                                >
+                                  <X className="size-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="relative aspect-square w-full rounded-md bg-muted">
+                                <div
+                                  className="flex size-full items-center justify-center"
+                                  dangerouslySetInnerHTML={{
+                                    __html: toSvg(
+                                      form.getValues(`rounds.${index}.title`) ||
+                                        `round-${index}`,
+                                      200,
+                                    ),
+                                  }}
+                                />
+                                <FormControl>
+                                  <label className="absolute inset-0 flex h-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md bg-black/50 text-white opacity-0 transition-opacity hover:opacity-100">
+                                    <ImagePlus className="size-8" />
+                                    <span className="text-sm font-medium">
+                                      Upload Image
+                                    </span>
+                                    <Input
+                                      type="file"
+                                      className="sr-only"
+                                      accept="image/png, image/jpeg, image/gif"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          onChange(file);
+                                          setPreviews((p) => ({
+                                            ...p,
+                                            [index]: URL.createObjectURL(file),
+                                          }));
+                                        }
+                                      }}
+                                      {...rest}
+                                    />
+                                  </label>
+                                </FormControl>
+                              </div>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
                     <Button
                       type="button"
