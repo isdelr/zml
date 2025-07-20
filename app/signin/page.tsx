@@ -12,7 +12,7 @@ export default function SignIn() {
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-4xl font-bold">Welcome to ZML</h1>
         <p className="text-muted-foreground">
-          Sign in with Discord to create, compete, and discover music.
+          Sign in with Discord to use the app.
         </p>
       </div>
       <Button

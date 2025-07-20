@@ -7,62 +7,64 @@ import { Button } from "./ui/button";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { cn } from "@/lib/utils";
 import { Song } from "@/types";
-// Mock data for bookmarked songs, updated to use the Song type
-// NOTE: These need to be replaced with real data from Convex.
-const bookmarkedSongs: (Song & {
-  roundTitle: string;
-  leagueName: string;
-  leagueId: string;
-})[] = [
-  {
-    _id: "bm1",
-    songTitle: "Kiss It Better",
-    artist: "Rihanna",
-    roundTitle: "Guilty Pleasures",
-    leagueName: "80s Pop Throwback",
-    leagueId: "2",
-    albumArtUrl:
-      "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
-    songFileUrl:
-      "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", // Placeholder
-  },
-  {
-    _id: "bm2",
-    songTitle: "Be Alright",
-    artist: "Dean Lewis",
-    roundTitle: "Guilty Pleasures",
-    leagueName: "80s Pop Throwback",
-    leagueId: "2",
-    albumArtUrl:
-      "https://sp.universal-music.co.jp/moricalliope/sinderella/common/images/main01_sp.png",
-    songFileUrl:
-      "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", // Placeholder
-  },
-  {
-    _id: "bm3",
-    songTitle: "Interstellar Main Theme",
-    artist: "Hans Zimmer",
-    roundTitle: "Movie Scores",
-    leagueName: "Cinema Sonics",
-    leagueId: "4",
-    albumArtUrl:
-      "https://sp.universal-music.co.jp/moricalliope/sinderella/common/images/main01_sp.png",
-    songFileUrl:
-      "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", // Placeholder
-  },
-];
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { toast } from "sonner";
+import { Skeleton } from "./ui/skeleton";
 
 export function BookmarkedPage() {
   const { actions: playerActions, currentTrackIndex } = useMusicPlayerStore();
+  const bookmarkedSongs = useQuery(api.bookmarks.getBookmarkedSongs);
+  const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
+
+  const handleUnbookmark = (submissionId: Id<"submissions">) => {
+    toast.promise(toggleBookmark({ submissionId }), {
+      loading: "Removing bookmark...",
+      success: "Bookmark removed.",
+      error: (err) => err.data?.message || "Failed to remove bookmark.",
+    });
+  };
+
+  const BookmarksSkeleton = () => (
+    <div className="overflow-hidden rounded-md border">
+      <div className="grid grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
+        <span className="w-4 text-center">#</span>
+        <span>Track</span>
+        <span>From Round</span>
+        <span>In League</span>
+        <span className="w-32"></span>
+      </div>
+      <div>
+        {[...Array(3)].map((_, i) => (
+          <div
+            key={i}
+            className="grid grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b px-4 py-3"
+          >
+            <Skeleton className="h-5 w-4" />
+            <div className="flex items-center gap-4">
+              <Skeleton className="size-10 rounded" />
+              <div className="w-full space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-4 w-2/3" />
+            <div className="w-32"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div
       className={cn(
-        "flex-1 overflow-y-auto bg-background text-foreground",
+        "flex-1 overflow-y-auto bg-background p-8 text-foreground",
         currentTrackIndex !== null && "pb-24",
       )}
     >
-      {/* Header */}
       <header className="mb-8 flex items-center justify-between gap-4">
         <h1 className="text-4xl font-bold">Bookmarked Songs</h1>
         <div className="relative max-w-sm flex-1">
@@ -75,73 +77,88 @@ export function BookmarkedPage() {
         </div>
       </header>
 
-      {/* Bookmarked Songs List */}
-      <div className="overflow-hidden rounded-md border">
-        {/* Table Header */}
-        <div className="grid grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
-          <span className="w-4 text-center">#</span>
-          <span>Track</span>
-          <span>From Round</span>
-          <span>In League</span>
-          <span className="w-32"></span>
+      {bookmarkedSongs === undefined && <BookmarksSkeleton />}
+
+      {bookmarkedSongs && bookmarkedSongs.length === 0 && (
+        <div className="rounded-lg border border-dashed py-20 text-center">
+          <h2 className="text-xl font-semibold">No Bookmarked Songs</h2>
+          <p className="mt-2 text-muted-foreground">
+            Click the bookmark icon on a song to save it here.
+          </p>
         </div>
-        {/* Table Body */}
-        <div>
-          {bookmarkedSongs.map((song, index) => (
-            <div
-              key={song._id}
-              className="group grid grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b px-4 py-3 transition-colors last:border-b-0 hover:bg-accent"
-            >
-              <span className="w-4 text-center text-muted-foreground">
-                {index + 1}
-              </span>
-              <div className="flex items-center gap-4">
-                <Image
-                  src={song.albumArtUrl}
-                  alt={song.songTitle}
-                  width={40}
-                  height={40}
-                  className="aspect-square rounded object-cover"
-                />
+      )}
+
+      {bookmarkedSongs && bookmarkedSongs.length > 0 && (
+        <div className="overflow-hidden rounded-md border">
+          <div className="grid grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
+            <span className="w-4 text-center">#</span>
+            <span>Track</span>
+            <span>From Round</span>
+            <span>In League</span>
+            <span className="w-32"></span>
+          </div>
+          <div>
+            {bookmarkedSongs.map((song, index) => (
+              <div
+                key={song._id}
+                className="group grid grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b px-4 py-3 transition-colors last:border-b-0 hover:bg-accent"
+              >
+                <span className="w-4 text-center text-muted-foreground">
+                  {index + 1}
+                </span>
+                <div className="flex items-center gap-4">
+                  <Image
+                    src={song.albumArtUrl}
+                    alt={song.songTitle}
+                    width={40}
+                    height={40}
+                    className="aspect-square rounded object-cover"
+                  />
+                  <div>
+                    <p className="font-semibold text-foreground">
+                      {song.songTitle}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {song.artist}
+                    </p>
+                  </div>
+                </div>
                 <div>
-                  <p className="font-semibold text-foreground">
-                    {song.songTitle}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{song.artist}</p>
+                  <p className="font-medium">{song.roundTitle}</p>
+                </div>
+                <div>
+                  <Link
+                    href={`/leagues/${song.leagueId}`}
+                    className="hover:underline"
+                  >
+                    {song.leagueName}
+                  </Link>
+                </div>
+                <div className="flex w-32 justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={() => playerActions.playSong(song as Song)}
+                  >
+                    <Play className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={() =>
+                      handleUnbookmark(song._id as Id<"submissions">)
+                    }
+                  >
+                    <Bookmark className="size-4 fill-yellow-400 text-yellow-400" />
+                  </Button>
                 </div>
               </div>
-              <div>
-                <p className="font-medium">{song.roundTitle}</p>
-              </div>
-              <div>
-                <Link
-                  href={`/leagues/${song.leagueId}`}
-                  className="hover:underline"
-                >
-                  {song.leagueName}
-                </Link>
-              </div>
-              <div className="flex w-32 justify-end gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="opacity-0 transition-opacity group-hover:opacity-100"
-                  onClick={() => playerActions.playSong(song)}
-                >
-                  <Play className="size-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  <Bookmark className="size-4 fill-yellow-400 text-yellow-400" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

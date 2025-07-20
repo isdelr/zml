@@ -4,7 +4,8 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 
-const FALLBACK_IMAGE_URL = "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w";
+const FALLBACK_IMAGE_URL =
+  "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w";
 
 const r2 = new R2(components.r2);
 
@@ -47,10 +48,26 @@ export const submitSong = mutation({
 export const getForRound = query({
   args: { roundId: v.id("rounds") },
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
     const submissions = await ctx.db
       .query("submissions")
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
       .collect();
+
+    const allVotesForRound = await ctx.db
+      .query("votes")
+      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .collect();
+
+    const userBookmarks = userId
+      ? await ctx.db
+          .query("bookmarks")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .collect()
+      : [];
+    const bookmarkedSubmissionIds = new Set(
+      userBookmarks.map((b) => b.submissionId),
+    );
 
     return Promise.all(
       submissions.map(async (submission) => {
@@ -64,11 +81,24 @@ export const getForRound = query({
             : Promise.resolve(null),
         ]);
 
+        const points = allVotesForRound
+          .filter((v) => v.submissionId === submission._id)
+          .reduce((acc, vote) => acc + vote.vote, 0);
+
+        const userVote = userId
+          ? allVotesForRound.find(
+              (v) => v.userId === userId && v.submissionId === submission._id,
+            )
+          : null;
+
         return {
           ...submission,
           submittedBy: user?.name ?? "Anonymous",
           albumArtUrl: albumArtUrl ?? FALLBACK_IMAGE_URL,
           songFileUrl: songFileUrl,
+          points,
+          userVoteValue: userVote?.vote ?? 0,
+          isBookmarked: bookmarkedSubmissionIds.has(submission._id),
         };
       }),
     );

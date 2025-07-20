@@ -50,5 +50,12 @@ export default defineSchema({
     vote: v.number(), // +1 for upvote, -1 for downvote
   })
     .index("by_round", ["roundId"])
-    .index("by_round_and_user", ["roundId", "userId"]),
+    .index("by_round_and_user", ["roundId", "userId"])
+    .index("by_submission_and_user", ["submissionId", "userId"]),
+  bookmarks: defineTable({
+    userId: v.id("users"),
+    submissionId: v.id("submissions"),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_submission", ["userId", "submissionId"]),
  });

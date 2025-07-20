@@ -29,12 +29,13 @@ import {
 } from "./ui/card";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
+
 interface RoundDetailProps {
   round: Doc<"rounds"> & { art: string; submissionCount: number };
   league: { maxPositiveVotes: number; maxNegativeVotes: number };
   isOwner: boolean;
 }
-// A new component for admin actions
+
 function AdminControls({
   round,
   submissions,
@@ -46,7 +47,11 @@ function AdminControls({
 }) {
   const manageRoundState = useMutation(api.rounds.manageRoundState);
   const adjustRoundTime = useMutation(api.rounds.adjustRoundTime);
-  const handleAction = async (mutation: any, args: any, successMsg: string) => {
+  const handleAction = async (
+    mutation: any,
+    args: any,
+    successMsg: string,
+  ) => {
     toast.promise(mutation(args), {
       loading: "Processing...",
       success: () => successMsg,
@@ -139,33 +144,47 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     isPlaying,
     queue,
   } = useMusicPlayerStore();
+
   const submissions = useQuery(api.submissions.getForRound, {
     roundId: round._id,
   });
-  const votes = useQuery(api.votes.getForRound, {
+  const userVoteStatus = useQuery(api.votes.getForUserInRound, {
     roundId: round._id,
   });
+  const votes = useQuery(api.votes.getForRound, { roundId: round._id });
   const currentUser = useQuery(api.users.getCurrentUser);
-  const [positiveVotesRemaining, setPositiveVotesRemaining] = useState(
-    league.maxPositiveVotes,
-  );
-  const [negativeVotesRemaining, setNegativeVotesRemaining] = useState(
-    league.maxNegativeVotes,
-  );
+  const castVote = useMutation(api.votes.castVote);
+  const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
+
+  const positiveVotesRemaining =
+    league.maxPositiveVotes - (userVoteStatus?.upvotesUsed ?? 0);
+  const negativeVotesRemaining =
+    league.maxNegativeVotes - (userVoteStatus?.downvotesUsed ?? 0);
+
   const userHasSubmitted = submissions?.some(
     (s) => s.userId === currentUser?._id,
   );
+
   const handleVote = (
     submissionId: Id<"submissions">,
     voteType: "up" | "down",
   ) => {
-    alert("Voting would trigger a mutation here!");
-    if (voteType === "up" && positiveVotesRemaining > 0) {
-      setPositiveVotesRemaining((p) => p - 1);
-    } else if (voteType === "down" && negativeVotesRemaining > 0) {
-      setNegativeVotesRemaining((n) => n - 1);
-    }
+    toast.promise(castVote({ submissionId, voteType }), {
+      loading: "Casting vote...",
+      success: (msg) => msg,
+      error: (err) => err.data?.message || "Failed to vote.",
+    });
   };
+
+  const handleBookmark = (submissionId: Id<"submissions">) => {
+    toast.promise(toggleBookmark({ submissionId }), {
+      loading: "Updating bookmark...",
+      success: (data) =>
+        data.bookmarked ? "Song bookmarked!" : "Bookmark removed.",
+      error: (err) => err.data?.message || "Failed to update bookmark.",
+    });
+  };
+
   return (
     <section>
       {isOwner && (
@@ -210,8 +229,6 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
               </Button>
             )}
           </div>
-
-          {/* Vote Pool Display (only for voting stage) */}
           {round.status === "voting" && (
             <div className="flex items-center justify-between rounded-lg border bg-card p-4">
               <div>
@@ -242,18 +259,15 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           )}
         </div>
       </div>
-      {/* Submissions Table Header */}
       <div className="border-b border-border text-xs font-semibold text-muted-foreground">
         <div className="grid grid-cols-[auto_4fr_3fr_2fr_minmax(180px,auto)] items-center gap-4 px-4 py-2">
           <span className="w-10 text-center">#</span>
           <span>TRACK</span>
           <span>SUBMITTED BY</span>
           <span className="text-right">POINTS</span>
-          <span className="text-center">VOTE</span>
+          <span className="text-center">ACTIONS</span>
         </div>
       </div>
-      {/* --- Conditional Content Based on Round Status --- */}
-      {/* SUBMISSIONS STAGE */}
       {round.status === "submissions" && (
         <div className="mt-8">
           {currentUser === undefined || submissions === undefined ? (
@@ -286,7 +300,6 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           </div>
         </div>
       )}
-      {/* VOTING OR FINISHED STAGE */}
       {(round.status === "voting" || round.status === "finished") && (
         <>
           {submissions === undefined && <Skeleton className="h-64 w-full" />}
@@ -306,14 +319,14 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                 isPlaying && currentTrack?._id === song._id;
               const isThisSongCurrent = currentTrack?._id === song._id;
 
-              const points = 0; // Placeholder
-              const isBookmarked = false; // Placeholder
+              const { points, userVoteValue, isBookmarked } = song;
               const pointColor =
                 points > 0
                   ? "text-green-400"
                   : points < 0
                     ? "text-red-400"
                     : "text-muted-foreground";
+              const userIsSubmitter = song.userId === currentUser?._id;
 
               return (
                 <div
@@ -344,7 +357,6 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                       )}
                     </Button>
                   </div>
-
                   <div className="flex items-center gap-4">
                     <Image
                       src={song.albumArtUrl}
@@ -372,7 +384,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                     {round.status === "voting" ? "Anonymous" : song.submittedBy}
                   </div>
                   <div className={cn("text-right font-bold", pointColor)}>
-                    {points}
+                    {round.status === "finished" ? points : "?"}
                   </div>
                   <div className="flex items-center justify-center gap-1 text-muted-foreground">
                     <Button
@@ -380,29 +392,37 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                       size="icon"
                       aria-label="Upvote"
                       onClick={() => handleVote(song._id, "up")}
-                      disabled={round.status !== "voting"}
+                      disabled={
+                        round.status !== "voting" ||
+                        userIsSubmitter ||
+                        (positiveVotesRemaining <= 0 && userVoteValue !== 1)
+                      }
                     >
                       <ArrowUp
-                        className={cn("size-5", points > 0 && "text-green-400")}
+                        className={cn(
+                          "size-5",
+                          userVoteValue === 1 &&
+                            "fill-green-400/20 text-green-400",
+                        )}
                       />
                     </Button>
-                    <span
-                      className={cn(
-                        "w-8 text-center text-lg font-bold",
-                        pointColor,
-                      )}
-                    >
-                      {points}
-                    </span>
                     <Button
                       variant="ghost"
                       size="icon"
                       aria-label="Downvote"
                       onClick={() => handleVote(song._id, "down")}
-                      disabled={round.status !== "voting"}
+                      disabled={
+                        round.status !== "voting" ||
+                        userIsSubmitter ||
+                        (negativeVotesRemaining <= 0 && userVoteValue !== -1)
+                      }
                     >
                       <ArrowDown
-                        className={cn("size-5", points < 0 && "text-red-400")}
+                        className={cn(
+                          "size-5",
+                          userVoteValue === -1 &&
+                            "fill-red-400/20 text-red-400",
+                        )}
                       />
                     </Button>
                     <Button
@@ -410,6 +430,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                       size="icon"
                       aria-label="Bookmark"
                       className="ml-2"
+                      onClick={() => handleBookmark(song._id)}
                     >
                       <Bookmark
                         className={cn(

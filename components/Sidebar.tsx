@@ -1,7 +1,17 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Bookmark, Compass, Plus, Send, Swords, Trophy } from "lucide-react";
+import {
+  Bookmark,
+  ChevronDown,
+  Compass,
+  LogOut,
+  Plus,
+  Send,
+  Swords,
+  Trophy,
+  User,
+} from "lucide-react";
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -9,6 +19,14 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "./ui/skeleton";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import { useAuthActions } from "@convex-dev/auth/react";
 
 const mainNav = [{ name: "Explore Leagues", icon: Compass, href: "/explore" }];
 
@@ -24,6 +42,7 @@ export function Sidebar() {
   const currentTrackIndex = useMusicPlayerStore(
     (state) => state.currentTrackIndex,
   );
+  const { signOut } = useAuthActions();
 
   return (
     <aside
@@ -32,30 +51,52 @@ export function Sidebar() {
         currentTrackIndex !== null && "pb-28",
       )}
     >
-      <div className="mb-8 flex min-h-[32px] items-center justify-between gap-2">
-        <div className="flex flex-1 items-center gap-2 overflow-hidden">
-          {currentUser === undefined ? (
-            // Loading Skeleton
-            <>
-              <Skeleton className="size-8 rounded-full" />
-              <Skeleton className="h-5 w-24" />
-            </>
-          ) : (
-            currentUser && (
-              <>
-                <Avatar className="size-8">
-                  <AvatarImage src={currentUser.image} alt={currentUser.name} />
-                  <AvatarFallback>
-                    {currentUser.name?.[0].toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="truncate font-semibold text-foreground">
-                  {currentUser.name}
-                </span>
-              </>
-            )
-          )}
-        </div>
+      <div className="mb-8 flex items-center justify-between gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger assChild>
+            <div className="flex min-h-[32px] flex-1 cursor-pointer items-center gap-2 overflow-hidden">
+              {currentUser === undefined ? (
+                // Loading Skeleton
+                <>
+                  <Skeleton className="size-8 rounded-full" />
+                  <Skeleton className="h-5 w-24" />
+                </>
+              ) : (
+                currentUser && (
+                  <div className="flex items-center gap-2">
+                    <Avatar className="size-8">
+                      <AvatarImage
+                        src={currentUser.image}
+                        alt={currentUser.name}
+                      />
+                      <AvatarFallback>
+                        {currentUser.name?.[0].toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="truncate font-semibold text-foreground">
+                      {currentUser.name}
+                    </span>
+                    <ChevronDown className="size-4 mt-1.5" />
+                  </div>
+                )
+              )}
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align="start">
+            <DropdownMenuItem disabled>
+              <User className="mr-2 size-4" />
+              <span>Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => signOut()}
+              className="cursor-pointer"
+            >
+              <LogOut className="mr-2 size-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <ThemeSwitcher />
       </div>
 

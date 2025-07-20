@@ -40,9 +40,6 @@ export default function HomePage() {
             <Button variant="ghost" onClick={() => signIn("discord")}>
               Sign In
             </Button>
-            <Button onClick={() => signIn("discord")}>
-              Get Started <ArrowRight className="ml-2 size-4" />
-            </Button>
           </nav>
         </div>
       </header>
@@ -66,7 +63,7 @@ export default function HomePage() {
 
         {/* Features Section */}
         <section id="features" className="container space-y-6  py-8  md:py-12 lg:py-24">
-          <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-4 text-center">
+          <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-4 text-center pb-8">
             <h2 className="text-3xl font-bold leading-[1.1] md:text-4xl">
               How It Works
             </h2>
