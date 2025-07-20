@@ -3,9 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  ChevronUp,
-  Heart,
-  ListMusic,
+  Bookmark,
   MoreHorizontal,
   Pause,
   Play,
@@ -13,148 +11,194 @@ import {
   Shuffle,
   SkipBack,
   SkipForward,
-  Volume2,
 } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
-
-// Placeholder for the current track data
-const currentTrack = {
-  title: "Let Me Down Slowly",
-  artist: "Alec Benjamin",
-  duration: 169, // 2:49 in seconds
-};
+import { useState, useRef, useEffect } from "react";
+import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import { Slider } from "./ui/slider";
 
 export function MusicPlayer() {
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [progress, setProgress] = useState(85); // 1:25 in seconds
-  const [isLiked, setIsLiked] = useState(true);
+  const { queue, currentTrackIndex, isPlaying, actions } =
+    useMusicPlayerStore();
+  const currentTrack =
+    currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isLiked, setIsLiked] = useState(false);
+
+  // --- Start of Changed Section ---
+
+  // Consolidated effect to manage all playback logic
+  useEffect(() => {
+    const audioElement = audioRef.current;
+    if (!audioElement || !currentTrack) return;
+
+    const handlePlayback = async () => {
+      // 1. Set the new song source if it's different
+      if (audioElement.src !== currentTrack.songFileUrl) {
+        audioElement.src = currentTrack.songFileUrl!;
+        setProgress(0); // Reset progress for the new track
+      }
+
+      // 2. Handle play/pause state
+      try {
+        if (isPlaying) {
+          // Awaiting the play() promise is the key to fixing the interruption error.
+          // It tells the browser to wait until it's ready to play the new source.
+          await audioElement.play();
+        } else {
+          audioElement.pause();
+        }
+      } catch (error) {
+        // This is important for handling browser autoplay restrictions
+        console.error("Error during playback:", error);
+        actions.setIsPlaying(false); // Update state to show that playback failed
+      }
+    };
+
+    handlePlayback();
+  }, [currentTrack, isPlaying, actions]);
+
+  // --- End of Changed Section ---
+
+  const handleTimeUpdate = () => {
+    const audioElement = audioRef.current;
+    if (audioElement && !isNaN(audioElement.duration)) {
+      setProgress(audioElement.currentTime);
+      setDuration(audioElement.duration);
+    }
+  };
+
+  const handleSeek = (value: number[]) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = value[0];
+      setProgress(value[0]);
+    }
+  };
 
   const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return "0:00";
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
+  if (!currentTrack) {
+    return null; // Don't render the player if there's no track
+  }
+
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background text-foreground">
-      <div className="flex h-24 items-center justify-between px-4">
-        {/* Left Section: Track Info */}
-        <div className="flex w-1/4 items-center gap-3">
-          <Image
-            src="https://i.scdn.co/image/ab67616d0000b273b5a70749a49335f36e4f4546" // Placeholder album art
-            alt="Album Art"
-            width={56}
-            height={56}
-            className="rounded-md"
-          />
-          <div>
-            <p className="text-sm font-semibold">{currentTrack.title}</p>
-            <p className="text-xs text-muted-foreground">
-              {currentTrack.artist}
-            </p>
-          </div>
-          <Button variant="ghost" size="icon" className="ml-4">
-            <Heart
-              className={cn("size-5", isLiked && "fill-primary text-primary")}
-              onClick={() => setIsLiked(!isLiked)}
+    <>
+      <audio
+        ref={audioRef}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleTimeUpdate}
+        onEnded={actions.playNext}
+        className="hidden"
+      />
+      <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background text-foreground">
+        <div className="flex h-24 items-center justify-between px-4">
+          {/* Left Section: Track Info */}
+          <div className="flex w-1/4 min-w-0 items-center gap-3">
+            <Image
+              src={currentTrack.albumArtUrl}
+              alt={currentTrack.songTitle}
+              width={56}
+              height={56}
+              className="flex-shrink-0 rounded-md"
             />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal className="size-5" />
-          </Button>
-        </div>
-
-        {/* Center Section: Player Controls & Progress */}
-        <div className="flex w-1/2 flex-col items-center gap-2">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <Shuffle className="size-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <SkipBack className="size-5" />
-            </Button>
-            <Button
-              variant="default"
-              size="icon"
-              className="h-10 w-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => setIsPlaying(!isPlaying)}
-            >
-              {isPlaying ? (
-                <Pause className="size-5 fill-primary-foreground" />
-              ) : (
-                <Play className="size-5 fill-primary-foreground" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <SkipForward className="size-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <Repeat className="size-5" />
-            </Button>
-          </div>
-          <div className="flex w-full max-w-xl items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {formatTime(progress)}
-            </span>
-            <div className="h-1 w-full cursor-pointer rounded-full bg-muted">
-              <div
-                className="h-1 rounded-full bg-primary"
-                style={{
-                  width: `${(progress / currentTrack.duration) * 100}%`,
-                }}
-              ></div>
+            <div className="truncate">
+              <p className="truncate text-sm font-semibold">
+                {currentTrack.songTitle}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {currentTrack.artist}
+              </p>
             </div>
-            <span className="text-xs text-muted-foreground">
-              {formatTime(currentTrack.duration)}
-            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ml-auto flex-shrink-0"
+            >
+              <Bookmark
+                className={cn("size-5", isLiked && "fill-primary text-primary")}
+                onClick={() => setIsLiked(!isLiked)}
+              />
+            </Button>
+            <Button variant="ghost" size="icon" className="flex-shrink-0">
+              <MoreHorizontal className="size-5" />
+            </Button>
           </div>
-        </div>
 
-        {/* Right Section: Other Controls */}
-        <div className="flex w-1/4 items-center justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 rounded-sm border border-primary px-2 text-xs font-bold text-primary"
-          >
-            HIFI
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Volume2 className="size-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <ListMusic className="size-5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="rounded-md bg-muted">
-            <ChevronUp className="size-5" />
-          </Button>
+          {/* Center Section: Player Controls & Progress */}
+          <div className="flex w-1/2 flex-col items-center gap-2">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Shuffle className="size-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={actions.playPrevious}
+              >
+                <SkipBack className="size-5" />
+              </Button>
+              <Button
+                variant="default"
+                size="icon"
+                className="h-10 w-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={actions.togglePlayPause}
+              >
+                {isPlaying ? (
+                  <Pause className="size-5 fill-primary-foreground" />
+                ) : (
+                  <Play className="size-5 fill-primary-foreground" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={actions.playNext}
+              >
+                <SkipForward className="size-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Repeat className="size-5" />
+              </Button>
+            </div>
+            <div className="flex w-full max-w-xl items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {formatTime(progress)}
+              </span>
+              <Slider
+                value={[progress]}
+                max={duration}
+                step={1}
+                onValueChange={handleSeek}
+                className="w-full"
+              />
+              <span className="text-xs text-muted-foreground">
+                {formatTime(duration)}
+              </span>
+            </div>
+          </div>
+
+          {/* Right Section: Other Controls (kept empty for now) */}
+          <div className="flex w-1/4 items-center justify-end gap-2"></div>
         </div>
-      </div>
-    </footer>
+      </footer>
+    </>
   );
 }

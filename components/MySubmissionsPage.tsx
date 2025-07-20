@@ -5,6 +5,7 @@ import {
   Crown,
   ListMusic,
   Medal,
+  Play,
   Search,
   TrendingDown,
   TrendingUp,
@@ -12,11 +13,20 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "./ui/button";
+import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import { Song } from "@/types";
 
 // Mock data for user's submissions
-const mySubmissions = [
+// NOTE: This should be replaced with real data from Convex.
+const mySubmissions: (Song & {
+  leagueId: string;
+  roundTitle: string;
+  leagueName: string;
+  status: string;
+  result: { type: string; points: number };
+})[] = [
   {
-    id: 1,
+    _id: "sub1",
     songTitle: "Kiss It Better",
     artist: "Rihanna",
     roundTitle: "Guilty Pleasures",
@@ -24,10 +34,13 @@ const mySubmissions = [
     leagueId: "2",
     status: "Round Finished",
     result: { type: "winner", points: 15 },
-    art: "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
+    albumArtUrl:
+      "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
+    songFileUrl:
+      "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
   },
   {
-    id: 3,
+    _id: "sub2",
     songTitle: "99 Luftballons",
     artist: "Nena",
     roundTitle: "80s One-Hit Wonders",
@@ -35,10 +48,13 @@ const mySubmissions = [
     leagueId: "2",
     status: "Round Finished",
     result: { type: "negative", points: -1 },
-    art: "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
+    albumArtUrl:
+      "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
+    songFileUrl:
+      "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
   },
   {
-    id: 2,
+    _id: "sub3",
     songTitle: "Someone You Loved",
     artist: "Lewis Capaldi",
     roundTitle: "Rainy Day Vibes",
@@ -46,10 +62,13 @@ const mySubmissions = [
     leagueId: "1",
     status: "Voting Active",
     result: { type: "positive", points: 5 },
-    art: "https://sp.universal-music.co.jp/moricalliope/sinderella/common/images/main01_sp.png",
+    albumArtUrl:
+      "https://sp.universal-music.co.jp/moricalliope/sinderella/common/images/main01_sp.png",
+    songFileUrl:
+      "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
   },
   {
-    id: 4,
+    _id: "sub4",
     songTitle: "Interstellar Main Theme",
     artist: "Hans Zimmer",
     roundTitle: "Movie Scores",
@@ -57,7 +76,10 @@ const mySubmissions = [
     leagueId: "4",
     status: "Voting Active",
     result: { type: "neutral", points: 0 },
-    art: "https://sp.universal-music.co.jp/moricalliope/sinderella/common/images/main01_sp.png",
+    albumArtUrl:
+      "https://sp.universal-music.co.jp/moricalliope/sinderella/common/images/main01_sp.png",
+    songFileUrl:
+      "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
   },
 ];
 
@@ -88,6 +110,8 @@ const getResultColor = (result: { type: string; points: number }) => {
 };
 
 export function MySubmissionsPage() {
+  const { actions: playerActions, currentTrackIndex } = useMusicPlayerStore();
+
   const submissionsByLeague = mySubmissions.reduce<
     Record<string, typeof mySubmissions>
   >((acc, submission) => {
@@ -100,7 +124,12 @@ export function MySubmissionsPage() {
   }, {});
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background text-foreground">
+    <div
+      className={cn(
+        "flex-1 overflow-y-auto bg-background text-foreground", // Keep existing classes
+        currentTrackIndex !== null && "pb-24",
+      )}
+    >
       <div className="p-8">
         {/* Header */}
         <header className="mb-8 flex items-center justify-between gap-4">
@@ -141,7 +170,7 @@ export function MySubmissionsPage() {
                   <div>
                     {submissions.map((submission, index) => (
                       <div
-                        key={submission.id}
+                        key={submission._id}
                         className="group grid grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 border-b px-4 py-3 transition-colors last:border-b-0 hover:bg-accent"
                       >
                         <span className="w-4 text-center text-muted-foreground">
@@ -149,7 +178,7 @@ export function MySubmissionsPage() {
                         </span>
                         <div className="flex items-center gap-4">
                           <Image
-                            src={submission.art}
+                            src={submission.albumArtUrl}
                             alt={submission.songTitle}
                             width={40}
                             height={40}
@@ -165,9 +194,7 @@ export function MySubmissionsPage() {
                           </div>
                         </div>
                         <div>
-                          <p className="font-medium">
-                            {submission.roundTitle}
-                          </p>
+                          <p className="font-medium">{submission.roundTitle}</p>
                           <p className="text-sm text-muted-foreground">
                             {submission.status}
                           </p>
@@ -187,14 +214,22 @@ export function MySubmissionsPage() {
                             </span>
                           </div>
                         </div>
-                        <div className="flex w-24 justify-end">
+                        <div className="flex w-24 justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="opacity-0 transition-opacity group-hover:opacity-100"
+                            onClick={() => playerActions.playSong(submission)}
+                          >
+                            <Play className="size-4" />
+                          </Button>
                           <Link href={`/leagues/${submission.leagueId}`}>
                             <Button
                               variant="ghost"
+                              size="icon"
                               className="opacity-0 transition-opacity group-hover:opacity-100"
                             >
-                              <ListMusic className="mr-2 size-4" />
-                              View
+                              <ListMusic className="size-4" />
                             </Button>
                           </Link>
                         </div>

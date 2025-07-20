@@ -12,6 +12,8 @@ import {
   CardTitle,
 } from "./ui/card";
 import Link from "next/link";
+import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import { cn } from "@/lib/utils";
 
 // Mock data for public leagues
 const publicLeagues = [
@@ -81,9 +83,17 @@ const filterTabs = [
 
 export function ExplorePage() {
   const [activeTab, setActiveTab] = useState("All");
+  const currentTrackIndex = useMusicPlayerStore(
+    (state) => state.currentTrackIndex,
+  );
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background text-foreground">
+    <div
+      className={cn(
+        "flex-1 overflow-y-auto bg-background text-foreground",
+        currentTrackIndex !== null && "pb-24",
+      )}
+    >
       <div className="p-8">
         {/* Header */}
         <header className="mb-8 flex items-center justify-between gap-4">

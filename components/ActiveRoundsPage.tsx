@@ -1,8 +1,13 @@
 "use client";
 
+import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import { cn } from "@/lib/utils";
 import { Clock, Play, Plus, Search, Send } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { formatDistanceToNow } from "date-fns";
 import { Button } from "./ui/button";
 import {
   Card,
@@ -12,50 +17,47 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
+import { Skeleton } from "./ui/skeleton";
 
-// Mock data for active rounds across different leagues
-const activeRounds = [
-  {
-    id: 1,
-    roundTitle: "Guilty Pleasures",
-    leagueName: "80s Pop Throwback",
-    leagueId: "2",
-    status: "Voting Active",
-    timeRemaining: "2 days",
-    art: "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
-  },
-  {
-    id: 2,
-    roundTitle: "Rainy Day Vibes",
-    leagueName: "Indie Heads Unite",
-    leagueId: "1",
-    status: "Submissions Open",
-    timeRemaining: "4 days",
-    art: "https://sp.universal-music.co.jp/moricalliope/sinderella/common/images/main01_sp.png",
-  },
-  {
-    id: 3,
-    roundTitle: "West Coast Anthems",
-    leagueName: "Hip-Hop Heavyweights",
-    leagueId: "3",
-    status: "Voting Active",
-    timeRemaining: "1 day",
-    art: "https://i.ytimg.com/vi/J7tp_0lFI0I/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDnX9OH1KITaxV876Nn-gONVGbK_w",
-  },
-  {
-    id: 4,
-    roundTitle: "Movie Scores",
-    leagueName: "Cinema Sonics",
-    leagueId: "4",
-    status: "Submissions Open",
-    timeRemaining: "6 days",
-    art: "https://sp.universal-music.co.jp/moricalliope/sinderella/common/images/main01_sp.png",
-  },
-];
+const formatStatus = (status: "submissions" | "voting" | "finished") => {
+  if (status === "submissions") return "Submissions Open";
+  if (status === "voting") return "Voting Active";
+  return "Finished";
+};
 
 export function ActiveRoundsPage() {
+  const activeRounds = useQuery(api.rounds.getActiveForUser);
+  const currentTrackIndex = useMusicPlayerStore(
+    (state) => state.currentTrackIndex,
+  );
+
+  const RoundsSkeleton = () => (
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {[...Array(4)].map((_, i) => (
+        <Card key={i} className="flex flex-col">
+          <CardHeader>
+            <Skeleton className="aspect-square w-full rounded-md" />
+            <Skeleton className="mt-4 h-6 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </CardHeader>
+          <CardContent className="flex-grow">
+            <Skeleton className="h-4 w-2/3" />
+          </CardContent>
+          <CardFooter>
+            <Skeleton className="h-10 w-full" />
+          </CardFooter>
+        </Card>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="flex-1 overflow-y-auto bg-background text-foreground">
+    <div
+      className={cn(
+        "flex-1 overflow-y-auto bg-background text-foreground",
+        currentTrackIndex !== null && "pb-24",
+      )}
+    >
       <div className="p-8">
         {/* Header */}
         <header className="mb-8 flex items-center justify-between gap-4">
@@ -77,58 +79,74 @@ export function ActiveRoundsPage() {
         </header>
 
         {/* Rounds Grid */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {activeRounds.map((round) => (
-            <Card
-              key={round.id}
-              className="group bg-card transition-colors hover:bg-accent flex flex-col"
-            >
-              <CardHeader>
-                <div className="relative mb-4">
-                  <Image
-                    src={round.art}
-                    alt={round.leagueName}
-                    width={250}
-                    height={250}
-                    className="aspect-square w-full rounded-md object-cover"
-                  />
-                </div>
-                <CardTitle>{round.roundTitle}</CardTitle>
-                <CardDescription>
-                  In{" "}
-                  <span className="font-semibold text-foreground">
-                    {round.leagueName}
-                  </span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="size-4" />
-                  <span>
-                    {round.status} • Ends in {round.timeRemaining}
-                  </span>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Link href={`/leagues/${round.leagueId}`} className="w-full">
-                  <Button className="w-full font-bold">
-                    {round.status === "Voting Active" ? (
-                      <>
-                        <Play className="mr-2 size-4 fill-primary-foreground" />
-                        Vote Now
-                      </>
-                    ) : (
-                      <>
-                        <Send className="mr-2 size-4" />
-                        Submit Track
-                      </>
-                    )}
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+        {activeRounds === undefined ? (
+          <RoundsSkeleton />
+        ) : activeRounds.length === 0 ? (
+          <div className="rounded-lg border border-dashed py-20 text-center">
+            <h2 className="text-xl font-semibold">No Active Rounds</h2>
+            <p className="mt-2 text-muted-foreground">
+              Join or create a league to get started!
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {activeRounds.map((round) => (
+              <Card
+                key={round._id}
+                className="group flex flex-col bg-card transition-colors hover:bg-accent"
+              >
+                <CardHeader>
+                  <div className="relative mb-4">
+                    <Image
+                      src={round.art}
+                      alt={round.leagueName}
+                      width={250}
+                      height={250}
+                      className="aspect-square w-full rounded-md object-cover"
+                    />
+                  </div>
+                  <CardTitle>{round.title}</CardTitle>
+                  <CardDescription>
+                    In{" "}
+                    <span className="font-semibold text-foreground">
+                      {round.leagueName}
+                    </span>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="size-4" />
+                    <span>
+                      {formatStatus(round.status)} • Ends in{" "}
+                      {formatDistanceToNow(
+                        round.status === "submissions"
+                          ? round.submissionDeadline
+                          : round.votingDeadline,
+                      )}
+                    </span>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Link href={`/leagues/${round.leagueId}`} className="w-full">
+                    <Button className="w-full font-bold">
+                      {round.status === "voting" ? (
+                        <>
+                          <Play className="mr-2 size-4 fill-primary-foreground" />
+                          Vote Now
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 size-4" />
+                          Submit Track
+                        </>
+                      )}
+                    </Button>
+                  </Link>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

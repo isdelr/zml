@@ -6,8 +6,9 @@ import Link from "next/link";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { AddLeagueDialog } from "./AddLeagueDialog";
 import { Skeleton } from "./ui/skeleton";
+import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 const mainNav = [{ name: "Explore Leagues", icon: Compass, href: "/explore" }];
 
@@ -20,31 +21,42 @@ const collectionNav = [
 export function Sidebar() {
   const currentUser = useQuery(api.users.getCurrentUser);
   const myLeagues = useQuery(api.leagues.getLeaguesForUser);
+  const currentTrackIndex = useMusicPlayerStore(
+    (state) => state.currentTrackIndex,
+  );
 
   return (
-    <aside className="flex w-64 flex-col bg-sidebar p-6 text-sidebar-foreground">
-      <div className="mb-8 flex min-h-[32px] items-center gap-2">
-        {currentUser === undefined ? (
-          // Loading Skeleton
-          <>
-            <div className="flex size-8 animate-pulse rounded-full bg-muted" />
-            <div className="h-5 w-24 animate-pulse rounded-md bg-muted" />
-          </>
-        ) : (
-          currentUser && (
+    <aside
+      className={cn(
+        "flex w-64 flex-col bg-sidebar p-6 text-sidebar-foreground", // Keep existing classes
+        currentTrackIndex !== null && "pb-28",
+      )}
+    >
+      <div className="mb-8 flex min-h-[32px] items-center justify-between gap-2">
+        <div className="flex flex-1 items-center gap-2 overflow-hidden">
+          {currentUser === undefined ? (
+            // Loading Skeleton
             <>
-              <Avatar className="size-8">
-                <AvatarImage src={currentUser.image} alt={currentUser.name} />
-                <AvatarFallback>
-                  {currentUser.name?.[0].toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="font-semibold text-foreground">
-                {currentUser.name}
-              </span>
+              <Skeleton className="size-8 rounded-full" />
+              <Skeleton className="h-5 w-24" />
             </>
-          )
-        )}
+          ) : (
+            currentUser && (
+              <>
+                <Avatar className="size-8">
+                  <AvatarImage src={currentUser.image} alt={currentUser.name} />
+                  <AvatarFallback>
+                    {currentUser.name?.[0].toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="truncate font-semibold text-foreground">
+                  {currentUser.name}
+                </span>
+              </>
+            )
+          )}
+        </div>
+        <ThemeSwitcher />
       </div>
 
       <nav className="flex flex-col gap-4">
@@ -108,7 +120,7 @@ export function Sidebar() {
                 )}
               >
                 <Trophy className="size-5" />
-                <span>{league.name}</span>
+                <span className="truncate">{league.name}</span>
               </Link>
             ))
           )}
