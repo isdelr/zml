@@ -14,7 +14,7 @@ import {
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react"; // Import useRef
 import { AvatarStack } from "@/components/AvatarStack";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toSvg } from "jdenticon";
@@ -24,6 +24,9 @@ export default function InviteLeaguePage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const { signIn } = useAuthActions();
+
+  // Create a ref to track if the join attempt has been made
+  const hasAttemptedJoin = useRef(false);
 
   const inviteCode = params.inviteCode as string;
 
@@ -67,7 +70,10 @@ export default function InviteLeaguePage() {
 
   // Automatically try to join if the user is already authenticated
   useEffect(() => {
-    if (isAuthenticated && inviteInfo) {
+    // Only attempt to join if authenticated, info is loaded, AND we haven't tried before
+    if (isAuthenticated && inviteInfo && !hasAttemptedJoin.current) {
+      // Set the flag to true immediately to prevent re-entry
+      hasAttemptedJoin.current = true;
       handleJoinLeague();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
