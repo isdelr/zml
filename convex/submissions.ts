@@ -161,8 +161,29 @@ export const editSong = mutation({
         "You can only edit submissions during the submission phase.",
       );
     }
-    const { submissionId, ...updates } = args;
+    
+    // --- Start of Fix ---
+    const {
+      submissionId,
+      albumArtKey,
+      songFileKey,
+      songLink,
+      albumArtUrlValue,
+      ...rest
+    } = args;
+
+    const updates = {
+      ...rest,
+      albumArtKey: albumArtKey === null ? undefined : albumArtKey,
+      songFileKey: songFileKey === null ? undefined : songFileKey,
+      songLink: songLink === null ? undefined : songLink,
+      albumArtUrlValue:
+        albumArtUrlValue === null ? undefined : albumArtUrlValue,
+    };
+
     await ctx.db.patch(submissionId, updates);
+    // --- End of Fix ---
+
     return "Submission updated successfully.";
   },
 });
