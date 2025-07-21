@@ -13,6 +13,7 @@ export const submitSong = mutation({
     artist: v.string(),
     albumArtKey: v.string(),
     songFileKey: v.string(),
+    comment: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -39,7 +40,55 @@ export const submitSong = mutation({
       artist: args.artist,
       albumArtKey: args.albumArtKey,
       songFileKey: args.songFileKey,
+      comment: args.comment,
     });
+  },
+});
+
+export const editSong = mutation({
+  args: {
+    submissionId: v.id("submissions"),
+    songTitle: v.string(),
+    artist: v.string(),
+    comment: v.optional(v.string()),
+    albumArtKey: v.optional(v.string()),
+    songFileKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated.");
+
+    const submission = await ctx.db.get(args.submissionId);
+    if (!submission) throw new Error("Submission not found.");
+
+    if (submission.userId !== userId) {
+      throw new Error("You can only edit your own submissions.");
+    }
+
+    const round = await ctx.db.get(submission.roundId);
+    if (!round) throw new Error("Round not found.");
+    if (round.status !== "submissions") {
+      throw new Error(
+        "You can only edit submissions during the submission phase.",
+      );
+    }
+
+    const { submissionId, ...rest } = args;
+    const updates: Partial<typeof submission> = {
+      songTitle: rest.songTitle,
+      artist: rest.artist,
+      comment: rest.comment,
+    };
+
+    if (rest.albumArtKey) {
+      updates.albumArtKey = rest.albumArtKey;
+    }
+    if (rest.songFileKey) {
+      updates.songFileKey = rest.songFileKey;
+    }
+
+    await ctx.db.patch(submissionId, updates);
+    return "Submission updated successfully.";
   },
 });
 
@@ -130,7 +179,6 @@ export const getMySubmissions = query({
         let result: { type: string; points: number };
 
         if (round.status === "finished") {
-          // Fetch the pre-calculated result
           const roundResult = await ctx.db
             .query("roundResults")
             .withIndex("by_submission", (q) =>
@@ -149,7 +197,6 @@ export const getMySubmissions = query({
               result = { type: "neutral", points: roundResult.points };
             }
           } else {
-            // Fallback for rounds finished before this logic was deployed
             result = { type: "pending", points: 0 };
           }
         } else {
@@ -169,5 +216,49 @@ export const getMySubmissions = query({
       }),
     );
     return submissionsWithDetails.filter((s) => s !== null);
+  },
+});
+
+export const addComment = mutation({
+  args: {
+    submissionId: v.id("submissions"),
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("You must be logged in to comment.");
+    }
+    if (args.text.trim().length === 0) {
+      throw new Error("Comment cannot be empty.");
+    }
+
+    await ctx.db.insert("comments", {
+      submissionId: args.submissionId,
+      userId,
+      text: args.text,
+    });
+  },
+});
+
+export const getCommentsForSubmission = query({
+  args: { submissionId: v.id("submissions") },
+  handler: async (ctx, args) => {
+    const comments = await ctx.db
+      .query("comments")
+      .withIndex("by_submission", (q) => q.eq("submissionId", args.submissionId))
+      .order("asc")
+      .collect();
+
+    return Promise.all(
+      comments.map(async (comment) => {
+        const user = await ctx.db.get(comment.userId);
+        return {
+          ...comment,
+          authorName: user?.name ?? "Anonymous",
+          authorImage: user?.image ?? null,
+        };
+      }),
+    );
   },
 });

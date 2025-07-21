@@ -52,6 +52,7 @@ export default defineSchema({
     artist: v.string(),
     albumArtKey: v.string(),
     songFileKey: v.string(),
+    comment: v.optional(v.string()),
   })
     .index("by_round", ["roundId"])
     .index("by_round_and_user", ["roundId", "userId"])
@@ -74,6 +75,12 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_and_submission", ["userId", "submissionId"]),
+
+  comments: defineTable({
+    submissionId: v.id("submissions"),
+    userId: v.id("users"),
+    text: v.string(),
+  }).index("by_submission", ["submissionId"]),
 
   // Stores the calculated score for each submission in a finished round
   roundResults: defineTable({
