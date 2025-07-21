@@ -730,7 +730,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             <SongSubmissionForm roundId={round._id} />
           )}
           <div className="mt-8 rounded-lg border bg-card p-6 text-center">
-            <h3 className="font-semibold">Who's Submitted So Far?</h3>
+            <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
             {submissions && submissions.length > 0 ? (
               <div className="mt-4 flex justify-center">
                 <AvatarStack
