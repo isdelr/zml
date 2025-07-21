@@ -17,7 +17,7 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { formatDistanceToNow } from "date-fns";
 import { SongSubmissionForm } from "./SongSubmissionForm";
-
+import React from "react";
 import { Skeleton } from "./ui/skeleton";
 import { toast } from "sonner";
 import {
@@ -76,6 +76,7 @@ function SubmissionComments({
 }) {
   const [commentText, setCommentText] = useState("");
   const { isAuthenticated } = useConvexAuth();
+  const { actions: playerActions } = useMusicPlayerStore();
 
   const comments = useQuery(api.submissions.getCommentsForSubmission, {
     submissionId,
@@ -95,10 +96,49 @@ function SubmissionComments({
     });
   };
 
+  const parseTimeToSeconds = (timeStr: string): number => {
+    const parts = timeStr.split(":").map(Number);
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      return parts[0] * 60 + parts[1];
+    }
+    return -1;
+  };
+
+  const handleTimestampClick = (time: number) => {
+    playerActions.seek(time);
+  };
+
+  const renderCommentText = (text: string) => {
+    const timestampRegex = /@(\d{1,2}:\d{2})/g;
+    const parts = text.split(timestampRegex);
+
+    return (
+      <p className="whitespace-pre-wrap text-sm text-foreground">
+        {parts.map((part, index) => {
+          if (index % 2 === 1) {
+            const timeInSeconds = parseTimeToSeconds(part);
+            if (timeInSeconds !== -1) {
+              return (
+                <button
+                  key={index}
+                  className="mx-1 rounded bg-primary/20 px-1.5 py-0.5 font-mono text-xs font-semibold text-primary transition-colors hover:bg-primary/30"
+                  onClick={() => handleTimestampClick(timeInSeconds)}
+                >
+                  @{part}
+                </button>
+              );
+            }
+          }
+          return <React.Fragment key={index}>{part}</React.Fragment>;
+        })}
+      </p>
+    );
+  };
+
   const isAnonymous = roundStatus === "voting";
 
   return (
-    <div className="-mx-4 mt-2 rounded-md bg-muted/50 p-4 pt-4 space-y-4">
+    <div className="-mx-4 mt-2 space-y-4 rounded-md bg-muted/50 p-4 pt-4">
       {isAuthenticated && (
         <div className="flex items-start gap-3">
           <Avatar className="mt-1 size-8 flex-shrink-0">
@@ -113,7 +153,7 @@ function SubmissionComments({
           </Avatar>
           <div className="flex-1 space-y-2">
             <Textarea
-              placeholder="Add your thoughts..."
+              placeholder="Add your thoughts... use @M:SS to link a time!"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               rows={1}
@@ -171,9 +211,7 @@ function SubmissionComments({
                   })}
                 </span>
               </div>
-              <p className="whitespace-pre-wrap text-sm text-foreground">
-                {comment.text}
-              </p>
+              {renderCommentText(comment.text)}
             </div>
           </div>
         ))}

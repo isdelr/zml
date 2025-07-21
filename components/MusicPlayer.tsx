@@ -9,21 +9,24 @@ import {
   Pause,
   Play,
   Repeat,
-  Repeat1, // Import the 'Repeat1' icon for "repeat one" mode
+  Repeat1,
   Shuffle,
   SkipBack,
   SkipForward,
 } from "lucide-react";
 import Image from "next/image";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Slider } from "./ui/slider";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { useConvexAuth } from "convex/react";
 import { MusicQueue } from "./MusicQueue";
+import WaveformData from "waveform-data";
+import { Waveform, WaveformComment } from "./Waveform";
+import { Skeleton } from "./ui/skeleton";
 
 export function MusicPlayer() {
   const {
@@ -32,19 +35,119 @@ export function MusicPlayer() {
     isPlaying,
     repeatMode,
     isShuffled,
+    seekTo,
     actions,
   } = useMusicPlayerStore();
   const currentTrack =
     currentTrackIndex !== null ? queue[currentTrackIndex] : null;
 
   const audioRef = useRef<HTMLAudioElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
-
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [waveformData, setWaveformData] = useState<WaveformData | null>(null);
+  const [isWaveformLoading, setIsWaveformLoading] = useState(false);
+
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
   const { isAuthenticated } = useConvexAuth();
+
+  useEffect(() => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext();
+    }
+  }, []);
+
+  // Effect to handle seek requests from the global store
+  useEffect(() => {
+    if (seekTo !== null && audioRef.current) {
+      audioRef.current.currentTime = seekTo;
+      if (!isPlaying) {
+        actions.setIsPlaying(true);
+      }
+      actions.resetSeek(); // Reset after seeking to prevent re-triggering
+    }
+  }, [seekTo, isPlaying, actions]);
+
+  // Fetch comments for the current track
+  const commentsData = useQuery(
+    api.submissions.getCommentsForSubmission,
+    currentTrack
+      ? { submissionId: currentTrack._id as Id<"submissions"> }
+      : "skip",
+  );
+
+  // Parse comments to find timestamps for the waveform
+  const waveformComments = useMemo((): WaveformComment[] => {
+    if (!commentsData || !currentTrack) return [];
+    
+    // Check round status for anonymity
+    const isAnonymous = currentTrack.roundStatus === "voting";
+
+    const parseTimeToSeconds = (timeStr: string): number => {
+      const parts = timeStr.split(":").map(Number);
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        return parts[0] * 60 + parts[1];
+      }
+      return -1;
+    };
+
+    const timestampedComments: WaveformComment[] = [];
+    const timestampRegex = /@(\d{1,2}:\d{2})/;
+
+    commentsData.forEach((comment) => {
+      const match = comment.text.match(timestampRegex);
+      if (match) {
+        const time = parseTimeToSeconds(match[1]);
+        if (time !== -1) {
+          timestampedComments.push({
+            id: comment._id,
+            time,
+            text: comment.text.replace(timestampRegex, "").trim(),
+            // Anonymize author info if the round is in voting
+            authorName: isAnonymous ? "Anonymous" : comment.authorName,
+            authorImage: isAnonymous ? null : comment.authorImage,
+            // Use comment ID for a unique anonymous avatar, otherwise use user ID
+            authorId: isAnonymous ? comment._id : comment.userId,
+          });
+        }
+      }
+    });
+
+    return timestampedComments;
+  }, [commentsData, currentTrack]);
+
+  useEffect(() => {
+    if (currentTrack?.songFileUrl && audioContextRef.current) {
+      setWaveformData(null);
+      setIsWaveformLoading(true);
+
+      fetch(currentTrack.songFileUrl)
+        .then((response) => response.arrayBuffer())
+        .then((buffer) => {
+          const options = {
+            audio_context: audioContextRef.current!,
+            array_buffer: buffer,
+            scale: 512,
+          };
+          WaveformData.createFromAudio(options, (err, waveform) => {
+            setIsWaveformLoading(false);
+            if (err) {
+              console.error("Error creating waveform:", err);
+            } else {
+              setWaveformData(waveform);
+            }
+          });
+        })
+        .catch((error) => {
+          console.error("Error fetching audio for waveform:", error);
+          setIsWaveformLoading(false);
+        });
+    } else {
+      setWaveformData(null);
+    }
+  }, [currentTrack?.songFileUrl]);
 
   useEffect(() => {
     if (currentTrack) {
@@ -58,10 +161,8 @@ export function MusicPlayer() {
       return;
     }
     if (!currentTrack?._id) return;
-
     const newBookmarkState = !isBookmarked;
     setIsBookmarked(newBookmarkState);
-
     toast.promise(
       toggleBookmark({ submissionId: currentTrack._id as Id<"submissions"> }),
       {
@@ -78,14 +179,12 @@ export function MusicPlayer() {
 
   useEffect(() => {
     const audioElement = audioRef.current;
-    if (!audioElement || !currentTrack) return;
-
+    if (!audioElement || !currentTrack?.songFileUrl) return;
     const handlePlayback = async () => {
       if (audioElement.src !== currentTrack.songFileUrl) {
-        audioElement.src = currentTrack.songFileUrl!;
+        audioElement.src = currentTrack.songFileUrl;
         setProgress(0);
       }
-
       try {
         if (isPlaying) {
           await audioElement.play();
@@ -97,7 +196,6 @@ export function MusicPlayer() {
         actions.setIsPlaying(false);
       }
     };
-
     handlePlayback();
   }, [currentTrack, isPlaying, actions]);
 
@@ -109,7 +207,6 @@ export function MusicPlayer() {
     }
   };
 
-  // New handler for when a track ends
   const handleEnded = () => {
     if (repeatMode === "one" && audioRef.current) {
       audioRef.current.currentTime = 0;
@@ -119,10 +216,11 @@ export function MusicPlayer() {
     }
   };
 
-  const handleSeek = (value: number[]) => {
+  const handleSeek = (value: number | number[]) => {
+    const seekTime = Array.isArray(value) ? value[0] : value;
     if (audioRef.current) {
-      audioRef.current.currentTime = value[0];
-      setProgress(value[0]);
+      audioRef.current.currentTime = seekTime;
+      setProgress(seekTime);
     }
   };
 
@@ -143,18 +241,19 @@ export function MusicPlayer() {
         ref={audioRef}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleTimeUpdate}
-        onEnded={handleEnded} // Use the new ended handler
+        onEnded={handleEnded}
         className="hidden"
       />
       <MusicQueue isOpen={isQueueOpen} onOpenChange={setIsQueueOpen} />
       <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background text-foreground">
-        <div className="flex h-24 items-center justify-between px-4">
+        <div className="flex h-20 items-center justify-between px-4">
+          {/* Left Section: Track Info */}
           <div className="flex w-1/4 min-w-0 items-center gap-3">
             <Image
               src={currentTrack.albumArtUrl}
               alt={currentTrack.songTitle}
-              width={56}
-              height={56}
+              width={48}
+              height={48}
               className="flex-shrink-0 rounded-md"
             />
             <div className="truncate">
@@ -165,53 +264,37 @@ export function MusicPlayer() {
                 {currentTrack.artist}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="ml-4 flex-shrink-0"
-              onClick={handleBookmarkToggle}
-              title={
-                !isAuthenticated
-                  ? "Sign in to bookmark songs"
-                  : "Bookmark song"
-              }
-            >
-              <Bookmark
-                className={cn(
-                  "size-5",
-                  isBookmarked && "fill-primary text-primary",
-                )}
-              />
-            </Button>
           </div>
 
-          <div className="flex w-1/2 flex-col items-center gap-2">
-            <div className="flex items-center gap-4">
+          {/* Center Section: Player Controls and Waveform */}
+          <div className="flex flex-1 items-center  gap-1 px-4">
+            {/* Top Row: Playback Buttons */}
+            <div className="flex items-center justify-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "text-muted-foreground hover:text-foreground",
+                  "size-8 text-muted-foreground hover:text-foreground",
                   isShuffled && "text-primary",
                 )}
                 onClick={actions.toggleShuffle}
                 title="Shuffle"
               >
-                <Shuffle className="size-5" />
+                <Shuffle className="size-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground hover:text-foreground"
+                className="size-8 text-muted-foreground hover:text-foreground"
                 onClick={actions.playPrevious}
                 title="Previous"
               >
-                <SkipBack className="size-5" />
+                <SkipBack className="size-4" />
               </Button>
               <Button
                 variant="default"
                 size="icon"
-                className="h-10 w-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                className="size-10 rounded-full"
                 onClick={actions.togglePlayPause}
                 title={isPlaying ? "Pause" : "Play"}
               >
@@ -224,47 +307,80 @@ export function MusicPlayer() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground hover:text-foreground"
+                className="size-8 text-muted-foreground hover:text-foreground"
                 onClick={actions.playNext}
                 title="Next"
               >
-                <SkipForward className="size-5" />
+                <SkipForward className="size-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "text-muted-foreground hover:text-foreground",
+                  "size-8 text-muted-foreground hover:text-foreground",
                   repeatMode !== "none" && "text-primary",
                 )}
                 onClick={actions.toggleRepeat}
                 title={`Repeat: ${repeatMode}`}
               >
                 {repeatMode === "one" ? (
-                  <Repeat1 className="size-5" />
+                  <Repeat1 className="size-4" />
                 ) : (
-                  <Repeat className="size-5" />
+                  <Repeat className="size-4" />
                 )}
               </Button>
             </div>
-            <div className="flex w-full max-w-xl items-center gap-2">
-              <span className="text-xs text-muted-foreground">
+
+            {/* Bottom Row: Waveform and Time */}
+            <div
+              className="flex w-full max-w-xl items-center gap-2"
+            >
+              <span className="w-10 text-right text-xs text-muted-foreground">
                 {formatTime(progress)}
               </span>
-              <Slider
-                value={[progress]}
-                max={duration}
-                step={1}
-                onValueChange={handleSeek}
-                className="w-full"
-              />
-              <span className="text-xs text-muted-foreground">
+              <div className="relative flex-1 transition-transform duration-50">
+                {isWaveformLoading ? (
+                  <Skeleton className="h-8 w-full" />
+                ) : waveformData ? (
+                  <Waveform
+                    waveform={waveformData}
+                    progress={progress}
+                    duration={duration}
+                    onSeek={handleSeek}
+                    className="h-8"
+                    comments={waveformComments}
+                  />
+                ) : (
+                  <Slider
+                    value={[progress]}
+                    max={duration || 1}
+                    step={1}
+                    onValueChange={handleSeek}
+                  />
+                )}
+              </div>
+              <span className="w-10 text-left text-xs text-muted-foreground">
                 {formatTime(duration)}
               </span>
             </div>
           </div>
 
+          {/* Right Section: Extra Controls */}
           <div className="flex w-1/4 items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="flex-shrink-0"
+              onClick={handleBookmarkToggle}
+              title="Bookmark song"
+            >
+              <Bookmark
+                className={cn(
+                  "size-5",
+                  isBookmarked && "fill-primary text-primary",
+                )}
+              />
+            </Button>
             <Button
               variant="ghost"
               size="icon"

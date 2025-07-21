@@ -96,6 +96,10 @@ export const getForRound = query({
   args: { roundId: v.id("rounds") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
+
+    const round = await ctx.db.get(args.roundId);
+    if (!round) return [];
+
     const submissions = await ctx.db
       .query("submissions")
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
@@ -148,6 +152,7 @@ export const getForRound = query({
           userUpvotes,
           userDownvotes,
           isBookmarked: bookmarkedSubmissionIds.has(submission._id),
+          roundStatus: round.status,
         };
       }),
     );

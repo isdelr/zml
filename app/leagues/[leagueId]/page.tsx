@@ -10,9 +10,10 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 export async function generateMetadata({
   params,
 }: {
-  params: { leagueId: string };
+  params: Promise<{ leagueId: string }>;
 }): Promise<Metadata> {
-  const league = await convex.query(api.leagues.get, { id: params.leagueId as Id<"leagues"> });
+  const { leagueId } = await params;
+  const league = await convex.query(api.leagues.get, { id: leagueId as Id<"leagues"> });
 
   if (!league) {
     return {

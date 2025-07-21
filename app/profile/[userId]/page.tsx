@@ -1,6 +1,7 @@
 import { ProfilePage } from "@/components/ProfilePage";
 import { Sidebar } from "@/components/Sidebar";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { ConvexHttpClient } from "convex/browser";
 import type { Metadata } from "next";
 

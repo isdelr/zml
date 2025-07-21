@@ -10,6 +10,7 @@ interface MusicPlayerState {
   isPlaying: boolean;
   repeatMode: RepeatMode;
   isShuffled: boolean;
+  seekTo: number | null; // ADDED: To store the requested seek time
   actions: {
     playRound: (songs: Song[], startIndex?: number) => void;
     playSong: (song: Song) => void;
@@ -20,6 +21,8 @@ interface MusicPlayerState {
     clearQueue: () => void;
     toggleRepeat: () => void;
     toggleShuffle: () => void;
+    seek: (time: number) => void; // ADDED: Action to request a seek
+    resetSeek: () => void; // ADDED: Action to clear the seek request
   };
 }
 
@@ -30,6 +33,7 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
   isPlaying: false,
   repeatMode: "none",
   isShuffled: false,
+  seekTo: null, // ADDED
   actions: {
     playRound: (songs, startIndex = 0) => {
       set({
@@ -126,5 +130,7 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
         });
       }
     },
+    seek: (time) => set({ seekTo: time }),
+    resetSeek: () => set({ seekTo: null }),
   },
 }));
