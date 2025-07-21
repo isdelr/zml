@@ -28,7 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FaSpotify, FaYoutube } from "react-icons/fa";
 
 const MAX_IMAGE_SIZE_MB = 5;
-const MAX_SONG_SIZE_MB = 200;
+const MAX_SONG_SIZE_MB = 150;
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 const MAX_SONG_SIZE_BYTES = MAX_SONG_SIZE_MB * 1024 * 1024;
 
@@ -36,8 +36,14 @@ const formSchema = z.object({
   submissionType: z.enum(["manual", "link"]),
   songTitle: z.string().optional(),
   artist: z.string().optional(),
-  albumArtFile: z.instanceof(File).optional(),
-  songFile: z.instanceof(File).optional(),
+  albumArtFile: z.instanceof(File).optional().refine(
+    (file) => !file || file.size <= MAX_IMAGE_SIZE_BYTES,
+    `Max image size is ${MAX_IMAGE_SIZE_MB}MB.`
+  ),
+  songFile: z.instanceof(File).optional().refine(
+    (file) => !file || file.size <= MAX_SONG_SIZE_BYTES,
+    `Max song size is ${MAX_SONG_SIZE_MB}MB.`
+  ),
   songLink: z.string().optional(),
   comment: z.string().optional(),
 }).refine(data => {
@@ -168,33 +174,6 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <FormField
               control={form.control}
-              name="songTitle"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Song Title</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Bohemian Rhapsody" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="artist"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Artist</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Queen" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="albumArtFile"
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
               render={({ field: { onChange, value, ...rest } }) => (
@@ -215,7 +194,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                         size="icon"
                         className="absolute -right-2 -top-2 z-10 size-6 rounded-full"
                         onClick={() => {
-                          form.setValue("albumArtFile", new File([], ""));
+                          form.setValue("albumArtFile", undefined);
                           URL.revokeObjectURL(albumArtPreview);
                           setAlbumArtPreview("");
                         }}
@@ -238,6 +217,10 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
+                              if (file.size > MAX_IMAGE_SIZE_BYTES) {
+                                toast.error(`Image is too large. Max size: ${MAX_IMAGE_SIZE_MB}MB.`);
+                                return;
+                              }
                               onChange(file);
                               const newPreviewUrl = URL.createObjectURL(file);
                               if (albumArtPreview) {
@@ -265,7 +248,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                   <FormControl>
                     <label className="flex h-48 w-48 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary">
                       <FileAudio className="size-8" />
-                      <span className="text-sm font-medium">
+                      <span className="text-sm font-medium text-center">
                         {value?.name && value.size > 0
                           ? "File selected"
                           : "Click to upload audio"}
@@ -278,6 +261,13 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
+                          
+                          if (file.size > MAX_SONG_SIZE_BYTES) {
+                            toast.error(`Song file is too large. Max size: ${MAX_SONG_SIZE_MB}MB.`);
+                            form.setValue("songFile", undefined);
+                            e.target.value = ""; // Reset file input
+                            return;
+                          }
 
                           // Update the form state for the song file immediately
                           onChange(file);
@@ -337,7 +327,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                   {value?.name && value.size > 0 && (
                     <FormDescription className="flex items-center gap-2 pt-2">
                       <Music className="size-4" />
-                      {value.name}
+                      <span className="truncate">{value.name}</span>
                     </FormDescription>
                   )}
                   <FormMessage />
@@ -364,7 +354,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Paste the link to the song you want to submit. We'll fetch the details automatically.
+                      Paste the link to the song you want to submit. We&apos;ll fetch the details automatically.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

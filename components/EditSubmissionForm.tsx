@@ -282,6 +282,7 @@ export function EditSubmissionForm({
                 <FormField
                   control={form.control}
                   name="songFile"
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   render={({ field: { onChange, value, ...rest } }) => (
                     <FormItem>
                       <FormLabel>Song File (Optional)</FormLabel>
@@ -339,7 +340,7 @@ export function EditSubmissionForm({
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Paste the link to the song you want to submit. We'll
+                      Paste the link to the song you want to submit. We&apos;ll
                       fetch the details automatically.
                     </FormDescription>
                     <FormMessage />
