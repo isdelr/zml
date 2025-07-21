@@ -25,7 +25,7 @@ import Image from "next/image";
 import * as mm from "music-metadata-browser";
 
 const MAX_IMAGE_SIZE_MB = 5;
-const MAX_SONG_SIZE_MB = 50;
+const MAX_SONG_SIZE_MB = 200;
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 const MAX_SONG_SIZE_BYTES = MAX_SONG_SIZE_MB * 1024 * 1024;
 
