@@ -324,7 +324,7 @@ export function CreateLeaguePage() {
                       <FormField
                         control={form.control}
                         name={`rounds.${index}.imageFile`}
-                        render={({ field: { onChange, ...rest } }) => (
+                        render={({ field: { onChange, value, ...rest } }) => (
                           <FormItem>
                             <FormLabel>Round Image (Optional)</FormLabel>
                             {previews[index] ? (
@@ -389,8 +389,7 @@ export function CreateLeaguePage() {
                                           }));
                                         }
                                       }}
-                                      // Omit the value prop from rest to avoid the type error
-                                      {...{...rest, value: undefined}}
+                                      {...rest}
                                     />
                                   </label>
                                 </FormControl>

@@ -149,7 +149,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
             <FormField
               control={form.control}
               name="albumArtFile"
-              render={({ field: { onChange, ...rest } }) => (
+              render={({ field: { onChange, value, ...rest } }) => (
                 <FormItem>
                   <FormLabel>Album Art</FormLabel>
                   {albumArtPreview ? (
