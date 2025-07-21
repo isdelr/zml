@@ -10,6 +10,7 @@ import {
   Pause,
   Play,
 } from "lucide-react";
+import { FaSpotify, FaYoutube } from "react-icons/fa";
 import Image from "next/image";
 import { Button } from "./ui/button";
 import { api } from "@/convex/_generated/api";
@@ -187,7 +188,9 @@ function SubmissionComments({
           <div key={comment._id} className="flex items-start gap-3">
             <Avatar className="size-8 flex-shrink-0">
               <AvatarImage
-                src={isAnonymous ? undefined : comment.authorImage ?? undefined}
+                src={
+                  isAnonymous ? undefined : (comment.authorImage ?? undefined)
+                }
               />
               <AvatarFallback>
                 <div
@@ -768,7 +771,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             <SongSubmissionForm roundId={round._id} />
           )}
           <div className="mt-8 rounded-lg border bg-card p-6 text-center">
-            <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
+            <h3 className="font-semibold">Who's Submitted So Far?</h3>
             {submissions && submissions.length > 0 ? (
               <div className="mt-4 flex justify-center">
                 <AvatarStack
@@ -805,6 +808,10 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                 isPlaying && currentTrack?._id === song._id;
               const isThisSongCurrent = currentTrack?._id === song._id;
 
+              const isLinkSubmission =
+                song.submissionType === "spotify" ||
+                song.submissionType === "youtube";
+
               const { points, isBookmarked, comment } = song;
               const pendingSongVotes = pendingVotes[song._id] || {
                 up: 0,
@@ -837,19 +844,23 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                         variant="ghost"
                         size="icon"
                         className="size-8"
-                        disabled={!song.songFileUrl}
                         onClick={() => {
-                          if (isThisSongCurrent) {
+                          if (isLinkSubmission && song.songLink) {
+                            window.open(song.songLink, "_blank", "noopener,noreferrer");
+                          } else if (isThisSongCurrent) {
                             playerActions.togglePlayPause();
                           } else {
-                            playerActions.playRound(
-                              submissions as Song[],
-                              index,
-                            );
+                            playerActions.playRound(submissions as Song[], index);
                           }
                         }}
                       >
-                        {isThisSongPlaying ? (
+                        {isLinkSubmission ? (
+                          song.submissionType === "spotify" ? (
+                            <FaSpotify className="size-5 text-green-500" />
+                          ) : (
+                            <FaYoutube className="size-5 text-red-500" />
+                          )
+                        ) : isThisSongPlaying ? (
                           <Pause className="size-4 text-foreground" />
                         ) : (
                           <Play className="size-4 text-foreground" />
@@ -889,7 +900,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                           src={
                             round.status === "voting"
                               ? undefined
-                              : song.submittedByImage ?? undefined
+                              : (song.submittedByImage ?? undefined)
                           }
                           alt={
                             round.status === "voting"
@@ -902,7 +913,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                             __html: toSvg(
                               round.status === "voting"
                                 ? song._id
-                                : song.submittedBy ?? song.userId,
+                                : (song.submittedBy ?? song.userId),
                               24,
                             ),
                           }}

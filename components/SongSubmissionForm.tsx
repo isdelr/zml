@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "convex/react";
+import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,40 +24,34 @@ import { useState } from "react";
 import Image from "next/image";
 import * as mm from "music-metadata-browser";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FaSpotify, FaYoutube } from "react-icons/fa";
 
 const MAX_IMAGE_SIZE_MB = 5;
 const MAX_SONG_SIZE_MB = 200;
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 const MAX_SONG_SIZE_BYTES = MAX_SONG_SIZE_MB * 1024 * 1024;
 
-const formSchema = z
-  .object({
-    songTitle: z.string().min(1, { message: "Title is required." }),
-    artist: z.string().min(1, { message: "Artist is required." }),
-    albumArtFile: z
-      .instanceof(File)
-      .refine((file) => file.size > 0, "Album art file is required.")
-      .refine(
-        (file) => file.size <= MAX_IMAGE_SIZE_BYTES,
-        `Album art must be less than ${MAX_IMAGE_SIZE_MB}MB.`,
-      ),
-    songFile: z
-      .instanceof(File)
-      .refine((file) => file.size > 0, "A song file is required.")
-      .refine(
-        (file) => file.size <= MAX_SONG_SIZE_BYTES,
-        `Song file must be less than ${MAX_SONG_SIZE_MB}MB.`,
-      ),
-    comment: z.string().optional(),
-  })
-  .refine((data) => data.albumArtFile.type.startsWith("image/"), {
-    message: "Album art must be an image file.",
-    path: ["albumArtFile"],
-  })
-  .refine((data) => data.songFile.type.startsWith("audio/"), {
-    message: "Please upload a valid audio file (e.g., MP3, FLAC, WAV).",
-    path: ["songFile"],
-  });
+const formSchema = z.object({
+  submissionType: z.enum(["manual", "link"]),
+  songTitle: z.string().optional(),
+  artist: z.string().optional(),
+  albumArtFile: z.instanceof(File).optional(),
+  songFile: z.instanceof(File).optional(),
+  songLink: z.string().optional(),
+  comment: z.string().optional(),
+}).refine(data => {
+  if (data.submissionType === 'manual') {
+    return data.songTitle && data.artist && data.albumArtFile?.size && data.songFile?.size;
+  }
+  if (data.submissionType === 'link') {
+    return data.songLink && (data.songLink.includes('spotify.com') || data.songLink.includes('youtube.com') || data.songLink.includes('youtu.be'));
+  }
+  return false;
+}, {
+  message: "Please complete the required fields for your chosen submission type.",
+  path: ["submissionType"],
+});
 
 interface SongSubmissionFormProps {
   roundId: Id<"rounds">;
@@ -65,6 +59,7 @@ interface SongSubmissionFormProps {
 
 export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
   const submitSong = useMutation(api.submissions.submitSong);
+  const getSongMetadataFromLink = useAction(api.submissions.getSongMetadataFromLink);
   const uploadFile = useUploadFile({
     generateUploadUrl: api.files.generateSubmissionFileUploadUrl,
     syncMetadata: api.files.syncSubmissionFileMetadata,
@@ -75,33 +70,46 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      submissionType: "manual",
       songTitle: "",
       artist: "",
-      albumArtFile: new File([], ""),
-      songFile: new File([], ""),
+      songLink: "",
       comment: "",
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    const toastId = toast.loading("Submitting your masterpiece...");
     try {
-      const toastId = toast.loading("Uploading files, please wait...", {
-        description: "Your masterpiece is on its way.",
-      });
+      if (values.submissionType === 'manual' && values.songTitle && values.artist && values.albumArtFile && values.songFile) {
+        const [albumArtKey, songFileKey] = await Promise.all([
+          uploadFile(values.albumArtFile),
+          uploadFile(values.songFile),
+        ]);
 
-      const [albumArtKey, songFileKey] = await Promise.all([
-        uploadFile(values.albumArtFile),
-        uploadFile(values.songFile),
-      ]);
+        await submitSong({
+          roundId,
+          submissionType: 'file',
+          songTitle: values.songTitle,
+          artist: values.artist,
+          albumArtKey,
+          songFileKey,
+          comment: values.comment,
+        });
 
-      await submitSong({
-        roundId,
-        songTitle: values.songTitle,
-        artist: values.artist,
-        albumArtKey,
-        songFileKey,
-        comment: values.comment,
-      });
+      } else if (values.submissionType === 'link' && values.songLink) {
+        const metadata = await getSongMetadataFromLink({ link: values.songLink });
+
+        await submitSong({
+          roundId,
+          submissionType: metadata.submissionType,
+          songTitle: metadata.songTitle,
+          artist: metadata.artist,
+          songLink: values.songLink,
+          albumArtUrlValue: metadata.albumArtUrl,
+          comment: values.comment,
+        });
+      }
 
       toast.success("Song submitted successfully!", { id: toastId });
       form.reset();
@@ -109,7 +117,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";
-      toast.error(`Submission failed: ${errorMessage}`);
+      toast.error(`Submission failed: ${errorMessage}`, { id: toastId });
       console.error(error);
     }
   }
@@ -118,11 +126,46 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
     <div className="rounded-lg border bg-card p-6">
       <h2 className="text-2xl font-bold">Submit Your Track</h2>
       <p className="mb-6 text-muted-foreground">
-        Upload a song file, and we&apos;ll try to fill in the details for you.
+        Choose your submission method.
       </p>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <Tabs defaultValue="manual" className="w-full" onValueChange={(value) => form.setValue('submissionType', value as "manual" | "link")}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="manual">Manual Upload</TabsTrigger>
+              <TabsTrigger value="link">From Spotify/YouTube</TabsTrigger>
+            </TabsList>
+            <TabsContent value="manual" className="mt-6">
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="songTitle"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Song Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Bohemian Rhapsody" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="artist"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Artist</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Queen" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <FormField
               control={form.control}
               name="songTitle"
@@ -302,6 +345,34 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
               )}
             />
           </div>
+            </div>
+            </TabsContent>
+            <TabsContent value="link" className="mt-6">
+              <FormField
+                control={form.control}
+                name="songLink"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Spotify or YouTube Link</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input placeholder="https://open.spotify.com/track/..." {...field} />
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-2">
+                          <FaSpotify className="text-green-500" />
+                          <FaYoutube className="text-red-500" />
+                        </div>
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Paste the link to the song you want to submit. We'll fetch the details automatically.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </TabsContent>
+          </Tabs>
+
           <FormField
             control={form.control}
             name="comment"
@@ -322,6 +393,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
               </FormItem>
             )}
           />
+
           <Button
             type="submit"
             className="w-full"

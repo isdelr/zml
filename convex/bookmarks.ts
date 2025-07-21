@@ -54,10 +54,21 @@ export const getBookmarkedSongs = query({
 
         const round = await ctx.db.get(submission.roundId);
         const league = round ? await ctx.db.get(round.leagueId) : null;
-        const [albumArtUrl, songFileUrl] = await Promise.all([
-          r2.getUrl(submission.albumArtKey),
-          r2.getUrl(submission.songFileKey),
-        ]);
+        
+        // --- Start of Fix ---
+        let albumArtUrl: string | null = null;
+        let songFileUrl: string | null = null;
+
+        if (submission.submissionType === 'file') {
+            [albumArtUrl, songFileUrl] = await Promise.all([
+                submission.albumArtKey ? r2.getUrl(submission.albumArtKey) : Promise.resolve(null),
+                submission.songFileKey ? r2.getUrl(submission.songFileKey) : Promise.resolve(null),
+            ]);
+        } else {
+            albumArtUrl = submission.albumArtUrlValue ?? null;
+            songFileUrl = submission.songLink ?? null;
+        }
+        // --- End of Fix ---
 
         return {
           ...submission,

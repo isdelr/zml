@@ -7,6 +7,10 @@ export type Song = {
   albumArtUrl: string;
   songFileUrl: string | null;
   submittedBy?: string;
-  roundStatus?: Doc<"rounds">["status"]; // ADDED: To track the round's phase
+  roundStatus?: Doc<"rounds">["status"];
   isBookmarked?: boolean;
+  // --- ADDED ---
+  submissionType: "file" | "spotify" | "youtube";
+  songLink?: string | null;
+  // --- END ADDED ---
 };

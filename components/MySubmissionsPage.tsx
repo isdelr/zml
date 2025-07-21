@@ -19,6 +19,9 @@ import { Song } from "@/types";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Skeleton } from "./ui/skeleton";
+// --- ADDED ---
+import { FaSpotify, FaYoutube } from "react-icons/fa";
+// --- END ADDED ---
 
 const getResultIcon = (result: { type: string; points: number }) => {
   switch (result.type) {
@@ -245,16 +248,28 @@ export function MySubmissionsPage() {
                             )}
                           </div>
                           <div className="flex w-24 justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="opacity-0 transition-opacity group-hover:opacity-100"
-                              onClick={() =>
-                                playerActions.playSong(submission as Song)
-                              }
-                            >
-                              <Play className="size-4" />
-                            </Button>
+                            {/* --- Start of Change --- */}
+                            {submission.submissionType === 'file' ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="opacity-0 transition-opacity group-hover:opacity-100"
+                                  onClick={() =>
+                                    playerActions.playSong(submission as Song)
+                                  }
+                                >
+                                  <Play className="size-4" />
+                                </Button>
+                              ) : (
+                                <a href={submission.songLink!} target="_blank" rel="noopener noreferrer">
+                                   <Button variant="ghost" size="icon" className="opacity-0 transition-opacity group-hover:opacity-100">
+                                      {submission.submissionType === 'spotify' && <FaSpotify className="size-4 text-green-500" />}
+                                      {submission.submissionType === 'youtube' && <FaYoutube className="size-4 text-red-500" />}
+                                   </Button>
+                                </a>
+                              )
+                            }
+                            {/* --- End of Change --- */}
                             <Link href={`/leagues/${submission.leagueId}`}>
                               <Button
                                 variant="ghost"

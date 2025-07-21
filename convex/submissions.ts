@@ -1,19 +1,84 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
+import { Doc } from "./_generated/dataModel";
+import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 
 const r2 = new R2(components.r2);
+
+// Regular expression to extract the video ID from various YouTube URL formats
+function getYouTubeVideoId(url: string) {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return match && match[2].length === 11 ? match[2] : null;
+}
+
+export const getSongMetadataFromLink = action({
+  args: { link: v.string() },
+  handler: async (ctx, args) => {
+    // Spotify API Implementation
+    if (args.link.includes("spotify")) {
+      const spotifyApi = SpotifyApi.withClientCredentials(
+        process.env.SPOTIFY_CLIENT_ID!,
+        process.env.SPOTIFY_CLIENT_SECRET!
+      );
+      const trackId = args.link.split("/track/")[1].split("?")[0];
+      const track = await spotifyApi.tracks.get(trackId);
+      return {
+        songTitle: track.name,
+        artist: track.artists.map((a) => a.name).join(", "),
+        albumArtUrl: track.album.images[0].url,
+        submissionType: "spotify" as const,
+      };
+    } 
+    // YouTube API Implementation
+    else if (args.link.includes("youtube") || args.link.includes("youtu.be")) {
+      const videoId = getYouTubeVideoId(args.link);
+      if (!videoId) {
+        throw new Error("Invalid YouTube link provided.");
+      }
+      const apiKey = process.env.YOUTUBE_API_KEY;
+      if (!apiKey) {
+        throw new Error("YouTube API key is not set in environment variables.");
+      }
+
+      const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Failed to fetch video data from YouTube API.");
+      }
+      const data = await response.json();
+      
+      if (!data.items || data.items.length === 0) {
+        throw new Error("Could not find YouTube video with that link.");
+      }
+
+      const snippet = data.items[0].snippet;
+
+      return {
+        songTitle: snippet.title,
+        artist: snippet.channelTitle,
+        albumArtUrl: snippet.thumbnails.high.url, // Or .medium.url, .default.url
+        submissionType: "youtube" as const,
+      };
+    }
+    throw new Error("Invalid link provided. Please use a Spotify or YouTube link.");
+  },
+});
 
 export const submitSong = mutation({
   args: {
     roundId: v.id("rounds"),
+    submissionType: v.union(v.literal("file"), v.literal("spotify"), v.literal("youtube")),
     songTitle: v.string(),
     artist: v.string(),
-    albumArtKey: v.string(),
-    songFileKey: v.string(),
     comment: v.optional(v.string()),
+    albumArtKey: v.optional(v.string()),
+    songFileKey: v.optional(v.string()),
+    songLink: v.optional(v.string()),
+    albumArtUrlValue: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -32,16 +97,36 @@ export const submitSong = mutation({
       .first();
     if (existing) throw new Error("You have already submitted a song.");
 
-    await ctx.db.insert("submissions", {
+    const baseSubmissionData = {
       leagueId: round.leagueId,
       roundId: args.roundId,
       userId,
       songTitle: args.songTitle,
       artist: args.artist,
-      albumArtKey: args.albumArtKey,
-      songFileKey: args.songFileKey,
       comment: args.comment,
-    });
+    };
+
+    if (args.submissionType === 'file') {
+      if (!args.albumArtKey || !args.songFileKey) {
+        throw new Error("File keys are required for manual submission.");
+      }
+      await ctx.db.insert("submissions", {
+        ...baseSubmissionData,
+        submissionType: 'file',
+        albumArtKey: args.albumArtKey,
+        songFileKey: args.songFileKey,
+      });
+    } else {
+      if (!args.songLink || !args.albumArtUrlValue) {
+        throw new Error("Link and album art URL are required for link submission.");
+      }
+      await ctx.db.insert("submissions", {
+        ...baseSubmissionData,
+        submissionType: args.submissionType,
+        songLink: args.songLink,
+        albumArtUrlValue: args.albumArtUrlValue,
+      });
+    }
   },
 });
 
@@ -50,21 +135,25 @@ export const editSong = mutation({
     submissionId: v.id("submissions"),
     songTitle: v.string(),
     artist: v.string(),
+    submissionType: v.union(
+      v.literal("file"),
+      v.literal("spotify"),
+      v.literal("youtube"),
+    ),
     comment: v.optional(v.string()),
-    albumArtKey: v.optional(v.string()),
-    songFileKey: v.optional(v.string()),
+    albumArtKey: v.optional(v.union(v.string(), v.null())),
+    songFileKey: v.optional(v.union(v.string(), v.null())),
+    songLink: v.optional(v.union(v.string(), v.null())),
+    albumArtUrlValue: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated.");
-
     const submission = await ctx.db.get(args.submissionId);
     if (!submission) throw new Error("Submission not found.");
-
     if (submission.userId !== userId) {
       throw new Error("You can only edit your own submissions.");
     }
-
     const round = await ctx.db.get(submission.roundId);
     if (!round) throw new Error("Round not found.");
     if (round.status !== "submissions") {
@@ -72,21 +161,7 @@ export const editSong = mutation({
         "You can only edit submissions during the submission phase.",
       );
     }
-
-    const { submissionId, ...rest } = args;
-    const updates: Partial<typeof submission> = {
-      songTitle: rest.songTitle,
-      artist: rest.artist,
-      comment: rest.comment,
-    };
-
-    if (rest.albumArtKey) {
-      updates.albumArtKey = rest.albumArtKey;
-    }
-    if (rest.songFileKey) {
-      updates.songFileKey = rest.songFileKey;
-    }
-
+    const { submissionId, ...updates } = args;
     await ctx.db.patch(submissionId, updates);
     return "Submission updated successfully.";
   },
@@ -104,6 +179,7 @@ export const getForRound = query({
       .query("submissions")
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
       .collect();
+
     const allVotesForRound = await ctx.db
       .query("votes")
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
@@ -117,17 +193,23 @@ export const getForRound = query({
     const bookmarkedSubmissionIds = new Set(
       userBookmarks.map((b) => b.submissionId),
     );
+   
     return Promise.all(
       submissions.map(async (submission) => {
         const user = await ctx.db.get(submission.userId);
-        const [albumArtUrl, songFileUrl] = await Promise.all([
-          submission.albumArtKey
-            ? r2.getUrl(submission.albumArtKey)
-            : Promise.resolve(null),
-          submission.songFileKey
-            ? r2.getUrl(submission.songFileKey)
-            : Promise.resolve(null),
-        ]);
+
+        let albumArtUrl: string | null = null;
+        let songFileUrl: string | null = null;
+
+        if (submission.submissionType === 'file') {
+            [albumArtUrl, songFileUrl] = await Promise.all([
+                submission.albumArtKey ? r2.getUrl(submission.albumArtKey) : Promise.resolve(null),
+                submission.songFileKey ? r2.getUrl(submission.songFileKey) : Promise.resolve(null),
+            ]);
+        } else {
+            albumArtUrl = submission.albumArtUrlValue ?? null;
+            songFileUrl = submission.songLink ?? null; // The link to the song on Spotify/YT
+        }
         const points = allVotesForRound
           .filter((v) => v.submissionId === submission._id)
           .reduce((acc, vote) => acc + vote.vote, 0);
@@ -146,7 +228,7 @@ export const getForRound = query({
           ...submission,
           submittedBy: user?.name ?? "Anonymous",
           submittedByImage: user?.image ?? null,
-          albumArtUrl: albumArtUrl,
+          albumArtUrl: albumArtUrl!,
           songFileUrl: songFileUrl,
           points,
           userUpvotes,
@@ -176,10 +258,24 @@ export const getMySubmissions = query({
         const league = await ctx.db.get(round.leagueId);
         if (!league) return null;
 
-        const [albumArtUrl, songFileUrl] = await Promise.all([
-          r2.getUrl(submission.albumArtKey),
-          r2.getUrl(submission.songFileKey),
-        ]);
+        // --- Start of Fix ---
+        let albumArtUrl: string | null = null;
+        let songFileUrl: string | null = null;
+
+        if (submission.submissionType === "file") {
+          [albumArtUrl, songFileUrl] = await Promise.all([
+            submission.albumArtKey
+              ? r2.getUrl(submission.albumArtKey)
+              : Promise.resolve(null),
+            submission.songFileKey
+              ? r2.getUrl(submission.songFileKey)
+              : Promise.resolve(null),
+          ]);
+        } else {
+          albumArtUrl = submission.albumArtUrlValue ?? null;
+          songFileUrl = submission.songLink ?? null;
+        }
+        // --- End of Fix ---
 
         let result: { type: string; points: number };
 
@@ -210,8 +306,8 @@ export const getMySubmissions = query({
 
         return {
           ...submission,
-          albumArtUrl,
-          songFileUrl,
+          albumArtUrl, // Use the corrected URL
+          songFileUrl, // Use the corrected URL
           roundTitle: round.title,
           leagueName: league.name,
           leagueId: league._id,
@@ -223,6 +319,7 @@ export const getMySubmissions = query({
     return submissionsWithDetails.filter((s) => s !== null);
   },
 });
+
 
 export const addComment = mutation({
   args: {

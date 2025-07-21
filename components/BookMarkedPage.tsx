@@ -13,6 +13,9 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { Skeleton } from "./ui/skeleton";
+// --- ADDED ---
+import { FaSpotify, FaYoutube } from "react-icons/fa";
+// --- END ADDED ---
 
 export function BookmarkedPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -156,14 +159,25 @@ export function BookmarkedPage() {
                   </Link>
                 </div>
                 <div className="flex w-32 justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={() => playerActions.playSong(song as Song)}
-                  >
-                    <Play className="size-4" />
-                  </Button>
+                  {/* --- Start of Change --- */}
+                  {song.submissionType === 'file' ? (
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        className="opacity-0 transition-opacity group-hover:opacity-100"
+                        onClick={() => playerActions.playSong(song as Song)}
+                      >
+                        <Play className="size-4" />
+                      </Button>
+                  ) : (
+                    <a href={song.songLink!} target="_blank" rel="noopener noreferrer">
+                      <Button variant="ghost" size="icon" className="opacity-0 transition-opacity group-hover:opacity-100">
+                        {song.submissionType === 'spotify' && <FaSpotify className="size-4 text-green-500" />}
+                        {song.submissionType === 'youtube' && <FaYoutube className="size-4 text-red-500" />}
+                      </Button>
+                    </a>
+                  )}
+                  {/* --- End of Change --- */}
                   <Button
                     variant="ghost"
                     size="icon"

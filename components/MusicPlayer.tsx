@@ -27,6 +27,7 @@ import { MusicQueue } from "./MusicQueue";
 import WaveformData from "waveform-data";
 import { Waveform, WaveformComment } from "./Waveform";
 import { Skeleton } from "./ui/skeleton";
+import { FaSpotify, FaYoutube } from "react-icons/fa";
 
 export function MusicPlayer() {
   const {
@@ -43,6 +44,7 @@ export function MusicPlayer() {
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const lastOpenedTrackId = useRef<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
@@ -53,24 +55,26 @@ export function MusicPlayer() {
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
   const { isAuthenticated } = useConvexAuth();
 
+  const isExternalLink =
+    currentTrack?.submissionType === "spotify" ||
+    currentTrack?.submissionType === "youtube";
+
   useEffect(() => {
     if (!audioContextRef.current) {
       audioContextRef.current = new AudioContext();
     }
   }, []);
 
-  // Effect to handle seek requests from the global store
   useEffect(() => {
     if (seekTo !== null && audioRef.current) {
       audioRef.current.currentTime = seekTo;
       if (!isPlaying) {
         actions.setIsPlaying(true);
       }
-      actions.resetSeek(); // Reset after seeking to prevent re-triggering
+      actions.resetSeek();
     }
   }, [seekTo, isPlaying, actions]);
 
-  // Fetch comments for the current track
   const commentsData = useQuery(
     api.submissions.getCommentsForSubmission,
     currentTrack
@@ -78,11 +82,9 @@ export function MusicPlayer() {
       : "skip",
   );
 
-  // Parse comments to find timestamps for the waveform
   const waveformComments = useMemo((): WaveformComment[] => {
     if (!commentsData || !currentTrack) return [];
     
-    // Check round status for anonymity
     const isAnonymous = currentTrack.roundStatus === "voting";
 
     const parseTimeToSeconds = (timeStr: string): number => {
@@ -105,10 +107,8 @@ export function MusicPlayer() {
             id: comment._id,
             time,
             text: comment.text.replace(timestampRegex, "").trim(),
-            // Anonymize author info if the round is in voting
             authorName: isAnonymous ? "Anonymous" : comment.authorName,
             authorImage: isAnonymous ? null : comment.authorImage,
-            // Use comment ID for a unique anonymous avatar, otherwise use user ID
             authorId: isAnonymous ? comment._id : comment.userId,
           });
         }
@@ -119,7 +119,14 @@ export function MusicPlayer() {
   }, [commentsData, currentTrack]);
 
   useEffect(() => {
-    if (currentTrack?.songFileUrl && audioContextRef.current) {
+    // --- Start of Fix ---
+    // Only attempt to fetch and generate a waveform for file submissions
+    if (
+      currentTrack?.submissionType === "file" &&
+      currentTrack?.songFileUrl &&
+      audioContextRef.current
+    ) {
+    // --- End of Fix ---
       setWaveformData(null);
       setIsWaveformLoading(true);
 
@@ -145,9 +152,13 @@ export function MusicPlayer() {
           setIsWaveformLoading(false);
         });
     } else {
+      // Clear waveform data for non-file submissions or when there's no track
       setWaveformData(null);
     }
-  }, [currentTrack?.songFileUrl]);
+  // --- Start of Fix ---
+  // Add submissionType to the dependency array to correctly handle track changes
+  }, [currentTrack?.songFileUrl, currentTrack?.submissionType]);
+  // --- End of Fix ---
 
   useEffect(() => {
     if (currentTrack) {
@@ -179,9 +190,21 @@ export function MusicPlayer() {
 
   useEffect(() => {
     const audioElement = audioRef.current;
-    if (!audioElement || !currentTrack?.songFileUrl) return;
+    if (!audioElement || !currentTrack) return;
+  
+    if (isExternalLink) {
+      audioElement.pause();
+      if (isPlaying && currentTrack._id !== lastOpenedTrackId.current) {
+        window.open(currentTrack.songLink, "_blank", "noopener,noreferrer");
+        lastOpenedTrackId.current = currentTrack._id as string;
+      }
+      return;
+    }
+  
+    lastOpenedTrackId.current = null;
+  
     const handlePlayback = async () => {
-      if (audioElement.src !== currentTrack.songFileUrl) {
+      if (currentTrack.songFileUrl && audioElement.src !== currentTrack.songFileUrl) {
         audioElement.src = currentTrack.songFileUrl;
         setProgress(0);
       }
@@ -197,7 +220,7 @@ export function MusicPlayer() {
       }
     };
     handlePlayback();
-  }, [currentTrack, isPlaying, actions]);
+  }, [currentTrack, isPlaying, actions, isExternalLink]);
 
   const handleTimeUpdate = () => {
     const audioElement = audioRef.current;
@@ -247,7 +270,6 @@ export function MusicPlayer() {
       <MusicQueue isOpen={isQueueOpen} onOpenChange={setIsQueueOpen} />
       <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background text-foreground">
         <div className="flex h-20 items-center justify-between px-4">
-          {/* Left Section: Track Info */}
           <div className="flex w-1/4 min-w-0 items-center gap-3">
             <Image
               src={currentTrack.albumArtUrl}
@@ -266,9 +288,7 @@ export function MusicPlayer() {
             </div>
           </div>
 
-          {/* Center Section: Player Controls and Waveform */}
-          <div className="flex flex-1 items-center  gap-1 px-4">
-            {/* Top Row: Playback Buttons */}
+          <div className="flex flex-1 flex-col items-center justify-center gap-1 px-4">
             <div className="flex items-center justify-center gap-2">
               <Button
                 variant="ghost"
@@ -295,10 +315,22 @@ export function MusicPlayer() {
                 variant="default"
                 size="icon"
                 className="size-10 rounded-full"
-                onClick={actions.togglePlayPause}
-                title={isPlaying ? "Pause" : "Play"}
+                onClick={() => {
+                  if (isExternalLink) {
+                    window.open(currentTrack.songLink, "_blank", "noopener,noreferrer");
+                  } else {
+                    actions.togglePlayPause();
+                  }
+                }}
+                title={isExternalLink ? "Open Link" : (isPlaying ? "Pause" : "Play")}
               >
-                {isPlaying ? (
+                {isExternalLink ? (
+                  currentTrack.submissionType === 'spotify' ? (
+                    <FaSpotify className="size-5 text-white" />
+                  ) : (
+                    <FaYoutube className="size-5 text-white" />
+                  )
+                ) : isPlaying ? (
                   <Pause className="size-5 fill-primary-foreground" />
                 ) : (
                   <Play className="size-5 fill-primary-foreground" />
@@ -331,15 +363,16 @@ export function MusicPlayer() {
               </Button>
             </div>
 
-            {/* Bottom Row: Waveform and Time */}
-            <div
-              className="flex w-full max-w-xl items-center gap-2"
-            >
+            <div className="flex w-full max-w-xl items-center gap-2">
               <span className="w-10 text-right text-xs text-muted-foreground">
-                {formatTime(progress)}
+                {isExternalLink ? "--:--" : formatTime(progress)}
               </span>
-              <div className="relative flex-1 transition-transform duration-50">
-                {isWaveformLoading ? (
+              <div className="relative flex-1 h-8 flex items-center transition-transform duration-50">
+                {isExternalLink ? (
+                  <div className="flex h-full w-full items-center justify-center rounded-md bg-muted px-2 text-center text-xs text-muted-foreground">
+                    Playing on {currentTrack.submissionType === 'spotify' ? 'Spotify' : 'YouTube'}. Use controls to continue.
+                  </div>
+                ) : isWaveformLoading ? (
                   <Skeleton className="h-8 w-full" />
                 ) : waveformData ? (
                   <Waveform
@@ -360,12 +393,11 @@ export function MusicPlayer() {
                 )}
               </div>
               <span className="w-10 text-left text-xs text-muted-foreground">
-                {formatTime(duration)}
+                {isExternalLink ? "--:--" : formatTime(duration)}
               </span>
             </div>
           </div>
 
-          {/* Right Section: Extra Controls */}
           <div className="flex w-1/4 items-center justify-end gap-2">
             <Button
               variant="ghost"

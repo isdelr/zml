@@ -69,7 +69,7 @@ export const create = mutation({
     if (args.maxPositiveVotes < 1 || args.maxPositiveVotes > 10) {
       throw new Error("Upvotes must be between 1 and 10.");
     }
-    
+
     let inviteCode;
     let isUnique = false;
     while (!isUnique) {
@@ -98,8 +98,7 @@ export const create = mutation({
       userId,
       leagueId,
     });
-    
- 
+
     await ctx.db.insert("leagueStandings", {
       leagueId,
       userId,
@@ -345,7 +344,6 @@ export const joinWithInviteCode = mutation({
       leagueId: league._id,
     });
 
-
     await ctx.db.insert("leagueStandings", {
       leagueId: league._id,
       userId,
@@ -384,7 +382,6 @@ export const joinPublicLeague = mutation({
       return "already_joined";
     }
     await ctx.db.insert("memberships", { userId, leagueId: league._id });
-    
 
     await ctx.db.insert("leagueStandings", {
       leagueId: league._id,
@@ -467,16 +464,17 @@ export const kickMember = mutation({
 
     const standing = await ctx.db
       .query("leagueStandings")
-      .withIndex("by_league_and_user", q => q.eq("leagueId", args.leagueId).eq("userId", args.memberIdToKick))
+      .withIndex("by_league_and_user", (q) =>
+        q.eq("leagueId", args.leagueId).eq("userId", args.memberIdToKick),
+      )
       .first();
-    if(standing) {
-        await ctx.db.delete(standing._id);
+    if (standing) {
+      await ctx.db.delete(standing._id);
     }
-    
+
     return "Member kicked successfully.";
   },
 });
-
 
 export const getLeagueStandings = query({
   args: { leagueId: v.id("leagues") },
@@ -583,43 +581,74 @@ export const getLeagueStats = query({
     const memberMap = new Map(
       members.map((m) => [m._id, { name: m.name, image: m.image }]),
     );
-    const standings = await ctx.db.query("leagueStandings").withIndex("by_league_and_user", q => q.eq("leagueId", args.leagueId)).collect();
+    const standings = await ctx.db
+      .query("leagueStandings")
+      .withIndex("by_league_and_user", (q) => q.eq("leagueId", args.leagueId))
+      .collect();
 
     const mostWins = standings.sort((a, b) => b.totalWins - a.totalWins);
-    const overlord = mostWins.length > 0 ? { userId: mostWins[0].userId, count: mostWins[0].totalWins } : null;
+    const overlord =
+      mostWins.length > 0
+        ? { userId: mostWins[0].userId, count: mostWins[0].totalWins }
+        : null;
 
     const userUpvotes = new Map<Id<"users">, number>();
     const userDownvotes = new Map<Id<"users">, number>();
-    const submissionSubmitterMap = new Map(results.map(r => [r.submissionId, r.userId]));
+    const submissionSubmitterMap = new Map(
+      results.map((r) => [r.submissionId, r.userId]),
+    );
     votes.forEach((vote) => {
-        const submitterId = submissionSubmitterMap.get(vote.submissionId);
-        if(!submitterId) return;
-        if(vote.vote > 0) userUpvotes.set(submitterId, (userUpvotes.get(submitterId) ?? 0) + 1);
-        if(vote.vote < 0) userDownvotes.set(submitterId, (userDownvotes.get(submitterId) ?? 0) + 1);
+      const submitterId = submissionSubmitterMap.get(vote.submissionId);
+      if (!submitterId) return;
+      if (vote.vote > 0)
+        userUpvotes.set(submitterId, (userUpvotes.get(submitterId) ?? 0) + 1);
+      if (vote.vote < 0)
+        userDownvotes.set(
+          submitterId,
+          (userDownvotes.get(submitterId) ?? 0) + 1,
+        );
     });
 
     const mostUpvotes = [...userUpvotes.entries()].sort((a, b) => b[1] - a[1]);
-    const peopleChampion = mostUpvotes.length > 0 ? { userId: mostUpvotes[0][0], count: mostUpvotes[0][1] } : null;
-    const mostDownvotes = [...userDownvotes.entries()].sort((a, b) => b[1] - a[1]);
-    const mostControversial = mostDownvotes.length > 0 ? { userId: mostDownvotes[0][0], count: mostDownvotes[0][1] } : null;
+    const peopleChampion =
+      mostUpvotes.length > 0
+        ? { userId: mostUpvotes[0][0], count: mostUpvotes[0][1] }
+        : null;
+    const mostDownvotes = [...userDownvotes.entries()].sort(
+      (a, b) => b[1] - a[1],
+    );
+    const mostControversial =
+      mostDownvotes.length > 0
+        ? { userId: mostDownvotes[0][0], count: mostDownvotes[0][1] }
+        : null;
 
     const userVoteCount = new Map<Id<"users">, number>();
-    votes.forEach((vote) => userVoteCount.set(vote.userId, (userVoteCount.get(vote.userId) ?? 0) + 1));
-    const mostVotesCast = [...userVoteCount.entries()].sort((a, b) => b[1] - a[1]);
-    const prolificVoter = mostVotesCast.length > 0 ? { userId: mostVotesCast[0][0], count: mostVotesCast[0][1] } : null;
+    votes.forEach((vote) =>
+      userVoteCount.set(vote.userId, (userVoteCount.get(vote.userId) ?? 0) + 1),
+    );
+    const mostVotesCast = [...userVoteCount.entries()].sort(
+      (a, b) => b[1] - a[1],
+    );
+    const prolificVoter =
+      mostVotesCast.length > 0
+        ? { userId: mostVotesCast[0][0], count: mostVotesCast[0][1] }
+        : null;
 
-    const topResult = results.length > 0 ? results.sort((a, b) => b.points - a.points)[0] : null;
+    const topResult =
+      results.length > 0
+        ? results.sort((a, b) => b.points - a.points)[0]
+        : null;
 
     const submissions = (
-        await Promise.all(
-          roundIds.map((roundId) =>
-            ctx.db
-              .query("submissions")
-              .withIndex("by_round", (q) => q.eq("roundId", roundId))
-              .collect(),
-          ),
-        )
-      ).flat();
+      await Promise.all(
+        roundIds.map((roundId) =>
+          ctx.db
+            .query("submissions")
+            .withIndex("by_round", (q) => q.eq("roundId", roundId))
+            .collect(),
+        ),
+      )
+    ).flat();
 
     const genreCounts: Record<string, number> = {};
     const roundsMap = new Map(finishedRounds.map((r) => [r._id.toString(), r]));
@@ -631,9 +660,14 @@ export const getLeagueStats = query({
         });
       }
     });
-    const genreBreakdown = Object.entries(genreCounts).map(([name, value]) => ({ name, value }));
+    const genreBreakdown = Object.entries(genreCounts).map(([name, value]) => ({
+      name,
+      value,
+    }));
 
-    const formatUserStat = (stat: { userId: Id<"users">; count: number } | null) => {
+    const formatUserStat = (
+      stat: { userId: Id<"users">; count: number } | null,
+    ) => {
       if (!stat) return null;
       const user = memberMap.get(stat.userId);
       if (!user) return null;
@@ -644,7 +678,13 @@ export const getLeagueStats = query({
       if (!result) return null;
       const submission = await ctx.db.get(result.submissionId);
       if (!submission) return null;
-      const albumArtUrl = await r2.getUrl(submission.albumArtKey);
+      let albumArtUrl: string | null = null;
+      if (submission.submissionType === "file" && submission.albumArtKey) {
+        albumArtUrl = await r2.getUrl(submission.albumArtKey);
+      } else {
+        albumArtUrl = submission.albumArtUrlValue ?? null;
+      }
+
       const submitter = memberMap.get(submission.userId);
       return {
         songTitle: submission.songTitle,
@@ -696,7 +736,9 @@ export const searchInLeague = query({
 
     // Step 3: Get the IDs of only the rounds that are in 'voting' or 'finished' states
     const searchableRoundIds = allRounds
-      .filter((round) => round.status === "voting" || round.status === "finished")
+      .filter(
+        (round) => round.status === "voting" || round.status === "finished",
+      )
       .map((round) => round._id);
 
     let searchableSubmissions: Doc<"submissions">[] = [];
