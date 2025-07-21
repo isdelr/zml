@@ -676,10 +676,14 @@ export const searchInLeague = query({
       return { rounds: [], songs: [] };
     }
     const lowerCaseSearch = args.searchText.toLowerCase();
+
+    // Step 1: Get all rounds for the league (no changes here)
     const allRounds = await ctx.db
       .query("rounds")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .collect();
+
+    // Step 2: Filter rounds for the "Rounds" section of the search results (no changes here)
     const filteredRounds = allRounds
       .filter(
         (round) =>
@@ -687,19 +691,34 @@ export const searchInLeague = query({
           round.description.toLowerCase().includes(lowerCaseSearch),
       )
       .slice(0, 5);
-    const allSubmissions = (
-      await Promise.all(
-        allRounds.map((round) =>
-          ctx.db
-            .query("submissions")
-            .withIndex("by_round", (q) => q.eq("roundId", round._id))
-            .collect(),
-        ),
-      )
-    ).flat();
+
+    // --- Start of the fix ---
+
+    // Step 3: Get the IDs of only the rounds that are in 'voting' or 'finished' states
+    const searchableRoundIds = allRounds
+      .filter((round) => round.status === "voting" || round.status === "finished")
+      .map((round) => round._id);
+
+    let searchableSubmissions: Doc<"submissions">[] = [];
+
+    // Step 4: Fetch submissions ONLY from those searchable rounds
+    if (searchableRoundIds.length > 0) {
+      searchableSubmissions = (
+        await Promise.all(
+          searchableRoundIds.map((roundId) =>
+            ctx.db
+              .query("submissions")
+              .withIndex("by_round", (q) => q.eq("roundId", roundId))
+              .collect(),
+          ),
+        )
+      ).flat();
+    }
+
+    // Step 5: Filter this valid list of submissions by the search text
     const filteredSongs = (
       await Promise.all(
-        allSubmissions
+        searchableSubmissions // Use the new, pre-filtered list
           .filter(
             (song) =>
               song.songTitle.toLowerCase().includes(lowerCaseSearch) ||
@@ -722,7 +741,10 @@ export const searchInLeague = query({
             };
           }),
       )
-    ).filter((s) => s !== null);
+    ).filter((s): s is NonNullable<typeof s> => s !== null);
+
+    // --- End of the fix ---
+
     return { rounds: filteredRounds, songs: filteredSongs };
   },
 });
