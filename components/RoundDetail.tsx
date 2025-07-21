@@ -39,6 +39,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -161,17 +172,36 @@ function AdminControls({
       <CardContent className="flex flex-wrap items-center gap-4">
         {round.status === "submissions" && (
           <>
-            <Button
-              onClick={() =>
-                handleAction(
-                  manageRoundState,
-                  { roundId: round._id, action: "startVoting" },
-                  "Voting has been started!",
-                )
-              }
-            >
-              Start Voting Now
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button>Start Voting Now</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Are you sure you want to start the voting phase?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will close submissions for the current round. This
+                    action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() =>
+                      handleAction(
+                        manageRoundState,
+                        { roundId: round._id, action: "startVoting" },
+                        "Voting has been started!",
+                      )
+                    }
+                  >
+                    Continue
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Dialog open={isEditRoundOpen} onOpenChange={setIsEditRoundOpen}>
               <DialogTrigger asChild>
                 <Button
@@ -197,21 +227,44 @@ function AdminControls({
           </>
         )}
         {round.status === "voting" && (
-          <Button
-            onClick={() =>
-              handleAction(
-                manageRoundState,
-                { roundId: round._id, action: "endVoting" },
-                "Round has been finished!",
-              )
-            }
-            disabled={!canEndVoting}
-            title={
-              !canEndVoting ? "Requires at least 1 submission and 1 vote." : ""
-            }
-          >
-            End Round Now
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                disabled={!canEndVoting}
+                title={
+                  !canEndVoting ? "Requires at least 1 submission and 1 vote." : ""
+                }
+              >
+                End Round Now
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Are you sure you want to end this round?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will finalize the voting, calculate the results, and
+                  finish the round. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={!canEndVoting}
+                  onClick={() =>
+                    handleAction(
+                      manageRoundState,
+                      { roundId: round._id, action: "endVoting" },
+                      "Round has been finished!",
+                    )
+                  }
+                >
+                  End Round
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
         {(round.status === "submissions" || round.status === "voting") && (
           <>
@@ -490,7 +543,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           ) : userHasSubmitted ? (
             <Alert>
               <Music className="size-4" />
-              <AlertTitle>You&apos;re All Set!</AlertTitle>
+              <AlertTitle>Your&apos;e All Set!</AlertTitle>
               <AlertDescription>
                 You&apos;ve submitted your track for this round. Sit tight until the
                 voting period begins!
