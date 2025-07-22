@@ -21,7 +21,6 @@ interface SubmissionCommentsProps {
 
 export function SubmissionComments({
   submissionId,
-  roundStatus,
 }: SubmissionCommentsProps) {
   const [commentText, setCommentText] = useState("");
   const { isAuthenticated } = useConvexAuth();
@@ -84,8 +83,6 @@ export function SubmissionComments({
     );
   };
 
-  const isAnonymous = roundStatus === "voting";
-
   return (
     <div className="-mx-4 mt-2 space-y-4 rounded-md bg-muted/50 p-4 pt-4">
       {isAuthenticated && (
@@ -135,27 +132,18 @@ export function SubmissionComments({
         {comments?.map((comment) => (
           <div key={comment._id} className="flex items-start gap-3">
             <Avatar className="size-8 flex-shrink-0">
-              <AvatarImage
-                src={
-                  isAnonymous ? undefined : (comment.authorImage ?? undefined)
-                }
-              />
+              <AvatarImage src={comment.authorImage ?? undefined} />
               <AvatarFallback>
                 <div
                   dangerouslySetInnerHTML={{
-                    __html: toSvg(
-                      isAnonymous ? comment._id : comment.userId,
-                      32,
-                    ),
+                    __html: toSvg(comment.userId, 32),
                   }}
                 />
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <div className="flex items-center gap-2 text-sm">
-                <span className="font-semibold">
-                  {isAnonymous ? "Anonymous" : comment.authorName}
-                </span>
+                <span className="font-semibold">{comment.authorName}</span>
                 <span className="text-xs text-muted-foreground">
                   {formatDistanceToNow(comment._creationTime, {
                     addSuffix: true,
@@ -172,30 +160,41 @@ export function SubmissionComments({
 }
 
 // Helper function for formatting time
-function formatDistanceToNow(timestamp: number, options: { addSuffix: boolean }) {
+function formatDistanceToNow(
+  timestamp: number,
+  options: { addSuffix: boolean },
+) {
   const date = new Date(timestamp);
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  
+
   if (diffInSeconds < 60) {
-    return options.addSuffix ? 'just now' : 'less than a minute';
+    return options.addSuffix ? "just now" : "less than a minute";
   }
-  
+
   const diffInMinutes = Math.floor(diffInSeconds / 60);
   if (diffInMinutes < 60) {
-    return options.addSuffix ? `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago` : `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''}`;
+    return options.addSuffix
+      ? `${diffInMinutes} minute${diffInMinutes !== 1 ? "s" : ""} ago`
+      : `${diffInMinutes} minute${diffInMinutes !== 1 ? "s" : ""}`;
   }
-  
+
   const diffInHours = Math.floor(diffInMinutes / 60);
   if (diffInHours < 24) {
-    return options.addSuffix ? `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago` : `${diffInHours} hour${diffInHours !== 1 ? 's' : ''}`;
+    return options.addSuffix
+      ? `${diffInHours} hour${diffInHours !== 1 ? "s" : ""} ago`
+      : `${diffInHours} hour${diffInHours !== 1 ? "s" : ""}`;
   }
-  
+
   const diffInDays = Math.floor(diffInHours / 24);
   if (diffInDays < 30) {
-    return options.addSuffix ? `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago` : `${diffInDays} day${diffInDays !== 1 ? 's' : ''}`;
+    return options.addSuffix
+      ? `${diffInDays} day${diffInDays !== 1 ? "s" : ""} ago`
+      : `${diffInDays} day${diffInDays !== 1 ? "s" : ""}`;
   }
-  
+
   const diffInMonths = Math.floor(diffInDays / 30);
-  return options.addSuffix ? `${diffInMonths} month${diffInMonths !== 1 ? 's' : ''} ago` : `${diffInMonths} month${diffInMonths !== 1 ? 's' : ''}`;
+  return options.addSuffix
+    ? `${diffInMonths} month${diffInMonths !== 1 ? "s" : ""} ago`
+    : `${diffInMonths} month${diffInMonths !== 1 ? "s" : ""}`;
 }

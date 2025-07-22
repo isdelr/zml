@@ -163,23 +163,34 @@ export const editSong = mutation({
     }
     
     // --- Start of Fix ---
-    const {
-      submissionId,
-      albumArtKey,
-      songFileKey,
-      songLink,
-      albumArtUrlValue,
-      ...rest
-    } = args;
+    const { submissionId, ...rest } = args;
 
-    const updates = {
-      ...rest,
-      albumArtKey: albumArtKey === null ? undefined : albumArtKey,
-      songFileKey: songFileKey === null ? undefined : songFileKey,
-      songLink: songLink === null ? undefined : songLink,
-      albumArtUrlValue:
-        albumArtUrlValue === null ? undefined : albumArtUrlValue,
-    };
+    // The updates object will be what we pass to patch.
+    const updates: Partial<Doc<"submissions">> = {};
+    
+    // Iterate over the arguments and only add defined values to the update payload.
+    // This prevents accidentally unsetting fields that were not part of the edit.
+    for (const [key, value] of Object.entries(rest)) {
+        if (value !== undefined) {
+            (updates as any)[key] = value;
+        }
+    }
+
+    // `patch` uses `undefined` to unset fields.
+    // Handle explicit deletion from the client, which sends `null`.
+    if (args.albumArtKey === null) updates.albumArtKey = undefined;
+    if (args.songFileKey === null) updates.songFileKey = undefined;
+    if (args.songLink === null) updates.songLink = undefined;
+    if (args.albumArtUrlValue === null) updates.albumArtUrlValue = undefined;
+    
+    // Clean up fields from the other submission type.
+    if (args.submissionType === 'file') {
+        updates.songLink = undefined;
+        updates.albumArtUrlValue = undefined;
+    } else { // It's a 'spotify' or 'youtube' link
+        updates.albumArtKey = undefined;
+        updates.songFileKey = undefined;
+    }
 
     await ctx.db.patch(submissionId, updates);
     // --- End of Fix ---

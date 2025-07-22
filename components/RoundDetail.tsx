@@ -51,6 +51,17 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     roundId: round._id,
   });
 
+  const sortedSubmissions = useMemo(() => {
+    if (!submissions) return undefined;
+    return [...submissions].sort((a, b) => {
+      const aIsFile = a.submissionType === 'file';
+      const bIsFile = b.submissionType === 'file';
+      if (aIsFile && !bIsFile) return -1;
+      if (!aIsFile && bIsFile) return 1;
+      return 0;
+    });
+  }, [submissions]);
+
   const { pendingUpvotes, pendingDownvotes } = useMemo(() => {
     if (!userVoteStatus?.votes)
       return { pendingUpvotes: 0, pendingDownvotes: 0 };
@@ -85,7 +96,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     if (isThisSongCurrent) {
       playerActions.togglePlayPause();
     } else {
-      playerActions.playRound(submissions as Song[], index);
+      playerActions.playRound(sortedSubmissions as Song[], index);
     }
   };
 
@@ -101,7 +112,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
       <RoundHeader
         round={round}
-        submissions={submissions}
+        submissions={sortedSubmissions}
         onPlayAll={(songs, startIndex) =>
           playerActions.playRound(songs, startIndex)
         }
@@ -139,7 +150,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
       {(round.status === "voting" || round.status === "finished") && (
         <SubmissionsList
-          submissions={submissions}
+          submissions={sortedSubmissions}
           userVoteStatus={userVoteStatus}
           currentUser={currentUser}
           roundStatus={round.status}

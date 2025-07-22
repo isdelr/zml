@@ -136,12 +136,11 @@ export function EditSubmissionForm({
         if (values.songFile && values.songFile.size > 0) {
           songFileKey = await uploadFile(values.songFile);
         }
-        const isAlbumArtMissing = albumArtKey === null;
+        const isAlbumArtMissing = albumArtKey === null || (!albumArtKey && !submission.albumArtKey);
         const isSongFileMissing = !songFileKey && !submission.songFileKey;
         if (isAlbumArtMissing || isSongFileMissing) {
-          throw new Error(
-            "A song file and album art are required for this submission type.",
-          );
+          toast.error("An album art and song file are required for file submissions.", { id: toastId });
+          return;
         }
         const patchPayload: Parameters<typeof editSong>[0] = {
           submissionId: submission._id,

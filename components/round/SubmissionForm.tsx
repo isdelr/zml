@@ -3,7 +3,13 @@
 import { SongSubmissionForm } from "@/components/SongSubmissionForm";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Edit } from "lucide-react";
 import Image from "next/image";
@@ -48,9 +54,7 @@ export function SubmissionForm({
                   />
                 )}
                 <div>
-                  <p className="font-semibold">
-                    {mySubmission.songTitle}
-                  </p>
+                  <p className="font-semibold">{mySubmission.songTitle}</p>
                   <p className="text-sm text-muted-foreground">
                     {mySubmission.artist}
                   </p>

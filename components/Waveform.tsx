@@ -211,7 +211,7 @@ export function Waveform({
                   </Avatar>
                   <p className="text-sm font-semibold">{comment.authorName}</p>
                 </div>
-                <blockquote className="border-l-2 pl-3 text-sm italic">
+                <blockquote className="border-l-2 pl-3 text-sm italic break-words">
                   {comment.text}
                 </blockquote>
                 <p className="text-right text-xs text-muted-foreground">

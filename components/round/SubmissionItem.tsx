@@ -53,8 +53,8 @@ export function SubmissionItem({
     points > 0
       ? "text-green-400"
       : points < 0
-      ? "text-red-400"
-      : "text-muted-foreground";
+        ? "text-red-400"
+        : "text-muted-foreground";
 
   const PlayButton = () => (
     <Button variant="ghost" size="icon" className="size-8" onClick={onPlaySong}>
@@ -79,14 +79,16 @@ export function SubmissionItem({
           src={
             roundStatus === "voting"
               ? undefined
-              : song.submittedByImage ?? undefined
+              : (song.submittedByImage ?? undefined)
           }
           alt={roundStatus === "voting" ? "Anonymous" : song.submittedBy}
         />
         <AvatarFallback
           dangerouslySetInnerHTML={{
             __html: toSvg(
-              roundStatus === "voting" ? song._id : song.submittedBy ?? song.userId,
+              roundStatus === "voting"
+                ? song._id
+                : (song.submittedBy ?? song.userId),
               24,
             ),
           }}
@@ -125,16 +127,25 @@ export function SubmissionItem({
             className="rounded"
           />
           <div>
-            <p className={cn("font-semibold", isThisSongCurrent && "text-primary")}>
+            <p
+              className={cn(
+                "font-semibold",
+                isThisSongCurrent && "text-primary",
+              )}
+            >
               {song.songTitle}
             </p>
             <p className="text-sm text-muted-foreground">{song.artist}</p>
           </div>
         </div>
 
-        {/* Desktop-only Submitter Info */}
-        <div className="hidden md:flex">
+        <div className="hidden md:block">
           <SubmitterInfo />
+          {comment && (
+            <blockquote className="mt-1 border-l-2 pl-2 text-xs italic text-muted-foreground">
+              {comment}
+            </blockquote>
+          )}
         </div>
 
         {/* Desktop-only Points */}
@@ -153,7 +164,10 @@ export function SubmissionItem({
             className="relative"
           >
             <ArrowUp
-              className={cn("size-5", pendingSongVotes.up > 0 && "fill-green-400/20 text-green-400")}
+              className={cn(
+                "size-5",
+                pendingSongVotes.up > 0 && "fill-green-400/20 text-green-400",
+              )}
             />
             {pendingSongVotes.up > 0 && (
               <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-green-500 text-xs text-white">
@@ -170,7 +184,10 @@ export function SubmissionItem({
             className="relative"
           >
             <ArrowDown
-              className={cn("size-5", pendingSongVotes.down > 0 && "fill-red-400/20 text-red-400")}
+              className={cn(
+                "size-5",
+                pendingSongVotes.down > 0 && "fill-red-400/20 text-red-400",
+              )}
             />
             {pendingSongVotes.down > 0 && (
               <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
@@ -178,33 +195,53 @@ export function SubmissionItem({
               </span>
             )}
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Bookmark" onClick={onBookmark}>
-            <Bookmark className={cn("size-5", isBookmarked && "fill-primary text-primary")} />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Bookmark"
+            onClick={onBookmark}
+          >
+            <Bookmark
+              className={cn(
+                "size-5",
+                isBookmarked && "fill-primary text-primary",
+              )}
+            />
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Comments" onClick={onToggleComments}>
-            <MessageSquare className={cn("size-5", isCommentsVisible && "fill-accent")} />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Comments"
+            onClick={onToggleComments}
+          >
+            <MessageSquare
+              className={cn("size-5", isCommentsVisible && "fill-accent")}
+            />
           </Button>
         </div>
-        
+
         {/* Mobile-only info row */}
         <div className="col-span-full space-y-2 pl-[56px] md:hidden">
-            <div className="flex items-center justify-between">
-                <SubmitterInfo />
-                <div className={cn("font-bold text-sm", pointColor)}>
-                     {roundStatus === "finished" ? `${points} pts` : "?"}
-                </div>
+          <div className="flex items-center justify-between">
+            <SubmitterInfo />
+            <div className={cn("font-bold text-sm", pointColor)}>
+              {roundStatus === "finished" ? `${points} pts` : "?"}
             </div>
-             {comment && (
-                <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground">
-                    {comment}
-                </blockquote>
-            )}
+          </div>
+          {comment && (
+            <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground">
+              {comment}
+            </blockquote>
+          )}
         </div>
       </div>
-      
+
       {isCommentsVisible && (
         <div className="p-3 pt-0 md:px-4 md:pb-4">
-          <SubmissionComments submissionId={song._id as Id<"submissions">} roundStatus={roundStatus} />
+          <SubmissionComments
+            submissionId={song._id as Id<"submissions">}
+            roundStatus={roundStatus}
+          />
         </div>
       )}
     </div>

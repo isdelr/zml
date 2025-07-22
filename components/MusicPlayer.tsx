@@ -12,11 +12,29 @@ import { WaveformComment } from "./Waveform";
 import { dynamicImport } from "@/components/ui/dynamic-import";
 
 // Dynamically import components
-const PlayerTrackInfo = dynamicImport(() => import("@/components/player/PlayerTrackInfo").then(mod => ({ default: mod.PlayerTrackInfo })));
-const PlayerControls = dynamicImport(() => import("@/components/player/PlayerControls").then(mod => ({ default: mod.PlayerControls })));
-const PlayerProgress = dynamicImport(() => import("@/components/player/PlayerProgress").then(mod => ({ default: mod.PlayerProgress })));
-const PlayerActions = dynamicImport(() => import("@/components/player/PlayerActions").then(mod => ({ default: mod.PlayerActions })));
-const MusicQueue = dynamicImport(() => import("./MusicQueue").then(mod => ({ default: mod.MusicQueue })));
+const PlayerTrackInfo = dynamicImport(() =>
+  import("@/components/player/PlayerTrackInfo").then((mod) => ({
+    default: mod.PlayerTrackInfo,
+  })),
+);
+const PlayerControls = dynamicImport(() =>
+  import("@/components/player/PlayerControls").then((mod) => ({
+    default: mod.PlayerControls,
+  })),
+);
+const PlayerProgress = dynamicImport(() =>
+  import("@/components/player/PlayerProgress").then((mod) => ({
+    default: mod.PlayerProgress,
+  })),
+);
+const PlayerActions = dynamicImport(() =>
+  import("@/components/player/PlayerActions").then((mod) => ({
+    default: mod.PlayerActions,
+  })),
+);
+const MusicQueue = dynamicImport(() =>
+  import("./MusicQueue").then((mod) => ({ default: mod.MusicQueue })),
+);
 
 export function MusicPlayer() {
   const {
@@ -26,6 +44,7 @@ export function MusicPlayer() {
     repeatMode,
     isShuffled,
     seekTo,
+    volume,
     actions,
   } = useMusicPlayerStore();
   const currentTrack =
@@ -40,6 +59,7 @@ export function MusicPlayer() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [waveformData, setWaveformData] = useState<WaveformData | null>(null);
   const [isWaveformLoading, setIsWaveformLoading] = useState(false);
+  const [lastVolume, setLastVolume] = useState(volume);
 
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
   const { isAuthenticated } = useConvexAuth();
@@ -53,6 +73,12 @@ export function MusicPlayer() {
       audioContextRef.current = new AudioContext();
     }
   }, []);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
 
   useEffect(() => {
     if (seekTo !== null && audioRef.current) {
@@ -74,7 +100,6 @@ export function MusicPlayer() {
   const waveformComments = useMemo((): WaveformComment[] => {
     if (!commentsData || !currentTrack) return [];
 
-    const isAnonymous = currentTrack.roundStatus === "voting";
 
     const parseTimeToSeconds = (timeStr: string): number => {
       const parts = timeStr.split(":").map(Number);
@@ -96,9 +121,9 @@ export function MusicPlayer() {
             id: comment._id,
             time,
             text: comment.text.replace(timestampRegex, "").trim(),
-            authorName: isAnonymous ? "Anonymous" : comment.authorName,
-            authorImage: isAnonymous ? null : comment.authorImage,
-            authorId: isAnonymous ? comment._id : comment.userId,
+          authorName: comment.authorName,
+          authorImage: comment.authorImage,
+          authorId: comment.userId,
           });
         }
       }
@@ -107,40 +132,49 @@ export function MusicPlayer() {
     return timestampedComments;
   }, [commentsData, currentTrack]);
 
-  useEffect(() => {
-    if (
-      currentTrack?.submissionType === "file" &&
-      currentTrack?.songFileUrl &&
-      audioContextRef.current
-    ) {
-      setWaveformData(null);
-      setIsWaveformLoading(true);
+useEffect(() => {
+  if (
+    currentTrack?.submissionType === "file" &&
+    currentTrack?.songFileUrl &&
+    audioContextRef.current
+  ) {
+    setWaveformData(null);
+    setIsWaveformLoading(true);
 
-      fetch(currentTrack.songFileUrl)
-        .then((response) => response.arrayBuffer())
-        .then((buffer) => {
-          const options = {
-            audio_context: audioContextRef.current!,
-            array_buffer: buffer,
-            scale: 512,
-          };
-          WaveformData.createFromAudio(options, (err, waveform) => {
-            setIsWaveformLoading(false);
-            if (err) {
-              console.error("Error creating waveform:", err);
-            } else {
-              setWaveformData(waveform);
-            }
-          });
-        })
-        .catch((error) => {
-          console.error("Error fetching audio for waveform:", error);
+    // Add the { cache: 'no-cache' } option here
+    fetch(currentTrack.songFileUrl, { cache: 'no-cache' })
+      .then((response) => {
+        if (!response.ok) {
+          // Add this check to provide better error details if the fetch fails
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.arrayBuffer();
+      })
+      .then((buffer) => {
+        const options = {
+          audio_context: audioContextRef.current!,
+          array_buffer: buffer,
+          scale: 512,
+        };
+        WaveformData.createFromAudio(options, (err, waveform) => {
           setIsWaveformLoading(false);
+          if (err) {
+            console.error("Error creating waveform:", err);
+          } else {
+            setWaveformData(waveform);
+          }
         });
-    } else {
-      setWaveformData(null);
-    }
- }, [currentTrack?.songFileUrl, currentTrack?.submissionType]);
+      })
+      .catch((error) => {
+        // This will now catch CORS errors and other fetch issues more reliably
+        console.error("Error fetching audio for waveform:", error);
+        toast.error("Could not load waveform. The audio file might be unavailable or blocked.");
+        setIsWaveformLoading(false);
+      });
+  } else {
+    setWaveformData(null);
+  }
+}, [currentTrack?.songFileUrl, currentTrack?.submissionType]);
 
   useEffect(() => {
     if (currentTrack) {
@@ -173,7 +207,7 @@ export function MusicPlayer() {
   useEffect(() => {
     const audioElement = audioRef.current;
     if (!audioElement || !currentTrack) return;
-
+    audioElement.volume = volume;
     if (isExternalLink) {
       audioElement.pause();
       if (isPlaying && currentTrack._id !== lastOpenedTrackId.current) {
@@ -205,7 +239,7 @@ export function MusicPlayer() {
       }
     };
     handlePlayback();
-  }, [currentTrack, isPlaying, actions, isExternalLink]);
+  }, [currentTrack, isPlaying, actions, isExternalLink, volume]);
 
   const handleTimeUpdate = () => {
     const audioElement = audioRef.current;
@@ -232,6 +266,19 @@ export function MusicPlayer() {
     }
   };
 
+  const handleVolumeChange = (newVolume: number) => {
+    actions.setVolume(newVolume);
+  };
+
+  const handleMuteToggle = () => {
+    if (volume > 0) {
+      setLastVolume(volume); // Store current volume
+      actions.setVolume(0); // Mute
+    } else {
+      actions.setVolume(lastVolume > 0 ? lastVolume : 1); // Unmute to last known volume or full
+    }
+  };
+
   if (!currentTrack) {
     return null;
   }
@@ -248,14 +295,14 @@ export function MusicPlayer() {
       <MusicQueue isOpen={isQueueOpen} onOpenChange={setIsQueueOpen} />
       <footer className="fixed bottom-16 left-0 right-0 z-50 h-auto border-t border-border bg-background text-foreground md:bottom-0 md:h-20">
         <div className="flex h-full flex-col items-center justify-between p-2 md:flex-row md:px-4">
-          <PlayerTrackInfo 
+          <PlayerTrackInfo
             currentTrack={currentTrack}
             isBookmarked={isBookmarked}
             onBookmarkToggle={handleBookmarkToggle}
           />
 
           <div className="flex w-full flex-1 flex-col items-center justify-center gap-1 md:px-4">
-            <PlayerControls 
+            <PlayerControls
               isPlaying={isPlaying}
               isExternalLink={isExternalLink}
               isShuffled={isShuffled}
@@ -268,11 +315,11 @@ export function MusicPlayer() {
               onToggleRepeat={actions.toggleRepeat}
             />
 
-            <PlayerProgress 
+            <PlayerProgress
               isExternalLink={isExternalLink}
               isWaveformLoading={isWaveformLoading}
               waveformData={waveformData}
-                currentTrack={currentTrack}
+              currentTrack={currentTrack}
               progress={progress}
               duration={duration}
               comments={waveformComments}
@@ -280,10 +327,13 @@ export function MusicPlayer() {
             />
           </div>
 
-          <PlayerActions 
+          <PlayerActions
             isBookmarked={isBookmarked}
             onBookmarkToggle={handleBookmarkToggle}
             onQueueOpen={() => setIsQueueOpen(true)}
+            volume={volume}
+            onVolumeChange={handleVolumeChange}
+            onMuteToggle={handleMuteToggle}
           />
         </div>
       </footer>
