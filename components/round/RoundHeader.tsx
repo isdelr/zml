@@ -12,11 +12,17 @@ interface RoundHeaderProps {
   round: Doc<"rounds"> & { art: string | null; submissionCount: number };
   submissions: unknown[] | undefined;
   onPlayAll: (submissions: Song[], startIndex: number) => void;
-    positiveVotesRemaining: number;
+  positiveVotesRemaining: number;
   negativeVotesRemaining: number;
 }
 
-export function RoundHeader({ round, submissions, onPlayAll, positiveVotesRemaining, negativeVotesRemaining }: RoundHeaderProps) {
+export function RoundHeader({
+  round,
+  submissions,
+  onPlayAll,
+  positiveVotesRemaining,
+  negativeVotesRemaining,
+}: RoundHeaderProps) {
   return (
     <div className="mb-8 flex flex-col gap-6 md:flex-row md:gap-8">
       {round.art ? (
@@ -28,7 +34,7 @@ export function RoundHeader({ round, submissions, onPlayAll, positiveVotesRemain
           className="h-64 w-64 flex-shrink-0 rounded-md object-cover"
         />
       ) : (
-        <div 
+        <div
           className="h-64 w-64 flex-shrink-0 rounded-md bg-muted"
           dangerouslySetInnerHTML={{ __html: toSvg(round._id, 256) }}
         />
@@ -77,17 +83,15 @@ export function RoundHeader({ round, submissions, onPlayAll, positiveVotesRemain
             <div className="flex items-center gap-4">
               <div className="text-center">
                 <p className="text-lg font-bold text-green-400">
-{positiveVotesRemaining}
+                  {positiveVotesRemaining}
                 </p>
                 <p className="text-xs text-muted-foreground">Upvotes Left</p>
               </div>
               <div className="text-center">
                 <p className="text-lg font-bold text-red-400">
-         {negativeVotesRemaining}
+                  {negativeVotesRemaining}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  Downvotes Left
-                </p>
+                <p className="text-xs text-muted-foreground">Downvotes Left</p>
               </div>
             </div>
           </div>

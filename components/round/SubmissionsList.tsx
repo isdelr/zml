@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -10,7 +10,11 @@ import { SubmissionItem } from "./SubmissionItem";
 import { Song } from "@/types";
 
 interface SubmissionsListProps {
-  submissions: unknown[] | undefined;
+  submissions:
+    | (Song & {
+        league: { maxPositiveVotes: number; maxNegativeVotes: number };
+      })[]
+    | undefined;
   userVoteStatus: unknown;
   currentUser: unknown;
   roundStatus: "voting" | "finished" | "submissions";
@@ -22,6 +26,12 @@ interface SubmissionsListProps {
   isPlaying: boolean;
   queue: Song[];
   onPlaySong: (song: Song, index: number) => void;
+  pendingVotes: Record<string, { up: number; down: number }>;
+  onVoteClick: (
+    submissionId: Id<"submissions">,
+    voteType: "up" | "down",
+  ) => void;
+  onSubmitVotes: () => void;
 }
 
 export function SubmissionsList({
@@ -34,126 +44,21 @@ export function SubmissionsList({
   isPlaying,
   queue,
   onPlaySong,
+  pendingVotes,
+  onVoteClick,
+  onSubmitVotes,
 }: SubmissionsListProps) {
   const [visibleComments, setVisibleComments] = useState<
     Record<string, boolean>
   >({});
-  const [pendingVotes, setPendingVotes] = useState<
-    Record<string, { up: number; down: number }>
-  >({});
 
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
-  const submitVotes = useMutation(api.votes.submitVotes);
-
-  // Initialize pending votes from user vote status
-  useMemo(() => {
-    if (userVoteStatus?.votes && submissions) {
-      const initialVotes: Record<string, { up: number; down: number }> = {};
-      submissions.forEach((sub) => {
-        initialVotes[sub._id] = { up: 0, down: 0 };
-      });
-
-      userVoteStatus.votes.forEach((vote: unknown) => {
-        if (vote.vote > 0) {
-          initialVotes[vote.submissionId].up += 1;
-        } else if (vote.vote < 0) {
-          initialVotes[vote.submissionId].down += 1;
-        }
-      });
-      setPendingVotes(initialVotes);
-    }
-  }, [userVoteStatus, submissions]);
-
-  const { pendingUpvotes, pendingDownvotes } = useMemo(() => {
-    let up = 0;
-    let down = 0;
-    for (const subId in pendingVotes) {
-      up += pendingVotes[subId].up;
-      down += pendingVotes[subId].down;
-    }
-    return { pendingUpvotes: up, pendingDownvotes: down };
-  }, [pendingVotes]);
-
-  const positiveVotesRemaining = league.maxPositiveVotes - pendingUpvotes;
-  const negativeVotesRemaining = league.maxNegativeVotes - pendingDownvotes;
-
-  const canSubmit =
-    positiveVotesRemaining === 0 && negativeVotesRemaining === 0;
 
   const toggleComments = (submissionId: Id<"submissions">) => {
     setVisibleComments((prev) => ({
       ...prev,
       [submissionId]: !prev[submissionId],
     }));
-  };
-
-  const handleVoteClick = (
-    submissionId: Id<"submissions">,
-    voteType: "up" | "down",
-  ) => {
-    setPendingVotes((prev) => {
-      const newVotes = JSON.parse(JSON.stringify(prev));
-      const currentSongVotes = newVotes[submissionId] || { up: 0, down: 0 };
-
-      if (voteType === "up") {
-        if (currentSongVotes.down > 0) {
-          currentSongVotes.down -= 1;
-        } else if (positiveVotesRemaining > 0) {
-          currentSongVotes.up += 1;
-        } else {
-          toast.warning("No upvotes remaining.");
-        }
-      } else if (voteType === "down") {
-        if (currentSongVotes.up > 0) {
-          currentSongVotes.up -= 1;
-        } else if (negativeVotesRemaining > 0) {
-          currentSongVotes.down += 1;
-        } else {
-          toast.warning("No downvotes remaining.");
-        }
-      }
-      newVotes[submissionId] = currentSongVotes;
-      return newVotes;
-    });
-  };
-
-  const handleSubmitVotes = () => {
-    if (!canSubmit) {
-      toast.error("You must use all your available votes before submitting.");
-      return;
-    }
-
-    const votesToSubmit: {
-      submissionId: Id<"submissions">;
-      voteType: "up" | "down";
-    }[] = [];
-    for (const submissionId in pendingVotes) {
-      const { up, down } = pendingVotes[submissionId];
-      for (let i = 0; i < up; i++) {
-        votesToSubmit.push({
-          submissionId: submissionId as Id<"submissions">,
-          voteType: "up",
-        });
-      }
-      for (let i = 0; i < down; i++) {
-        votesToSubmit.push({
-          submissionId: submissionId as Id<"submissions">,
-          voteType: "down",
-        });
-      }
-    }
-
-    toast.promise(
-      submitVotes({
-        roundId: submissions[0].roundId,
-        votes: votesToSubmit,
-      }),
-      {
-        loading: "Submitting votes...",
-        success: "Votes submitted successfully!",
-        error: (err) => err.data?.message || "Failed to submit votes.",
-      },
-    );
   };
 
   const handleBookmark = (submissionId: Id<"submissions">) => {
@@ -180,6 +85,20 @@ export function SubmissionsList({
   const currentTrack =
     currentTrackIndex !== null ? queue[currentTrackIndex] : null;
 
+  const getVoteCounts = () => {
+    const up = Object.values(pendingVotes).reduce((s, v) => s + v.up, 0);
+    const down = Object.values(pendingVotes).reduce((s, v) => s + v.down, 0);
+    return {
+      positiveVotesRemaining: league.maxPositiveVotes - up,
+      negativeVotesRemaining: league.maxNegativeVotes - down,
+    };
+  };
+
+  const { positiveVotesRemaining, negativeVotesRemaining } = getVoteCounts();
+
+  const canSubmit =
+    positiveVotesRemaining === 0 && negativeVotesRemaining === 0;
+
   return (
     <div className="flex flex-col">
       <div className="hidden border-b border-border text-xs font-semibold uppercase text-muted-foreground md:block">
@@ -187,7 +106,8 @@ export function SubmissionsList({
           <span className="w-10 text-center">#</span>
           <span>TRACK</span>
           <span>SUBMITTED BY</span>
-
+          <span className="text-right">POINTS</span>
+          <span className="w-40 text-center">ACTIONS</span>
         </div>
       </div>
 
@@ -214,7 +134,7 @@ export function SubmissionsList({
             pendingSongVotes={pendingSongVotes}
             roundStatus={roundStatus}
             onToggleComments={() => toggleComments(song._id)}
-            onVoteClick={(voteType) => handleVoteClick(song._id, voteType)}
+            onVoteClick={(voteType) => onVoteClick(song._id, voteType)}
             onBookmark={() => handleBookmark(song._id)}
             onPlaySong={() => {
               if (isLinkSubmission && song.songLink) {
@@ -232,8 +152,13 @@ export function SubmissionsList({
       {roundStatus === "voting" &&
         submissions.length > 0 &&
         !userVoteStatus?.hasVoted && (
-          <div className="mt-8 flex justify-end">
-            <Button onClick={handleSubmitVotes} disabled={!canSubmit} size="lg">
+          <div className="sticky bottom-20 z-10 mt-8 flex justify-end md:bottom-4">
+            <Button
+              onClick={onSubmitVotes}
+              disabled={!canSubmit}
+              size="lg"
+              className="shadow-lg"
+            >
               {canSubmit ? "Submit Final Votes" : "Use All Votes to Submit"}
             </Button>
           </div>

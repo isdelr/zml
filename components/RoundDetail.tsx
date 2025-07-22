@@ -1,13 +1,14 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Doc } from "@/convex/_generated/dataModel";
+import { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
 import { dynamicImport } from "./ui/dynamic-import";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { AvatarStack } from "./AvatarStack";
+import { toast } from "sonner";
 
 // Dynamically import components
 const RoundAdminControls = dynamicImport(() =>
@@ -43,6 +44,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     queue,
   } = useMusicPlayerStore();
 
+  const submitVotes = useMutation(api.votes.submitVotes);
+
   const submissions = useQuery(api.submissions.getForRound, {
     roundId: round._id,
   });
@@ -51,31 +54,98 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     roundId: round._id,
   });
 
+  const [pendingVotes, setPendingVotes] = useState<
+    Record<string, { up: number; down: number }>
+  >({});
+
+  useEffect(() => {
+    if (userVoteStatus?.votes && submissions) {
+      const initialVotes: Record<string, { up: number; down: number }> = {};
+      submissions.forEach((sub) => {
+        initialVotes[sub._id] = { up: 0, down: 0 };
+      });
+
+      userVoteStatus.votes.forEach(
+        (vote: { submissionId: Id<"submissions">; vote: number }) => {
+          if (initialVotes[vote.submissionId]) {
+            if (vote.vote > 0) {
+              initialVotes[vote.submissionId].up += 1;
+            } else if (vote.vote < 0) {
+              initialVotes[vote.submissionId].down += 1;
+            }
+          }
+        },
+      );
+      setPendingVotes(initialVotes);
+    } else if (submissions) {
+      // Initialize with empty votes if no existing votes
+      const initialVotes: Record<string, { up: number; down: number }> = {};
+      submissions.forEach((sub) => {
+        initialVotes[sub._id] = { up: 0, down: 0 };
+      });
+      setPendingVotes(initialVotes);
+    }
+  }, [userVoteStatus, submissions]);
+
+  const { pendingUpvotes, pendingDownvotes } = useMemo(() => {
+    return Object.values(pendingVotes).reduce(
+      (acc, votes) => {
+        acc.pendingUpvotes += votes.up;
+        acc.pendingDownvotes += votes.down;
+        return acc;
+      },
+      { pendingUpvotes: 0, pendingDownvotes: 0 },
+    );
+  }, [pendingVotes]);
+
+  const positiveVotesRemaining = league.maxPositiveVotes - pendingUpvotes;
+  const negativeVotesRemaining = league.maxNegativeVotes - pendingDownvotes;
+
+  const canSubmit =
+    positiveVotesRemaining === 0 && negativeVotesRemaining === 0;
+
+  const handleSubmitVotes = () => {
+    if (!canSubmit) {
+      toast.error("You must use all your available votes before submitting.");
+      return;
+    }
+
+    const votesToSubmit = Object.entries(pendingVotes).flatMap(
+      ([submissionId, votes]) => [
+        ...Array(votes.up).fill({
+          submissionId: submissionId as Id<"submissions">,
+          voteType: "up",
+        }),
+        ...Array(votes.down).fill({
+          submissionId: submissionId as Id<"submissions">,
+          voteType: "down",
+        }),
+      ],
+    );
+
+    toast.promise(
+      submitVotes({
+        roundId: round._id,
+        votes: votesToSubmit,
+      }),
+      {
+        loading: "Submitting votes...",
+        success: "Votes submitted successfully!",
+        error: (err) => err.data?.message || "Failed to submit votes.",
+      },
+    );
+  };
+
   const sortedSubmissions = useMemo(() => {
     if (!submissions) return undefined;
     return [...submissions].sort((a, b) => {
-      const aIsFile = a.submissionType === 'file';
-      const bIsFile = b.submissionType === 'file';
+      const aIsFile = a.submissionType === "file";
+      const bIsFile = b.submissionType === "file";
       if (aIsFile && !bIsFile) return -1;
       if (!aIsFile && bIsFile) return 1;
       return 0;
     });
   }, [submissions]);
-
-  const { pendingUpvotes, pendingDownvotes } = useMemo(() => {
-    if (!userVoteStatus?.votes)
-      return { pendingUpvotes: 0, pendingDownvotes: 0 };
-    let up = 0;
-    let down = 0;
-    userVoteStatus.votes.forEach((vote: unknown) => {
-      if (vote.vote > 0) up++;
-      else if (vote.vote < 0) down++;
-    });
-    return { pendingUpvotes: up, pendingDownvotes: down };
-  }, [userVoteStatus]);
-
-  const positiveVotesRemaining = league.maxPositiveVotes - pendingUpvotes;
-  const negativeVotesRemaining = league.maxNegativeVotes - pendingDownvotes;
 
   const votes = useQuery(api.votes.getForRound, { roundId: round._id });
   const currentUser = useQuery(api.users.getCurrentUser);
@@ -90,6 +160,40 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     }));
   }, [submissions]);
 
+  const handleVoteClick = (
+    submissionId: Id<"submissions">,
+    voteType: "up" | "down",
+  ) => {
+    setPendingVotes((prev) => {
+      const newVotes = JSON.parse(JSON.stringify(prev));
+      const songVotes = newVotes[submissionId] ?? { up: 0, down: 0 };
+
+      if (voteType === "up") {
+        if (songVotes.down > 0) {
+          songVotes.down -= 1;
+        } else if (positiveVotesRemaining > 0) {
+          songVotes.up += 1;
+        } else if (songVotes.up > 0) {
+          songVotes.up -= 1;
+        } else {
+          toast.warning("No upvotes remaining.");
+        }
+      } else {
+        // voteType === "down"
+        if (songVotes.up > 0) {
+          songVotes.up -= 1;
+        } else if (negativeVotesRemaining > 0) {
+          songVotes.down += 1;
+        } else if (songVotes.down > 0) {
+          songVotes.down -= 1;
+        } else {
+          toast.warning("No downvotes remaining.");
+        }
+      }
+      newVotes[submissionId] = songVotes;
+      return newVotes;
+    });
+  };
   const handlePlaySong = (song: Song, index: number) => {
     const isThisSongCurrent =
       currentTrackIndex !== null && queue[currentTrackIndex]?._id === song._id;
@@ -159,6 +263,9 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           isPlaying={isPlaying}
           queue={queue}
           onPlaySong={handlePlaySong}
+          pendingVotes={pendingVotes}
+          onVoteClick={handleVoteClick}
+          onSubmitVotes={handleSubmitVotes}
         />
       )}
     </section>
