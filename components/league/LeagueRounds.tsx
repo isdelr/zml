@@ -20,7 +20,7 @@ interface LeagueRoundsProps {
   leagueId: string;
 }
 
-export function LeagueRounds({ rounds, selectedRoundId }: LeagueRoundsProps) {
+export function LeagueRounds({ rounds, selectedRoundId, leagueId }: LeagueRoundsProps) {
   if (rounds === undefined) {
     return <RoundsSkeleton />;
   }
