@@ -9,12 +9,17 @@ import { useSearchParams } from "next/navigation";
 export default function SignInPage() {
   const { signIn } = useAuthActions();
   const searchParams = useSearchParams();
+  
+  // 1. Read the `redirect_url` from the query parameters set by the middleware.
   const redirectUrl = searchParams.get("redirect_url");
 
   const handleSignIn = () => {
-    // Redirect to the URL from the query parameter, or to a default page.
+    // 2. Pass this URL as the `callbackUrl` to the `signIn` function.
+    // The auth provider will use this URL to redirect the user after a
+    // successful login with Discord.
+    // We provide a fallback to `/explore` in case `redirect_url` is not present.
     signIn("discord", {
-      callbackUrl: redirectUrl || "/explore",
+      redirectTo: redirectUrl || "/explore",
     });
   };
 
