@@ -1,8 +1,9 @@
+// middleware.ts
 import {
   convexAuthNextjsMiddleware,
   createRouteMatcher,
-  nextjsMiddlewareRedirect,
 } from "@convex-dev/auth/nextjs/server";
+import { NextResponse } from "next/server";
 
 // Define the routes that are publicly accessible.
 // All other routes will require authentication.
@@ -13,9 +14,11 @@ const isPublicRoute = createRouteMatcher([
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   // If the route is not public and the user is not authenticated,
-  // redirect them to the signin page.
+  // redirect them to the signin page with the intended URL as a query param.
   if (!isPublicRoute(request) && !(await convexAuth.isAuthenticated())) {
-    return nextjsMiddlewareRedirect(request, "/signin");
+    const signinUrl = new URL("/signin", request.url);
+    signinUrl.searchParams.set("redirect_url", request.nextUrl.pathname);
+    return NextResponse.redirect(signinUrl);
   }
 });
 

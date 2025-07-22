@@ -1,3 +1,4 @@
+// components/home/HomeHeader.tsx
 "use client";
 
 import { AudioLines} from "lucide-react";
@@ -16,7 +17,7 @@ export function HomeHeader() {
           <span className="font-bold">ZML</span>
         </Link>
         <nav className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => signIn("discord")}>
+          <Button variant="ghost" onClick={() => signIn("discord", { callbackUrl: "/explore" })}>
             Sign In
           </Button>
         </nav>

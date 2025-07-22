@@ -1,7 +1,8 @@
+// components/InviteLeaguePage.tsx
 "use client";
 
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +15,7 @@ import {
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useEffect, useRef } from "react"; // Import useRef
+import { useEffect, useRef } from "react";
 import { AvatarStack } from "@/components/AvatarStack";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toSvg } from "jdenticon";
@@ -22,10 +23,10 @@ import { toSvg } from "jdenticon";
 export default function InviteLeaguePage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname(); // Get the current path
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const { signIn } = useAuthActions();
 
-  // Create a ref to track if the join attempt has been made
   const hasAttemptedJoin = useRef(false);
 
   const inviteCode = params.inviteCode as string;
@@ -35,8 +36,8 @@ export default function InviteLeaguePage() {
 
   const handleJoinLeague = async () => {
     if (!isAuthenticated) {
-      // Prompt unauthenticated users to sign in
-      signIn("discord");
+      // Redirect back to this same invite page after sign-in
+      signIn("discord", { callbackUrl: pathname });
       return;
     }
 
@@ -51,10 +52,8 @@ export default function InviteLeaguePage() {
         router.push("/explore");
       } else if (result === "already_joined") {
         toast.info("You are already a member of this league.", { id: toastId });
-        // The leagueId comes from the initial query here
         router.push(`/leagues/${inviteInfo!._id}`);
       } else {
-        // On success, the result is the leagueId
         toast.success(`Successfully joined ${inviteInfo?.name}!`, {
           id: toastId,
         });
@@ -68,11 +67,8 @@ export default function InviteLeaguePage() {
     }
   };
 
-  // Automatically try to join if the user is already authenticated
   useEffect(() => {
-    // Only attempt to join if authenticated, info is loaded, AND we haven't tried before
     if (isAuthenticated && inviteInfo && !hasAttemptedJoin.current) {
-      // Set the flag to true immediately to prevent re-entry
       hasAttemptedJoin.current = true;
       handleJoinLeague();
     }
@@ -95,7 +91,6 @@ export default function InviteLeaguePage() {
     );
   }
 
-  // Show a landing page for users who are not logged in
   if (!isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -142,6 +137,5 @@ export default function InviteLeaguePage() {
     );
   }
 
-  // Fallback loading spinner while auto-join and redirect occurs
   return <LoadingSpinner />;
 }

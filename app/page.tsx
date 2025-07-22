@@ -1,39 +1,26 @@
+// components/home/HomeHero.tsx
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useConvexAuth } from "convex/react";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { dynamicImport } from "@/components/ui/dynamic-import";
+import { Button } from "@/components/ui/button";
+import { useAuthActions } from "@convex-dev/auth/react";
 
-// Dynamically import components
-const HomeHeader = dynamicImport(() => import("@/components/home/HomeHeader").then(mod => ({ default: mod.HomeHeader })));
-const HomeHero = dynamicImport(() => import("@/components/home/HomeHero").then(mod => ({ default: mod.HomeHero })));
-const HomeFeatures = dynamicImport(() => import("@/components/home/HomeFeatures").then(mod => ({ default: mod.HomeFeatures })));
-const HomeFooter = dynamicImport(() => import("@/components/home/HomeFooter").then(mod => ({ default: mod.HomeFooter })));
-
-export default function HomePage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/explore"); // Redirect to a default authenticated page
-    }
-  }, [isLoading, isAuthenticated, router]);
-
-  if (isLoading || isAuthenticated) {
-    return <LoadingSpinner />;
-  }
-
+export function HomeHero() {
+  const { signIn } = useAuthActions();
+  
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <HomeHeader />
-      <main className="flex-1 container mx-auto">
-        <HomeHero />
-        <HomeFeatures />
-      </main>
-      <HomeFooter />
-    </div>
+    <section className="container grid place-items-center gap-6 pb-8 pt-6 text-center md:pb-12 md:pt-10 lg:py-32">
+      <h1 className="text-4xl font-extrabold tracking-tighter md:text-5xl lg:text-6xl">
+        Create, Compete & Discover Music
+      </h1>
+      <p className="max-w-[700px] text-lg text-muted-foreground">
+        The ultimate platform to challenge your friends&apos; musical tastes.
+        Create leagues, set themed rounds, and vote for the best tracks.
+      </p>
+      <div className="flex gap-4">
+        <Button size="lg" onClick={() => signIn("discord", { callbackUrl: "/explore" })}>
+          Create Your League
+        </Button>
+      </div>
+    </section>
   );
 }

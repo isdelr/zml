@@ -1,11 +1,23 @@
+// components/SignInPage.tsx
 "use client";
 
 import { FaDiscord } from "react-icons/fa";
 import { Button } from "./ui/button";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useSearchParams } from "next/navigation";
 
 export default function SignInPage() {
   const { signIn } = useAuthActions();
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get("redirect_url");
+
+  const handleSignIn = () => {
+    // Redirect to the URL from the query parameter, or to a default page.
+    signIn("discord", {
+      callbackUrl: redirectUrl || "/explore",
+    });
+  };
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background p-4">
       <div className="flex flex-col items-center gap-2 text-center">
@@ -16,7 +28,7 @@ export default function SignInPage() {
       </div>
       <Button
         size="lg"
-        onClick={() => signIn("discord")}
+        onClick={handleSignIn}
         className="flex items-center gap-3 bg-[#5865F2] hover:bg-[#5865F2]/90"
       >
         <FaDiscord className="size-6" />
