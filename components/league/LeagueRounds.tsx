@@ -43,7 +43,7 @@ export function LeagueRounds({ rounds, selectedRoundId }: LeagueRoundsProps) {
           <Card
             key={round._id}
             className={cn(
-              "cursor-pointer bg-card transition-colors hover:bg-accent",
+              "cursor-pointer bg-card transition-colors hover:bg-accent h-full",
               selectedRoundId === round._id ? "ring-2 ring-primary" : "",
             )}
           >
