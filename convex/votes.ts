@@ -19,6 +19,7 @@ export const getForUserInRound = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       return {
+        hasVoted: false,
         votes: [],
         upvotesUsed: 0,
         downvotesUsed: 0,
@@ -32,6 +33,8 @@ export const getForUserInRound = query({
       )
       .collect();
 
+    const hasVoted = userVotes.length > 0;
+
     let upvotesUsed = 0;
     let downvotesUsed = 0;
 
@@ -41,6 +44,7 @@ export const getForUserInRound = query({
     });
 
     return {
+      hasVoted,
       votes: userVotes,
       upvotesUsed,
       downvotesUsed,
@@ -66,6 +70,17 @@ export const submitVotes = mutation({
     if (!round) throw new Error("Round not found.");
     if (round.status !== "voting") {
       throw new Error("Voting is not open for this round.");
+    }
+
+    const existingVotes = await ctx.db
+      .query("votes")
+      .withIndex("by_round_and_user", (q) =>
+        q.eq("roundId", args.roundId).eq("userId", userId),
+      )
+      .collect();
+
+    if (existingVotes.length > 0) {
+      throw new Error("You have already voted and cannot change your votes.");
     }
 
     const league = await ctx.db.get(round.leagueId);
@@ -101,17 +116,6 @@ export const submitVotes = mutation({
       if (votedOnOwnSubmission) {
         throw new Error("You cannot vote on your own submission.");
       }
-    }
-
-    const existingVotes = await ctx.db
-      .query("votes")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", args.roundId).eq("userId", userId),
-      )
-      .collect();
-
-    for (const vote of existingVotes) {
-      await ctx.db.delete(vote._id);
     }
 
     for (const vote of args.votes) {
