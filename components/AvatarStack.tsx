@@ -18,7 +18,7 @@ export function AvatarStack({ users, max = 10 }: AvatarStackProps) {
   return (
     <div className="flex items-center -space-x-2">
       {visibleUsers.map((user, index) => (
-        <Avatar key={index} className="size-6 border-2 border-background">
+        <Avatar key={index} className="size-8 border-2 border-background">
           <AvatarImage src={user.image ?? undefined} alt={user.name ?? ""} />
           <AvatarFallback>
             <div
