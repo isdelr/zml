@@ -6,7 +6,11 @@ import { ConvexHttpClient } from "convex/browser";
 import type { Metadata } from "next";
 
 // Dynamically import the LeaguePage component
-const LeaguePage = dynamicImport(() => import("@/components/LeaguePage").then(mod => ({ default: mod.LeaguePage })));
+const LeaguePage = dynamicImport(() =>
+  import("@/components/LeaguePage").then((mod) => ({
+    default: mod.LeaguePage,
+  })),
+);
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -16,12 +20,15 @@ export async function generateMetadata({
   params: Promise<{ leagueId: string }>;
 }): Promise<Metadata> {
   const { leagueId } = await params;
-  const leagueMetadata = await convex.query(api.leagues.getLeagueMetadata, { id: leagueId as Id<"leagues"> });
+  const leagueMetadata = await convex.query(api.leagues.getLeagueMetadata, {
+    id: leagueId as Id<"leagues">,
+  });
 
   if (!leagueMetadata) {
     return {
       title: "League Not Found",
-      description: "This league does not exist or you may not have permission to view it.",
+      description:
+        "This league does not exist or you may not have permission to view it.",
     };
   }
 

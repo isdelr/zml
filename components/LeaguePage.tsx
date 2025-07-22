@@ -5,7 +5,12 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import {
+  useRouter,
+  useSearchParams,
+  usePathname,
+  useParams,
+} from "next/navigation";
 import { dynamicImport } from "./ui/dynamic-import";
 import { RoundDetail } from "./RoundDetail";
 import { Dialog, DialogContent } from "./ui/dialog";
@@ -46,10 +51,12 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const params = useParams();
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const activeTab = searchParams.get("tab") || "rounds";
-  const selectedRoundId = searchParams.get("round") as Id<"rounds"> | null;
+  const selectedRoundId = (params.roundId ||
+    searchParams.get("round")) as Id<"rounds"> | null;
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -100,24 +107,19 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", "rounds");
     params.set("round", roundId);
-    router.replace(`${pathname}?${params.toString()}`);
+    router.push(
+      `/leagues/${leagueId}/round/${roundId}?${searchParams.toString()}`,
+    );
   };
 
   useEffect(() => {
-    if (rounds && rounds.length > 0) {
-      const currentTabInUrl = searchParams.get("tab") || "rounds";
-      const currentRoundInUrl = searchParams.get("round");
-
-      if (currentTabInUrl === "rounds" && !currentRoundInUrl) {
-        const latestRound = rounds.sort(
-          (a, b) => b._creationTime - a._creationTime,
-        )[0];
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("round", latestRound._id);
-        router.replace(`${pathname}?${params.toString()}`);
-      }
+    if (rounds && rounds.length > 0 && !selectedRoundId) {
+      const latestRound = rounds.sort(
+        (a, b) => b._creationTime - a._creationTime,
+      )[0];
+      router.replace(`/leagues/${leagueId}/round/${latestRound._id}`);
     }
-  }, [rounds, searchParams, pathname, router]);
+  }, [rounds, selectedRoundId, leagueId, router]);
 
   const selectedRound = rounds?.find((r) => r._id === selectedRoundId);
 
@@ -168,7 +170,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
         <LeagueRounds
           rounds={rounds}
           selectedRoundId={selectedRoundId}
-          onRoundSelect={handleRoundSelect}
+          leagueId={leagueId}
         />
 
         <div className="my-12 border-b border-border"></div>
@@ -182,12 +184,6 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
             }}
             isOwner={leagueData.isOwner}
           />
-        ) : rounds && rounds.length > 0 ? (
-          <div className="py-10 text-center">
-            <p className="text-muted-foreground">
-              Select a round to see the details.
-            </p>
-          </div>
         ) : null}
       </LeagueTabs>
 

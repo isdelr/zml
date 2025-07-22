@@ -1,22 +1,26 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 interface LeagueRoundsProps {
   rounds: unknown[] | undefined;
   selectedRoundId: string | null;
-  onRoundSelect: (roundId: string) => void;
+  leagueId: string;
 }
 
-export function LeagueRounds({
-  rounds,
-  selectedRoundId,
-  onRoundSelect,
-}: LeagueRoundsProps) {
+export function LeagueRounds({ rounds, selectedRoundId }: LeagueRoundsProps) {
   if (rounds === undefined) {
     return <RoundsSkeleton />;
   }
@@ -35,32 +39,33 @@ export function LeagueRounds({
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {rounds.map((round) => (
-        <Card
-          key={round._id}
-          onClick={() => onRoundSelect(round._id)}
-          className={cn(
-            "cursor-pointer bg-card transition-colors hover:bg-accent",
-            selectedRoundId === round._id ? "ring-2 ring-primary" : ""
-          )}
-        >
-          <CardHeader>
-            <CardTitle>{round.title}</CardTitle>
-            <CardDescription>
-              {round.status.charAt(0).toUpperCase() + round.status.slice(1)}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              {round.submissionCount} submissions
-            </p>
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full bg-primary font-bold text-primary-foreground hover:bg-primary/90">
-              <Play className="mr-2 size-4 fill-primary-foreground" />
-              View Round
-            </Button>
-          </CardFooter>
-        </Card>
+        <Link key={round._id} href={`/leagues/${leagueId}/round/${round._id}`}>
+          <Card
+            key={round._id}
+            className={cn(
+              "cursor-pointer bg-card transition-colors hover:bg-accent",
+              selectedRoundId === round._id ? "ring-2 ring-primary" : "",
+            )}
+          >
+            <CardHeader>
+              <CardTitle>{round.title}</CardTitle>
+              <CardDescription>
+                {round.status.charAt(0).toUpperCase() + round.status.slice(1)}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                {round.submissionCount} submissions
+              </p>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full bg-primary font-bold text-primary-foreground hover:bg-primary/90">
+                <Play className="mr-2 size-4 fill-primary-foreground" />
+                View Round
+              </Button>
+            </CardFooter>
+          </Card>
+        </Link>
       ))}
     </div>
   );
