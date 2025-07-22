@@ -155,7 +155,7 @@ export function SubmissionsList({
       {roundStatus === "voting" &&
         submissions.length > 0 &&
         !userVoteStatus?.hasVoted && (
-          <div className="sticky bottom-20 z-10 mt-8 flex justify-end md:bottom-4">
+          <div className="mt-8 flex justify-end md:bottom-4">
             <Button
               onClick={onSubmitVotes}
               disabled={!canSubmit}
