@@ -35,7 +35,7 @@ export function PlayerProgress({
 
   return (
     <div className="flex w-full max-w-xl items-center gap-2">
-      <span className="w-10 text-right text-xs text-muted-foreground">
+      <span className="w-10 text-right text-xs text-muted-foreground select-none">
         {isExternalLink ? "--:--" : formatTime(progress)}
       </span>
       <div className="relative flex-1 h-8 flex items-center transition-transform duration-50">
@@ -67,7 +67,7 @@ export function PlayerProgress({
           />
         )}
       </div>
-      <span className="w-10 text-left text-xs text-muted-foreground">
+      <span className="w-10 text-left text-xs text-muted-foreground select-none">
         {isExternalLink ? "--:--" : formatTime(duration)}
       </span>
     </div>

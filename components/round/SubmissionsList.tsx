@@ -187,8 +187,7 @@ export function SubmissionsList({
           <span className="w-10 text-center">#</span>
           <span>TRACK</span>
           <span>SUBMITTED BY</span>
-          <span className="text-right">TOTAL POINTS</span>
-          <span className="text-center">YOUR VOTES</span>
+
         </div>
       </div>
 

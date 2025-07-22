@@ -16,9 +16,9 @@ export async function generateMetadata({
   params: Promise<{ leagueId: string }>;
 }): Promise<Metadata> {
   const { leagueId } = await params;
-  const league = await convex.query(api.leagues.get, { id: leagueId as Id<"leagues"> });
+  const leagueMetadata = await convex.query(api.leagues.getLeagueMetadata, { id: leagueId as Id<"leagues"> });
 
-  if (!league) {
+  if (!leagueMetadata) {
     return {
       title: "League Not Found",
       description: "This league does not exist or you may not have permission to view it.",
@@ -26,8 +26,8 @@ export async function generateMetadata({
   }
 
   return {
-    title: league.name,
-    description: `View the rounds, standings, and stats for the "${league.name}" music league. Members: ${league.memberCount}.`,
+    title: leagueMetadata.name,
+    description: `View the rounds, standings, and stats for the "${leagueMetadata.name}" music league. Members: ${leagueMetadata.memberCount}.`,
   };
 }
 

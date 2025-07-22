@@ -522,6 +522,36 @@ const topSongValidator = v.object({
   submittedBy: v.string(),
 });
 
+export const getLeagueMetadata = query({
+  args: { id: v.id("leagues") },
+  returns: v.union(
+    v.null(),
+    v.object({
+      name: v.string(),
+      description: v.string(),
+      memberCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const league = await ctx.db.get(args.id);
+    
+    if (!league) {
+      return null;
+    }
+    
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_league", (q) => q.eq("leagueId", league._id))
+      .collect();
+
+    return {
+      name: league.name,
+      description: league.description,
+      memberCount: memberships.length,
+    };
+  },
+});
+
 export const getLeagueStats = query({
   args: { leagueId: v.id("leagues") },
   returns: v.union(
