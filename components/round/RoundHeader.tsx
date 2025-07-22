@@ -7,6 +7,7 @@ import { Play } from "lucide-react";
 import Image from "next/image";
 import { toSvg } from "jdenticon";
 import { Song } from "@/types";
+import { cn } from "@/lib/utils";
 
 interface RoundHeaderProps {
   round: Doc<"rounds"> & { art: string | null; submissionCount: number };
@@ -14,6 +15,9 @@ interface RoundHeaderProps {
   onPlayAll: (submissions: Song[], startIndex: number) => void;
   positiveVotesRemaining: number;
   negativeVotesRemaining: number;
+  hasVoted: boolean;
+  upvotesUsed: number;
+  downvotesUsed: number;
 }
 
 export function RoundHeader({
@@ -22,6 +26,9 @@ export function RoundHeader({
   onPlayAll,
   positiveVotesRemaining,
   negativeVotesRemaining,
+  hasVoted,
+  upvotesUsed,
+  downvotesUsed,
 }: RoundHeaderProps) {
   return (
     <div className="mb-8 flex flex-col gap-6 md:flex-row md:gap-8">
@@ -71,27 +78,38 @@ export function RoundHeader({
             )}
         </div>
         {round.status === "voting" && (
-          <div className="flex flex-col items-start gap-4 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            className={cn(
+              "flex flex-col items-start gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between",
+              hasVoted ? "border-green-500/50 bg-green-500/10" : "bg-card",
+            )}
+          >
             <div>
               <h3 className="font-semibold text-foreground">
-                Your Vote Budget
+                {hasVoted ? "Your Submitted Votes" : "Your Vote Budget"}
               </h3>
               <p className="text-sm text-muted-foreground">
-                You must use all votes to submit.
+                {hasVoted
+                  ? "You cannot change your votes for this round."
+                  : "You must use all votes to submit."}
               </p>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-center">
                 <p className="text-lg font-bold text-green-400">
-                  {positiveVotesRemaining}
+                  {hasVoted ? upvotesUsed : positiveVotesRemaining}
                 </p>
-                <p className="text-xs text-muted-foreground">Upvotes Left</p>
+                <p className="text-xs text-muted-foreground">
+                  {hasVoted ? "Upvotes Cast" : "Upvotes Left"}
+                </p>
               </div>
               <div className="text-center">
                 <p className="text-lg font-bold text-red-400">
-                  {negativeVotesRemaining}
+                  {hasVoted ? downvotesUsed : negativeVotesRemaining}
                 </p>
-                <p className="text-xs text-muted-foreground">Downvotes Left</p>
+                <p className="text-xs text-muted-foreground">
+                  {hasVoted ? "Downvotes Cast" : "Downvotes Left"}
+                </p>
               </div>
             </div>
           </div>

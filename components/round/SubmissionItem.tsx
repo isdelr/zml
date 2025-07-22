@@ -28,6 +28,7 @@ interface SubmissionItemProps {
   pendingSongVotes: { up: number; down: number };
   roundStatus: "voting" | "finished" | "submissions";
   onToggleComments: () => void;
+  hasVoted: boolean;
   onVoteClick: (voteType: "up" | "down") => void;
   onBookmark: () => void;
   onPlaySong: () => void;
@@ -42,6 +43,7 @@ export function SubmissionItem({
   userIsSubmitter,
   pendingSongVotes,
   roundStatus,
+  hasVoted,
   onToggleComments,
   onVoteClick,
   onBookmark,
@@ -53,8 +55,8 @@ export function SubmissionItem({
     points > 0
       ? "text-green-400"
       : points < 0
-        ? "text-red-400"
-        : "text-muted-foreground";
+      ? "text-red-400"
+      : "text-muted-foreground";
 
   const PlayButton = () => (
     <Button variant="ghost" size="icon" className="size-8" onClick={onPlaySong}>
@@ -79,7 +81,7 @@ export function SubmissionItem({
           src={
             roundStatus === "voting"
               ? undefined
-              : (song.submittedByImage ?? undefined)
+              : song.submittedByImage ?? undefined
           }
           alt={roundStatus === "voting" ? "Anonymous" : song.submittedBy}
         />
@@ -88,7 +90,7 @@ export function SubmissionItem({
             __html: toSvg(
               roundStatus === "voting"
                 ? song._id
-                : (song.submittedBy ?? song.userId),
+                : song.submittedBy ?? song.userId,
               24,
             ),
           }}
@@ -160,7 +162,7 @@ export function SubmissionItem({
             size="icon"
             aria-label="Upvote"
             onClick={() => onVoteClick("up")}
-            disabled={roundStatus !== "voting" || userIsSubmitter}
+            disabled={roundStatus !== "voting" || userIsSubmitter || hasVoted}
             className="relative"
           >
             <ArrowUp
@@ -169,7 +171,7 @@ export function SubmissionItem({
                 pendingSongVotes.up > 0 && "fill-green-400/20 text-green-400",
               )}
             />
-            {pendingSongVotes.up > 0 && (
+            {pendingSongVotes.up > 0 && !hasVoted && (
               <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-green-500 text-xs text-white">
                 {pendingSongVotes.up}
               </span>
@@ -179,8 +181,8 @@ export function SubmissionItem({
             variant="ghost"
             size="icon"
             aria-label="Downvote"
+            disabled={roundStatus !== "voting" || userIsSubmitter || hasVoted}
             onClick={() => onVoteClick("down")}
-            disabled={roundStatus !== "voting" || userIsSubmitter}
             className="relative"
           >
             <ArrowDown
@@ -189,7 +191,7 @@ export function SubmissionItem({
                 pendingSongVotes.down > 0 && "fill-red-400/20 text-red-400",
               )}
             />
-            {pendingSongVotes.down > 0 && (
+            {pendingSongVotes.down > 0 && !hasVoted && (
               <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
                 {pendingSongVotes.down}
               </span>
@@ -224,7 +226,7 @@ export function SubmissionItem({
         <div className="col-span-full space-y-2 pl-[56px] md:hidden">
           <div className="flex items-center justify-between">
             <SubmitterInfo />
-            <div className={cn("font-bold text-sm", pointColor)}>
+            <div className={cn("text-sm font-bold", pointColor)}>
               {roundStatus === "finished" ? `${points} pts` : "?"}
             </div>
           </div>

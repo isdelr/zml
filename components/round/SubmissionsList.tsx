@@ -61,6 +61,8 @@ export function SubmissionsList({
     }));
   };
 
+  const hasVoted = userVoteStatus?.hasVoted ?? false;
+
   const handleBookmark = (submissionId: Id<"submissions">) => {
     toast.promise(toggleBookmark({ submissionId }), {
       loading: "Updating bookmark...",
@@ -133,6 +135,7 @@ export function SubmissionsList({
             userIsSubmitter={userIsSubmitter}
             pendingSongVotes={pendingSongVotes}
             roundStatus={roundStatus}
+            hasVoted={hasVoted}
             onToggleComments={() => toggleComments(song._id)}
             onVoteClick={(voteType) => onVoteClick(song._id, voteType)}
             onBookmark={() => handleBookmark(song._id)}

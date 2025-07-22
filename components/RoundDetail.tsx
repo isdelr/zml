@@ -9,6 +9,8 @@ import { dynamicImport } from "./ui/dynamic-import";
 import { useMemo, useState, useEffect } from "react";
 import { AvatarStack } from "./AvatarStack";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { CheckCircle2 } from "lucide-react";
 
 // Dynamically import components
 const RoundAdminControls = dynamicImport(() =>
@@ -85,7 +87,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       });
       setPendingVotes(initialVotes);
     }
-  }, [userVoteStatus, submissions]);
+  }, [userVoteStatus, submissions?.length]);
 
   const { pendingUpvotes, pendingDownvotes } = useMemo(() => {
     return Object.values(pendingVotes).reduce(
@@ -214,6 +216,17 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         />
       )}
 
+      {userVoteStatus?.hasVoted && round.status === "voting" && (
+        <Alert className="mb-8 border-green-500/50 bg-green-500/10 text-green-400">
+          <CheckCircle2 className="size-5" />
+          <AlertTitle className="font-bold">Votes Submitted!</AlertTitle>
+          <AlertDescription className="text-green-400/80">
+            Your choices are locked in. Results will be available when the
+            round ends.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <RoundHeader
         round={round}
         submissions={sortedSubmissions}
@@ -222,6 +235,9 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         }
         positiveVotesRemaining={positiveVotesRemaining}
         negativeVotesRemaining={negativeVotesRemaining}
+        hasVoted={userVoteStatus?.hasVoted ?? false}
+        upvotesUsed={pendingUpvotes}
+        downvotesUsed={pendingDownvotes}
       />
 
       {round.status === "submissions" && (
