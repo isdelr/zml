@@ -1,7 +1,9 @@
+// components/Sidebar.tsx
 "use client";
 
 import { cn } from "@/lib/utils";
 import {
+  Bell,
   Bookmark,
   ChevronDown,
   Compass,
@@ -13,6 +15,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -29,7 +32,10 @@ import {
 import { useAuthActions } from "@convex-dev/auth/react";
 import { toSvg } from "jdenticon";
 
-const mainNav = [{ name: "Explore Leagues", icon: Compass, href: "/explore" }];
+const mainNav = [
+  { name: "Explore Leagues", icon: Compass, href: "/explore" },
+  { name: "Notifications", icon: Bell, href: "/notifications" },
+];
 
 const collectionNav = [
   { name: "Active Rounds", icon: Swords, href: "/active-rounds" },
@@ -40,16 +46,18 @@ const collectionNav = [
 export function Sidebar() {
   const currentUser = useQuery(api.users.getCurrentUser);
   const myLeagues = useQuery(api.leagues.getLeaguesForUser);
+  const unreadCount = useQuery(api.notifications.getUnreadCount);
   const clearQueue = useMusicPlayerStore((state) => state.actions.clearQueue);
   const currentTrackIndex = useMusicPlayerStore(
     (state) => state.currentTrackIndex,
   );
   const { signOut } = useAuthActions();
+  const pathname = usePathname();
 
   return (
     <aside
       className={cn(
-        "hidden w-64 flex-col bg-sidebar p-6 text-sidebar-foreground md:flex", // HIDE on mobile, flex on md and up
+        "hidden w-64 flex-col bg-sidebar p-6 text-sidebar-foreground md:flex",
         currentTrackIndex !== null && "pb-28",
       )}
     >
@@ -58,7 +66,6 @@ export function Sidebar() {
           <DropdownMenuTrigger asChild>
             <div className="flex min-h-[32px] flex-1 cursor-pointer items-center gap-2 overflow-hidden">
               {currentUser === undefined ? (
-                // Loading Skeleton
                 <>
                   <Skeleton className="size-8 rounded-full" />
                   <Skeleton className="h-5 w-24" />
@@ -114,9 +121,19 @@ export function Sidebar() {
           <Link
             key={item.name}
             href={item.href}
-            className="flex items-center gap-4 text-sm font-semibold hover:text-foreground"
+            className={cn(
+              "flex items-center gap-4 text-sm font-semibold hover:text-foreground",
+              pathname.startsWith(item.href) && "text-primary",
+            )}
           >
-            <item.icon className="size-5" />
+            <div className="relative">
+              <item.icon className="size-5" />
+              {item.name === "Notifications" && unreadCount !== undefined && unreadCount > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white">
+                  {unreadCount}
+                </span>
+              )}
+            </div>
             <span>{item.name}</span>
           </Link>
         ))}
@@ -131,7 +148,10 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              className="flex items-center gap-4 text-sm font-semibold hover:text-foreground"
+              className={cn(
+                "flex items-center gap-4 text-sm font-semibold hover:text-foreground",
+                pathname.startsWith(item.href) && "text-primary",
+              )}
             >
               <item.icon className="size-5" />
               <span>{item.name}</span>

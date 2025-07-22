@@ -2,13 +2,12 @@ import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
 import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 
 const r2 = new R2(components.r2);
 
-// Regular expression to extract the video ID from various YouTube URL formats
 function getYouTubeVideoId(url: string) {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
   const match = url.match(regExp);
@@ -18,11 +17,10 @@ function getYouTubeVideoId(url: string) {
 export const getSongMetadataFromLink = action({
   args: { link: v.string() },
   handler: async (ctx, args) => {
-    // Spotify API Implementation
     if (args.link.includes("spotify")) {
       const spotifyApi = SpotifyApi.withClientCredentials(
         process.env.SPOTIFY_CLIENT_ID!,
-        process.env.SPOTIFY_CLIENT_SECRET!
+        process.env.SPOTIFY_CLIENT_SECRET!,
       );
       const trackId = args.link.split("/track/")[1].split("?")[0];
       const track = await spotifyApi.tracks.get(trackId);
@@ -32,9 +30,7 @@ export const getSongMetadataFromLink = action({
         albumArtUrl: track.album.images[0].url,
         submissionType: "spotify" as const,
       };
-    } 
-    // YouTube API Implementation
-    else if (args.link.includes("youtube") || args.link.includes("youtu.be")) {
+    } else if (args.link.includes("youtube") || args.link.includes("youtu.be")) {
       const videoId = getYouTubeVideoId(args.link);
       if (!videoId) {
         throw new Error("Invalid YouTube link provided.");
@@ -60,7 +56,7 @@ export const getSongMetadataFromLink = action({
       return {
         songTitle: snippet.title,
         artist: snippet.channelTitle,
-        albumArtUrl: snippet.thumbnails.high.url, // Or .medium.url, .default.url
+        albumArtUrl: snippet.thumbnails.high.url,
         submissionType: "youtube" as const,
       };
     }
@@ -162,38 +158,30 @@ export const editSong = mutation({
       );
     }
     
-    // --- Start of Fix ---
     const { submissionId, ...rest } = args;
 
-    // The updates object will be what we pass to patch.
     const updates: Partial<Doc<"submissions">> = {};
     
-    // Iterate over the arguments and only add defined values to the update payload.
-    // This prevents accidentally unsetting fields that were not part of the edit.
     for (const [key, value] of Object.entries(rest)) {
         if (value !== undefined) {
             (updates as any)[key] = value;
         }
     }
 
-    // `patch` uses `undefined` to unset fields.
-    // Handle explicit deletion from the client, which sends `null`.
     if (args.albumArtKey === null) updates.albumArtKey = undefined;
     if (args.songFileKey === null) updates.songFileKey = undefined;
     if (args.songLink === null) updates.songLink = undefined;
     if (args.albumArtUrlValue === null) updates.albumArtUrlValue = undefined;
     
-    // Clean up fields from the other submission type.
     if (args.submissionType === 'file') {
         updates.songLink = undefined;
         updates.albumArtUrlValue = undefined;
-    } else { // It's a 'spotify' or 'youtube' link
+    } else { 
         updates.albumArtKey = undefined;
         updates.songFileKey = undefined;
     }
 
     await ctx.db.patch(submissionId, updates);
-    // --- End of Fix ---
 
     return "Submission updated successfully.";
   },
@@ -240,7 +228,7 @@ export const getForRound = query({
             ]);
         } else {
             albumArtUrl = submission.albumArtUrlValue ?? null;
-            songFileUrl = submission.songLink ?? null; // The link to the song on Spotify/YT
+            songFileUrl = submission.songLink ?? null;
         }
         const points = allVotesForRound
           .filter((v) => v.submissionId === submission._id)
@@ -290,7 +278,6 @@ export const getMySubmissions = query({
         const league = await ctx.db.get(round.leagueId);
         if (!league) return null;
 
-        // --- Start of Fix ---
         let albumArtUrl: string | null = null;
         let songFileUrl: string | null = null;
 
@@ -307,7 +294,6 @@ export const getMySubmissions = query({
           albumArtUrl = submission.albumArtUrlValue ?? null;
           songFileUrl = submission.songLink ?? null;
         }
-        // --- End of Fix ---
 
         let result: { type: string; points: number };
 
@@ -338,8 +324,8 @@ export const getMySubmissions = query({
 
         return {
           ...submission,
-          albumArtUrl, // Use the corrected URL
-          songFileUrl, // Use the corrected URL
+          albumArtUrl,
+          songFileUrl,
           roundTitle: round.title,
           leagueName: league.name,
           leagueId: league._id,
@@ -352,7 +338,6 @@ export const getMySubmissions = query({
   },
 });
 
-
 export const addComment = mutation({
   args: {
     submissionId: v.id("submissions"),
@@ -363,8 +348,34 @@ export const addComment = mutation({
     if (!userId) {
       throw new Error("You must be logged in to comment.");
     }
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found.");
+    }
+
     if (args.text.trim().length === 0) {
       throw new Error("Comment cannot be empty.");
+    }
+
+    const submission = await ctx.db.get(args.submissionId);
+    if (!submission) {
+      throw new Error("Submission not found.");
+    }
+
+    const round = await ctx.db.get(submission.roundId);
+    if (!round) {
+      throw new Error("Round not found.");
+    }
+
+    // Don't notify the user if they comment on their own submission
+    if (submission.userId !== userId) {
+      await ctx.scheduler.runAfter(0, internal.notifications.create, {
+        userId: submission.userId,
+        type: "new_comment",
+        message: `${user.name} commented on your submission for "${submission.songTitle}".`,
+        link: `/leagues/${round.leagueId}/round/${round._id}`,
+        triggeringUserId: userId,
+      });
     }
 
     await ctx.db.insert("comments", {

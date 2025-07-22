@@ -9,7 +9,7 @@ import {
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { R2 } from "@convex-dev/r2";
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 
 const r2 = new R2(components.r2);
 
@@ -112,7 +112,7 @@ export const create = mutation({
         submissionTime + daysToMs(args.submissionDeadline);
       const votingDeadlineTimestamp =
         submissionDeadlineTimestamp + daysToMs(args.votingDeadline);
-      await ctx.db.insert("rounds", {
+      const roundId = await ctx.db.insert("rounds", {
         leagueId: leagueId,
         title: round.title,
         description: round.description,
@@ -122,6 +122,17 @@ export const create = mutation({
         submissionDeadline: submissionDeadlineTimestamp,
         votingDeadline: votingDeadlineTimestamp,
       });
+
+      // Notify the creator that the round has started
+      // (as they are the only member at this point)
+      await ctx.scheduler.runAfter(0, internal.notifications.create, {
+          userId: userId,
+          type: "round_submission",
+          message: `Your new round, "${round.title}", is open for submissions in "${args.name}"!`,
+          link: `/leagues/${leagueId}/round/${roundId}`,
+          triggeringUserId: userId,
+      });
+
       submissionTime = votingDeadlineTimestamp;
     }
     return leagueId;

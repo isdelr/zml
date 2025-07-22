@@ -6,6 +6,7 @@ import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ThemeProvider } from "./ThemeProvider";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
+import { NotificationProvider } from "@/components/providers/NotificationProvider"; // IMPORT THE NEW PROVIDER
 
 // Dynamically import components
 const ConvexClientProvider = dynamic(() => import("@/components/ConvexClientProvider"));
@@ -56,10 +57,13 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <ConvexClientProvider>
-              {children}
-              <Toaster />
-              <MusicPlayer />
-              <BottomNavbar />
+              {/* WRAP YOUR APP WITH THE NOTIFICATION PROVIDER */}
+              <NotificationProvider>
+                {children}
+                <Toaster />
+                <MusicPlayer />
+                <BottomNavbar />
+              </NotificationProvider>
             </ConvexClientProvider>
           </ThemeProvider>
         </body>

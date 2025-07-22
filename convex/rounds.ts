@@ -24,7 +24,7 @@ const checkOwnership = async (
   if (league.creatorId !== userId) {
     throw new Error("You are not the owner of this league.");
   }
-  return league;
+  return { league, userId };
 };
 
 export const create = mutation({
@@ -35,20 +35,12 @@ export const create = mutation({
     genres: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("You must be logged in to create a round.");
-    }
-    const league = await ctx.db.get(args.leagueId);
-    if (!league) throw new Error("League not found.");
-    if (league.creatorId !== userId) {
-      throw new Error(
-        "You do not have permission to create a round in this league.",
-      );
-    }
+    const { league, userId } = await checkOwnership(ctx, args.leagueId);
+    
     const now = Date.now();
     const submissionDeadline = now + daysToMs(league.submissionDeadline);
     const votingDeadline = submissionDeadline + daysToMs(league.votingDeadline);
+    
     const roundId = await ctx.db.insert("rounds", {
       leagueId: args.leagueId,
       title: args.title,
@@ -58,6 +50,16 @@ export const create = mutation({
       submissionDeadline,
       votingDeadline,
     });
+
+    // Notify league members that a new round has started
+    await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+        leagueId: league._id,
+        type: "round_submission",
+        message: `A new round, "${args.title}", has started in "${league.name}"!`,
+        link: `/leagues/${league._id}/round/${roundId}`,
+        triggeringUserId: userId,
+    });
+
     return roundId;
   },
 });
@@ -94,7 +96,6 @@ export const getRoundMetadata = query({
     };
   },
 });
-
 
 export const getForLeague = query({
   args: { leagueId: v.id("leagues") },
@@ -173,13 +174,20 @@ export const manageRoundState = mutation({
   handler: async (ctx, args) => {
     const round = await ctx.db.get(args.roundId);
     if (!round) throw new Error("Round not found");
-    await checkOwnership(ctx, round.leagueId);
+    const { league, userId } = await checkOwnership(ctx, round.leagueId);
 
     switch (args.action) {
       case "startVoting":
         if (round.status !== "submissions")
           throw new Error("Round is not in submission phase.");
         await ctx.db.patch(args.roundId, { status: "voting" });
+        await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+            leagueId: league._id,
+            type: "round_voting",
+            message: `Voting has begun for the round "${round.title}" in "${league.name}"!`,
+            link: `/leagues/${league._id}/round/${round._id}`,
+            triggeringUserId: userId,
+        });
         break;
       case "endVoting":
         if (round.status !== "voting")
@@ -202,9 +210,15 @@ export const manageRoundState = mutation({
         }
 
         await ctx.db.patch(args.roundId, { status: "finished" });
-
         await ctx.scheduler.runAfter(0, internal.leagues.calculateAndStoreResults, {
           roundId: args.roundId,
+        });
+        await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+            leagueId: league._id,
+            type: "round_finished",
+            message: `The round "${round.title}" in "${league.name}" has finished! Check out the results.`,
+            link: `/leagues/${league._id}/round/${round._id}`,
+            triggeringUserId: userId,
         });
         break;
     }

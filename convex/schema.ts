@@ -87,20 +87,33 @@ export default defineSchema({
     submissionId: v.id("submissions"),
     userId: v.id("users"),
     text: v.string(),
-  }).index("by_submission", ["submissionId"]), // Corrected Line
+  }).index("by_submission", ["submissionId"]),
 
-  // Stores the calculated score for each submission in a finished round
+  // NEW NOTIFICATIONS TABLE
+  notifications: defineTable({
+    userId: v.id("users"), // The user who will receive the notification
+    type: v.union(
+      v.literal("new_comment"),
+      v.literal("round_submission"),
+      v.literal("round_voting"),
+      v.literal("round_finished"),
+    ),
+    message: v.string(), // e.g., "John Doe commented on your submission."
+    link: v.string(), // e.g., "/leagues/[leagueId]/round/[roundId]"
+    read: v.boolean(), // To track if the notification has been seen
+    triggeringUserId: v.optional(v.id("users")), // The user who triggered the notification
+  }).index("by_user", ["userId"]),
+
   roundResults: defineTable({
     roundId: v.id("rounds"),
     submissionId: v.id("submissions"),
-    userId: v.id("users"), // The user who submitted the song
+    userId: v.id("users"),
     points: v.number(),
     isWinner: v.boolean(),
   })
     .index("by_round", ["roundId"])
     .index("by_submission", ["submissionId"]),
 
-  // Stores the materialized leaderboard for each league
   leagueStandings: defineTable({
     leagueId: v.id("leagues"),
     userId: v.id("users"),

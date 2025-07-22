@@ -87,6 +87,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       });
       setPendingVotes(initialVotes);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userVoteStatus, submissions?.length]);
 
   const { pendingUpvotes, pendingDownvotes } = useMemo(() => {
