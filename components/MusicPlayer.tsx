@@ -1,34 +1,22 @@
-// components/MusicPlayer.tsx
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import {
-  Bookmark,
-  List,
-  MoreHorizontal,
-  Pause,
-  Play,
-  Repeat,
-  Repeat1,
-  Shuffle,
-  SkipBack,
-  SkipForward,
-} from "lucide-react";
-import Image from "next/image";
-import { useState, useRef, useEffect, useMemo } from "react";
-import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { Slider } from "./ui/slider";
+import { useRef, useEffect, useState, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { useConvexAuth } from "convex/react";
-import { MusicQueue } from "./MusicQueue";
+import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import WaveformData from "waveform-data";
-import { Waveform, WaveformComment } from "./Waveform";
-import { Skeleton } from "./ui/skeleton";
-import { FaSpotify, FaYoutube } from "react-icons/fa";
+import { WaveformComment } from "./Waveform";
+import { dynamicImport } from "@/components/ui/dynamic-import";
+
+// Dynamically import components
+const PlayerTrackInfo = dynamicImport(() => import("@/components/player/PlayerTrackInfo").then(mod => ({ default: mod.PlayerTrackInfo })));
+const PlayerControls = dynamicImport(() => import("@/components/player/PlayerControls").then(mod => ({ default: mod.PlayerControls })));
+const PlayerProgress = dynamicImport(() => import("@/components/player/PlayerProgress").then(mod => ({ default: mod.PlayerProgress })));
+const PlayerActions = dynamicImport(() => import("@/components/player/PlayerActions").then(mod => ({ default: mod.PlayerActions })));
+const MusicQueue = dynamicImport(() => import("./MusicQueue").then(mod => ({ default: mod.MusicQueue })));
 
 export function MusicPlayer() {
   const {
@@ -120,14 +108,11 @@ export function MusicPlayer() {
   }, [commentsData, currentTrack]);
 
   useEffect(() => {
-    // --- Start of Fix ---
-    // Only attempt to fetch and generate a waveform for file submissions
     if (
       currentTrack?.submissionType === "file" &&
       currentTrack?.songFileUrl &&
       audioContextRef.current
     ) {
-      // --- End of Fix ---
       setWaveformData(null);
       setIsWaveformLoading(true);
 
@@ -153,13 +138,9 @@ export function MusicPlayer() {
           setIsWaveformLoading(false);
         });
     } else {
-      // Clear waveform data for non-file submissions or when there's no track
       setWaveformData(null);
     }
-    // --- Start of Fix ---
-    // Add submissionType to the dependency array to correctly handle track changes
-  }, [currentTrack?.songFileUrl, currentTrack?.submissionType]);
-  // --- End of Fix ---
+ }, [currentTrack?.songFileUrl, currentTrack?.submissionType]);
 
   useEffect(() => {
     if (currentTrack) {
@@ -251,13 +232,6 @@ export function MusicPlayer() {
     }
   };
 
-  const formatTime = (seconds: number) => {
-    if (isNaN(seconds)) return "0:00";
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
-  };
-
   if (!currentTrack) {
     return null;
   }
@@ -274,182 +248,43 @@ export function MusicPlayer() {
       <MusicQueue isOpen={isQueueOpen} onOpenChange={setIsQueueOpen} />
       <footer className="fixed bottom-16 left-0 right-0 z-50 h-auto border-t border-border bg-background text-foreground md:bottom-0 md:h-20">
         <div className="flex h-full flex-col items-center justify-between p-2 md:flex-row md:px-4">
-          <div className="flex w-full min-w-0 items-center gap-3 md:w-1/4">
-            <Image
-              src={currentTrack.albumArtUrl}
-              alt={currentTrack.songTitle}
-              width={48}
-              height={48}
-              className="flex-shrink-0 rounded-md"
-            />
-            <div className="truncate">
-              <p className="truncate text-sm font-semibold">
-                {currentTrack.songTitle}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {currentTrack.artist}
-              </p>
-            </div>
-
-            <div className="ml-auto flex items-center md:hidden">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="flex-shrink-0"
-                onClick={handleBookmarkToggle}
-              >
-                <Bookmark className={cn("size-5", isBookmarked && "fill-primary text-primary")} />
-              </Button>
-            </div>
-          </div>
+          <PlayerTrackInfo 
+            currentTrack={currentTrack}
+            isBookmarked={isBookmarked}
+            onBookmarkToggle={handleBookmarkToggle}
+          />
 
           <div className="flex w-full flex-1 flex-col items-center justify-center gap-1 md:px-4">
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "hidden size-8 text-muted-foreground hover:text-foreground sm:flex",
-                  isShuffled && "text-primary",
-                )}
-                onClick={actions.toggleShuffle}
-                title="Shuffle"
-              >
-                <Shuffle className="size-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 text-muted-foreground hover:text-foreground"
-                onClick={actions.playPrevious}
-                title="Previous"
-              >
-                <SkipBack className="size-4" />
-              </Button>
-              <Button
-                variant="default"
-                size="icon"
-                className="size-10 rounded-full"
-                onClick={() => {
-                  if (isExternalLink) {
-                    window.open(
-                      currentTrack.songLink,
-                      "_blank",
-                      "noopener,noreferrer",
-                    );
-                  } else {
-                    actions.togglePlayPause();
-                  }
-                }}
-                title={
-                  isExternalLink ? "Open Link" : isPlaying ? "Pause" : "Play"
-                }
-              >
-                {isExternalLink ? (
-                  currentTrack.submissionType === "spotify" ? (
-                    <FaSpotify className="size-5 text-white" />
-                  ) : (
-                    <FaYoutube className="size-5 text-white" />
-                  )
-                ) : isPlaying ? (
-                  <Pause className="size-5 fill-primary-foreground" />
-                ) : (
-                  <Play className="size-5 fill-primary-foreground" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 text-muted-foreground hover:text-foreground"
-                onClick={actions.playNext}
-                title="Next"
-              >
-                <SkipForward className="size-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "size-8 text-muted-foreground hover:text-foreground",
-                  repeatMode !== "none" && "text-primary",
-                )}
-                onClick={actions.toggleRepeat}
-                title={`Repeat: ${repeatMode}`}
-              >
-                {repeatMode === "one" ? (
-                  <Repeat1 className="size-4" />
-                ) : (
-                  <Repeat className="size-4" />
-                )}
-              </Button>
-            </div>
+            <PlayerControls 
+              isPlaying={isPlaying}
+              isExternalLink={isExternalLink}
+              isShuffled={isShuffled}
+              repeatMode={repeatMode}
+              currentTrack={currentTrack}
+              onTogglePlayPause={actions.togglePlayPause}
+              onPlayNext={actions.playNext}
+              onPlayPrevious={actions.playPrevious}
+              onToggleShuffle={actions.toggleShuffle}
+              onToggleRepeat={actions.toggleRepeat}
+            />
 
-            <div className="flex w-full max-w-xl items-center gap-2">
-              <span className="w-10 text-right text-xs text-muted-foreground">
-                {isExternalLink ? "--:--" : formatTime(progress)}
-              </span>
-              <div className="relative flex-1 h-8 flex items-center transition-transform duration-50">
-                {isExternalLink ? (
-                  <div className="flex h-full w-full items-center justify-center rounded-md bg-muted px-2 text-center text-xs text-muted-foreground">
-                    Playing on{" "}
-                    {currentTrack.submissionType === "spotify"
-                      ? "Spotify"
-                      : "YouTube"}
-                    . Use controls to continue.
-                  </div>
-                ) : isWaveformLoading ? (
-                  <Skeleton className="h-8 w-full" />
-                ) : waveformData ? (
-                  <Waveform
-                    waveform={waveformData}
-                    progress={progress}
-                    duration={duration}
-                    onSeek={handleSeek}
-                    className="h-8"
-                    comments={waveformComments}
-                  />
-                ) : (
-                  <Slider
-                    value={[progress]}
-                    max={duration || 1}
-                    step={1}
-                    onValueChange={handleSeek}
-                  />
-                )}
-              </div>
-              <span className="w-10 text-left text-xs text-muted-foreground">
-                {isExternalLink ? "--:--" : formatTime(duration)}
-              </span>
-            </div>
+            <PlayerProgress 
+              isExternalLink={isExternalLink}
+              isWaveformLoading={isWaveformLoading}
+              waveformData={waveformData}
+                currentTrack={currentTrack}
+              progress={progress}
+              duration={duration}
+              comments={waveformComments}
+              onSeek={handleSeek}
+            />
           </div>
 
-          <div className="flex w-1/4 items-center justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex-shrink-0"
-              onClick={handleBookmarkToggle}
-              title="Bookmark song"
-            >
-              <Bookmark
-                className={cn(
-                  "size-5",
-                  isBookmarked && "fill-primary text-primary",
-                )}
-              />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex-shrink-0"
-              onClick={() => setIsQueueOpen(true)}
-            >
-              <List className="size-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="flex-shrink-0">
-              <MoreHorizontal className="size-5" />
-            </Button>
-          </div>
+          <PlayerActions 
+            isBookmarked={isBookmarked}
+            onBookmarkToggle={handleBookmarkToggle}
+            onQueueOpen={() => setIsQueueOpen(true)}
+          />
         </div>
       </footer>
     </>

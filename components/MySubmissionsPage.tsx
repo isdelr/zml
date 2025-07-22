@@ -19,9 +19,7 @@ import { Song } from "@/types";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Skeleton } from "./ui/skeleton";
-// --- ADDED ---
 import { FaSpotify, FaYoutube } from "react-icons/fa";
-// --- END ADDED ---
 
 const getResultIcon = (result: { type: string; points: number }) => {
   switch (result.type) {
@@ -140,12 +138,12 @@ export function MySubmissionsPage() {
         {/* Header */}
         <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <h1 className="text-4xl font-bold">My Submissions</h1>
-         <div className="relative w-full flex-1 md:max-w-sm">
+          <div className="relative w-full flex-1 md:max-w-sm">
             <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search in your submissions..."
-               className="h-10 w-full rounded-md border-none bg-secondary pl-10 pr-4 text-sm"
+              className="h-10 w-full rounded-md border-none bg-secondary pl-10 pr-4 text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -179,7 +177,8 @@ export function MySubmissionsPage() {
                     </Link>
                   </h2>
                   <div className="overflow-hidden rounded-md border">
-<div className="hidden grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground md:grid">                      <span className="w-4 text-center">#</span>
+                    <div className="hidden grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground md:grid">
+                      <span className="w-4 text-center">#</span>
                       <span>Track</span>
                       <span>Round</span>
                       <span className="text-center">Result</span>
@@ -188,13 +187,13 @@ export function MySubmissionsPage() {
                     <div>
                       {submissions.map((submission, index) => (
                         <div
-                          key={submission._id} // Using grid for mobile layout as well, but with different columns
-                         className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b p-3 transition-colors last:border-b-0 hover:bg-accent md:grid-cols-[auto_4fr_3fr_2fr_auto] md:gap-4"
-                         >
-<span className="hidden w-4 text-center text-muted-foreground md:block">
-                             {index + 1}
+                          key={submission._id}
+                          className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b p-3 transition-colors last:border-b-0 hover:bg-accent md:grid-cols-[auto_4fr_3fr_2fr_auto] md:gap-4"
+                        >
+                          <span className="hidden w-4 text-center text-muted-foreground md:block">
+                            {index + 1}
                           </span>
-           <div className="col-span-1 flex items-center gap-4">
+                          <div className="flex items-center gap-4">
                             <Image
                               src={submission.albumArtUrl!}
                               alt={submission.songTitle}
@@ -211,7 +210,7 @@ export function MySubmissionsPage() {
                               </p>
                             </div>
                           </div>
-<div className="col-start-1 ml-[56px] text-sm md:col-start-auto md:ml-0 md:text-base">
+                          <div className="hidden text-sm md:block md:text-base">
                             <p className="font-medium">
                               {submission.roundTitle}
                             </p>
@@ -219,7 +218,7 @@ export function MySubmissionsPage() {
                               {submission.status.replace(/_/g, " ")}
                             </p>
                           </div>
-<div className="col-start-2 row-start-2 flex justify-center md:col-start-auto md:row-start-auto">
+                          <div className="flex justify-center">
                             {submission.result.type !== "pending" ? (
                               <div
                                 className={cn(
@@ -246,29 +245,38 @@ export function MySubmissionsPage() {
                               </div>
                             )}
                           </div>
-<div className="col-start-2 row-start-1 flex w-auto justify-end gap-1 md:w-24">
-                            {/* --- Start of Change --- */}
-                            {submission.submissionType === 'file' ? (
+                          <div className="flex w-auto justify-end gap-1 md:w-24">
+                            {submission.submissionType === "file" ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="opacity-0 transition-opacity group-hover:opacity-100"
+                                onClick={() =>
+                                  playerActions.playSong(submission as Song)
+                                }
+                              >
+                                <Play className="size-4" />
+                              </Button>
+                            ) : (
+                              <a
+                                href={submission.songLink!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   className="opacity-0 transition-opacity group-hover:opacity-100"
-                                  onClick={() =>
-                                    playerActions.playSong(submission as Song)
-                                  }
                                 >
-                                  <Play className="size-4" />
+                                  {submission.submissionType === "spotify" && (
+                                    <FaSpotify className="size-4 text-green-500" />
+                                  )}
+                                  {submission.submissionType === "youtube" && (
+                                    <FaYoutube className="size-4 text-red-500" />
+                                  )}
                                 </Button>
-                              ) : (
-                                <a href={submission.songLink!} target="_blank" rel="noopener noreferrer">
-                                   <Button variant="ghost" size="icon" className="opacity-0 transition-opacity group-hover:opacity-100">
-                                      {submission.submissionType === 'spotify' && <FaSpotify className="size-4 text-green-500" />}
-                                      {submission.submissionType === 'youtube' && <FaYoutube className="size-4 text-red-500" />}
-                                   </Button>
-                                </a>
-                              )
-                            }
-                            {/* --- End of Change --- */}
+                              </a>
+                            )}
                             <Link href={`/leagues/${submission.leagueId}`}>
                               <Button
                                 variant="ghost"
@@ -278,6 +286,12 @@ export function MySubmissionsPage() {
                                 <ListMusic className="size-4" />
                               </Button>
                             </Link>
+                          </div>
+                          {/* Mobile-only round info */}
+                          <div className="col-span-1 -mt-2 pl-[56px] text-sm text-muted-foreground md:hidden">
+                            <p className="font-medium">
+                              {submission.roundTitle}
+                            </p>
                           </div>
                         </div>
                       ))}

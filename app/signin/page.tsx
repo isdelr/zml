@@ -1,5 +1,8 @@
+import { dynamicImport } from "@/components/ui/dynamic-import";
 import type { Metadata } from "next";
-import SignInPage from "@/components/SignInPage";
+
+// Dynamically import the SignInPage component
+const SignInPage = dynamicImport(() => import("@/components/SignInPage"));
 
 export const metadata: Metadata = {
   title: "Sign In",

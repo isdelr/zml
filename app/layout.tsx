@@ -3,12 +3,15 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
-import ConvexClientProvider from "@/components/ConvexClientProvider";
 import { ThemeProvider } from "./ThemeProvider";
-import { Toaster } from "@/components/ui/sonner";
-import { MusicPlayer } from "@/components/MusicPlayer";
-import { BottomNavbar } from "@/components/BottomNavbar";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
+
+// Dynamically import components
+const ConvexClientProvider = dynamic(() => import("@/components/ConvexClientProvider"));
+const Toaster = dynamic(() => import("@/components/ui/sonner").then(mod => mod.Toaster));
+const MusicPlayer = dynamic(() => import("@/components/MusicPlayer").then(mod => ({ default: mod.MusicPlayer })));
+const BottomNavbar = dynamic(() => import("@/components/BottomNavbar").then(mod => ({ default: mod.BottomNavbar })));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

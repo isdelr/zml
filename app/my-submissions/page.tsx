@@ -1,6 +1,9 @@
-import { MySubmissionsPage } from "@/components/MySubmissionsPage";
-import { Sidebar } from "@/components/Sidebar";
+import { dynamicImport } from "@/components/ui/dynamic-import";
+import { PageLayout } from "@/components/layout/PageLayout";
 import type { Metadata } from 'next';
+
+// Dynamically import the MySubmissionsPage component
+const MySubmissionsPage = dynamicImport(() => import("@/components/MySubmissionsPage").then(mod => ({ default: mod.MySubmissionsPage })));
 
 export const metadata: Metadata = {
   title: 'My Submissions',
@@ -9,11 +12,8 @@ export const metadata: Metadata = {
 
 export default function MySubmissions() {
   return (
-    <div className="flex h-screen ">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <MySubmissionsPage />
-      </div>
-    </div>
+    <PageLayout>
+      <MySubmissionsPage />
+    </PageLayout>
   );
 }

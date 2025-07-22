@@ -1,6 +1,9 @@
-import { ActiveRoundsPage } from "@/components/ActiveRoundsPage";
-import { Sidebar } from "@/components/Sidebar";
+import { dynamicImport } from "@/components/ui/dynamic-import";
+import { PageLayout } from "@/components/layout/PageLayout";
 import type { Metadata } from 'next';
+
+// Dynamically import the ActiveRoundsPage component
+const ActiveRoundsPage = dynamicImport(() => import("@/components/ActiveRoundsPage").then(mod => ({ default: mod.ActiveRoundsPage })));
 
 export const metadata: Metadata = {
   title: 'Active Rounds',
@@ -9,11 +12,8 @@ export const metadata: Metadata = {
 
 export default function ActiveRounds() {
   return (
-    <div className="flex h-screen ">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <ActiveRoundsPage />
-      </div>
-    </div>
+    <PageLayout>
+      <ActiveRoundsPage />
+    </PageLayout>
   );
 }

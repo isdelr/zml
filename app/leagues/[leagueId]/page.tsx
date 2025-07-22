@@ -1,9 +1,12 @@
-import { LeaguePage } from "@/components/LeaguePage";
-import { Sidebar } from "@/components/Sidebar";
+import { dynamicImport } from "@/components/ui/dynamic-import";
+import { PageLayout } from "@/components/layout/PageLayout";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { ConvexHttpClient } from "convex/browser";
 import type { Metadata } from "next";
+
+// Dynamically import the LeaguePage component
+const LeaguePage = dynamicImport(() => import("@/components/LeaguePage").then(mod => ({ default: mod.LeaguePage })));
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -35,13 +38,8 @@ export default async function League({
 }) {
   const { leagueId } = await params;
   return (
-    <>
-      <div className="flex h-screen ">
-        <Sidebar />
-        <div className="flex flex-1 flex-col">
-          <LeaguePage leagueId={leagueId} />
-        </div>
-      </div>
-    </>
+    <PageLayout>
+      <LeaguePage leagueId={leagueId} />
+    </PageLayout>
   );
 }

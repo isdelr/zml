@@ -1,9 +1,12 @@
-import { ProfilePage } from "@/components/ProfilePage";
-import { Sidebar } from "@/components/Sidebar";
+import { dynamicImport } from "@/components/ui/dynamic-import";
+import { PageLayout } from "@/components/layout/PageLayout";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { ConvexHttpClient } from "convex/browser";
 import type { Metadata } from "next";
+
+// Dynamically import the ProfilePage component
+const ProfilePage = dynamicImport(() => import("@/components/ProfilePage").then(mod => ({ default: mod.ProfilePage })));
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -36,11 +39,8 @@ export default async function Profile({
   const { userId } = await params;
 
   return (
-    <div className="flex h-screen ">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <ProfilePage userId={userId} />
-      </div>
-    </div>
+    <PageLayout>
+      <ProfilePage userId={userId} />
+    </PageLayout>
   );
 }

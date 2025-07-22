@@ -1,6 +1,9 @@
-import { BookmarkedPage } from "@/components/BookMarkedPage";
-import { Sidebar } from "@/components/Sidebar";
+import { dynamicImport } from "@/components/ui/dynamic-import";
+import { PageLayout } from "@/components/layout/PageLayout";
 import type { Metadata } from 'next';
+
+// Dynamically import the BookmarkedPage component
+const BookmarkedPage = dynamicImport(() => import("@/components/BookMarkedPage").then(mod => ({ default: mod.BookmarkedPage })));
 
 export const metadata: Metadata = {
   title: 'Bookmarked Songs',
@@ -9,11 +12,8 @@ export const metadata: Metadata = {
 
 export default function Bookmarked() {
   return (
-    <div className="flex h-screen ">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <BookmarkedPage />
-      </div>
-    </div>
+    <PageLayout>
+      <BookmarkedPage />
+    </PageLayout>
   );
 }

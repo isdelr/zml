@@ -1,13 +1,19 @@
-import { CreateLeaguePage } from "@/components/CreateLeaguePage";
-import { Sidebar } from "@/components/Sidebar";
+import { dynamicImport } from "@/components/ui/dynamic-import";
+import { PageLayout } from "@/components/layout/PageLayout";
+import type { Metadata } from 'next';
+
+// Dynamically import the CreateLeaguePage component
+const CreateLeaguePage = dynamicImport(() => import("@/components/CreateLeaguePage").then(mod => ({ default: mod.CreateLeaguePage })));
+
+export const metadata: Metadata = {
+  title: 'Create League',
+  description: 'Create a new music league, set up rounds, and invite your friends to compete.',
+};
 
 export default function CreateLeague() {
   return (
-    <div className="flex h-screen ">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <CreateLeaguePage />
-      </div>
-    </div>
+    <PageLayout>
+      <CreateLeaguePage />
+    </PageLayout>
   );
 }
