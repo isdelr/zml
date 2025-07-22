@@ -194,6 +194,8 @@ useEffect(() => {
       toggleBookmark({ submissionId: currentTrack._id as Id<"submissions"> }),
       {
         loading: "Updating bookmark...",
+        duration: 700,
+        position: "bottom-left",
         success: (data) =>
           data.bookmarked ? "Song bookmarked!" : "Bookmark removed.",
         error: (err) => {
