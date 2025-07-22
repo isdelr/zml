@@ -1,9 +1,5 @@
 "use client";
-
-import { Button } from "@/components/ui/button";
-import { Bookmark } from "lucide-react";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
 
 interface PlayerTrackInfoProps {
   currentTrack: unknown;
@@ -13,8 +9,6 @@ interface PlayerTrackInfoProps {
 
 export function PlayerTrackInfo({
   currentTrack,
-  isBookmarked,
-  onBookmarkToggle,
 }: PlayerTrackInfoProps) {
   if (!currentTrack) return null;
   
@@ -35,8 +29,6 @@ export function PlayerTrackInfo({
           {currentTrack.artist}
         </p>
       </div>
-
-
     </div>
   );
 }
