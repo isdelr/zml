@@ -36,16 +36,7 @@ export function PlayerTrackInfo({
         </p>
       </div>
 
-      <div className="ml-auto flex items-center md:hidden">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="flex-shrink-0"
-          onClick={onBookmarkToggle}
-        >
-          <Bookmark className={cn("size-5", isBookmarked && "fill-primary text-primary")} />
-        </Button>
-      </div>
+
     </div>
   );
 }
