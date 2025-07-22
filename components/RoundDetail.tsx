@@ -7,6 +7,7 @@ import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
 import { dynamicImport } from "./ui/dynamic-import";
 import { useMemo } from "react";
+import { AvatarStack } from "./AvatarStack";
 
 // Dynamically import components
 const RoundAdminControls = dynamicImport(() =>
@@ -70,6 +71,14 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
   const mySubmission = submissions?.find((s) => s.userId === currentUser?._id);
 
+  const submittedUsers = useMemo(() => {
+    if (!submissions) return [];
+    return submissions.map((sub) => ({
+      name: sub.submittedBy,
+      image: sub.submittedByImage,
+    }));
+  }, [submissions]);
+
   const handlePlaySong = (song: Song, index: number) => {
     const isThisSongCurrent =
       currentTrackIndex !== null && queue[currentTrackIndex]?._id === song._id;
@@ -112,10 +121,12 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           <div className="mt-8 rounded-lg border bg-card p-6 text-center">
             <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
             {submissions && submissions.length > 0 ? (
-              <div className="mt-4 flex justify-center">
-                <div className="flex items-center gap-2">
-                  <span>{submissions.length} submissions</span>
-                </div>
+              <div className="mt-4 flex flex-col items-center justify-center gap-2">
+                <AvatarStack users={submittedUsers} />
+                <p className="text-sm text-muted-foreground">
+                  {submissions.length} submission
+                  {submissions.length > 1 ? "s" : ""}
+                </p>
               </div>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">

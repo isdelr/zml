@@ -9,7 +9,6 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { dynamicImport } from "./ui/dynamic-import";
 import { RoundDetail } from "./RoundDetail";
 import { Dialog, DialogContent } from "./ui/dialog";
-import { DialogTitle } from "@radix-ui/react-dialog";
 
 // Dynamically import components
 const LeagueHeader = dynamicImport(() =>
@@ -194,8 +193,6 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
 
       {/* Settings Dialog */}
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogTitle>League Settings</DialogTitle>
-
         <DialogContent className="max-w-2xl">
           <LeagueSettingsDialog
             league={leagueData}
