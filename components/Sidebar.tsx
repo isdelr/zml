@@ -40,6 +40,7 @@ const collectionNav = [
 export function Sidebar() {
   const currentUser = useQuery(api.users.getCurrentUser);
   const myLeagues = useQuery(api.leagues.getLeaguesForUser);
+  const clearQueue = useMusicPlayerStore((state) => state.actions.clearQueue);
   const currentTrackIndex = useMusicPlayerStore(
     (state) => state.currentTrackIndex,
   );
@@ -94,7 +95,10 @@ export function Sidebar() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => signOut()}
+              onClick={async () => {
+                clearQueue();
+                await signOut();
+              }}
               className="cursor-pointer"
             >
               <LogOut className="mr-2 size-4" />
