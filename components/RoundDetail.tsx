@@ -1,3 +1,4 @@
+// components/RoundDetail.tsx
 "use client";
 import { cn } from "@/lib/utils";
 import {
@@ -622,8 +623,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       {isOwner && (
         <AdminControls round={round} submissions={submissions} votes={votes} />
       )}
-      <div className="mb-8 flex flex-col gap-8 md:flex-row">
-        {round.art ? (
+     <div className="mb-8 flex flex-col gap-6 md:flex-row md:gap-8">
+       {round.art ? (
           <Image
             src={round.art}
             alt="Round Art"
@@ -631,11 +632,11 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             height={256}
             className="h-64 w-64 flex-shrink-0 rounded-md object-cover"
           />
-        ) : (
-          <div
-            className="h-64 w-64 flex-shrink-0 rounded-md bg-muted"
-            dangerouslySetInnerHTML={{ __html: toSvg(round._id, 256) }}
-          />
+        ) : ( // Make image responsive
+          <div 
+             className="h-64 w-64 flex-shrink-0 rounded-md bg-muted"
+             dangerouslySetInnerHTML={{ __html: toSvg(round._id, 256) }}
+           />
         )}
         <div className="flex flex-1 flex-col justify-between gap-6">
           <div className="flex flex-col justify-end gap-2">
@@ -645,9 +646,9 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                   ? "Submissions Open"
                   : "Viewing Round"}
               </p>
-              <h1 className="text-5xl font-bold text-foreground">
-                {round.title}
-              </h1>
+<h1 className="text-4xl font-bold text-foreground md:text-5xl">
+                 {round.title}
+               </h1>
               <p className="mt-2 text-muted-foreground">
                 {round.status.charAt(0).toUpperCase() + round.status.slice(1)} •{" "}
                 {round.status === "submissions"
@@ -663,7 +664,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                     playerActions.playRound(submissions as Song[], 0)
                   }
                   size="lg"
-                  className="mt-4 w-fit bg-primary text-primary-foreground"
+className="mt-4 w-full bg-primary text-primary-foreground md:w-fit"
                 >
                   <Play className="mr-2 size-5" />
                   Play All
@@ -671,7 +672,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
               )}
           </div>
           {round.status === "voting" && (
-            <div className="flex items-center justify-between rounded-lg border bg-card p-4">
+<div className="flex flex-col items-start gap-4 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-semibold text-foreground">
                   Your Vote Budget
@@ -700,7 +701,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           )}
         </div>
       </div>
-      <div className="border-b border-border text-xs font-semibold text-muted-foreground">
+      <div className="hidden border-b border-border text-xs font-semibold text-muted-foreground md:block">
         <div className="grid grid-cols-[auto_4fr_3fr_2fr_minmax(220px,auto)] items-center gap-4 px-4 py-2">
           <span className="w-10 text-center">#</span>
           <span>TRACK</span>
@@ -790,7 +791,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         </div>
       )}
       {(round.status === "voting" || round.status === "finished") && (
-        <>
+        <div className="flex flex-col">
           {submissions === undefined && <Skeleton className="h-64 w-full" />}
           {submissions && submissions.length === 0 && (
             <div className="py-20 text-center">
@@ -830,16 +831,16 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
               return (
                 <div
                   key={song._id}
-                  className="border-b border-border last:border-b-0"
+                  className="border-b border-border p-3 last:border-b-0 md:p-0 md:border-none"
                 >
                   <div
                     className={cn(
-                      "grid grid-cols-[auto_4fr_3fr_2fr_minmax(220px,auto)] items-center gap-4 px-4 py-2 transition-colors",
+                      "grid grid-cols-[auto_1fr] grid-rows-[auto_auto_auto] items-center gap-x-4 gap-y-2 transition-colors md:grid-cols-[auto_4fr_3fr_2fr_minmax(220px,auto)] md:grid-rows-1 md:px-4 md:py-2",
                       isThisSongCurrent ? "bg-accent" : "hover:bg-accent/50",
                       isCommentsVisible && "bg-accent/50",
                     )}
                   >
-                    <div className="flex w-10 items-center justify-center">
+                    <div className="row-span-3 flex w-10 items-center justify-center md:row-span-1">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -867,7 +868,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                         )}
                       </Button>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="col-start-2 row-start-1 flex items-center gap-4 md:col-start-auto md:row-start-auto">
                       <Image
                         src={song.albumArtUrl}
                         alt={song.songTitle}
@@ -894,7 +895,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="col-start-2 row-start-2 flex items-center gap-2 text-sm text-muted-foreground md:col-start-auto md:row-start-auto md:text-base">
                       <Avatar className="size-6">
                         <AvatarImage
                           src={
@@ -923,10 +924,10 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                         ? "Anonymous"
                         : song.submittedBy}
                     </div>
-                    <div className={cn("text-right font-bold", pointColor)}>
+                    <div className={cn("col-start-2 row-start-3 self-center text-left font-bold md:col-start-auto md:row-start-auto md:text-right", pointColor)}>
                       {round.status === "finished" ? points : "?"}
                     </div>
-                    <div className="flex items-center justify-center gap-1 text-muted-foreground">
+                    <div className="col-span-2 row-start-4 mt-2 flex items-center justify-around rounded-md bg-muted/50 p-1 md:col-span-1 md:col-start-auto md:row-start-auto md:mt-0 md:justify-center md:gap-1 md:bg-transparent md:p-0">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1024,7 +1025,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                 </Button>
               </div>
             )}
-        </>
+        </div>
       )}
     </section>
   );

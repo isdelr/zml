@@ -85,12 +85,13 @@ export function ProfilePage({ userId }: { userId: string }) {
   return (
     <div
       className={cn(
-        "flex-1 overflow-y-auto p-8",
-        currentTrackIndex !== null && "pb-24",
+        // Reduced padding for mobile
+        "flex-1 overflow-y-auto p-4 md:p-8",
+        currentTrackIndex !== null && "pb-32",
       )}
     >
       {/* User Header */}
-      <header className="mb-8 flex flex-col items-center gap-6 md:flex-row">
+      <header className="mb-8 flex flex-col items-center gap-4 text-center md:flex-row md:gap-6 md:text-left">
         <Avatar className="size-24 border-4 border-primary">
           <AvatarImage src={image ?? undefined} alt={name ?? "User"} />
           <AvatarFallback>
@@ -98,7 +99,7 @@ export function ProfilePage({ userId }: { userId: string }) {
           </AvatarFallback>
         </Avatar>
         <div>
-          <h1 className="text-4xl font-bold">{name}</h1>
+          <h1 className="text-3xl font-bold md:text-4xl">{name}</h1>
           <p className="text-muted-foreground">
             Member for {formatDistanceToNow(new Date(creationTime))}
           </p>
@@ -106,7 +107,7 @@ export function ProfilePage({ userId }: { userId: string }) {
       </header>
 
       {/* Stats Grid */}
-      <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           icon={<Shield className="size-4 text-muted-foreground" />}
           title="Leagues Joined"
@@ -129,9 +130,51 @@ export function ProfilePage({ userId }: { userId: string }) {
         <CardHeader>
           <CardTitle>League History</CardTitle>
         </CardHeader>
-        <CardContent>
+
+        <CardContent className="p-0 md:p-6">
+          {/* Hide table on mobile, show cards instead */}
+          <div className="md:hidden">
+            {leagues.length === 0 ? (
+              <p className="p-4 text-center text-muted-foreground">
+                No active leagues.
+              </p>
+            ) : (
+              <div className="space-y-4 p-4">
+                {leagues.map((league) => (
+                  <Card key={league._id} className="p-4">
+                    <CardTitle className="mb-2">{league.name}</CardTitle>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <p>
+                        <strong>Rank:</strong>{" "}
+                        {league.userRank ? `#${league.userRank}` : "N/A"}
+                      </p>
+                      <p>
+                        <strong>Wins:</strong> {league.wins}
+                      </p>
+                      <p>
+                        <strong>Score:</strong> {league.userScore ?? "N/A"}
+                      </p>
+                      <p>
+                        <strong>Submissions:</strong> {league.submissionCount}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/leagues/${league._id}`}
+                      passHref
+                      className="mt-4 block"
+                    >
+                      <Button variant="outline" className="w-full">
+                        View League
+                      </Button>
+                    </Link>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Desktop Table */}
           <Table>
-            <TableHeader>
+            <TableHeader className="hidden md:table-header-group">
               <TableRow>
                 <TableHead>League</TableHead>
                 <TableHead className="text-center">Rank</TableHead>
@@ -141,7 +184,8 @@ export function ProfilePage({ userId }: { userId: string }) {
                 <TableHead />
               </TableRow>
             </TableHeader>
-            <TableBody>
+
+            <TableBody className="hidden md:table-row-group">
               {leagues.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
@@ -152,6 +196,7 @@ export function ProfilePage({ userId }: { userId: string }) {
                 leagues.map((league) => (
                   <TableRow key={league._id}>
                     <TableCell className="font-medium">{league.name}</TableCell>
+
                     <TableCell className="text-center">
                       {league.userRank ? `#${league.userRank}` : "N/A"}
                     </TableCell>
@@ -159,6 +204,7 @@ export function ProfilePage({ userId }: { userId: string }) {
                       {league.userScore ?? "N/A"}
                     </TableCell>
                     <TableCell className="text-center">{league.wins}</TableCell>
+
                     <TableCell className="text-center">
                       {league.submissionCount}
                     </TableCell>

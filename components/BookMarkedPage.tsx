@@ -1,3 +1,4 @@
+// components/BookmarkedPage.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -79,13 +80,14 @@ export function BookmarkedPage() {
   return (
     <div
       className={cn(
-        "flex-1 overflow-y-auto bg-background p-8 text-foreground",
-        currentTrackIndex !== null && "pb-24",
+        // Reduced padding on mobile
+        "flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8",
+        currentTrackIndex !== null && "pb-32",
       )}
     >
-      <header className="mb-8 flex items-center justify-between gap-4">
+      <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <h1 className="text-4xl font-bold">Bookmarked Songs</h1>
-        <div className="relative max-w-sm flex-1">
+        <div className="relative w-full flex-1 md:max-w-sm">
           <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
@@ -114,7 +116,8 @@ export function BookmarkedPage() {
 
       {bookmarkedSongs && filteredSongs.length > 0 && (
         <div className="overflow-hidden rounded-md border">
-          <div className="grid grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
+          <div className="hidden grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground md:grid">
+            {" "}
             <span className="w-4 text-center">#</span>
             <span>Track</span>
             <span>From Round</span>
@@ -125,12 +128,12 @@ export function BookmarkedPage() {
             {filteredSongs.map((song, index) => (
               <div
                 key={song._id}
-                className="group grid grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b px-4 py-3 transition-colors last:border-b-0 hover:bg-accent"
+                className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b p-3 transition-colors last:border-b-0 hover:bg-accent md:grid-cols-[auto_4fr_3fr_3fr_auto] md:gap-4"
               >
-                <span className="w-4 text-center text-muted-foreground">
+                <span className="hidden w-4 text-center text-muted-foreground md:block">
                   {index + 1}
                 </span>
-                <div className="flex items-center gap-4">
+                <div className="col-span-1 flex items-center gap-4">
                   <Image
                     src={song.albumArtUrl}
                     alt={song.songTitle}
@@ -147,33 +150,45 @@ export function BookmarkedPage() {
                     </p>
                   </div>
                 </div>
-                <div>
+                <div className="col-start-1 ml-[56px] text-sm text-muted-foreground md:col-start-auto md:ml-0 md:text-base">
                   <p className="font-medium">{song.roundTitle}</p>
                 </div>
-                <div>
+                <div className="col-start-1 ml-[56px] text-sm text-muted-foreground md:col-start-auto md:ml-0 md:text-base">
                   <Link
                     href={`/leagues/${song.leagueId}`}
-                    className="hover:underline"
+                    className="hover:underline md:text-foreground"
                   >
                     {song.leagueName}
                   </Link>
                 </div>
-                <div className="flex w-32 justify-end gap-2">
+                <div className="col-start-2 row-span-3 row-start-1 flex items-center justify-end md:row-span-1 md:row-start-auto md:w-32 md:gap-2">
                   {/* --- Start of Change --- */}
-                  {song.submissionType === 'file' ? (
-                     <Button
+                  {song.submissionType === "file" ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={() => playerActions.playSong(song as Song)}
+                    >
+                      <Play className="size-4" />
+                    </Button>
+                  ) : (
+                    <a
+                      href={song.songLink!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button
                         variant="ghost"
                         size="icon"
                         className="opacity-0 transition-opacity group-hover:opacity-100"
-                        onClick={() => playerActions.playSong(song as Song)}
                       >
-                        <Play className="size-4" />
-                      </Button>
-                  ) : (
-                    <a href={song.songLink!} target="_blank" rel="noopener noreferrer">
-                      <Button variant="ghost" size="icon" className="opacity-0 transition-opacity group-hover:opacity-100">
-                        {song.submissionType === 'spotify' && <FaSpotify className="size-4 text-green-500" />}
-                        {song.submissionType === 'youtube' && <FaYoutube className="size-4 text-red-500" />}
+                        {song.submissionType === "spotify" && (
+                          <FaSpotify className="size-4 text-green-500" />
+                        )}
+                        {song.submissionType === "youtube" && (
+                          <FaYoutube className="size-4 text-red-500" />
+                        )}
                       </Button>
                     </a>
                   )}

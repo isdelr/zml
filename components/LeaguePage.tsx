@@ -1,3 +1,4 @@
+// components/LeaguePage.tsx
 "use client";
 
 import { Play, Search, Users, Copy, Settings } from "lucide-react";
@@ -36,12 +37,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./ui/dialog";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -98,14 +94,17 @@ function GeneralSettingsTab({
   });
 
   async function onSubmit(values: z.infer<typeof leagueEditSchema>) {
-    toast.promise(updateLeague({ leagueId: league._id as Id<"leagues">, ...values }), {
-      loading: "Updating league...",
-      success: (msg) => {
-        onClose();
-        return msg;
+    toast.promise(
+      updateLeague({ leagueId: league._id as Id<"leagues">, ...values }),
+      {
+        loading: "Updating league...",
+        success: (msg) => {
+          onClose();
+          return msg;
+        },
+        error: "Failed to update league.",
       },
-      error: "Failed to update league.",
-    });
+    );
   }
 
   return (
@@ -199,11 +198,14 @@ function MembersTab({
   const kickMember = useMutation(api.leagues.kickMember);
 
   const handleKick = (memberIdToKick: Id<"users">) => {
-    toast.promise(kickMember({ leagueId: league._id as Id<"leagues">, memberIdToKick }), {
-      loading: "Kicking member...",
-      success: "Member kicked.",
-      error: (err) => err.data?.message || "Failed to kick member.",
-    });
+    toast.promise(
+      kickMember({ leagueId: league._id as Id<"leagues">, memberIdToKick }),
+      {
+        loading: "Kicking member...",
+        success: "Member kicked.",
+        error: (err) => err.data?.message || "Failed to kick member.",
+      },
+    );
   };
 
   return (
@@ -219,7 +221,11 @@ function MembersTab({
               <Avatar className="size-8">
                 <AvatarImage src={member.image} />
                 <AvatarFallback>
-                  <div dangerouslySetInnerHTML={{ __html: toSvg(member._id as string, 32) }} />
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: toSvg(member._id as string, 32),
+                    }}
+                  />
                 </AvatarFallback>
               </Avatar>
               <span>{member.name}</span>
@@ -251,11 +257,14 @@ function InviteTab({ league }: { league: Record<string, unknown> }) {
     action: "regenerate" | "disable" | "enable",
     messages: { loading: string; success: string; error: string },
   ) => {
-    toast.promise(manageInviteCode({ leagueId: league._id as Id<"leagues">, action }), {
-      loading: messages.loading,
-      success: messages.success,
-      error: (err) => err.data?.message || messages.error,
-    });
+    toast.promise(
+      manageInviteCode({ leagueId: league._id as Id<"leagues">, action }),
+      {
+        loading: messages.loading,
+        success: messages.success,
+        error: (err) => err.data?.message || messages.error,
+      },
+    );
   };
 
   const inviteUrl =
@@ -416,10 +425,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
       : "skip",
   );
   const currentUser = useQuery(api.users.getCurrentUser);
-  const {
-    actions: playerActions,
-    currentTrackIndex,
-  } = useMusicPlayerStore();
+  const { actions: playerActions, currentTrackIndex } = useMusicPlayerStore();
   const { isAuthenticated } = useConvexAuth();
   const { signIn } = useAuthActions();
   const joinLeagueMutation = useMutation(api.leagues.joinPublicLeague);
@@ -480,9 +486,12 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
       }
     } catch (error: unknown) {
       console.error(error);
-      toast.error(error instanceof Error ? error.message : "Failed to join league.", {
-        id: toastId,
-      });
+      toast.error(
+        error instanceof Error ? error.message : "Failed to join league.",
+        {
+          id: toastId,
+        },
+      );
     }
   };
 
@@ -530,7 +539,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
     </div>
   );
 
-if (leagueData === undefined) {
+  if (leagueData === undefined) {
     return (
       <div className="flex-1 overflow-y-auto bg-background p-8 animate-pulse">
         {/* Header Skeleton */}
@@ -541,7 +550,7 @@ if (leagueData === undefined) {
           </div>
           <Skeleton className="h-10 w-full max-w-xs rounded-md" />
         </header>
-        
+
         {/* Title Skeleton */}
         <div className="mb-12">
           <Skeleton className="mb-4 h-16 w-3/4 rounded-md" />
@@ -601,7 +610,11 @@ if (leagueData === undefined) {
                     alt={leagueData.creatorName}
                   />
                   <AvatarFallback>
-                    <div dangerouslySetInnerHTML={{ __html: toSvg(leagueData.creatorId, 24) }} />
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: toSvg(leagueData.creatorId, 24),
+                      }}
+                    />
                   </AvatarFallback>
                 </Avatar>
                 <strong className="text-foreground">
@@ -642,11 +655,11 @@ if (leagueData === undefined) {
     <div
       className={cn(
         "flex-1 overflow-y-auto bg-background  ",
-        currentTrackIndex !== null && "pb-24",
+        currentTrackIndex !== null && "pb-32",
       )}
     >
-      <div className="p-8">
-        <header className="mb-8 flex items-center justify-between">
+      <div className="p-4 md:p-8">
+        <header className="mb-8 flex flex-col-reverse items-start justify-between gap-4 md:flex-row md:items-center">
           <div className="flex items-center gap-4">
             {/* Invite Button Popover */}
             {leagueData?.isOwner && (
@@ -669,9 +682,7 @@ if (leagueData === undefined) {
                     </div>
                     {leagueData.inviteCode && (
                       <div className="grid gap-2">
-                        <Label htmlFor="invite-link">
-                          League Invite Link
-                        </Label>
+                        <Label htmlFor="invite-link">League Invite Link</Label>
                         <div className="flex items-center space-x-2">
                           <Input
                             id="invite-link"
@@ -722,7 +733,10 @@ if (leagueData === undefined) {
               </Dialog>
             )}
           </div>
-          <div className="relative max-w-xs flex-1" ref={searchContainerRef}>
+          <div
+            className="relative w-full flex-1 md:max-w-xs"
+            ref={searchContainerRef}
+          >
             <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
@@ -805,8 +819,8 @@ if (leagueData === undefined) {
         </header>
 
         <div className="mb-12">
-          <h1 className="text-6xl font-bold">{leagueData.name}</h1>
-          <div className="mt-4 flex items-center gap-6 text-muted-foreground">
+          <h1 className="text-4xl font-bold md:text-6xl">{leagueData.name}</h1>
+          <div className="mt-4 flex flex-col items-start gap-3 text-muted-foreground md:flex-row md:items-center md:gap-6">
             <div className="flex items-center gap-2">
               {leagueData.members && <AvatarStack users={leagueData.members} />}
               <span>{leagueData.memberCount} Members</span>
@@ -819,7 +833,11 @@ if (leagueData === undefined) {
                   alt={leagueData.creatorName}
                 />
                 <AvatarFallback>
-                  <div dangerouslySetInnerHTML={{ __html: toSvg(leagueData.creatorId as string, 24) }} />
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: toSvg(leagueData.creatorId as string, 24),
+                    }}
+                  />
                 </AvatarFallback>
               </Avatar>
               <strong className="text-foreground">
@@ -857,15 +875,14 @@ if (leagueData === undefined) {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              // Adjusted grid for better responsiveness
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {rounds.map((round) => (
                   <Card
                     key={round._id}
                     onClick={() => handleRoundSelect(round._id)}
                     className={`cursor-pointer bg-card transition-colors hover:bg-accent ${
-                      selectedRoundId === round._id
-                        ? "ring-2 ring-primary"
-                        : ""
+                      selectedRoundId === round._id ? "ring-2 ring-primary" : ""
                     }`}
                   >
                     <CardHeader>

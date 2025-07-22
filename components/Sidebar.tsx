@@ -48,7 +48,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex w-64 flex-col bg-sidebar p-6 text-sidebar-foreground", // Keep existing classes
+        "hidden w-64 flex-col bg-sidebar p-6 text-sidebar-foreground md:flex", // HIDE on mobile, flex on md and up
         currentTrackIndex !== null && "pb-28",
       )}
     >
@@ -71,7 +71,9 @@ export function Sidebar() {
                         alt={currentUser.name}
                       />
                       <AvatarFallback
-                        dangerouslySetInnerHTML={{ __html: toSvg(currentUser._id, 32) }}
+                        dangerouslySetInnerHTML={{
+                          __html: toSvg(currentUser._id, 32),
+                        }}
                       />
                     </Avatar>
                     <span className="truncate font-semibold text-foreground">

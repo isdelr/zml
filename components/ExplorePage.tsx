@@ -1,3 +1,4 @@
+// components/ExplorePage.tsx
 "use client";
 
 import { Plus, Search, Users } from "lucide-react";
@@ -74,7 +75,9 @@ export function ExplorePage() {
         leagues = [...leagues].sort((a, b) => b.memberCount - a.memberCount);
         break;
       case "Newest":
-        leagues = [...leagues].sort((a, b) => b._creationTime - a._creationTime);
+        leagues = [...leagues].sort(
+          (a, b) => b._creationTime - a._creationTime,
+        );
         break;
       default: // This handles genre filtering
         leagues = leagues.filter((league) => league.genres.includes(activeTab));
@@ -90,14 +93,14 @@ export function ExplorePage() {
     <div
       className={cn(
         "flex-1 overflow-y-auto bg-background text-foreground",
-        currentTrackIndex !== null && "pb-24",
+        currentTrackIndex !== null && "pb-32",
       )}
     >
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         {/* Header */}
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <h1 className="text-4xl font-bold">Explore Public Leagues</h1>
-          <div className="relative max-w-sm flex-1">
+          <div className="relative w-full flex-1 md:max-w-sm">
             <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
@@ -107,7 +110,7 @@ export function ExplorePage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Link href="/leagues/create">
+          <Link href="/leagues/create" className="w-full md:w-auto">
             <Button>
               <Plus className="mr-2 size-4" />
               Create League
@@ -136,11 +139,11 @@ export function ExplorePage() {
         {/* League Grid */}
         {allLeagues === undefined ? (
           <LeaguesSkeleton />
-        ) : filteredLeagues.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        ) : filteredLeagues.length > 0 ? ( // Adjusted grid for better responsiveness
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredLeagues.map((league) => (
               <Link href={`/leagues/${league._id}`} key={league._id}>
-                <Card className="group flex h-full cursor-pointer flex-col bg-card transition-all hover:bg-accent hover:shadow-md">
+                <Card className="group flex h-full cursor-pointer flex-col bg-card transition-all hover:bg-accent hover:shadow-lg">
                   <CardHeader className="flex-grow">
                     {league.art ? (
                       <Image
@@ -152,8 +155,10 @@ export function ExplorePage() {
                       />
                     ) : (
                       <div
-                        className="mb-4 aspect-square w-full rounded-md bg-muted"
-                        dangerouslySetInnerHTML={{ __html: toSvg(league._id, 250) }}
+                        className="mb-4 aspect-square size-fit rounded-md bg-muted"
+                        dangerouslySetInnerHTML={{
+                          __html: toSvg(league._id, 250),
+                        }}
                       />
                     )}
                     <CardTitle>{league.name}</CardTitle>

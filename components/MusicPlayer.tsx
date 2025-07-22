@@ -1,3 +1,4 @@
+// components/MusicPlayer.tsx
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -84,7 +85,7 @@ export function MusicPlayer() {
 
   const waveformComments = useMemo((): WaveformComment[] => {
     if (!commentsData || !currentTrack) return [];
-    
+
     const isAnonymous = currentTrack.roundStatus === "voting";
 
     const parseTimeToSeconds = (timeStr: string): number => {
@@ -126,7 +127,7 @@ export function MusicPlayer() {
       currentTrack?.songFileUrl &&
       audioContextRef.current
     ) {
-    // --- End of Fix ---
+      // --- End of Fix ---
       setWaveformData(null);
       setIsWaveformLoading(true);
 
@@ -155,8 +156,8 @@ export function MusicPlayer() {
       // Clear waveform data for non-file submissions or when there's no track
       setWaveformData(null);
     }
-  // --- Start of Fix ---
-  // Add submissionType to the dependency array to correctly handle track changes
+    // --- Start of Fix ---
+    // Add submissionType to the dependency array to correctly handle track changes
   }, [currentTrack?.songFileUrl, currentTrack?.submissionType]);
   // --- End of Fix ---
 
@@ -191,7 +192,7 @@ export function MusicPlayer() {
   useEffect(() => {
     const audioElement = audioRef.current;
     if (!audioElement || !currentTrack) return;
-  
+
     if (isExternalLink) {
       audioElement.pause();
       if (isPlaying && currentTrack._id !== lastOpenedTrackId.current) {
@@ -200,11 +201,14 @@ export function MusicPlayer() {
       }
       return;
     }
-  
+
     lastOpenedTrackId.current = null;
-  
+
     const handlePlayback = async () => {
-      if (currentTrack.songFileUrl && audioElement.src !== currentTrack.songFileUrl) {
+      if (
+        currentTrack.songFileUrl &&
+        audioElement.src !== currentTrack.songFileUrl
+      ) {
         audioElement.src = currentTrack.songFileUrl;
         setProgress(0);
       }
@@ -268,9 +272,9 @@ export function MusicPlayer() {
         className="hidden"
       />
       <MusicQueue isOpen={isQueueOpen} onOpenChange={setIsQueueOpen} />
-      <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background text-foreground">
-        <div className="flex h-20 items-center justify-between px-4">
-          <div className="flex w-1/4 min-w-0 items-center gap-3">
+      <footer className="fixed bottom-16 left-0 right-0 z-50 h-auto border-t border-border bg-background text-foreground md:bottom-0 md:h-20">
+        <div className="flex h-full flex-col items-center justify-between p-2 md:flex-row md:px-4">
+          <div className="flex w-full min-w-0 items-center gap-3 md:w-1/4">
             <Image
               src={currentTrack.albumArtUrl}
               alt={currentTrack.songTitle}
@@ -286,15 +290,26 @@ export function MusicPlayer() {
                 {currentTrack.artist}
               </p>
             </div>
+
+            <div className="ml-auto flex items-center md:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="flex-shrink-0"
+                onClick={handleBookmarkToggle}
+              >
+                <Bookmark className={cn("size-5", isBookmarked && "fill-primary text-primary")} />
+              </Button>
+            </div>
           </div>
 
-          <div className="flex flex-1 flex-col items-center justify-center gap-1 px-4">
+          <div className="flex w-full flex-1 flex-col items-center justify-center gap-1 md:px-4">
             <div className="flex items-center justify-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "size-8 text-muted-foreground hover:text-foreground",
+                  "hidden size-8 text-muted-foreground hover:text-foreground sm:flex",
                   isShuffled && "text-primary",
                 )}
                 onClick={actions.toggleShuffle}
@@ -317,15 +332,21 @@ export function MusicPlayer() {
                 className="size-10 rounded-full"
                 onClick={() => {
                   if (isExternalLink) {
-                    window.open(currentTrack.songLink, "_blank", "noopener,noreferrer");
+                    window.open(
+                      currentTrack.songLink,
+                      "_blank",
+                      "noopener,noreferrer",
+                    );
                   } else {
                     actions.togglePlayPause();
                   }
                 }}
-                title={isExternalLink ? "Open Link" : (isPlaying ? "Pause" : "Play")}
+                title={
+                  isExternalLink ? "Open Link" : isPlaying ? "Pause" : "Play"
+                }
               >
                 {isExternalLink ? (
-                  currentTrack.submissionType === 'spotify' ? (
+                  currentTrack.submissionType === "spotify" ? (
                     <FaSpotify className="size-5 text-white" />
                   ) : (
                     <FaYoutube className="size-5 text-white" />
@@ -370,7 +391,11 @@ export function MusicPlayer() {
               <div className="relative flex-1 h-8 flex items-center transition-transform duration-50">
                 {isExternalLink ? (
                   <div className="flex h-full w-full items-center justify-center rounded-md bg-muted px-2 text-center text-xs text-muted-foreground">
-                    Playing on {currentTrack.submissionType === 'spotify' ? 'Spotify' : 'YouTube'}. Use controls to continue.
+                    Playing on{" "}
+                    {currentTrack.submissionType === "spotify"
+                      ? "Spotify"
+                      : "YouTube"}
+                    . Use controls to continue.
                   </div>
                 ) : isWaveformLoading ? (
                   <Skeleton className="h-8 w-full" />

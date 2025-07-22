@@ -153,10 +153,10 @@ export function CreateLeaguePage() {
   return (
     <div
       className={cn(
-        "flex-1 overflow-y-auto bg-background p-8 text-foreground", // Keep existing classes
-        currentTrackIndex !== null && "pb-24",
-      )}
-    >
+"flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8", // Keep existing classes
+         currentTrackIndex !== null && "pb-24",
+       )}
+     >
       <Card className="mx-auto max-w-4xl">
         <CardHeader>
           <CardTitle>Create a New League</CardTitle>
@@ -244,7 +244,7 @@ export function CreateLeaguePage() {
                 {fields.map((field, index) => (
                   <div
                     key={field.id}
-                    className="relative flex flex-col gap-6 rounded-lg border p-4 md:flex-row"
+                    className="relative flex flex-col-reverse gap-6 rounded-lg border p-4 md:flex-row"
                   >
                     <div className="flex-1 space-y-4">
                       <h4 className="font-semibold">Round {index + 1}</h4>
@@ -424,7 +424,7 @@ export function CreateLeaguePage() {
               {/* --- Rules Section --- */}
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">League Rules</h3>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="submissionDeadline"

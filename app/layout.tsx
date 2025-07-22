@@ -1,3 +1,4 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -6,6 +7,8 @@ import ConvexClientProvider from "@/components/ConvexClientProvider";
 import { ThemeProvider } from "./ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { MusicPlayer } from "@/components/MusicPlayer";
+import { BottomNavbar } from "@/components/BottomNavbar";
+import { cn } from "@/lib/utils";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,7 +37,11 @@ export default function RootLayout({
     <ConvexAuthNextjsServerProvider>
       <html lang="en" suppressHydrationWarning>
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiase overflow-hidden`}
+          className={cn(
+            geistSans.variable,
+            geistMono.variable,
+            "antialiased overflow-hidden pb-16 md:pb-0",
+          )}
         >
           <ThemeProvider
             attribute="class"
@@ -46,6 +53,7 @@ export default function RootLayout({
               {children}
               <Toaster />
               <MusicPlayer />
+              <BottomNavbar />
             </ConvexClientProvider>
           </ThemeProvider>
         </body>

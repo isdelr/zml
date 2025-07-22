@@ -1,3 +1,4 @@
+// components/ActiveRoundsPage.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -69,14 +70,14 @@ export function ActiveRoundsPage() {
     <div
       className={cn(
         "flex-1 overflow-y-auto bg-background text-foreground",
-        currentTrackIndex !== null && "pb-24",
+        currentTrackIndex !== null && "pb-32",
       )}
     >
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         {/* Header */}
-        <header className="mb-8 flex items-center justify-between gap-4">
+       <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <h1 className="text-4xl font-bold">Active Rounds</h1>
-          <div className="relative max-w-sm flex-1">
+          <div className="relative w-full flex-1 md:max-w-sm">
             <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
@@ -86,7 +87,7 @@ export function ActiveRoundsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Link href="/leagues/create">
+          <Link href="/leagues/create" className="w-full md:w-auto">
             <Button>
               <Plus className="mr-2 size-4" />
               Create League
@@ -109,7 +110,7 @@ export function ActiveRoundsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredRounds.map((round) => (
               <Card
                 key={round._id}
