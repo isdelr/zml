@@ -1,7 +1,5 @@
-"use client";
-
-import { Button } from "@/components/ui/button";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { Button } from "../ui/button";
 
 export function HomeHero() {
   const { signIn } = useAuthActions();
@@ -16,7 +14,7 @@ export function HomeHero() {
         Create leagues, set themed rounds, and vote for the best tracks.
       </p>
       <div className="flex gap-4">
-        <Button size="lg" onClick={() => signIn("discord")}>
+        <Button size="lg" onClick={() => signIn("discord", { callbackUrl: "/leagues/create" })}>
           Create Your League
         </Button>
       </div>

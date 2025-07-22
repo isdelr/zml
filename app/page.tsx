@@ -1,26 +1,60 @@
-// components/home/HomeHero.tsx
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth } from "convex/react";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { dynamicImport } from "@/components/ui/dynamic-import";
+import { PageLayout } from "@/components/layout/PageLayout";
+import { ExplorePage } from "@/components/ExplorePage";
 
-export function HomeHero() {
-  const { signIn } = useAuthActions();
-  
+// Dynamically import components for the marketing page
+const HomeHeader = dynamicImport(() =>
+  import("@/components/home/HomeHeader").then((mod) => ({
+    default: mod.HomeHeader,
+  })),
+);
+const HomeHero = dynamicImport(() =>
+  import("@/components/home/HomeHero").then((mod) => ({
+    default: mod.HomeHero,
+  })),
+);
+const HomeFeatures = dynamicImport(() =>
+  import("@/components/home/HomeFeatures").then((mod) => ({
+    default: mod.HomeFeatures,
+  })),
+);
+const HomeFooter = dynamicImport(() =>
+  import("@/components/home/HomeFooter").then((mod) => ({
+    default: mod.HomeFooter,
+  })),
+);
+
+export default function HomePage() {
+  const { isAuthenticated, isLoading } = useConvexAuth();
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  // If the user is authenticated, render the Explore page within the standard app layout.
+  // This makes the root URL act as the main app page for logged-in users
+  // without interfering with redirects to other pages.
+  if (isAuthenticated) {
+    return (
+      <PageLayout>
+        <ExplorePage />
+      </PageLayout>
+    );
+  }
+
+  // If the user is not authenticated, show the marketing landing page.
   return (
-    <section className="container grid place-items-center gap-6 pb-8 pt-6 text-center md:pb-12 md:pt-10 lg:py-32">
-      <h1 className="text-4xl font-extrabold tracking-tighter md:text-5xl lg:text-6xl">
-        Create, Compete & Discover Music
-      </h1>
-      <p className="max-w-[700px] text-lg text-muted-foreground">
-        The ultimate platform to challenge your friends&apos; musical tastes.
-        Create leagues, set themed rounds, and vote for the best tracks.
-      </p>
-      <div className="flex gap-4">
-        <Button size="lg" onClick={() => signIn("discord", { callbackUrl: "/explore" })}>
-          Create Your League
-        </Button>
-      </div>
-    </section>
+    <div className="flex min-h-screen flex-col bg-background">
+      <HomeHeader />
+      <main className="flex-1 container mx-auto">
+        <HomeHero />
+        <HomeFeatures />
+      </main>
+      <HomeFooter />
+    </div>
   );
 }
