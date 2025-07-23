@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/popover";
 import { toSvg } from "jdenticon";
 
- 
 export interface WaveformComment {
   id: Id<"comments">;
   time: number;
@@ -48,7 +47,6 @@ export function Waveform({
 }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-   
   const [hoveredCommentId, setHoveredCommentId] = useState<Id<"comments"> | null>(null);
 
   useEffect(() => {
@@ -122,7 +120,6 @@ export function Waveform({
   };
 
   const handleMouseDown = (e: MouseEvent<HTMLCanvasElement>) => {
-     
     if (hoveredCommentId) return;
     setIsDragging(true);
     handleSeek(e);
@@ -142,7 +139,6 @@ export function Waveform({
     setIsDragging(false);
   };
 
-   
   const handleCommentMouseEnter = (commentId: Id<"comments">) => {
     setHoveredCommentId(commentId);
   }
@@ -162,19 +158,21 @@ export function Waveform({
       <canvas ref={canvasRef} className="h-full w-full" />
       <div className="absolute inset-0">
         {comments.map((comment) => (
-           
           <Popover key={comment.id} open={hoveredCommentId === comment.id} >
             <PopoverTrigger
               onMouseEnter={() => handleCommentMouseEnter(comment.id)}
               onMouseLeave={handleCommentMouseLeave}
               asChild
-
             >
               <div
                 className="absolute -top-1/2 z-10"
                 style={{
                   left: `${duration > 0 ? (comment.time / duration) * 100 : 0}%`,
                   transform: "translateX(-50%)",
+                }}
+                 onClick={(e) => {
+                  e.stopPropagation();
+                  onSeek(comment.time);
                 }}
               >
                 <Avatar className="size-5 cursor-pointer border-2 border-background transition-transform hover:scale-125">
@@ -195,7 +193,6 @@ export function Waveform({
               className="w-auto max-w-xs"
               side="top"
               align="center"
-
             >
               <div className="space-y-2">
                 <div className="flex items-center gap-2">

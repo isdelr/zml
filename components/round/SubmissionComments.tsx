@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toSvg } from "jdenticon";
 import React from "react";
+import { formatDistanceToNow } from "date-fns";
 
 interface SubmissionCommentsProps {
   submissionId: Id<"submissions">;
@@ -24,7 +25,7 @@ export function SubmissionComments({
 }: SubmissionCommentsProps) {
   const [commentText, setCommentText] = useState("");
   const { isAuthenticated } = useConvexAuth();
-  const { actions: playerActions } = useMusicPlayerStore();
+  const playerActions = useMusicPlayerStore((state) => state.actions);
 
   const comments = useQuery(api.submissions.getCommentsForSubmission, {
     submissionId,
@@ -82,6 +83,7 @@ export function SubmissionComments({
       </p>
     );
   };
+
 
   return (
     <div className="-mx-4 mt-2 space-y-4 rounded-md bg-muted/50 p-4 pt-4">
@@ -157,44 +159,4 @@ export function SubmissionComments({
       </div>
     </div>
   );
-}
-
- 
-function formatDistanceToNow(
-  timestamp: number,
-  options: { addSuffix: boolean },
-) {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (diffInSeconds < 60) {
-    return options.addSuffix ? "just now" : "less than a minute";
-  }
-
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) {
-    return options.addSuffix
-      ? `${diffInMinutes} minute${diffInMinutes !== 1 ? "s" : ""} ago`
-      : `${diffInMinutes} minute${diffInMinutes !== 1 ? "s" : ""}`;
-  }
-
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) {
-    return options.addSuffix
-      ? `${diffInHours} hour${diffInHours !== 1 ? "s" : ""} ago`
-      : `${diffInHours} hour${diffInHours !== 1 ? "s" : ""}`;
-  }
-
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays < 30) {
-    return options.addSuffix
-      ? `${diffInDays} day${diffInDays !== 1 ? "s" : ""} ago`
-      : `${diffInDays} day${diffInDays !== 1 ? "s" : ""}`;
-  }
-
-  const diffInMonths = Math.floor(diffInDays / 30);
-  return options.addSuffix
-    ? `${diffInMonths} month${diffInMonths !== 1 ? "s" : ""} ago`
-    : `${diffInMonths} month${diffInMonths !== 1 ? "s" : ""}`;
 }
