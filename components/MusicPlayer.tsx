@@ -140,62 +140,23 @@ export function MusicPlayer() {
 
   useEffect(() => {
     if (
-      currentTrack?.submissionType === "file" &&
-      currentTrack?.songFileUrl &&
-      audioContextRef.current
-    ) {
-      setWaveformData(null);
-      setIsWaveformLoading(true);
-
-      fetch(currentTrack.songFileUrl, { cache: "no-cache" })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.arrayBuffer();
-        })
-        .then((buffer) => {
-          const options = {
-            audio_context: audioContextRef.current!,
-            array_buffer: buffer,
-            scale: 512,
-          };
-          WaveformData.createFromAudio(options, (err, waveform) => {
-            setIsWaveformLoading(false);
-            if (err) {
-              console.error("Error creating waveform:", err);
-            } else {
-              setWaveformData(waveform);
-            }
-          });
-        })
-        .catch((error) => {
-          console.error("Error fetching audio for waveform:", error);
-          toast.error(
-            "Could not load waveform. The audio file might be unavailable or blocked.",
-          );
-          setIsWaveformLoading(false);
-        });
-    } else {
-      setWaveformData(null);
-    }
-  }, [currentTrack?.songFileUrl, currentTrack?.submissionType]);
-  useEffect(() => {
-    if (
       currentTrack?.submissionType !== "file" ||
       !currentTrack?.songFileUrl ||
       !audioContextRef.current
     ) {
       setWaveformData(null);
+      setIsWaveformLoading(false);
       return;
     }
-
-    setWaveformData(null);
-    setIsWaveformLoading(true);
 
     if (cachedWaveform === undefined) {
+      setIsWaveformLoading(true);
+      setWaveformData(null);
       return;
     }
+
+    setIsWaveformLoading(true);
+    setWaveformData(null);
 
     if (cachedWaveform?.waveform) {
       try {
@@ -205,6 +166,7 @@ export function MusicPlayer() {
         setIsWaveformLoading(false);
       } catch (err) {
         console.error("Failed to parse cached waveform:", err);
+        setIsWaveformLoading(false);
       }
     } else {
       fetch(currentTrack.songFileUrl)
@@ -216,11 +178,12 @@ export function MusicPlayer() {
             scale: 512,
           };
           WaveformData.createFromAudio(options, (err, waveform) => {
-            setIsWaveformLoading(false);
             if (err) {
               console.error("Error creating waveform:", err);
+              setIsWaveformLoading(false);
             } else {
               setWaveformData(waveform);
+              setIsWaveformLoading(false);
               storeWaveform({
                 submissionId: currentTrack._id as Id<"submissions">,
                 waveformJson: JSON.stringify(waveform.toJSON()),
