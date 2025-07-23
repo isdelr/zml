@@ -34,10 +34,20 @@ export const getForUserInRound = query({
       .withIndex("by_league_and_user", (q) => q.eq("leagueId", round.leagueId).eq("userId", userId))
       .first();
       
-    let canVote = false;
-    if (membership && membership.joinDate && membership.joinDate < round.submissionDeadline) {
-      canVote = true;
-    }
+    // --- MODIFICATION START ---
+    // Check if the user has a submission in this round to handle legacy cases.
+    const userSubmission = await ctx.db
+      .query("submissions")
+      .withIndex("by_round_and_user", (q) =>
+        q.eq("roundId", args.roundId).eq("userId", userId),
+      )
+      .first();
+
+    // A user can vote if they joined before the round started OR if they have a submission.
+    const joinedEarly = membership?.joinDate ? membership.joinDate < round.submissionDeadline : false;
+    const hasLegacySubmission = !!userSubmission;
+    const canVote = joinedEarly || hasLegacySubmission;
+    // --- MODIFICATION END ---
 
     const userVotes = await ctx.db
       .query("votes")
@@ -111,7 +121,18 @@ export const castVote = mutation({
     if (!league) throw new Error("League not found.");
 
     const membership = await ctx.db.query("memberships").withIndex("by_league_and_user", (q) => q.eq("leagueId", round.leagueId).eq("userId", userId)).first();
-    if (!membership || (membership.joinDate && membership.joinDate > round.submissionDeadline)) {
+    
+    // We fetch the user's submission to check for the legacy case here as well.
+    const userSubmission = await ctx.db
+      .query("submissions")
+      .withIndex("by_round_and_user", (q) =>
+        q.eq("roundId", round._id).eq("userId", userId),
+      )
+      .first();
+
+    const canVote = (membership?.joinDate && membership.joinDate < round.submissionDeadline) || !!userSubmission;
+
+    if (!canVote) {
       throw new Error("You are not eligible to vote in this round.");
     }
 
