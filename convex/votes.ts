@@ -19,68 +19,36 @@ export const getForUserInRound = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      return {
-        hasVoted: false,
-        canVote: false,
-        votes: [],
-        upvotesUsed: 0,
-        downvotesUsed: 0,
-      };
+      return { hasVoted: false, canVote: false, votes: [], upvotesUsed: 0, downvotesUsed: 0 };
     }
-
     const round = await ctx.db.get(args.roundId);
     if (!round) {
-      return {
-        hasVoted: false,
-        canVote: false,
-        votes: [],
-        upvotesUsed: 0,
-        downvotesUsed: 0,
-      };
+      return { hasVoted: false, canVote: false, votes: [], upvotesUsed: 0, downvotesUsed: 0 };
     }
-
+    const league = await ctx.db.get(round.leagueId);
+    if (!league) {
+        throw new Error("Could not find league for this round");
+    }
     const membership = await ctx.db
       .query("memberships")
-      .withIndex("by_league_and_user", (q) =>
-        q.eq("leagueId", round.leagueId).eq("userId", userId),
-      )
+      .withIndex("by_league_and_user", (q) => q.eq("leagueId", round.leagueId).eq("userId", userId))
       .first();
       
     let canVote = false;
-
-    if (membership) {
-      if (membership.joinDate) {
-        canVote = membership.joinDate < round.submissionDeadline;
-      } else {
-        // Legacy user: check for submission in this round
-        const userSubmission = await ctx.db
-          .query("submissions")
-          .withIndex("by_round_and_user", (q) =>
-            q.eq("roundId", args.roundId).eq("userId", userId),
-          )
-          .first();
-        if (userSubmission) {
-          canVote = true;
-        }
-      }
+    if (membership && membership.joinDate && membership.joinDate < round.submissionDeadline) {
+      canVote = true;
     }
 
     const userVotes = await ctx.db
       .query("votes")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", args.roundId).eq("userId", userId),
-      )
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId))
       .collect();
+      
+    const upvotesUsed = userVotes.filter((v) => v.vote > 0).length;
+    const downvotesUsed = userVotes.filter((v) => v.vote < 0).length;
 
-    const hasVoted = userVotes.length > 0;
-
-    let upvotesUsed = 0;
-    let downvotesUsed = 0;
-
-    userVotes.forEach((v) => {
-      if (v.vote > 0) upvotesUsed += 1;
-      if (v.vote < 0) downvotesUsed += 1;
-    });
+    // A user has "voted" (i.e., their vote is final) when they use all their votes.
+    const hasVoted = upvotesUsed === league.maxPositiveVotes && downvotesUsed === league.maxNegativeVotes;
 
     return {
       hasVoted,
@@ -91,6 +59,7 @@ export const getForUserInRound = query({
     };
   },
 });
+
 
 export const getVotersForRound = query({
   args: { roundId: v.id("rounds") },
@@ -120,114 +89,73 @@ export const getVotersForRound = query({
   },
 });
 
-export const submitVotes = mutation({
+export const castVote = mutation({
   args: {
-    roundId: v.id("rounds"),
-    votes: v.array(
-      v.object({
-        submissionId: v.id("submissions"),
-        voteType: v.union(v.literal("up"), v.literal("down")),
-      }),
-    ),
+    submissionId: v.id("submissions"),
+    newVoteState: v.union(v.literal("up"), v.literal("down"), v.literal("none")),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated.");
 
-    const round = await ctx.db.get(args.roundId);
+    const submission = await ctx.db.get(args.submissionId);
+    if (!submission) throw new Error("Submission not found.");
+
+    const round = await ctx.db.get(submission.roundId);
     if (!round) throw new Error("Round not found.");
-    if (round.status !== "voting") {
-      throw new Error("Voting is not open for this round.");
-    }
-
-    const membership = await ctx.db
-      .query("memberships")
-      .withIndex("by_league_and_user", (q) =>
-        q.eq("leagueId", round.leagueId).eq("userId", userId),
-      )
-      .first();
-
-    if (!membership) {
-      throw new Error("You are not a member of this league.");
-    }
-
-    const votingPhaseStartTime = round.submissionDeadline;
-
-    if (membership.joinDate) {
-      if (membership.joinDate > votingPhaseStartTime) {
-        throw new Error(
-          "You joined this league after this round's voting phase began, so you cannot vote in it.",
-        );
-      }
-    } else {
-      const userSubmission = await ctx.db
-        .query("submissions")
-        .withIndex("by_round_and_user", (q) =>
-          q.eq("roundId", args.roundId).eq("userId", userId),
-        )
-        .first();
-      if (!userSubmission) {
-        throw new Error(
-          "Legacy users must have a submission in the round to be eligible to vote.",
-        );
-      }
-    }
-
-    const existingVotes = await ctx.db
-      .query("votes")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", args.roundId).eq("userId", userId),
-      )
-      .collect();
-
-    if (existingVotes.length > 0) {
-      throw new Error("You have already voted and cannot change your votes.");
-    }
+    if (round.status !== "voting") throw new Error("Voting is not open.");
+    
+    if (submission.userId === userId) throw new Error("You cannot vote on your own submission.");
 
     const league = await ctx.db.get(round.leagueId);
     if (!league) throw new Error("League not found.");
 
-    const upvotesCount = args.votes.filter((v) => v.voteType === "up").length;
-    const downvotesCount = args.votes.filter(
-      (v) => v.voteType === "down",
-    ).length;
-
-    if (upvotesCount !== league.maxPositiveVotes) {
-      throw new Error(
-        `You must use exactly ${league.maxPositiveVotes} upvotes.`,
-      );
-    }
-    if (downvotesCount !== league.maxNegativeVotes) {
-      throw new Error(
-        `You must use exactly ${league.maxNegativeVotes} downvotes.`,
-      );
+    const membership = await ctx.db.query("memberships").withIndex("by_league_and_user", (q) => q.eq("leagueId", round.leagueId).eq("userId", userId)).first();
+    if (!membership || (membership.joinDate && membership.joinDate > round.submissionDeadline)) {
+      throw new Error("You are not eligible to vote in this round.");
     }
 
-    const userSubmission = await ctx.db
-      .query("submissions")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", args.roundId).eq("userId", userId),
-      )
-      .first();
+    const allUserVotesInRound = await ctx.db.query("votes").withIndex("by_round_and_user", q => q.eq("roundId", round._id).eq("userId", userId)).collect();
+    
+    const existingVoteOnThisSubmission = allUserVotesInRound.find(v => v.submissionId === args.submissionId);
+    
+    const upvotesUsedSoFar = allUserVotesInRound.filter(v => v.vote > 0).length;
+    const downvotesUsedSoFar = allUserVotesInRound.filter(v => v.vote < 0).length;
 
-    if (userSubmission) {
-      const votedOnOwnSubmission = args.votes.some(
-        (v) => v.submissionId === userSubmission._id,
-      );
-      if (votedOnOwnSubmission) {
-        throw new Error("You cannot vote on your own submission.");
+    if (upvotesUsedSoFar === league.maxPositiveVotes && downvotesUsedSoFar === league.maxNegativeVotes) {
+        throw new Error("Your votes are final and cannot be changed.");
+    }
+    
+    if (existingVoteOnThisSubmission) {
+      await ctx.db.delete(existingVoteOnThisSubmission._id);
+    }
+    
+    const otherVotes = allUserVotesInRound.filter(v => v.submissionId !== args.submissionId);
+    const upvotesUsed = otherVotes.filter(v => v.vote > 0).length;
+    const downvotesUsed = otherVotes.filter(v => v.vote < 0).length;
+
+    if (args.newVoteState === 'up') {
+      if (upvotesUsed >= league.maxPositiveVotes) {
+        if(existingVoteOnThisSubmission) await ctx.db.insert("votes", { ...existingVoteOnThisSubmission, _id: undefined, _creationTime: undefined } as any);
+        throw new Error("No upvotes remaining.");
       }
+      await ctx.db.insert("votes", { roundId: round._id, submissionId: args.submissionId, userId, vote: 1 });
+    } else if (args.newVoteState === 'down') {
+      if (downvotesUsed >= league.maxNegativeVotes) {
+        if(existingVoteOnThisSubmission) await ctx.db.insert("votes", { ...existingVoteOnThisSubmission, _id: undefined, _creationTime: undefined } as any);
+        throw new Error("No downvotes remaining.");
+      }
+      await ctx.db.insert("votes", { roundId: round._id, submissionId: args.submissionId, userId, vote: -1 });
     }
 
-    for (const vote of args.votes) {
-      await ctx.db.insert("votes", {
-        roundId: args.roundId,
-        submissionId: vote.submissionId,
-        userId,
-        vote: vote.voteType === "up" ? 1 : -1,
-      });
-    }
+    const finalVotes = await ctx.db.query("votes").withIndex("by_round_and_user", q => q.eq("roundId", round._id).eq("userId", userId)).collect();
+    const finalUpvotes = finalVotes.filter(v => v.vote > 0).length;
+    const finalDownvotes = finalVotes.filter(v => v.vote < 0).length;
 
-    return "Votes submitted successfully.";
+    if (finalUpvotes === league.maxPositiveVotes && finalDownvotes === league.maxNegativeVotes) {
+      return { message: "All votes used. Your participation is recorded!", isFinal: true };
+    }
+    
+    return { message: "Vote saved.", isFinal: false };
   },
 });

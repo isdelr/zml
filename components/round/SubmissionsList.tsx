@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
+import { Doc, Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { SubmissionItem } from "./SubmissionItem";
 import { Song } from "@/types";
 
@@ -16,6 +15,7 @@ interface SubmissionsListProps {
       })[]
     | undefined;
   userVoteStatus: unknown;
+  userVotes: Doc<"votes">[];
   currentUser: unknown;
   roundStatus: "voting" | "finished" | "submissions";
   league: {
@@ -26,27 +26,23 @@ interface SubmissionsListProps {
   isPlaying: boolean;
   queue: Song[];
   onPlaySong: (song: Song, index: number) => void;
-  pendingVotes: Record<string, { up: number; down: number }>;
   onVoteClick: (
     submissionId: Id<"submissions">,
-    voteType: "up" | "down",
+    voteType: "up" | "down" | "none",
   ) => void;
-  onSubmitVotes: () => void;
 }
 
 export function SubmissionsList({
   submissions,
   userVoteStatus,
+  userVotes,
   currentUser,
   roundStatus,
-  league,
   currentTrackIndex,
   isPlaying,
   queue,
   onPlaySong,
-  pendingVotes,
   onVoteClick,
-  onSubmitVotes,
 }: SubmissionsListProps) {
   const [visibleComments, setVisibleComments] = useState<
     Record<string, boolean>
@@ -88,20 +84,6 @@ export function SubmissionsList({
   const currentTrack =
     currentTrackIndex !== null ? queue[currentTrackIndex] : null;
 
-  const getVoteCounts = () => {
-    const up = Object.values(pendingVotes).reduce((s, v) => s + v.up, 0);
-    const down = Object.values(pendingVotes).reduce((s, v) => s + v.down, 0);
-    return {
-      positiveVotesRemaining: league.maxPositiveVotes - up,
-      negativeVotesRemaining: league.maxNegativeVotes - down,
-    };
-  };
-
-  const { positiveVotesRemaining, negativeVotesRemaining } = getVoteCounts();
-
-  const canSubmit =
-    positiveVotesRemaining === 0 && negativeVotesRemaining === 0;
-
   return (
     <div className="flex flex-col">
       <div className="hidden border-b border-border text-xs font-semibold uppercase text-muted-foreground md:block">
@@ -121,8 +103,10 @@ export function SubmissionsList({
           song.submissionType === "spotify" ||
           song.submissionType === "youtube";
         const userIsSubmitter = song.userId === currentUser?._id;
-        const pendingSongVotes = pendingVotes[song._id] || { up: 0, down: 0 };
         const isCommentsVisible = !!visibleComments[song._id];
+
+        const userVoteOnThisSong = userVotes.find(v => v.submissionId === song._id);
+        const currentVoteState = userVoteOnThisSong ? (userVoteOnThisSong.vote > 0 ? 'up' : 'down') : 'none';
 
         return (
           <SubmissionItem
@@ -134,41 +118,17 @@ export function SubmissionsList({
             isLinkSubmission={isLinkSubmission}
             isCommentsVisible={isCommentsVisible}
             userIsSubmitter={userIsSubmitter}
-            pendingSongVotes={pendingSongVotes}
+            currentVoteState={currentVoteState}
             roundStatus={roundStatus}
             hasVoted={hasVoted}
             canVote={canVote}
             onToggleComments={() => toggleComments(song._id)}
-            onVoteClick={(voteType) => onVoteClick(song._id, voteType)}
+            onVoteClick={(newVoteState) => onVoteClick(song._id, newVoteState)}
             onBookmark={() => handleBookmark(song._id)}
-            onPlaySong={() => {
-              if (isLinkSubmission && song.songLink) {
-                window.open(song.songLink, "_blank", "noopener,noreferrer");
-              } else if (isThisSongCurrent) {
-                onPlaySong(song, index);
-              } else {
-                onPlaySong(song, index);
-              }
-            }}
+            onPlaySong={() => onPlaySong(song, index)}
           />
         );
       })}
-
-      {roundStatus === "voting" &&
-        submissions.length > 0 &&
-        !userVoteStatus?.hasVoted &&
-        canVote && (
-          <div className="mt-8 flex justify-end md:bottom-4">
-            <Button
-              onClick={onSubmitVotes}
-              disabled={!canSubmit}
-              size="lg"
-              className="shadow-lg"
-            >
-              {canSubmit ? "Submit Final Votes" : "Use All Votes to Submit"}
-            </Button>
-          </div>
-        )}
     </div>
   );
 }

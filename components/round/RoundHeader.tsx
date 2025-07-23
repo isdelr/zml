@@ -15,7 +15,7 @@ interface RoundHeaderProps {
   onPlayAll: (submissions: Song[], startIndex: number) => void;
   positiveVotesRemaining: number;
   negativeVotesRemaining: number;
-  hasVoted: boolean;
+  hasVoted: boolean; // This now means "isFinal"
   upvotesUsed: number;
   downvotesUsed: number;
   totalDuration: string | null;
@@ -96,12 +96,12 @@ export function RoundHeader({
           >
             <div>
               <h3 className="font-semibold text-foreground">
-                {hasVoted ? "Your Submitted Votes" : "Your Vote Budget"}
+                {hasVoted ? "Your Vote is Final" : "Your Vote Budget"}
               </h3>
               <p className="text-sm text-muted-foreground">
                 {hasVoted
-                  ? "You cannot change your votes for this round."
-                  : "You must use all votes to submit."}
+                  ? "Your votes are locked in and cannot be changed."
+                  : "Votes are saved automatically. You must use all votes to avoid a penalty."}
               </p>
             </div>
             <div className="flex items-center gap-4">

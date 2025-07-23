@@ -845,6 +845,12 @@ export const calculateAndStoreResults = internalMutation({
       console.warn("Attempted to calculate results for a non-finished round.");
       return;
     }
+    
+    const league = await ctx.db.get(round.leagueId);
+    if (!league) {
+        console.error(`League not found for round ${args.roundId}, cannot calculate results`);
+        return;
+    }
 
     const submissions = await ctx.db
       .query("submissions")
@@ -852,7 +858,7 @@ export const calculateAndStoreResults = internalMutation({
       .collect();
       
     if (submissions.length === 0) {
-      return; // No submissions, no results to calculate.
+      return; 
     }
 
     const votes = await ctx.db
@@ -860,26 +866,25 @@ export const calculateAndStoreResults = internalMutation({
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
       .collect();
 
-    // 1. Identify users who were eligible to vote but didn't.
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
-      .collect();
-    
-    const eligibleVoters = new Set<Id<"users">>();
-    for (const membership of memberships) {
-      // Users are eligible if they were members before the voting phase began.
-      if (membership.joinDate && membership.joinDate < round.submissionDeadline) {
-        eligibleVoters.add(membership.userId);
-      }
-    }
+    // 1. Identify users who did not cast their full vote.
+    const allVotersInRound = new Map<Id<"users">, { up: number, down: number }>();
+    votes.forEach(vote => {
+        if (!allVotersInRound.has(vote.userId)) {
+            allVotersInRound.set(vote.userId, { up: 0, down: 0 });
+        }
+        const counts = allVotersInRound.get(vote.userId)!;
+        if (vote.vote > 0) counts.up++;
+        if (vote.vote < 0) counts.down++;
+    });
 
-    const actualVoters = new Set(votes.map((vote) => vote.userId));
-    const nonVoters = new Set<Id<"users">>();
-    eligibleVoters.forEach((eligible) => {
-      if (!actualVoters.has(eligible)) {
-        nonVoters.add(eligible);
-      }
+    const submitterIds = new Set(submissions.map(s => s.userId));
+    const nonCompleteVoters = new Set<Id<"users">>();
+
+    submitterIds.forEach(submitterId => {
+        const voterInfo = allVotersInRound.get(submitterId);
+        if (!voterInfo || voterInfo.up < league.maxPositiveVotes || voterInfo.down < league.maxNegativeVotes) {
+            nonCompleteVoters.add(submitterId);
+        }
     });
     
     // 2. Calculate scores, applying penalty.
@@ -896,12 +901,11 @@ export const calculateAndStoreResults = internalMutation({
       if (!submission) return;
 
       const submitterId = submission.userId;
-      const submitterDidNotVote = nonVoters.has(submitterId);
+      const submitterDidNotVoteCompletely = nonCompleteVoters.has(submitterId);
 
       let voteValue = vote.vote;
       
-      // Annul positive votes if the submitter didn't vote.
-      if (submitterDidNotVote && vote.vote > 0) {
+      if (submitterDidNotVoteCompletely && vote.vote > 0) {
         voteValue = 0;
         penaltyApplied.set(submission._id, true);
       }
@@ -913,7 +917,7 @@ export const calculateAndStoreResults = internalMutation({
     });
     
     // 3. Determine winners.
-    let winners: Id<"submissions">[] = [];
+    const winners: Id<"submissions">[] = [];
     if (submissionScores.size > 0) {
       let maxScore = -Infinity;
       submissionScores.forEach((score) => {
@@ -921,7 +925,6 @@ export const calculateAndStoreResults = internalMutation({
           maxScore = score;
         }
       });
-      // A winner must have a positive score.
       if (maxScore > 0) {
         submissionScores.forEach((score, subId) => {
           if (score === maxScore) {
