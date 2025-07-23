@@ -1,47 +1,34 @@
- 
 import {
   convexAuthNextjsMiddleware,
   createRouteMatcher,
 } from "@convex-dev/auth/nextjs/server";
 import { NextResponse } from "next/server";
 
- 
- 
- 
-const isPublicRoute = createRouteMatcher([
-  "/",  
-  "/signin",  
-  "/invite/(.*)",  
+const publicRoutes = createRouteMatcher([
+  "/",
+  "/signin",
 ]);
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
-   
-  if (isPublicRoute(request)) {
-    return;  
+  if (publicRoutes(request)) {
+    return;
   }
 
-   
   if (!(await convexAuth.isAuthenticated())) {
-     
     const signinUrl = new URL("/signin", request.url);
-
-     
-     
-    const redirectPath = request.nextUrl.pathname + request.nextUrl.search;
-    
-     
-    signinUrl.searchParams.set("redirect_url", redirectPath);
-    
-     
+    signinUrl.searchParams.set(
+      "redirect_url", 
+      request.nextUrl.pathname + request.nextUrl.search
+    );
     return NextResponse.redirect(signinUrl);
   }
-  
-   
-  return;  
 });
 
+// Configure which paths the middleware applies to
 export const config = {
-   
-   
-  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
+  matcher: [
+    "/((?!.*\\..*|_next).*)", // Match all paths except files with extensions and _next
+    "/",                      // Match the root path
+    "/(api|trpc)(.*)",        // Match API routes
+  ],
 };

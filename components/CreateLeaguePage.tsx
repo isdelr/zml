@@ -142,11 +142,10 @@ export function CreateLeaguePage() {
       toast.success("League and rounds created successfully!", { id: toastId });
       form.reset();
       router.push(`/leagues/${leagueId}`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to create league. Please try again.", {
         id: toastId,
       });
-      console.error(error);
     }
   }
 

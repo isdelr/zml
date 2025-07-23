@@ -164,7 +164,6 @@ export function EditSubmissionForm({
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred.";
       toast.error(`Update failed: ${errorMessage}`, { id: toastId });
-      console.error(error);
     }
   }
 

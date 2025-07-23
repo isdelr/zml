@@ -4,9 +4,8 @@ import { Bell, Compass, PlusCircle, Send, Swords } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { isAuthenticated } from "@/convex/auth";
 
 const mainNav = [
   { name: "Explore", icon: Compass, href: "/explore" },
@@ -18,6 +17,7 @@ const mainNav = [
 ];
 
 export function BottomNavbar() {
+  const {isAuthenticated} = useConvexAuth()
   const pathname = usePathname();
   const unreadCount = useQuery(api.notifications.getUnreadCount);
 

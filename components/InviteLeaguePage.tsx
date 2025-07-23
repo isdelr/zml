@@ -59,11 +59,10 @@ export default function InviteLeaguePage() {
         });
         router.push(`/leagues/${result}`);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to join the league. Please try again.", {
         id: toastId,
       });
-      console.error(error);
     }
   };
 

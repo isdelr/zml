@@ -57,7 +57,6 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <ConvexClientProvider>
-              {/* WRAP YOUR APP WITH THE NOTIFICATION PROVIDER */}
               <NotificationProvider>
                 {children}
                 <Toaster />
