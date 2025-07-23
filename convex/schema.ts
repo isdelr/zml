@@ -112,6 +112,7 @@ export default defineSchema({
     userId: v.id("users"),
     points: v.number(),
     isWinner: v.boolean(),
+    penaltyApplied: v.optional(v.boolean()),
   })
     .index("by_round", ["roundId"])
     .index("by_submission", ["submissionId"]),

@@ -48,8 +48,21 @@ export const getForUserInRound = query({
       
     let canVote = false;
 
-    if (membership?.joinDate) {
-      canVote = !!membership && membership.joinDate < round.submissionDeadline;
+    if (membership) {
+      if (membership.joinDate) {
+        canVote = membership.joinDate < round.submissionDeadline;
+      } else {
+        // Legacy user: check for submission in this round
+        const userSubmission = await ctx.db
+          .query("submissions")
+          .withIndex("by_round_and_user", (q) =>
+            q.eq("roundId", args.roundId).eq("userId", userId),
+          )
+          .first();
+        if (userSubmission) {
+          canVote = true;
+        }
+      }
     }
 
     const userVotes = await ctx.db
@@ -140,10 +153,24 @@ export const submitVotes = mutation({
 
     const votingPhaseStartTime = round.submissionDeadline;
 
-    if (!membership.joinDate || (membership.joinDate > votingPhaseStartTime)) {
-      throw new Error(
-        "You joined this league after this round's voting phase began, so you cannot vote in it.",
-      );
+    if (membership.joinDate) {
+      if (membership.joinDate > votingPhaseStartTime) {
+        throw new Error(
+          "You joined this league after this round's voting phase began, so you cannot vote in it.",
+        );
+      }
+    } else {
+      const userSubmission = await ctx.db
+        .query("submissions")
+        .withIndex("by_round_and_user", (q) =>
+          q.eq("roundId", args.roundId).eq("userId", userId),
+        )
+        .first();
+      if (!userSubmission) {
+        throw new Error(
+          "Legacy users must have a submission in the round to be eligible to vote.",
+        );
+      }
     }
 
     const existingVotes = await ctx.db

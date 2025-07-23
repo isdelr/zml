@@ -850,51 +850,102 @@ export const calculateAndStoreResults = internalMutation({
       .query("submissions")
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
       .collect();
+      
+    if (submissions.length === 0) {
+      return; // No submissions, no results to calculate.
+    }
 
     const votes = await ctx.db
       .query("votes")
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
       .collect();
 
-     
+    // 1. Identify users who were eligible to vote but didn't.
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
+      .collect();
+    
+    const eligibleVoters = new Set<Id<"users">>();
+    for (const membership of memberships) {
+      // Users are eligible if they were members before the voting phase began.
+      if (membership.joinDate && membership.joinDate < round.submissionDeadline) {
+        eligibleVoters.add(membership.userId);
+      }
+    }
+
+    const actualVoters = new Set(votes.map((vote) => vote.userId));
+    const nonVoters = new Set<Id<"users">>();
+    eligibleVoters.forEach((eligible) => {
+      if (!actualVoters.has(eligible)) {
+        nonVoters.add(eligible);
+      }
+    });
+    
+    // 2. Calculate scores, applying penalty.
     const submissionScores = new Map<Id<"submissions">, number>();
-    submissions.forEach((s) => submissionScores.set(s._id, 0));
-    votes.forEach((vote) => {
-      submissionScores.set(
-        vote.submissionId,
-        (submissionScores.get(vote.submissionId) ?? 0) + vote.vote,
-      );
+    const penaltyApplied = new Map<Id<"submissions">, boolean>();
+    
+    submissions.forEach((s) => {
+      submissionScores.set(s._id, 0);
+      penaltyApplied.set(s._id, false);
     });
 
-     
+    votes.forEach((vote) => {
+      const submission = submissions.find(s => s._id === vote.submissionId);
+      if (!submission) return;
+
+      const submitterId = submission.userId;
+      const submitterDidNotVote = nonVoters.has(submitterId);
+
+      let voteValue = vote.vote;
+      
+      // Annul positive votes if the submitter didn't vote.
+      if (submitterDidNotVote && vote.vote > 0) {
+        voteValue = 0;
+        penaltyApplied.set(submission._id, true);
+      }
+      
+      submissionScores.set(
+        vote.submissionId,
+        (submissionScores.get(vote.submissionId) ?? 0) + voteValue
+      );
+    });
+    
+    // 3. Determine winners.
     let winners: Id<"submissions">[] = [];
     if (submissionScores.size > 0) {
       let maxScore = -Infinity;
       submissionScores.forEach((score) => {
-        if (score > maxScore) maxScore = score;
+        if (score > maxScore) {
+          maxScore = score;
+        }
       });
+      // A winner must have a positive score.
       if (maxScore > 0) {
         submissionScores.forEach((score, subId) => {
-          if (score === maxScore) winners.push(subId);
+          if (score === maxScore) {
+            winners.push(subId);
+          }
         });
       }
     }
-
-     
+    
+    // 4. Store results and update standings.
     for (const sub of submissions) {
       const points = submissionScores.get(sub._id) ?? 0;
       const isWinner = winners.includes(sub._id);
+      const wasPenalized = penaltyApplied.get(sub._id) ?? false;
 
-       
       await ctx.db.insert("roundResults", {
         roundId: args.roundId,
         submissionId: sub._id,
         userId: sub.userId,
         points,
         isWinner,
+        penaltyApplied: wasPenalized,
       });
 
-       
       const userStanding = await ctx.db
         .query("leagueStandings")
         .withIndex("by_league_and_user", (q) =>

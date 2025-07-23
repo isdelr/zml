@@ -3,7 +3,7 @@ import { mutation, query, action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
-import { Doc } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 
 const r2 = new R2(components.r2);
@@ -245,9 +245,27 @@ export const getForRound = query({
           albumArtUrl = submission.albumArtUrlValue ?? null;
           songFileUrl = submission.songLink ?? null;
         }
-        const points = allVotesForRound
-          .filter((v) => v.submissionId === submission._id)
-          .reduce((acc, vote) => acc + vote.vote, 0);
+
+        let points = 0;
+        let isPenalized = false;
+
+        if (round.status === "finished") {
+          const resultDoc = await ctx.db
+            .query("roundResults")
+            .withIndex("by_submission", (q) =>
+              q.eq("submissionId", submission._id),
+            )
+            .first();
+          if (resultDoc) {
+            points = resultDoc.points;
+            isPenalized = resultDoc.penaltyApplied ?? false;
+          }
+        } else {
+          points = allVotesForRound
+            .filter((v) => v.submissionId === submission._id)
+            .reduce((acc, vote) => acc + vote.vote, 0);
+        }
+
         let userUpvotes = 0;
         let userDownvotes = 0;
         if (userId) {
@@ -268,6 +286,7 @@ export const getForRound = query({
           points,
           userUpvotes,
           userDownvotes,
+          isPenalized,
           isBookmarked: bookmarkedSubmissionIds.has(submission._id),
           roundStatus: round.status,
         };
@@ -310,7 +329,11 @@ export const getMySubmissions = query({
           songFileUrl = submission.songLink ?? null;
         }
 
-        let result: { type: string; points: number };
+        let result: {
+          type: string;
+          points: number;
+          penaltyApplied?: boolean;
+        };
 
         if (round.status === "finished") {
           const roundResult = await ctx.db
@@ -321,20 +344,37 @@ export const getMySubmissions = query({
             .first();
 
           if (roundResult) {
+            const penaltyApplied = roundResult.penaltyApplied ?? false;
             if (roundResult.isWinner) {
-              result = { type: "winner", points: roundResult.points };
+              result = {
+                type: "winner",
+                points: roundResult.points,
+                penaltyApplied,
+              };
             } else if (roundResult.points > 0) {
-              result = { type: "positive", points: roundResult.points };
+              result = {
+                type: "positive",
+                points: roundResult.points,
+                penaltyApplied,
+              };
             } else if (roundResult.points < 0) {
-              result = { type: "negative", points: roundResult.points };
+              result = {
+                type: "negative",
+                points: roundResult.points,
+                penaltyApplied,
+              };
             } else {
-              result = { type: "neutral", points: roundResult.points };
+              result = {
+                type: "neutral",
+                points: roundResult.points,
+                penaltyApplied,
+              };
             }
           } else {
-            result = { type: "pending", points: 0 };
+            result = { type: "pending", points: 0, penaltyApplied: false };
           }
         } else {
-          result = { type: "pending", points: 0 };
+          result = { type: "pending", points: 0, penaltyApplied: false };
         }
 
         return {

@@ -8,6 +8,7 @@ import {
   MessageSquare,
   Play,
   Pause,
+  Ban,
 } from "lucide-react";
 import { FaSpotify, FaYoutube } from "react-icons/fa";
 import Image from "next/image";
@@ -16,6 +17,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toSvg } from "jdenticon";
 import { SubmissionComments } from "./SubmissionComments";
 import { Id } from "@/convex/_generated/dataModel";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
 
 interface SubmissionItemProps {
   song: unknown;
@@ -51,7 +58,7 @@ export function SubmissionItem({
   onBookmark,
   onPlaySong,
 }: SubmissionItemProps) {
-  const { points, isBookmarked, comment } = song;
+  const { points, isBookmarked, comment, isPenalized } = song;
 
   const pointColor =
     points > 0
@@ -155,6 +162,23 @@ export function SubmissionItem({
         {/* Desktop-only Points */}
         <div className={cn("hidden text-right font-bold md:block", pointColor)}>
           {roundStatus === "finished" ? `${points} pts` : "?"}
+          {isPenalized && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex align-middle">
+                    <Ban className="ml-1 size-4 text-yellow-500" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    Positive votes for this submission were annulled because the
+                    submitter did not vote in this round.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
 
         {/* Actions (always visible, far right column) */}
@@ -234,6 +258,23 @@ export function SubmissionItem({
             <SubmitterInfo />
             <div className={cn("text-sm font-bold", pointColor)}>
               {roundStatus === "finished" ? `${points} pts` : "?"}
+              {isPenalized && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex align-middle">
+                        <Ban className="ml-1 size-3 text-yellow-500" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Positive votes for this submission were annulled because
+                        the submitter did not vote in this round.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           </div>
           {comment && (
