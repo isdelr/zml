@@ -225,7 +225,6 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         !userVoteStatus.hasVoted &&
         !userVoteStatus.canVote && (
           <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10 text-yellow-400">
-            <Ban className="size-5" />
             <AlertTitle className="font-bold">Voting Restricted</AlertTitle>
             <AlertDescription className="text-yellow-400/80">
               You cannot vote in this round because you joined the league after
