@@ -123,8 +123,8 @@ export const create = mutation({
         votingDeadline: votingDeadlineTimestamp,
       });
 
-      // Notify the creator that the round has started
-      // (as they are the only member at this point)
+       
+       
       await ctx.scheduler.runAfter(0, internal.notifications.create, {
           userId: userId,
           type: "round_submission",
@@ -501,7 +501,7 @@ export const getLeagueStandings = query({
     const standingsDocs = await ctx.db
       .query("leagueStandings")
       .withIndex("by_league_and_points", (q) => q.eq("leagueId", args.leagueId))
-      .order("desc") // Order by totalPoints descending
+      .order("desc")  
       .collect();
 
     const standings = await Promise.all(
@@ -758,13 +758,13 @@ export const searchInLeague = query({
     }
     const lowerCaseSearch = args.searchText.toLowerCase();
 
-    // Step 1: Get all rounds for the league (no changes here)
+     
     const allRounds = await ctx.db
       .query("rounds")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .collect();
 
-    // Step 2: Filter rounds for the "Rounds" section of the search results (no changes here)
+     
     const filteredRounds = allRounds
       .filter(
         (round) =>
@@ -773,9 +773,9 @@ export const searchInLeague = query({
       )
       .slice(0, 5);
 
-    // --- Start of the fix ---
+     
 
-    // Step 3: Get the IDs of only the rounds that are in 'voting' or 'finished' states
+     
     const searchableRoundIds = allRounds
       .filter(
         (round) => round.status === "voting" || round.status === "finished",
@@ -784,7 +784,7 @@ export const searchInLeague = query({
 
     let searchableSubmissions: Doc<"submissions">[] = [];
 
-    // Step 4: Fetch submissions ONLY from those searchable rounds
+     
     if (searchableRoundIds.length > 0) {
       searchableSubmissions = (
         await Promise.all(
@@ -798,10 +798,10 @@ export const searchInLeague = query({
       ).flat();
     }
 
-    // Step 5: Filter this valid list of submissions by the search text
+     
     const filteredSongs = (
       await Promise.all(
-        searchableSubmissions // Use the new, pre-filtered list
+        searchableSubmissions  
           .filter(
             (song) =>
               song.songTitle.toLowerCase().includes(lowerCaseSearch) ||
@@ -826,7 +826,7 @@ export const searchInLeague = query({
       )
     ).filter((s): s is NonNullable<typeof s> => s !== null);
 
-    // --- End of the fix ---
+     
 
     return { rounds: filteredRounds, songs: filteredSongs };
   },
@@ -851,7 +851,7 @@ export const calculateAndStoreResults = internalMutation({
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
       .collect();
 
-    // 1. Calculate points for each submission
+     
     const submissionScores = new Map<Id<"submissions">, number>();
     submissions.forEach((s) => submissionScores.set(s._id, 0));
     votes.forEach((vote) => {
@@ -861,7 +861,7 @@ export const calculateAndStoreResults = internalMutation({
       );
     });
 
-    // 2. Determine winners
+     
     let winners: Id<"submissions">[] = [];
     if (submissionScores.size > 0) {
       let maxScore = -Infinity;
@@ -875,12 +875,12 @@ export const calculateAndStoreResults = internalMutation({
       }
     }
 
-    // 3. Store round results and update league standings
+     
     for (const sub of submissions) {
       const points = submissionScores.get(sub._id) ?? 0;
       const isWinner = winners.includes(sub._id);
 
-      // Create round result document
+       
       await ctx.db.insert("roundResults", {
         roundId: args.roundId,
         submissionId: sub._id,
@@ -889,7 +889,7 @@ export const calculateAndStoreResults = internalMutation({
         isWinner,
       });
 
-      // Update the main league standing for the user
+       
       const userStanding = await ctx.db
         .query("leagueStandings")
         .withIndex("by_league_and_user", (q) =>

@@ -1,4 +1,4 @@
-// components/NotificationPermissionModal.tsx
+ 
 'use client';
 
 import { useBrowserNotifier } from '@/hooks/useBrowserNotifier';

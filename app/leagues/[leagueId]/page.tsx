@@ -5,7 +5,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { ConvexHttpClient } from "convex/browser";
 import type { Metadata } from "next";
 
-// Dynamically import the LeaguePage component
+ 
 const LeaguePage = dynamicImport(() =>
   import("@/components/LeaguePage").then((mod) => ({
     default: mod.LeaguePage,

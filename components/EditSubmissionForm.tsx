@@ -125,14 +125,14 @@ export function EditSubmissionForm({
           songFileKey: null,
         });
       } else {
-        // submissionType is 'file'
-        let albumArtKey: string | undefined | null = undefined; // undefined means no change
+         
+        let albumArtKey: string | undefined | null = undefined;  
         if (values.albumArtFile && values.albumArtFile.size > 0) {
           albumArtKey = await uploadFile(values.albumArtFile);
         } else if (albumArtPreview === null && submission.albumArtKey) {
-          albumArtKey = null; // User explicitly removed the image
+          albumArtKey = null;  
         }
-        let songFileKey: string | undefined = undefined; // undefined means no change
+        let songFileKey: string | undefined = undefined;  
         if (values.songFile && values.songFile.size > 0) {
           songFileKey = await uploadFile(values.songFile);
         }
@@ -281,7 +281,7 @@ export function EditSubmissionForm({
                 <FormField
                   control={form.control}
                   name="songFile"
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                   
                   render={({ field: { onChange, value, ...rest } }) => (
                     <FormItem>
                       <FormLabel>Song File (Optional)</FormLabel>
@@ -329,7 +329,7 @@ export function EditSubmissionForm({
                     <FormControl>
                       <div className="relative">
                         <Input
-                          placeholder="https://open.spotify.com/track/..."
+                          placeholder="https: 
                           {...field}
                         />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-2">

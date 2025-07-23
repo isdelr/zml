@@ -105,8 +105,8 @@ export function SubmissionItem({
       <div
         className={cn(
           "grid items-center gap-x-4 gap-y-1 p-3 transition-colors",
-          "grid-cols-[1fr_auto]", // Mobile: Two columns for content and actions
-          "md:grid-cols-[auto_4fr_3fr_2fr_auto] md:gap-4 md:px-4 md:py-2", // Desktop
+          "grid-cols-[1fr_auto]",  
+          "md:grid-cols-[auto_4fr_3fr_2fr_auto] md:gap-4 md:px-4 md:py-2",  
           isThisSongCurrent ? "bg-accent" : "hover:bg-accent/50",
           isCommentsVisible && "bg-accent/50",
         )}

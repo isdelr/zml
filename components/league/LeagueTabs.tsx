@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { dynamicImport } from "@/components/ui/dynamic-import";
 
-// Dynamically import components
+ 
 const Standings = dynamicImport(() => import("@/components/Standings").then(mod => ({ default: mod.Standings })));
 const LeagueStats = dynamicImport(() => import("@/components/LeagueStats").then(mod => ({ default: mod.LeagueStats })));
 

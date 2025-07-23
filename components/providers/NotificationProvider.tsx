@@ -1,4 +1,4 @@
-// app/NotificationProvider.tsx
+ 
 'use client';
 
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";

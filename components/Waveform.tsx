@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/popover";
 import { toSvg } from "jdenticon";
 
-// Exported type for comments to be used in MusicPlayer
+ 
 export interface WaveformComment {
   id: Id<"comments">;
   time: number;
@@ -48,7 +48,7 @@ export function Waveform({
 }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  // State to track the ID of the currently hovered comment
+   
   const [hoveredCommentId, setHoveredCommentId] = useState<Id<"comments"> | null>(null);
 
   useEffect(() => {
@@ -122,7 +122,7 @@ export function Waveform({
   };
 
   const handleMouseDown = (e: MouseEvent<HTMLCanvasElement>) => {
-    // Prevent dragging if hovering over a comment popover trigger
+     
     if (hoveredCommentId) return;
     setIsDragging(true);
     handleSeek(e);
@@ -142,7 +142,7 @@ export function Waveform({
     setIsDragging(false);
   };
 
-  // Handlers to set the specific comment ID on hover
+   
   const handleCommentMouseEnter = (commentId: Id<"comments">) => {
     setHoveredCommentId(commentId);
   }
@@ -162,7 +162,7 @@ export function Waveform({
       <canvas ref={canvasRef} className="h-full w-full" />
       <div className="absolute inset-0">
         {comments.map((comment) => (
-          // Control the popover's open state based on the hovered ID
+           
           <Popover key={comment.id} open={hoveredCommentId === comment.id} >
             <PopoverTrigger
               onMouseEnter={() => handleCommentMouseEnter(comment.id)}

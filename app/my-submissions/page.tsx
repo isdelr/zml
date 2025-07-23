@@ -2,7 +2,7 @@ import { dynamicImport } from "@/components/ui/dynamic-import";
 import { PageLayout } from "@/components/layout/PageLayout";
 import type { Metadata } from 'next';
 
-// Dynamically import the MySubmissionsPage component
+ 
 const MySubmissionsPage = dynamicImport(() => import("@/components/MySubmissionsPage").then(mod => ({ default: mod.MySubmissionsPage })));
 
 export const metadata: Metadata = {

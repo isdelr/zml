@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { CheckCircle2 } from "lucide-react";
 
-// Dynamically import components
+ 
 const RoundAdminControls = dynamicImport(() =>
   import("./round/RoundAdminControls").then((mod) => ({
     default: mod.RoundAdminControls,
@@ -80,14 +80,14 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       );
       setPendingVotes(initialVotes);
     } else if (submissions) {
-      // Initialize with empty votes if no existing votes
+       
       const initialVotes: Record<string, { up: number; down: number }> = {};
       submissions.forEach((sub) => {
         initialVotes[sub._id] = { up: 0, down: 0 };
       });
       setPendingVotes(initialVotes);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [userVoteStatus, submissions?.length]);
 
   const { pendingUpvotes, pendingDownvotes } = useMemo(() => {
@@ -182,7 +182,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           toast.warning("No upvotes remaining.");
         }
       } else {
-        // voteType === "down"
+         
         if (songVotes.up > 0) {
           songVotes.up -= 1;
         } else if (negativeVotesRemaining > 0) {

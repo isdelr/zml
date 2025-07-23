@@ -16,7 +16,7 @@ The application has been restructured to follow these principles:
 We use a custom utility function for dynamic imports that provides consistent loading states:
 
 ```tsx
-// components/ui/dynamic-import.tsx
+ 
 import dynamic from "next/dynamic";
 import { Skeleton } from "./skeleton";
 
@@ -46,7 +46,7 @@ Components are organized into feature-specific directories:
 import { dynamicImport } from "@/components/ui/dynamic-import";
 import { PageLayout } from "@/components/layout/PageLayout";
 
-// Dynamically import the component
+ 
 const ExplorePage = dynamicImport(() => 
   import("@/components/ExplorePage").then(mod => ({ default: mod.ExplorePage }))
 );

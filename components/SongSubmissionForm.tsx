@@ -175,7 +175,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
             <FormField
               control={form.control}
               name="albumArtFile"
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+               
               render={({ field: { onChange, value, ...rest } }) => (
                 <FormItem>
                   <FormLabel>Album Art</FormLabel>
@@ -265,14 +265,14 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                           if (file.size > MAX_SONG_SIZE_BYTES) {
                             toast.error(`Song file is too large. Max size: ${MAX_SONG_SIZE_MB}MB.`);
                             form.setValue("songFile", undefined);
-                            e.target.value = ""; // Reset file input
+                            e.target.value = "";  
                             return;
                           }
 
-                          // Update the form state for the song file immediately
+                           
                           onChange(file);
 
-                          // Now, parse metadata and autofill other fields
+                           
                           try {
                             const metadata = await mm.parseBlob(file);
                             toast.success("Successfully read song metadata!");
@@ -346,7 +346,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                     <FormLabel>Spotify or YouTube Link</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input placeholder="https://open.spotify.com/track/..." {...field} />
+                        <Input placeholder="https: 
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-2">
                           <FaSpotify className="text-green-500" />
                           <FaYoutube className="text-red-500" />

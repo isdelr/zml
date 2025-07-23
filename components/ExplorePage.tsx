@@ -7,7 +7,7 @@ import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { cn } from "@/lib/utils";
 import { dynamicImport } from "./ui/dynamic-import";
 
-// Dynamically import components
+ 
 const ExploreHeader = dynamicImport(() => import("./explore/ExploreHeader").then(mod => ({ default: mod.ExploreHeader })));
 const ExploreFilters = dynamicImport(() => import("./explore/ExploreFilters").then(mod => ({ default: mod.ExploreFilters })));
 const LeagueGrid = dynamicImport(() => import("./explore/LeagueGrid").then(mod => ({ default: mod.LeagueGrid })));
@@ -26,7 +26,7 @@ export function ExplorePage() {
     
     let filtered = leagues;
     
-    // Apply search filter
+     
     if (searchTerm) {
       filtered = filtered.filter((league) =>
         league.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -34,7 +34,7 @@ export function ExplorePage() {
       );
     }
     
-    // Apply tab filter
+     
     if (activeTab === "Popular") {
       filtered = [...filtered].sort((a, b) => b.memberCount - a.memberCount);
     } else if (activeTab === "New") {

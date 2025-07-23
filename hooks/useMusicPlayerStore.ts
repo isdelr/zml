@@ -22,8 +22,8 @@ interface MusicPlayerState {
     clearQueue: () => void;
     toggleRepeat: () => void;
     toggleShuffle: () => void;
-    seek: (time: number) => void; // ADDED: Action to request a seek
-    resetSeek: () => void; // ADDED: Action to clear the seek request
+    seek: (time: number) => void;  
+    resetSeek: () => void;  
     setVolume: (volume: number) => void;
   };
 }
@@ -36,7 +36,7 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
   repeatMode: "none",
   isShuffled: false,
   volume: 1,
-  seekTo: null, // ADDED
+  seekTo: null,  
   actions: {
     playRound: (songs, startIndex = 0) => {
       set({

@@ -4,13 +4,13 @@ import {
   internalAction,
   query,
   mutation,
-  internalQuery, // <-- Import internalQuery
+  internalQuery,  
 } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 
-// --- Internal Mutations & Actions for Creating Notifications ---
+ 
 
 type CreateNotificationArgs = {
   userId: Id<"users">;
@@ -20,7 +20,7 @@ type CreateNotificationArgs = {
   triggeringUserId?: Id<"users">;
 };
 
-// Internal mutation to create a single notification
+ 
 export const create = internalMutation({
   args: {
     userId: v.id("users"),
@@ -50,7 +50,7 @@ export const create = internalMutation({
   },
 });
 
-// Internal action to create notifications for all members of a league
+ 
 export const createForLeague = internalAction({
   args: {
     leagueId: v.id("leagues"),
@@ -84,8 +84,8 @@ export const createForLeague = internalAction({
   },
 });
 
-// Helper query used by the internal action above
-// FIX: Changed from query to internalQuery
+ 
+ 
 export const getLeagueMemberships = internalQuery({
   args: { leagueId: v.id("leagues") },
   handler: async (ctx, args) => {
@@ -96,7 +96,7 @@ export const getLeagueMemberships = internalQuery({
   },
 });
 
-// --- Public Queries & Mutations for the Frontend ---
+ 
 
 export const getForUser = query({
   handler: async (ctx) => {

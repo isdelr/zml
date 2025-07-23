@@ -27,7 +27,7 @@ export function MusicQueue({ isOpen, onOpenChange }: MusicQueueProps) {
     if (isThisSongCurrent) {
         actions.togglePlayPause();
     } else {
-        // playRound can also be used to play from a specific index
+         
         actions.playRound(queue, index);
     }
   }

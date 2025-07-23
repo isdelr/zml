@@ -1,4 +1,4 @@
-// components/InviteLeaguePage.tsx
+ 
 "use client";
 
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
@@ -23,7 +23,7 @@ import { toSvg } from "jdenticon";
 export default function InviteLeaguePage() {
   const params = useParams();
   const router = useRouter();
-  const pathname = usePathname(); // Get the current path
+  const pathname = usePathname();  
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const { signIn } = useAuthActions();
 
@@ -36,7 +36,7 @@ export default function InviteLeaguePage() {
 
   const handleJoinLeague = async () => {
     if (!isAuthenticated) {
-      // Redirect back to this same invite page after sign-in
+       
       signIn("discord", { callbackUrl: pathname });
       return;
     }
@@ -72,7 +72,7 @@ export default function InviteLeaguePage() {
       hasAttemptedJoin.current = true;
       handleJoinLeague();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isAuthenticated, inviteInfo]);
 
   if (isAuthLoading || inviteInfo === undefined) {

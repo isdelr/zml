@@ -105,7 +105,7 @@ export function CreateLeaguePage() {
     name: "rounds",
   });
 
-  // Effect to clean up object URLs to prevent memory leaks
+   
   useEffect(() => {
     return () => {
       Object.values(previews).forEach(URL.revokeObjectURL);
@@ -115,12 +115,12 @@ export function CreateLeaguePage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const toastId = toast.loading("Creating your league...");
     try {
-      // 1. Upload all files and wait for their keys
+       
       const processedRounds = await Promise.all(
         values.rounds.map(async (round) => {
           let imageKey: string | undefined = undefined;
           if (round.imageFile) {
-            // The uploadFile promise will not resolve until syncMetadata is done.
+             
             imageKey = await uploadFile(round.imageFile);
           }
           return {
@@ -132,8 +132,8 @@ export function CreateLeaguePage() {
         }),
       );
 
-      // 2. Call the createLeague mutation with the processed data
-      // By this point, all metadata is guaranteed to be in the database.
+       
+       
       const leagueId = await createLeague({
         ...values,
         rounds: processedRounds,
@@ -153,7 +153,7 @@ export function CreateLeaguePage() {
   return (
     <div
       className={cn(
-"flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8", // Keep existing classes
+"flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8",  
          currentTrackIndex !== null && "pb-24",
        )}
      >
@@ -324,7 +324,7 @@ export function CreateLeaguePage() {
                       <FormField
                         control={form.control}
                         name={`rounds.${index}.imageFile`}
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                         
                         render={({ field: { onChange, value, ...rest } }) => (
                           <FormItem>
                             <FormLabel>Round Image (Optional)</FormLabel>
@@ -349,7 +349,7 @@ export function CreateLeaguePage() {
                                     );
                                     setPreviews((p) => {
                                       const newPreviews = { ...p };
-                                      URL.revokeObjectURL(p[index]); // Clean up old URL
+                                      URL.revokeObjectURL(p[index]);  
                                       delete newPreviews[index];
                                       return newPreviews;
                                     });

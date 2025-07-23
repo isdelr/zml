@@ -9,7 +9,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { dynamicImport } from "./ui/dynamic-import";
 
-// Dynamically import components
+ 
 const BookmarkHeader = dynamicImport(() => import("./bookmarks/BookmarkHeader").then(mod => ({ default: mod.BookmarkHeader })));
 const BookmarkList = dynamicImport(() => import("./bookmarks/BookmarkList").then(mod => ({ default: mod.BookmarkList })));
 

@@ -1,4 +1,4 @@
-// components/BottomNavbar.tsx
+ 
 "use client";
 
 import {
@@ -17,7 +17,7 @@ import { api } from "@/convex/_generated/api";
 const mainNav = [
   { name: "Explore", icon: Compass, href: "/explore" },
   { name: "Active", icon: Swords, href: "/active-rounds" },
-  // Placeholder for the Plus button
+   
   { name: "Create", icon: PlusCircle, href: "/leagues/create" },
   { name: "Submissions", icon: Send, href: "/my-submissions" },
   { name: "Notifications", icon: Bell, href: "/notifications" },
@@ -30,8 +30,8 @@ export function BottomNavbar() {
   const navItems = [
     mainNav[0],
     mainNav[1],
-    mainNav[3], // Submissions
-    mainNav[4], // Notifications
+    mainNav[3],  
+    mainNav[4],  
   ];
 
   const middleIndex = Math.floor(navItems.length / 2);

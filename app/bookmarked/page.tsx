@@ -2,7 +2,7 @@ import { dynamicImport } from "@/components/ui/dynamic-import";
 import { PageLayout } from "@/components/layout/PageLayout";
 import type { Metadata } from 'next';
 
-// Dynamically import the BookmarkedPage component
+ 
 const BookmarkedPage = dynamicImport(() => import("@/components/BookMarkedPage").then(mod => ({ default: mod.BookmarkedPage })));
 
 export const metadata: Metadata = {

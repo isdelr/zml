@@ -15,7 +15,7 @@ import { dynamicImport } from "./ui/dynamic-import";
 import { RoundDetail } from "./RoundDetail";
 import { Dialog, DialogContent } from "./ui/dialog";
 
-// Dynamically import components
+ 
 const LeagueHeader = dynamicImport(() =>
   import("./league/LeagueHeader").then((mod) => ({
     default: mod.LeagueHeader,
@@ -124,7 +124,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   const selectedRound = rounds?.find((r) => r._id === selectedRoundId);
 
   if (leagueData === undefined) {
-    return null; // Loading state handled by parent
+    return null;  
   }
 
   if (leagueData === null) {

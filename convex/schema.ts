@@ -89,19 +89,19 @@ export default defineSchema({
     text: v.string(),
   }).index("by_submission", ["submissionId"]),
 
-  // NEW NOTIFICATIONS TABLE
+   
   notifications: defineTable({
-    userId: v.id("users"), // The user who will receive the notification
+    userId: v.id("users"),  
     type: v.union(
       v.literal("new_comment"),
       v.literal("round_submission"),
       v.literal("round_voting"),
       v.literal("round_finished"),
     ),
-    message: v.string(), // e.g., "John Doe commented on your submission."
-    link: v.string(), // e.g., "/leagues/[leagueId]/round/[roundId]"
-    read: v.boolean(), // To track if the notification has been seen
-    triggeringUserId: v.optional(v.id("users")), // The user who triggered the notification
+    message: v.string(),  
+    link: v.string(),  
+    read: v.boolean(),  
+    triggeringUserId: v.optional(v.id("users")),  
   }).index("by_user", ["userId"]),
 
   roundResults: defineTable({

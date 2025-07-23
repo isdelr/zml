@@ -40,7 +40,7 @@ export const getSongMetadataFromLink = action({
         throw new Error("YouTube API key is not set in environment variables.");
       }
 
-      const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`;
+      const url = `https: 
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch video data from YouTube API.");
@@ -367,7 +367,7 @@ export const addComment = mutation({
       throw new Error("Round not found.");
     }
 
-    // Don't notify the user if they comment on their own submission
+     
     if (submission.userId !== userId) {
       await ctx.scheduler.runAfter(0, internal.notifications.create, {
         userId: submission.userId,

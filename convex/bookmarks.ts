@@ -55,7 +55,7 @@ export const getBookmarkedSongs = query({
         const round = await ctx.db.get(submission.roundId);
         const league = round ? await ctx.db.get(round.leagueId) : null;
         
-        // --- Start of Fix ---
+         
         let albumArtUrl: string | null = null;
         let songFileUrl: string | null = null;
 
@@ -68,7 +68,7 @@ export const getBookmarkedSongs = query({
             albumArtUrl = submission.albumArtUrlValue ?? null;
             songFileUrl = submission.songLink ?? null;
         }
-        // --- End of Fix ---
+         
 
         return {
           ...submission,
@@ -78,7 +78,7 @@ export const getBookmarkedSongs = query({
           leagueId: league?._id ?? ("" as Id<"leagues">),
           albumArtUrl: albumArtUrl,
           songFileUrl: songFileUrl,
-          isBookmarked: true, // Song is definitely bookmarked here
+          isBookmarked: true,  
         };
       }),
     );

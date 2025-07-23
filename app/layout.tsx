@@ -1,4 +1,4 @@
-// app/layout.tsx
+ 
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -6,9 +6,9 @@ import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ThemeProvider } from "./ThemeProvider";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
-import { NotificationProvider } from "@/components/providers/NotificationProvider"; // IMPORT THE NEW PROVIDER
+import { NotificationProvider } from "@/components/providers/NotificationProvider";  
 
-// Dynamically import components
+ 
 const ConvexClientProvider = dynamic(() => import("@/components/ConvexClientProvider"));
 const Toaster = dynamic(() => import("@/components/ui/sonner").then(mod => mod.Toaster));
 const MusicPlayer = dynamic(() => import("@/components/MusicPlayer").then(mod => ({ default: mod.MusicPlayer })));

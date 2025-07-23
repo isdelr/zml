@@ -11,7 +11,7 @@ import WaveformData from "waveform-data";
 import { WaveformComment } from "./Waveform";
 import { dynamicImport } from "@/components/ui/dynamic-import";
 
-// Dynamically import components
+ 
 const PlayerTrackInfo = dynamicImport(() =>
   import("@/components/player/PlayerTrackInfo").then((mod) => ({
     default: mod.PlayerTrackInfo,
@@ -141,11 +141,11 @@ useEffect(() => {
     setWaveformData(null);
     setIsWaveformLoading(true);
 
-    // Add the { cache: 'no-cache' } option here
+     
     fetch(currentTrack.songFileUrl, { cache: 'no-cache' })
       .then((response) => {
         if (!response.ok) {
-          // Add this check to provide better error details if the fetch fails
+           
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.arrayBuffer();
@@ -166,7 +166,7 @@ useEffect(() => {
         });
       })
       .catch((error) => {
-        // This will now catch CORS errors and other fetch issues more reliably
+         
         console.error("Error fetching audio for waveform:", error);
         toast.error("Could not load waveform. The audio file might be unavailable or blocked.");
         setIsWaveformLoading(false);
@@ -274,10 +274,10 @@ useEffect(() => {
 
   const handleMuteToggle = () => {
     if (volume > 0) {
-      setLastVolume(volume); // Store current volume
-      actions.setVolume(0); // Mute
+      setLastVolume(volume);  
+      actions.setVolume(0);  
     } else {
-      actions.setVolume(lastVolume > 0 ? lastVolume : 1); // Unmute to last known volume or full
+      actions.setVolume(lastVolume > 0 ? lastVolume : 1);  
     }
   };
 

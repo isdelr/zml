@@ -1,4 +1,4 @@
-// components/home/HomeHeader.tsx
+ 
 "use client";
 
 import { AudioLines} from "lucide-react";

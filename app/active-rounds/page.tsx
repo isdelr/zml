@@ -2,7 +2,7 @@ import { dynamicImport } from "@/components/ui/dynamic-import";
 import { PageLayout } from "@/components/layout/PageLayout";
 import type { Metadata } from 'next';
 
-// Dynamically import the ActiveRoundsPage component
+ 
 const ActiveRoundsPage = dynamicImport(() => import("@/components/ActiveRoundsPage").then(mod => ({ default: mod.ActiveRoundsPage })));
 
 export const metadata: Metadata = {

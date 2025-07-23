@@ -1,6 +1,6 @@
 import { Music } from "lucide-react";
 
-// An array of fun, on-theme messages to display
+ 
 const loadingMessages = [
   "Finding the right key...",
   "Tuning the strings...",
@@ -10,7 +10,7 @@ const loadingMessages = [
 ];
 
 export function LoadingSpinner() {
-  // A simple way to pick a random message on each load.
+   
   const message = loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
 
   return (

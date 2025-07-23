@@ -51,7 +51,7 @@ export const create = mutation({
       votingDeadline,
     });
 
-    // Notify league members that a new round has started
+     
     await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
         leagueId: league._id,
         type: "round_submission",

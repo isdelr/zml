@@ -3,7 +3,7 @@ import { api } from "@/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 import { Metadata } from "next";
 
-// Dynamically import the InviteLeaguePage component
+ 
 const InviteLeaguePage = dynamicImport(() => import("@/components/InviteLeaguePage"));
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);

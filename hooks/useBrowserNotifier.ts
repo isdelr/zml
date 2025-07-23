@@ -1,22 +1,22 @@
-// hooks/useBrowserNotifier.ts
+ 
 import { useState, useEffect, useCallback } from 'react';
 
 const DONT_ASK_AGAIN_KEY = 'notification-permission-dont-ask';
 const PROMPT_DISMISSED_KEY = 'notification-permission-prompt-dismissed';
-const PROMPT_DISMISSED_TIMEOUT = 7 * 24 * 60 * 60 * 1000; // 7 days
+const PROMPT_DISMISSED_TIMEOUT = 7 * 24 * 60 * 60 * 1000;  
 
 export function useBrowserNotifier() {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isPromptVisible, setIsPromptVisible] = useState(false);
 
-  // Check initial permission status on mount
+   
   useEffect(() => {
     if ('Notification' in window) {
       setPermission(Notification.permission);
     }
   }, []);
 
-  // Determine if the prompt should be shown
+   
   useEffect(() => {
     if (permission === 'default') {
       const dontAsk = localStorage.getItem(DONT_ASK_AGAIN_KEY);
@@ -33,7 +33,7 @@ export function useBrowserNotifier() {
         }
       }
       
-      // If not permanently denied and not recently dismissed, show the prompt.
+       
       setIsPromptVisible(true);
     } else {
       setIsPromptVisible(false);
@@ -51,10 +51,10 @@ export function useBrowserNotifier() {
     setIsPromptVisible(false);
 
     if (currentPermission !== 'granted') {
-        // If user denies, we can assume they don't want to be asked again for a while.
+         
         localStorage.setItem(PROMPT_DISMISSED_KEY, Date.now().toString());
     } else {
-        // Clear dismissal keys if permission is granted
+         
         localStorage.removeItem(DONT_ASK_AGAIN_KEY);
         localStorage.removeItem(PROMPT_DISMISSED_KEY);
     }
@@ -63,7 +63,7 @@ export function useBrowserNotifier() {
   const showNotification = useCallback((title: string, options?: NotificationOptions) => {
     if (permission === 'granted') {
       new Notification(title, {
-          icon: '/favicon.svg', // Default icon
+          icon: '/favicon.svg',  
           ...options,
       });
     }

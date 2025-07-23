@@ -4,7 +4,7 @@ import { components } from "./_generated/api";
 
 const r2 = new R2(components.r2);
 
-// For league round images
+ 
 export const {
   generateUploadUrl: generateLeagueImageUploadUrl,
   syncMetadata: syncLeagueImageMetadata,
@@ -17,7 +17,7 @@ export const {
   },
 });
 
-// For song submissions (album art and audio file)
+ 
 export const {
   generateUploadUrl: generateSubmissionFileUploadUrl,
   syncMetadata: syncSubmissionFileMetadata,

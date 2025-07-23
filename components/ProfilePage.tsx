@@ -85,7 +85,7 @@ export function ProfilePage({ userId }: { userId: string }) {
   return (
     <div
       className={cn(
-        // Reduced padding for mobile
+         
         "flex-1 overflow-y-auto p-4 md:p-8",
         currentTrackIndex !== null && "pb-32",
       )}

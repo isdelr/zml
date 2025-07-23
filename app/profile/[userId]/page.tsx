@@ -5,7 +5,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { ConvexHttpClient } from "convex/browser";
 import type { Metadata } from "next";
 
-// Dynamically import the ProfilePage component
+ 
 const ProfilePage = dynamicImport(() => import("@/components/ProfilePage").then(mod => ({ default: mod.ProfilePage })));
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);

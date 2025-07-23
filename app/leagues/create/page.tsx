@@ -2,7 +2,7 @@ import { dynamicImport } from "@/components/ui/dynamic-import";
 import { PageLayout } from "@/components/layout/PageLayout";
 import type { Metadata } from 'next';
 
-// Dynamically import the CreateLeaguePage component
+ 
 const CreateLeaguePage = dynamicImport(() => import("@/components/CreateLeaguePage").then(mod => ({ default: mod.CreateLeaguePage })));
 
 export const metadata: Metadata = {

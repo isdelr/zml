@@ -14,7 +14,7 @@ export const f = query({
     args: {},
     returns: v.null(),
     handler: async (ctx, args) => {
-    // Function body
+     
     },
 });
 ```
@@ -47,7 +47,7 @@ args: {
     simpleArray: v.array(v.union(v.string(), v.number())),
 },
 handler: async (ctx, args) => {
-    //...
+     
 },
 });
 ```
@@ -276,7 +276,7 @@ const empty = internalAction({
 
 const crons = cronJobs();
 
-// Run `internal.crons.empty` every two hours.
+ 
 crons.interval("delete inactive users", { hours: 2 }, internal.crons.empty, {});
 
 export default crons;

@@ -1,4 +1,4 @@
-// components/NotificationsPage.tsx
+ 
 "use client";
 
 import { useMutation, useQuery } from "convex/react";

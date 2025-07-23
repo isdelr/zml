@@ -6,7 +6,7 @@ import { dynamicImport } from "@/components/ui/dynamic-import";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { ExplorePage } from "@/components/ExplorePage";
 
-// Dynamically import components for the marketing page
+ 
 const HomeHeader = dynamicImport(() =>
   import("@/components/home/HomeHeader").then((mod) => ({
     default: mod.HomeHeader,
@@ -35,9 +35,9 @@ export default function HomePage() {
     return <LoadingSpinner />;
   }
 
-  // If the user is authenticated, render the Explore page within the standard app layout.
-  // This makes the root URL act as the main app page for logged-in users
-  // without interfering with redirects to other pages.
+   
+   
+   
   if (isAuthenticated) {
     return (
       <PageLayout>
@@ -46,7 +46,7 @@ export default function HomePage() {
     );
   }
 
-  // If the user is not authenticated, show the marketing landing page.
+   
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <HomeHeader />

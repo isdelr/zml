@@ -2,7 +2,7 @@ import { dynamicImport } from "@/components/ui/dynamic-import";
 import { PageLayout } from "@/components/layout/PageLayout";
 import type { Metadata } from 'next';
 
-// Dynamically import the NotificationsPage component
+ 
 const NotificationsPage = dynamicImport(() => import("@/components/NotificationsPage").then(mod => ({ default: mod.default })));
 
 export const metadata: Metadata = {

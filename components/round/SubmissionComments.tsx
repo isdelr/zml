@@ -159,7 +159,7 @@ export function SubmissionComments({
   );
 }
 
-// Helper function for formatting time
+ 
 function formatDistanceToNow(
   timestamp: number,
   options: { addSuffix: boolean },
