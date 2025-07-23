@@ -223,7 +223,7 @@ export function MusicPlayer() {
               setWaveformData(waveform);
               storeWaveform({
                 submissionId: currentTrack._id as Id<"submissions">,
-                waveformJson: JSON.stringify(waveform.json),
+                waveformJson: JSON.stringify(waveform.toJSON()),
               });
             }
           });
