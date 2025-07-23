@@ -10,11 +10,12 @@ const ProfilePage = dynamicImport(() => import("@/components/ProfilePage").then(
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { userId: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ userId: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const profile = await convex.query(api.users.getProfile, {
     userId: params.userId as Id<"users">,
   });

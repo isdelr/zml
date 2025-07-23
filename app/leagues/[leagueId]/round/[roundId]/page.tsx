@@ -10,11 +10,12 @@ import type { Metadata } from "next";
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
  
-export async function generateMetadata({
-  params,
-}: {
-  params: { leagueId: string; roundId: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ leagueId: string; roundId: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const metadata = await convex.query(api.rounds.getRoundMetadata, {
     roundId: params.roundId as unknown,
   });
@@ -28,7 +29,7 @@ export async function generateMetadata({
 
   const { roundTitle, roundDescription, imageUrl, leagueName } = metadata;
 
-   
+
   const title = `${roundTitle} - A Round in ${leagueName}`;
   const description = `Current Status: Now open for submissions! | ${roundDescription}`;
 
@@ -54,13 +55,14 @@ export async function generateMetadata({
 
  
  
-export default async function RoundPage({
-  params,
-}: {
-  params: { leagueId: string; roundId: string };
-}) {
-   
-   
+export default async function RoundPage(
+  props: {
+    params: Promise<{ leagueId: string; roundId: string }>;
+  }
+) {
+  const params = await props.params;
+
+
   return (
     <PageLayout>
       <LeaguePage leagueId={params.leagueId} />

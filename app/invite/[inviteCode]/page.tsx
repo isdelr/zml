@@ -8,11 +8,12 @@ const InviteLeaguePage = dynamicImport(() => import("@/components/InviteLeaguePa
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { inviteCode: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ inviteCode: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const inviteInfo = await convex.query(api.leagues.getInviteInfo, {
     inviteCode: params.inviteCode,
   });
