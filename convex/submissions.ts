@@ -30,7 +30,10 @@ export const getSongMetadataFromLink = action({
         albumArtUrl: track.album.images[0].url,
         submissionType: "spotify" as const,
       };
-    } else if (args.link.includes("youtube") || args.link.includes("youtu.be")) {
+    } else if (
+      args.link.includes("youtube") ||
+      args.link.includes("youtu.be")
+    ) {
       const videoId = getYouTubeVideoId(args.link);
       if (!videoId) {
         throw new Error("Invalid YouTube link provided.");
@@ -40,13 +43,13 @@ export const getSongMetadataFromLink = action({
         throw new Error("YouTube API key is not set in environment variables.");
       }
 
-      const url = `https: 
+      const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch video data from YouTube API.");
       }
       const data = await response.json();
-      
+
       if (!data.items || data.items.length === 0) {
         throw new Error("Could not find YouTube video with that link.");
       }
@@ -60,14 +63,20 @@ export const getSongMetadataFromLink = action({
         submissionType: "youtube" as const,
       };
     }
-    throw new Error("Invalid link provided. Please use a Spotify or YouTube link.");
+    throw new Error(
+      "Invalid link provided. Please use a Spotify or YouTube link.",
+    );
   },
 });
 
 export const submitSong = mutation({
   args: {
     roundId: v.id("rounds"),
-    submissionType: v.union(v.literal("file"), v.literal("spotify"), v.literal("youtube")),
+    submissionType: v.union(
+      v.literal("file"),
+      v.literal("spotify"),
+      v.literal("youtube"),
+    ),
     songTitle: v.string(),
     artist: v.string(),
     comment: v.optional(v.string()),
@@ -102,19 +111,21 @@ export const submitSong = mutation({
       comment: args.comment,
     };
 
-    if (args.submissionType === 'file') {
+    if (args.submissionType === "file") {
       if (!args.albumArtKey || !args.songFileKey) {
         throw new Error("File keys are required for manual submission.");
       }
       await ctx.db.insert("submissions", {
         ...baseSubmissionData,
-        submissionType: 'file',
+        submissionType: "file",
         albumArtKey: args.albumArtKey,
         songFileKey: args.songFileKey,
       });
     } else {
       if (!args.songLink || !args.albumArtUrlValue) {
-        throw new Error("Link and album art URL are required for link submission.");
+        throw new Error(
+          "Link and album art URL are required for link submission.",
+        );
       }
       await ctx.db.insert("submissions", {
         ...baseSubmissionData,
@@ -157,28 +168,28 @@ export const editSong = mutation({
         "You can only edit submissions during the submission phase.",
       );
     }
-    
+
     const { submissionId, ...rest } = args;
 
     const updates: Partial<Doc<"submissions">> = {};
-    
+
     for (const [key, value] of Object.entries(rest)) {
-        if (value !== undefined) {
-            (updates as any)[key] = value;
-        }
+      if (value !== undefined) {
+        (updates as any)[key] = value;
+      }
     }
 
     if (args.albumArtKey === null) updates.albumArtKey = undefined;
     if (args.songFileKey === null) updates.songFileKey = undefined;
     if (args.songLink === null) updates.songLink = undefined;
     if (args.albumArtUrlValue === null) updates.albumArtUrlValue = undefined;
-    
-    if (args.submissionType === 'file') {
-        updates.songLink = undefined;
-        updates.albumArtUrlValue = undefined;
-    } else { 
-        updates.albumArtKey = undefined;
-        updates.songFileKey = undefined;
+
+    if (args.submissionType === "file") {
+      updates.songLink = undefined;
+      updates.albumArtUrlValue = undefined;
+    } else {
+      updates.albumArtKey = undefined;
+      updates.songFileKey = undefined;
     }
 
     await ctx.db.patch(submissionId, updates);
@@ -213,7 +224,7 @@ export const getForRound = query({
     const bookmarkedSubmissionIds = new Set(
       userBookmarks.map((b) => b.submissionId),
     );
-   
+
     return Promise.all(
       submissions.map(async (submission) => {
         const user = await ctx.db.get(submission.userId);
@@ -221,14 +232,18 @@ export const getForRound = query({
         let albumArtUrl: string | null = null;
         let songFileUrl: string | null = null;
 
-        if (submission.submissionType === 'file') {
-            [albumArtUrl, songFileUrl] = await Promise.all([
-                submission.albumArtKey ? r2.getUrl(submission.albumArtKey) : Promise.resolve(null),
-                submission.songFileKey ? r2.getUrl(submission.songFileKey) : Promise.resolve(null),
-            ]);
+        if (submission.submissionType === "file") {
+          [albumArtUrl, songFileUrl] = await Promise.all([
+            submission.albumArtKey
+              ? r2.getUrl(submission.albumArtKey)
+              : Promise.resolve(null),
+            submission.songFileKey
+              ? r2.getUrl(submission.songFileKey)
+              : Promise.resolve(null),
+          ]);
         } else {
-            albumArtUrl = submission.albumArtUrlValue ?? null;
-            songFileUrl = submission.songLink ?? null;
+          albumArtUrl = submission.albumArtUrlValue ?? null;
+          songFileUrl = submission.songLink ?? null;
         }
         const points = allVotesForRound
           .filter((v) => v.submissionId === submission._id)
@@ -367,7 +382,6 @@ export const addComment = mutation({
       throw new Error("Round not found.");
     }
 
-     
     if (submission.userId !== userId) {
       await ctx.scheduler.runAfter(0, internal.notifications.create, {
         userId: submission.userId,
@@ -391,7 +405,9 @@ export const getCommentsForSubmission = query({
   handler: async (ctx, args) => {
     const comments = await ctx.db
       .query("comments")
-      .withIndex("by_submission", (q) => q.eq("submissionId", args.submissionId))
+      .withIndex("by_submission", (q) =>
+        q.eq("submissionId", args.submissionId),
+      )
       .order("asc")
       .collect();
 

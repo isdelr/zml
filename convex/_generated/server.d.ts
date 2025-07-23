@@ -143,7 +143,7 @@ export type DatabaseReader = GenericDatabaseReader<DataModel>;
  *
  * Convex guarantees that all writes within a single mutation are
  * executed atomically, so you never have to worry about partial writes leaving
- * your data in an inconsistent state. See [the Convex Guide](https: 
+ * your data in an inconsistent state. See [the Convex Guide](https://docs.convex.dev/understanding/convex-fundamentals/functions#atomicity-and-optimistic-concurrency-control)
  * for the guarantees Convex provides your functions.
  */
 export type DatabaseWriter = GenericDatabaseWriter<DataModel>;

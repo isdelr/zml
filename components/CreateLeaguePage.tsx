@@ -325,6 +325,7 @@ export function CreateLeaguePage() {
                         control={form.control}
                         name={`rounds.${index}.imageFile`}
                          
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
                         render={({ field: { onChange, value, ...rest } }) => (
                           <FormItem>
                             <FormLabel>Round Image (Optional)</FormLabel>
