@@ -1,3 +1,4 @@
+// convex/leagues.ts
 import { v } from "convex/values";
 import {
   mutation,
@@ -762,6 +763,9 @@ export const searchInLeague = query({
       return { rounds: [], songs: [] };
     }
     const lowerCaseSearch = args.searchText.toLowerCase();
+    
+    const league = await ctx.db.get(args.leagueId);
+    if (!league) return { rounds: [], songs: [] };
 
      
     const allRounds = await ctx.db
@@ -814,18 +818,27 @@ export const searchInLeague = query({
           )
           .slice(0, 5)
           .map(async (song) => {
+            const round = allRounds.find(r => r._id === song.roundId);
+            const user = await ctx.db.get(song.userId);
+            const isAnonymous = round?.status === 'voting';
+
             const [albumArtUrl, songFileUrl] = await Promise.all([
               song.albumArtKey
                 ? r2.getUrl(song.albumArtKey)
-                : Promise.resolve(null),
+                : Promise.resolve(song.albumArtUrlValue ?? null),
               song.songFileKey
                 ? r2.getUrl(song.songFileKey)
-                : Promise.resolve(null),
+                : Promise.resolve(song.songLink ?? null),
             ]);
             return {
               ...song,
-              albumArtUrl: albumArtUrl,
+              albumArtUrl,
               songFileUrl,
+              submittedBy: isAnonymous ? "Anonymous" : user?.name ?? "Anonymous",
+              roundStatus: round?.status,
+              roundTitle: round?.title,
+              leagueName: league.name,
+              leagueId: league._id,
             };
           }),
       )

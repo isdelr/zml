@@ -1,3 +1,4 @@
+// convex/submissions.ts
 import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -221,6 +222,9 @@ export const getForRound = query({
 
     const round = await ctx.db.get(args.roundId);
     if (!round) return [];
+    
+    const league = await ctx.db.get(round.leagueId);
+    if (!league) return [];
 
     const submissions = await ctx.db
       .query("submissions")
@@ -247,6 +251,8 @@ export const getForRound = query({
 
         let albumArtUrl: string | null = null;
         let songFileUrl: string | null = null;
+        
+        const isAnonymous = round.status === 'voting';
 
         if (submission.submissionType === "file") {
           [albumArtUrl, songFileUrl] = await Promise.all([
@@ -295,8 +301,8 @@ export const getForRound = query({
         }
         return {
           ...submission,
-          submittedBy: user?.name ?? "Anonymous",
-          submittedByImage: user?.image ?? null,
+          submittedBy: isAnonymous ? "Anonymous" : user?.name ?? "Anonymous",
+          submittedByImage: isAnonymous ? null : user?.image ?? null,
           albumArtUrl: albumArtUrl!,
           songFileUrl: songFileUrl,
           points,
@@ -305,6 +311,9 @@ export const getForRound = query({
           isPenalized,
           isBookmarked: bookmarkedSubmissionIds.has(submission._id),
           roundStatus: round.status,
+          roundTitle: round.title,
+          leagueId: league._id,
+          leagueName: league.name,
         };
       }),
     );
