@@ -288,6 +288,7 @@ export function EditSubmissionForm({
                 <FormField
                   control={form.control}
                   name="songFile"
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   render={({ field: { onChange, value, ...rest } }) => (
                     <FormItem>
                       <FormLabel>Song File (Optional)</FormLabel>

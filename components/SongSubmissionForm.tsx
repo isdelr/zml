@@ -342,7 +342,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
               <FormField
                 control={form.control}
                 name="songLink"
-                render={({ field }) => (
+                render={({  }) => (
                   <FormItem>
                     <FormLabel>Spotify or YouTube Link</FormLabel>
                     <FormControl>

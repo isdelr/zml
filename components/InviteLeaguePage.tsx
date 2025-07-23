@@ -73,6 +73,7 @@ export default function InviteLeaguePage() {
       handleJoinLeague();
     }
      
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, inviteInfo]);
 
   if (isAuthLoading || inviteInfo === undefined) {
