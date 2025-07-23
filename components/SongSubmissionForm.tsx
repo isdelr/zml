@@ -346,7 +346,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                     <FormLabel>Spotify or YouTube Link</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input placeholder="https: 
+                        <Input  placeholder="https://open.spotify.com/track/..." />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-2">
                           <FaSpotify className="text-green-500" />
                           <FaYoutube className="text-red-500" />

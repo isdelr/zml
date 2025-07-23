@@ -125,21 +125,24 @@ export function EditSubmissionForm({
           songFileKey: null,
         });
       } else {
-         
-        let albumArtKey: string | undefined | null = undefined;  
+        let albumArtKey: string | undefined | null = undefined;
         if (values.albumArtFile && values.albumArtFile.size > 0) {
           albumArtKey = await uploadFile(values.albumArtFile);
         } else if (albumArtPreview === null && submission.albumArtKey) {
-          albumArtKey = null;  
+          albumArtKey = null;
         }
-        let songFileKey: string | undefined = undefined;  
+        let songFileKey: string | undefined = undefined;
         if (values.songFile && values.songFile.size > 0) {
           songFileKey = await uploadFile(values.songFile);
         }
-        const isAlbumArtMissing = albumArtKey === null || (!albumArtKey && !submission.albumArtKey);
+        const isAlbumArtMissing =
+          albumArtKey === null || (!albumArtKey && !submission.albumArtKey);
         const isSongFileMissing = !songFileKey && !submission.songFileKey;
         if (isAlbumArtMissing || isSongFileMissing) {
-          toast.error("An album art and song file are required for file submissions.", { id: toastId });
+          toast.error(
+            "An album art and song file are required for file submissions.",
+            { id: toastId },
+          );
           return;
         }
         const patchPayload: Parameters<typeof editSong>[0] = {
@@ -167,7 +170,11 @@ export function EditSubmissionForm({
 
   const handleTabChange = (value: string) => {
     form.setValue("submissionType", value as "file" | "link");
-    if (value === "link" && !form.getValues("songLink") && submission.songLink) {
+    if (
+      value === "link" &&
+      !form.getValues("songLink") &&
+      submission.songLink
+    ) {
       form.setValue("songLink", submission.songLink);
     }
   };
@@ -281,7 +288,6 @@ export function EditSubmissionForm({
                 <FormField
                   control={form.control}
                   name="songFile"
-                   
                   render={({ field: { onChange, value, ...rest } }) => (
                     <FormItem>
                       <FormLabel>Song File (Optional)</FormLabel>
@@ -329,7 +335,7 @@ export function EditSubmissionForm({
                     <FormControl>
                       <div className="relative">
                         <Input
-                          placeholder="https: 
+                          placeholder="https://open.spotify.com/track/..."
                           {...field}
                         />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-2">
