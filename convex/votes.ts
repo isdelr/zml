@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { Doc } from "./_generated/dataModel";
 
 export const getForRound = query({
   args: { roundId: v.id("rounds") },
@@ -20,10 +21,35 @@ export const getForUserInRound = query({
     if (!userId) {
       return {
         hasVoted: false,
+        canVote: false,
         votes: [],
         upvotesUsed: 0,
         downvotesUsed: 0,
       };
+    }
+
+    const round = await ctx.db.get(args.roundId);
+    if (!round) {
+      return {
+        hasVoted: false,
+        canVote: false,
+        votes: [],
+        upvotesUsed: 0,
+        downvotesUsed: 0,
+      };
+    }
+
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_league_and_user", (q) =>
+        q.eq("leagueId", round.leagueId).eq("userId", userId),
+      )
+      .first();
+      
+    let canVote = false;
+
+    if (membership?.joinDate) {
+      canVote = !!membership && membership.joinDate < round.submissionDeadline;
     }
 
     const userVotes = await ctx.db
@@ -45,10 +71,39 @@ export const getForUserInRound = query({
 
     return {
       hasVoted,
+      canVote,
       votes: userVotes,
       upvotesUsed,
       downvotesUsed,
     };
+  },
+});
+
+export const getVotersForRound = query({
+  args: { roundId: v.id("rounds") },
+  handler: async (ctx, args) => {
+    const votes = await ctx.db
+      .query("votes")
+      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .collect();
+
+    if (votes.length === 0) {
+      return [];
+    }
+    const userIds = [...new Set(votes.map((vote) => vote.userId))];
+
+    const users = await Promise.all(
+      userIds.map(async (userId) => {
+        return await ctx.db.get(userId);
+      }),
+    );
+    return users
+      .filter((user): user is Doc<"users"> => user !== null)
+      .map((user) => ({
+        _id: user._id,
+        name: user.name,
+        image: user.image,
+      }));
   },
 });
 
@@ -70,6 +125,25 @@ export const submitVotes = mutation({
     if (!round) throw new Error("Round not found.");
     if (round.status !== "voting") {
       throw new Error("Voting is not open for this round.");
+    }
+
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_league_and_user", (q) =>
+        q.eq("leagueId", round.leagueId).eq("userId", userId),
+      )
+      .first();
+
+    if (!membership) {
+      throw new Error("You are not a member of this league.");
+    }
+
+    const votingPhaseStartTime = round.submissionDeadline;
+
+    if (!membership.joinDate || (membership.joinDate > votingPhaseStartTime)) {
+      throw new Error(
+        "You joined this league after this round's voting phase began, so you cannot vote in it.",
+      );
     }
 
     const existingVotes = await ctx.db

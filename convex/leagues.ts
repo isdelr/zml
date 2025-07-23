@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import {
   mutation,
   query,
-  action,
   internalMutation,
   MutationCtx,
 } from "./_generated/server";
@@ -97,6 +96,7 @@ export const create = mutation({
     await ctx.db.insert("memberships", {
       userId,
       leagueId,
+      joinDate: Date.now(),
     });
 
     await ctx.db.insert("leagueStandings", {
@@ -353,6 +353,7 @@ export const joinWithInviteCode = mutation({
     await ctx.db.insert("memberships", {
       userId,
       leagueId: league._id,
+      joinDate: Date.now(),
     });
 
     await ctx.db.insert("leagueStandings", {
@@ -392,7 +393,11 @@ export const joinPublicLeague = mutation({
     if (existingMembership) {
       return "already_joined";
     }
-    await ctx.db.insert("memberships", { userId, leagueId: league._id });
+    await ctx.db.insert("memberships", {
+      userId,
+      leagueId: league._id,
+      joinDate: Date.now(),
+    });
 
     await ctx.db.insert("leagueStandings", {
       leagueId: league._id,

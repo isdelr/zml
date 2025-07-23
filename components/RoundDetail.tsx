@@ -10,7 +10,7 @@ import { useMemo, useState, useEffect } from "react";
 import { AvatarStack } from "./AvatarStack";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Ban } from "lucide-react";
 
  
 const RoundAdminControls = dynamicImport(() =>
@@ -55,6 +55,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   const userVoteStatus = useQuery(api.votes.getForUserInRound, {
     roundId: round._id,
   });
+
+  const voters = useQuery(api.votes.getVotersForRound, { roundId: round._id });
 
   const [pendingVotes, setPendingVotes] = useState<
     Record<string, { up: number; down: number }>
@@ -229,6 +231,20 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         </Alert>
       )}
 
+      {round.status === "voting" &&
+        userVoteStatus &&
+        !userVoteStatus.hasVoted &&
+        !userVoteStatus.canVote && (
+          <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10 text-yellow-400">
+            <Ban className="size-5" />
+            <AlertTitle className="font-bold">Voting Restricted</AlertTitle>
+            <AlertDescription className="text-yellow-400/80">
+              You cannot vote in this round because you joined the league after
+              the voting phase started. You can vote in all future rounds.
+            </AlertDescription>
+          </Alert>
+        )}
+
       <RoundHeader
         round={round}
         submissions={sortedSubmissions}
@@ -271,20 +287,34 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       )}
 
       {(round.status === "voting" || round.status === "finished") && (
-        <SubmissionsList
-          submissions={sortedSubmissions}
-          userVoteStatus={userVoteStatus}
-          currentUser={currentUser}
-          roundStatus={round.status}
-          league={league}
-          currentTrackIndex={currentTrackIndex}
-          isPlaying={isPlaying}
-          queue={queue}
-          onPlaySong={handlePlaySong}
-          pendingVotes={pendingVotes}
-          onVoteClick={handleVoteClick}
-          onSubmitVotes={handleSubmitVotes}
-        />
+        <>
+          {round.status === "voting" && voters && voters.length > 0 && (
+            <div className="my-8 rounded-lg border bg-card p-6 text-center">
+              <h3 className="font-semibold">Who&apos;s Voted So Far?</h3>
+              <div className="mt-4 flex flex-col items-center justify-center gap-2">
+                <AvatarStack users={voters} />
+                <p className="text-sm text-muted-foreground">
+                  {voters.length} member{voters.length !== 1 ? "s" : ""} have
+                  cast their votes.
+                </p>
+              </div>
+            </div>
+          )}
+          <SubmissionsList
+            submissions={sortedSubmissions}
+            userVoteStatus={userVoteStatus}
+            currentUser={currentUser}
+            roundStatus={round.status}
+            league={league}
+            currentTrackIndex={currentTrackIndex}
+            isPlaying={isPlaying}
+            queue={queue}
+            onPlaySong={handlePlaySong}
+            pendingVotes={pendingVotes}
+            onVoteClick={handleVoteClick}
+            onSubmitVotes={handleSubmitVotes}
+          />
+        </>
       )}
     </section>
   );

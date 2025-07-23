@@ -62,6 +62,7 @@ export function SubmissionsList({
   };
 
   const hasVoted = userVoteStatus?.hasVoted ?? false;
+  const canVote = userVoteStatus?.canVote ?? false;
 
   const handleBookmark = (submissionId: Id<"submissions">) => {
     toast.promise(toggleBookmark({ submissionId }), {
@@ -136,6 +137,7 @@ export function SubmissionsList({
             pendingSongVotes={pendingSongVotes}
             roundStatus={roundStatus}
             hasVoted={hasVoted}
+            canVote={canVote}
             onToggleComments={() => toggleComments(song._id)}
             onVoteClick={(voteType) => onVoteClick(song._id, voteType)}
             onBookmark={() => handleBookmark(song._id)}
@@ -154,7 +156,8 @@ export function SubmissionsList({
 
       {roundStatus === "voting" &&
         submissions.length > 0 &&
-        !userVoteStatus?.hasVoted && (
+        !userVoteStatus?.hasVoted &&
+        canVote && (
           <div className="mt-8 flex justify-end md:bottom-4">
             <Button
               onClick={onSubmitVotes}

@@ -24,6 +24,7 @@ export default defineSchema({
   memberships: defineTable({
     userId: v.id("users"),
     leagueId: v.id("leagues"),
+    joinDate: v.optional(v.number()),
   })
     .index("by_league_and_user", ["leagueId", "userId"])
     .index("by_user", ["userId"])

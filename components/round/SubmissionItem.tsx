@@ -29,6 +29,7 @@ interface SubmissionItemProps {
   roundStatus: "voting" | "finished" | "submissions";
   onToggleComments: () => void;
   hasVoted: boolean;
+  canVote: boolean;
   onVoteClick: (voteType: "up" | "down") => void;
   onBookmark: () => void;
   onPlaySong: () => void;
@@ -44,6 +45,7 @@ export function SubmissionItem({
   pendingSongVotes,
   roundStatus,
   hasVoted,
+  canVote,
   onToggleComments,
   onVoteClick,
   onBookmark,
@@ -162,7 +164,9 @@ export function SubmissionItem({
             size="icon"
             aria-label="Upvote"
             onClick={() => onVoteClick("up")}
-            disabled={roundStatus !== "voting" || userIsSubmitter || hasVoted}
+            disabled={
+              roundStatus !== "voting" || userIsSubmitter || hasVoted || !canVote
+            }
             className="relative"
           >
             <ArrowUp
@@ -181,7 +185,9 @@ export function SubmissionItem({
             variant="ghost"
             size="icon"
             aria-label="Downvote"
-            disabled={roundStatus !== "voting" || userIsSubmitter || hasVoted}
+            disabled={
+              roundStatus !== "voting" || userIsSubmitter || hasVoted || !canVote
+            }
             onClick={() => onVoteClick("down")}
             className="relative"
           >
