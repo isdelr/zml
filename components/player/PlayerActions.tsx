@@ -1,3 +1,4 @@
+// components/player/PlayerActions.tsx
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -7,10 +8,12 @@ import {
   Volume2,
   Volume1,
   VolumeX,
+  PanelRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Slider } from "../ui/slider";
 import { useMemo } from "react";
+import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 
 interface PlayerActionsProps {
   isBookmarked: boolean;
@@ -29,6 +32,7 @@ export function PlayerActions({
   onVolumeChange,
   onMuteToggle,
 }: PlayerActionsProps) {
+  const { actions, isContextViewOpen } = useMusicPlayerStore();
   const VolumeIcon = useMemo(() => {
     if (volume === 0) {
       return VolumeX;
@@ -41,6 +45,15 @@ export function PlayerActions({
 
   return (
     <div className="flex w-full items-center justify-end gap-2 md:w-1/4">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="flex-shrink-0"
+        onClick={actions.toggleContextView}
+        title="Now Playing View"
+      >
+        <PanelRight className={cn("size-5", isContextViewOpen && "text-primary")} />
+      </Button>
       <Button
         variant="ghost"
         size="icon"
