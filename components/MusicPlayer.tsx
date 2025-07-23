@@ -8,10 +8,9 @@ import { toast } from "sonner";
 import { useConvexAuth } from "convex/react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import WaveformData from "waveform-data";
-import { WaveformComment } from "./Waveform";
+import { WaveformComment } from "@/components/Waveform";
 import { dynamicImport } from "@/components/ui/dynamic-import";
 
- 
 const PlayerTrackInfo = dynamicImport(() =>
   import("@/components/player/PlayerTrackInfo").then((mod) => ({
     default: mod.PlayerTrackInfo,
@@ -33,7 +32,7 @@ const PlayerActions = dynamicImport(() =>
   })),
 );
 const MusicQueue = dynamicImport(() =>
-  import("./MusicQueue").then((mod) => ({ default: mod.MusicQueue })),
+  import("@/components/MusicQueue").then((mod) => ({ default: mod.MusicQueue })),
 );
 
 export function MusicPlayer() {
@@ -100,7 +99,6 @@ export function MusicPlayer() {
   const waveformComments = useMemo((): WaveformComment[] => {
     if (!commentsData || !currentTrack) return [];
 
-
     const parseTimeToSeconds = (timeStr: string): number => {
       const parts = timeStr.split(":").map(Number);
       if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
@@ -121,9 +119,9 @@ export function MusicPlayer() {
             id: comment._id,
             time,
             text: comment.text.replace(timestampRegex, "").trim(),
-          authorName: comment.authorName,
-          authorImage: comment.authorImage,
-          authorId: comment.userId,
+            authorName: comment.authorName,
+            authorImage: comment.authorImage,
+            authorId: comment.userId,
           });
         }
       }
@@ -132,49 +130,116 @@ export function MusicPlayer() {
     return timestampedComments;
   }, [commentsData, currentTrack]);
 
-useEffect(() => {
-  if (
-    currentTrack?.submissionType === "file" &&
-    currentTrack?.songFileUrl &&
-    audioContextRef.current
-  ) {
+  const storeWaveform = useMutation(api.submissions.storeWaveform);
+  const cachedWaveform = useQuery(
+    api.submissions.getWaveform,
+    currentTrack && currentTrack.submissionType === "file"
+      ? { submissionId: currentTrack._id as Id<"submissions"> }
+      : "skip",
+  );
+
+  useEffect(() => {
+    if (
+      currentTrack?.submissionType === "file" &&
+      currentTrack?.songFileUrl &&
+      audioContextRef.current
+    ) {
+      setWaveformData(null);
+      setIsWaveformLoading(true);
+
+      fetch(currentTrack.songFileUrl, { cache: "no-cache" })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.arrayBuffer();
+        })
+        .then((buffer) => {
+          const options = {
+            audio_context: audioContextRef.current!,
+            array_buffer: buffer,
+            scale: 512,
+          };
+          WaveformData.createFromAudio(options, (err, waveform) => {
+            setIsWaveformLoading(false);
+            if (err) {
+              console.error("Error creating waveform:", err);
+            } else {
+              setWaveformData(waveform);
+            }
+          });
+        })
+        .catch((error) => {
+          console.error("Error fetching audio for waveform:", error);
+          toast.error(
+            "Could not load waveform. The audio file might be unavailable or blocked.",
+          );
+          setIsWaveformLoading(false);
+        });
+    } else {
+      setWaveformData(null);
+    }
+  }, [currentTrack?.songFileUrl, currentTrack?.submissionType]);
+  useEffect(() => {
+    if (
+      currentTrack?.submissionType !== "file" ||
+      !currentTrack?.songFileUrl ||
+      !audioContextRef.current
+    ) {
+      setWaveformData(null);
+      return;
+    }
+
     setWaveformData(null);
     setIsWaveformLoading(true);
 
-     
-    fetch(currentTrack.songFileUrl, { cache: 'no-cache' })
-      .then((response) => {
-        if (!response.ok) {
-           
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.arrayBuffer();
-      })
-      .then((buffer) => {
-        const options = {
-          audio_context: audioContextRef.current!,
-          array_buffer: buffer,
-          scale: 512,
-        };
-        WaveformData.createFromAudio(options, (err, waveform) => {
-          setIsWaveformLoading(false);
-          if (err) {
-            console.error("Error creating waveform:", err);
-          } else {
-            setWaveformData(waveform);
-          }
-        });
-      })
-      .catch((error) => {
-         
-        console.error("Error fetching audio for waveform:", error);
-        toast.error("Could not load waveform. The audio file might be unavailable or blocked.");
+    if (cachedWaveform === undefined) {
+      return;
+    }
+
+    if (cachedWaveform?.waveform) {
+      try {
+        const data = JSON.parse(cachedWaveform.waveform);
+        const waveform = WaveformData.create(data);
+        setWaveformData(waveform);
         setIsWaveformLoading(false);
-      });
-  } else {
-    setWaveformData(null);
-  }
-}, [currentTrack?.songFileUrl, currentTrack?.submissionType]);
+      } catch (err) {
+        console.error("Failed to parse cached waveform:", err);
+      }
+    } else {
+      fetch(currentTrack.songFileUrl)
+        .then((response) => response.arrayBuffer())
+        .then((buffer) => {
+          const options = {
+            audio_context: audioContextRef.current!,
+            array_buffer: buffer,
+            scale: 512,
+          };
+          WaveformData.createFromAudio(options, (err, waveform) => {
+            setIsWaveformLoading(false);
+            if (err) {
+              console.error("Error creating waveform:", err);
+            } else {
+              setWaveformData(waveform);
+              storeWaveform({
+                submissionId: currentTrack._id as Id<"submissions">,
+                waveformJson: JSON.stringify(waveform.json),
+              });
+            }
+          });
+        })
+        .catch((error) => {
+          setIsWaveformLoading(false);
+          console.error("Error fetching/processing waveform:", error);
+        });
+    }
+  }, [
+    currentTrack?._id,
+    currentTrack?.songFileUrl,
+    currentTrack?.submissionType,
+    cachedWaveform,
+    storeWaveform,
+  ]);
 
   useEffect(() => {
     if (currentTrack) {
@@ -251,10 +316,10 @@ useEffect(() => {
     }
   };
 
-  const handleEnded = () => {
+  const handleEnded = async () => {
     if (repeatMode === "one" && audioRef.current) {
       audioRef.current.currentTime = 0;
-      audioRef.current.play();
+      await audioRef.current.play();
     } else {
       actions.playNext();
     }
@@ -274,10 +339,10 @@ useEffect(() => {
 
   const handleMuteToggle = () => {
     if (volume > 0) {
-      setLastVolume(volume);  
-      actions.setVolume(0);  
+      setLastVolume(volume);
+      actions.setVolume(0);
     } else {
-      actions.setVolume(lastVolume > 0 ? lastVolume : 1);  
+      actions.setVolume(lastVolume > 0 ? lastVolume : 1);
     }
   };
 

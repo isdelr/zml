@@ -423,3 +423,34 @@ export const getCommentsForSubmission = query({
     );
   },
 });
+
+export const storeWaveform = mutation({
+  args: {
+    submissionId: v.id("submissions"),
+
+    waveformJson: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!args.waveformJson) {
+      return;
+    }
+    const submission = await ctx.db.get(args.submissionId);
+    if (!submission) {
+      throw new Error("Submission not found");
+    }
+
+    if (submission.waveform) {
+      return;
+    }
+
+    await ctx.db.patch(args.submissionId, { waveform: args.waveformJson });
+  },
+});
+
+export const getWaveform = query({
+  args: { submissionId: v.id("submissions") },
+  handler: async (ctx, args) => {
+    const submission = await ctx.db.get(args.submissionId);
+    return submission ? { waveform: submission.waveform } : null;
+  },
+});
