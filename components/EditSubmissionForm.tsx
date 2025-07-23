@@ -22,6 +22,7 @@ import { FileAudio, ImagePlus, Loader2, Music, X } from "lucide-react";
 import { useUploadFile } from "@convex-dev/r2/react";
 import { useState } from "react";
 import Image from "next/image";
+import * as mm from "music-metadata-browser";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { FaSpotify, FaYoutube } from "react-icons/fa";
@@ -35,6 +36,7 @@ const editFormSchema = z
     albumArtFile: z.instanceof(File).optional(),
     songFile: z.instanceof(File).optional(),
     songLink: z.string().optional(),
+    duration: z.number().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.submissionType === "link") {
@@ -102,6 +104,7 @@ export function EditSubmissionForm({
       artist: submission.artist,
       comment: submission.comment || "",
       songLink: submission.songLink || "",
+      duration: submission.duration,
     },
   });
 
@@ -121,6 +124,7 @@ export function EditSubmissionForm({
           submissionType: metadata.submissionType,
           songLink: values.songLink,
           albumArtUrlValue: metadata.albumArtUrl,
+          duration: metadata.duration,
           albumArtKey: null,
           songFileKey: null,
         });
@@ -152,6 +156,7 @@ export function EditSubmissionForm({
           comment: values.comment,
           submissionType: "file",
           songLink: null,
+          duration: values.duration,
           albumArtUrlValue: null,
         };
         if (albumArtKey !== undefined) patchPayload.albumArtKey = albumArtKey;
@@ -308,6 +313,14 @@ export function EditSubmissionForm({
                               if (!file) return;
                               onChange(file);
                               setSongFileName(file.name);
+                              try {
+                                const metadata = await mm.parseBlob(file);
+                                if (metadata.format.duration) {
+                                  form.setValue("duration", Math.round(metadata.format.duration));
+                                }
+                              } catch {
+                                toast.info("Could not extract duration from file.");
+                              }
                             }}
                             {...rest}
                           />

@@ -3,7 +3,7 @@ import { mutation, query, action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
-import { Doc, Id } from "./_generated/dataModel";
+import { Doc } from "./_generated/dataModel";
 import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 
 const r2 = new R2(components.r2);
@@ -28,6 +28,7 @@ export const getSongMetadataFromLink = action({
         songTitle: track.name,
         artist: track.artists.map((a) => a.name).join(", "),
         albumArtUrl: track.album.images[0].url,
+        duration: Math.round(track.duration_ms / 1000),
         submissionType: "spotify" as const,
       };
     } else if (
@@ -43,7 +44,7 @@ export const getSongMetadataFromLink = action({
         throw new Error("YouTube API key is not set in environment variables.");
       }
 
-      const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`;
+      const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch video data from YouTube API.");
@@ -55,12 +56,24 @@ export const getSongMetadataFromLink = action({
       }
 
       const snippet = data.items[0].snippet;
+      const contentDetails = data.items[0].contentDetails;
+
+      const parseISO8601Duration = (durationString: string) => {
+        const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
+        const matches = durationString.match(regex);
+        if (!matches) return 0;
+        const hours = parseInt(matches[1] || "0", 10);
+        const minutes = parseInt(matches[2] || "0", 10);
+        const seconds = parseInt(matches[3] || "0", 10);
+        return hours * 3600 + minutes * 60 + seconds;
+      };
 
       return {
         songTitle: snippet.title,
         artist: snippet.channelTitle,
         albumArtUrl: snippet.thumbnails.high.url,
         submissionType: "youtube" as const,
+        duration: contentDetails.duration ? parseISO8601Duration(contentDetails.duration) : 0,
       };
     }
     throw new Error(
@@ -84,6 +97,7 @@ export const submitSong = mutation({
     songFileKey: v.optional(v.string()),
     songLink: v.optional(v.string()),
     albumArtUrlValue: v.optional(v.string()),
+    duration: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -109,6 +123,7 @@ export const submitSong = mutation({
       songTitle: args.songTitle,
       artist: args.artist,
       comment: args.comment,
+      duration: args.duration,
     };
 
     if (args.submissionType === "file") {
@@ -152,6 +167,7 @@ export const editSong = mutation({
     songFileKey: v.optional(v.union(v.string(), v.null())),
     songLink: v.optional(v.union(v.string(), v.null())),
     albumArtUrlValue: v.optional(v.union(v.string(), v.null())),
+    duration: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);

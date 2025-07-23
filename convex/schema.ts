@@ -62,6 +62,7 @@ export default defineSchema({
     songLink: v.optional(v.string()),
     albumArtUrlValue: v.optional(v.string()),
     waveform: v.optional(v.string()),
+    duration: v.optional(v.number()),
   })
     .index("by_round", ["roundId"])
     .index("by_round_and_user", ["roundId", "userId"])

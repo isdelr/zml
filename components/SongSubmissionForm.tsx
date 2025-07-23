@@ -32,32 +32,55 @@ const MAX_SONG_SIZE_MB = 150;
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 const MAX_SONG_SIZE_BYTES = MAX_SONG_SIZE_MB * 1024 * 1024;
 
-const formSchema = z.object({
-  submissionType: z.enum(["manual", "link"]),
-  songTitle: z.string().optional(),
-  artist: z.string().optional(),
-  albumArtFile: z.instanceof(File).optional().refine(
-    (file) => !file || file.size <= MAX_IMAGE_SIZE_BYTES,
-    `Max image size is ${MAX_IMAGE_SIZE_MB}MB.`
-  ),
-  songFile: z.instanceof(File).optional().refine(
-    (file) => !file || file.size <= MAX_SONG_SIZE_BYTES,
-    `Max song size is ${MAX_SONG_SIZE_MB}MB.`
-  ),
-  songLink: z.string().optional(),
-  comment: z.string().optional(),
-}).refine(data => {
-  if (data.submissionType === 'manual') {
-    return data.songTitle && data.artist && data.albumArtFile?.size && data.songFile?.size;
-  }
-  if (data.submissionType === 'link') {
-    return data.songLink && (data.songLink.includes('spotify.com') || data.songLink.includes('youtube.com') || data.songLink.includes('youtu.be'));
-  }
-  return false;
-}, {
-  message: "Please complete the required fields for your chosen submission type.",
-  path: ["submissionType"],
-});
+const formSchema = z
+  .object({
+    submissionType: z.enum(["manual", "link"]),
+    songTitle: z.string().optional(),
+    artist: z.string().optional(),
+    albumArtFile: z
+      .instanceof(File)
+      .optional()
+      .refine(
+        (file) => !file || file.size <= MAX_IMAGE_SIZE_BYTES,
+        `Max image size is ${MAX_IMAGE_SIZE_MB}MB.`,
+      ),
+    songFile: z
+      .instanceof(File)
+      .optional()
+      .refine(
+        (file) => !file || file.size <= MAX_SONG_SIZE_BYTES,
+        `Max song size is ${MAX_SONG_SIZE_MB}MB.`,
+      ),
+    songLink: z.string().optional(),
+    comment: z.string().optional(),
+    duration: z.number().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.submissionType === "manual") {
+        return (
+          data.songTitle &&
+          data.artist &&
+          data.albumArtFile?.size &&
+          data.songFile?.size
+        );
+      }
+      if (data.submissionType === "link") {
+        return (
+          data.songLink &&
+          (data.songLink.includes("spotify.com") ||
+            data.songLink.includes("youtube.com") ||
+            data.songLink.includes("youtu.be"))
+        );
+      }
+      return false;
+    },
+    {
+      message:
+        "Please complete the required fields for your chosen submission type.",
+      path: ["submissionType"],
+    },
+  );
 
 interface SongSubmissionFormProps {
   roundId: Id<"rounds">;
@@ -65,7 +88,9 @@ interface SongSubmissionFormProps {
 
 export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
   const submitSong = useMutation(api.submissions.submitSong);
-  const getSongMetadataFromLink = useAction(api.submissions.getSongMetadataFromLink);
+  const getSongMetadataFromLink = useAction(
+    api.submissions.getSongMetadataFromLink,
+  );
   const uploadFile = useUploadFile({
     generateUploadUrl: api.files.generateSubmissionFileUploadUrl,
     syncMetadata: api.files.syncSubmissionFileMetadata,
@@ -87,7 +112,13 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const toastId = toast.loading("Submitting your masterpiece...");
     try {
-      if (values.submissionType === 'manual' && values.songTitle && values.artist && values.albumArtFile && values.songFile) {
+      if (
+        values.submissionType === "manual" &&
+        values.songTitle &&
+        values.artist &&
+        values.albumArtFile &&
+        values.songFile
+      ) {
         const [albumArtKey, songFileKey] = await Promise.all([
           uploadFile(values.albumArtFile),
           uploadFile(values.songFile),
@@ -95,16 +126,18 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
 
         await submitSong({
           roundId,
-          submissionType: 'file',
+          submissionType: "file",
           songTitle: values.songTitle,
           artist: values.artist,
           albumArtKey,
           songFileKey,
           comment: values.comment,
+          duration: values.duration,
         });
-
-      } else if (values.submissionType === 'link' && values.songLink) {
-        const metadata = await getSongMetadataFromLink({ link: values.songLink });
+      } else if (values.submissionType === "link" && values.songLink) {
+        const metadata = await getSongMetadataFromLink({
+          link: values.songLink,
+        });
 
         await submitSong({
           roundId,
@@ -114,6 +147,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
           songLink: values.songLink,
           albumArtUrlValue: metadata.albumArtUrl,
           comment: values.comment,
+          duration: metadata.duration,
         });
       }
 
@@ -136,7 +170,13 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
       </p>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Tabs defaultValue="manual" className="w-full" onValueChange={(value) => form.setValue('submissionType', value as "manual" | "link")}>
+          <Tabs
+            defaultValue="manual"
+            className="w-full"
+            onValueChange={(value) =>
+              form.setValue("submissionType", value as "manual" | "link")
+            }
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="manual">Manual Upload</TabsTrigger>
               <TabsTrigger value="link">From Spotify/YouTube</TabsTrigger>
@@ -151,7 +191,10 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                       <FormItem>
                         <FormLabel>Song Title</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., Bohemian Rhapsody" {...field} />
+                          <Input
+                            placeholder="e.g., Bohemian Rhapsody"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -172,182 +215,200 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                   />
                 </div>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="albumArtFile"
-               
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              render={({ field: { onChange, value, ...rest } }) => (
-                <FormItem>
-                  <FormLabel>Album Art</FormLabel>
-                  {albumArtPreview ? (
-                    <div className="relative">
-                      <Image
-                        src={albumArtPreview}
-                        alt="Album art preview"
-                        width={192}
-                        height={192}
-                        className="aspect-square w-48 rounded-md object-cover"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute -right-2 -top-2 z-10 size-6 rounded-full"
-                        onClick={() => {
-                          form.setValue("albumArtFile", undefined);
-                          URL.revokeObjectURL(albumArtPreview);
-                          setAlbumArtPreview("");
-                        }}
-                      >
-                        <X className="size-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <FormControl>
-                      <label className="flex h-48 w-48 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary">
-                        <ImagePlus className="size-8" />
-                        <span className="text-sm font-medium">
-                          Click to upload image
-                        </span>
-                        <Input
-                          type="file"
-                          style={{ top: 0, left: 0 }}
-                          className="sr-only"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              if (file.size > MAX_IMAGE_SIZE_BYTES) {
-                                toast.error(`Image is too large. Max size: ${MAX_IMAGE_SIZE_MB}MB.`);
-                                return;
-                              }
-                              onChange(file);
-                              const newPreviewUrl = URL.createObjectURL(file);
-                              if (albumArtPreview) {
+                  <FormField
+                    control={form.control}
+                    name="albumArtFile"
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    render={({ field: { onChange, value, ...rest } }) => (
+                      <FormItem>
+                        <FormLabel>Album Art</FormLabel>
+                        {albumArtPreview ? (
+                          <div className="relative">
+                            <Image
+                              src={albumArtPreview}
+                              alt="Album art preview"
+                              width={192}
+                              height={192}
+                              className="aspect-square w-48 rounded-md object-cover"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -right-2 -top-2 z-10 size-6 rounded-full"
+                              onClick={() => {
+                                form.setValue("albumArtFile", undefined);
                                 URL.revokeObjectURL(albumArtPreview);
-                              }
-                              setAlbumArtPreview(newPreviewUrl);
-                            }
-                          }}
-                          {...rest}
-                        />
-                      </label>
-                    </FormControl>
-                  )}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                                setAlbumArtPreview("");
+                              }}
+                            >
+                              <X className="size-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <FormControl>
+                            <label className="flex h-48 w-48 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary">
+                              <ImagePlus className="size-8" />
+                              <span className="text-sm font-medium">
+                                Click to upload image
+                              </span>
+                              <Input
+                                type="file"
+                                style={{ top: 0, left: 0 }}
+                                className="sr-only"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+                                      toast.error(
+                                        `Image is too large. Max size: ${MAX_IMAGE_SIZE_MB}MB.`,
+                                      );
+                                      return;
+                                    }
+                                    onChange(file);
+                                    const newPreviewUrl =
+                                      URL.createObjectURL(file);
+                                    if (albumArtPreview) {
+                                      URL.revokeObjectURL(albumArtPreview);
+                                    }
+                                    setAlbumArtPreview(newPreviewUrl);
+                                  }
+                                }}
+                                {...rest}
+                              />
+                            </label>
+                          </FormControl>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-            <FormField
-              control={form.control}
-              name="songFile"
-              render={({ field: { onChange, value, ...rest } }) => (
-                <FormItem>
-                  <FormLabel>Song File</FormLabel>
-                  <FormControl>
-                    <label className="flex h-48 w-48 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary">
-                      <FileAudio className="size-8" />
-                      <span className="text-sm font-medium text-center">
-                        {value?.name && value.size > 0
-                          ? "File selected"
-                          : "Click to upload audio"}
-                      </span>
-                      <Input
-                        type="file"
-                        style={{ top: 0, left: 0 }}
-                        className="sr-only"
-                        accept="audio/*,.flac"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          
-                          if (file.size > MAX_SONG_SIZE_BYTES) {
-                            toast.error(`Song file is too large. Max size: ${MAX_SONG_SIZE_MB}MB.`);
-                            form.setValue("songFile", undefined);
-                            e.target.value = "";  
-                            return;
-                          }
+                  <FormField
+                    control={form.control}
+                    name="songFile"
+                    render={({ field: { onChange, value, ...rest } }) => (
+                      <FormItem>
+                        <FormLabel>Song File</FormLabel>
+                        <FormControl>
+                          <label className="flex h-48 w-48 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary">
+                            <FileAudio className="size-8" />
+                            <span className="text-sm font-medium text-center">
+                              {value?.name && value.size > 0
+                                ? "File selected"
+                                : "Click to upload audio"}
+                            </span>
+                            <Input
+                              type="file"
+                              style={{ top: 0, left: 0 }}
+                              className="sr-only"
+                              accept="audio/*,.flac"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
 
-                           
-                          onChange(file);
+                                if (file.size > MAX_SONG_SIZE_BYTES) {
+                                  toast.error(
+                                    `Song file is too large. Max size: ${MAX_SONG_SIZE_MB}MB.`,
+                                  );
+                                  form.setValue("songFile", undefined);
+                                  e.target.value = "";
+                                  return;
+                                }
 
-                           
-                          try {
-                            const metadata = await mm.parseBlob(file);
-                            toast.success("Successfully read song metadata!");
+                                onChange(file);
 
-                            if (metadata.common.title) {
-                              form.setValue(
-                                "songTitle",
-                                metadata.common.title,
-                                { shouldValidate: true },
-                              );
-                            }
-                            if (metadata.common.artist) {
-                              form.setValue("artist", metadata.common.artist, {
-                                shouldValidate: true,
-                              });
-                            }
+                                try {
+                                  const metadata = await mm.parseBlob(file);
+                                  toast.success(
+                                    "Successfully read song metadata!",
+                                  );
 
-                            const picture = metadata.common.picture?.[0];
-                            if (picture) {
-                              const artFile = new File(
-                                [picture.data],
-                                `cover.${picture.format.split("/")[1]}`,
-                                { type: picture.format },
-                              );
+                                  if (metadata.format.duration) {
+                                    form.setValue(
+                                      "duration",
+                                      Math.round(metadata.format.duration),
+                                    );
+                                  }
 
-                              if (artFile.size <= MAX_IMAGE_SIZE_BYTES) {
-                                form.setValue("albumArtFile", artFile, {
-                                  shouldValidate: true,
-                                });
-                                const newPreviewUrl =
-                                  URL.createObjectURL(artFile);
-                                if (albumArtPreview)
-                                  URL.revokeObjectURL(albumArtPreview);
-                                setAlbumArtPreview(newPreviewUrl);
-                              } else {
-                                toast.warning(
-                                  "Embedded album art is too large, please upload manually.",
-                                );
-                              }
-                            }
-                          } catch (error) {
-                            toast.info(
-                              "Could not read metadata from this file. Please enter details manually.",
-                            );
-                            console.warn("Metadata parsing error:", error);
-                          }
-                        }}
-                        {...rest}
-                      />
-                    </label>
-                  </FormControl>
-                  {value?.name && value.size > 0 && (
-                    <FormDescription className="flex items-center gap-2 pt-2">
-                      <Music className="size-4" />
-                      <span className="truncate">{value.name}</span>
-                    </FormDescription>
-                  )}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-            </div>
+                                  if (metadata.common.title) {
+                                    form.setValue(
+                                      "songTitle",
+                                      metadata.common.title,
+                                      { shouldValidate: true },
+                                    );
+                                  }
+                                  if (metadata.common.artist) {
+                                    form.setValue(
+                                      "artist",
+                                      metadata.common.artist,
+                                      {
+                                        shouldValidate: true,
+                                      },
+                                    );
+                                  }
+
+                                  const picture = metadata.common.picture?.[0];
+                                  if (picture) {
+                                    const artFile = new File(
+                                      [picture.data],
+                                      `cover.${picture.format.split("/")[1]}`,
+                                      { type: picture.format },
+                                    );
+
+                                    if (artFile.size <= MAX_IMAGE_SIZE_BYTES) {
+                                      form.setValue("albumArtFile", artFile, {
+                                        shouldValidate: true,
+                                      });
+                                      const newPreviewUrl =
+                                        URL.createObjectURL(artFile);
+                                      if (albumArtPreview)
+                                        URL.revokeObjectURL(albumArtPreview);
+                                      setAlbumArtPreview(newPreviewUrl);
+                                    } else {
+                                      toast.warning(
+                                        "Embedded album art is too large, please upload manually.",
+                                      );
+                                    }
+                                  }
+                                } catch (error) {
+                                  toast.info(
+                                    "Could not read metadata from this file. Please enter details manually.",
+                                  );
+                                  console.warn(
+                                    "Metadata parsing error:",
+                                    error,
+                                  );
+                                }
+                              }}
+                              {...rest}
+                            />
+                          </label>
+                        </FormControl>
+                        {value?.name && value.size > 0 && (
+                          <FormDescription className="flex items-center gap-2 pt-2">
+                            <Music className="size-4" />
+                            <span className="truncate">{value.name}</span>
+                          </FormDescription>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
             </TabsContent>
             <TabsContent value="link" className="mt-6">
               <FormField
                 control={form.control}
                 name="songLink"
-                render={({  }) => (
+                render={({}) => (
                   <FormItem>
                     <FormLabel>Spotify or YouTube Link</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input  placeholder="https://open.spotify.com/track/..." />
+                        <Input placeholder="https://open.spotify.com/track/..." />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-2">
                           <FaSpotify className="text-green-500" />
                           <FaYoutube className="text-red-500" />
@@ -355,7 +416,8 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Paste the link to the song you want to submit. We&apos;ll fetch the details automatically.
+                      Paste the link to the song you want to submit. We&apos;ll fetch
+                      the details automatically.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

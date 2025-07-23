@@ -103,6 +103,26 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     );
   }, [pendingVotes]);
 
+  const totalDurationSeconds = useMemo(() => {
+    if (!submissions) return 0;
+    return submissions.reduce((total, sub) => total + (sub.duration || 0), 0);
+  }, [submissions]);
+
+  const formatDuration = (totalSeconds: number) => {
+    if (!totalSeconds || totalSeconds <= 0) return null;
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    const parts = [];
+    if (hours > 0) parts.push(`${hours} hr`);
+    if (minutes > 0) parts.push(`${minutes} min`);
+
+    if (parts.length === 0) {
+      const seconds = Math.round(totalSeconds % 60);
+      parts.push(`${seconds} sec`);
+    }
+    return parts.join(" ");
+  };
   const positiveVotesRemaining = league.maxPositiveVotes - pendingUpvotes;
   const negativeVotesRemaining = league.maxNegativeVotes - pendingDownvotes;
 
@@ -244,6 +264,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         hasVoted={userVoteStatus?.hasVoted ?? false}
         upvotesUsed={pendingUpvotes}
         downvotesUsed={pendingDownvotes}
+        totalDuration={formatDuration(totalDurationSeconds)}
       />
 
       {round.status === "submissions" && (

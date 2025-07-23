@@ -18,6 +18,7 @@ interface RoundHeaderProps {
   hasVoted: boolean;
   upvotesUsed: number;
   downvotesUsed: number;
+  totalDuration: string | null;
 }
 
 export function RoundHeader({
@@ -29,6 +30,7 @@ export function RoundHeader({
   hasVoted,
   upvotesUsed,
   downvotesUsed,
+  totalDuration,
 }: RoundHeaderProps) {
   return (
     <div className="mb-8 flex flex-col gap-6 md:flex-row md:gap-8">
@@ -62,6 +64,14 @@ export function RoundHeader({
               {round.status === "submissions"
                 ? `Submissions close in ${formatDistanceToNow(round.submissionDeadline)}`
                 : `Voting ends in ${formatDistanceToNow(round.votingDeadline)}`}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {round.submissionCount > 0 && (
+                <>
+                  {round.submissionCount} {round.submissionCount > 1 ? "songs" : "song"}
+                  {totalDuration && `, ${totalDuration}`}
+                </>
+              )}
             </p>
           </div>
           {round.status !== "submissions" &&
