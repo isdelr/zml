@@ -47,7 +47,7 @@ export default function RootLayout({
           className={cn(
             geistSans.variable,
             geistMono.variable,
-            "antialiased overflow-x-hidden pb-16 md:pb-0",
+            "antialiased overflow-x-hidden",
           )}
         >
           <ThemeProvider

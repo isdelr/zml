@@ -56,7 +56,7 @@ const getResultColor = (result: { type: string; points: number }) => {
 
 export function MySubmissionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const { actions: playerActions, currentTrackIndex } = useMusicPlayerStore();
+  const { actions: playerActions } = useMusicPlayerStore();
   const mySubmissions = useQuery(api.submissions.getMySubmissions);
 
   const filteredSubmissions = useMemo(() => {
@@ -135,12 +135,7 @@ export function MySubmissionsPage() {
   );
 
   return (
-    <div
-      className={cn(
-        "flex-1 overflow-y-auto bg-background text-foreground",
-        currentTrackIndex !== null && "pb-32",
-      )}
-    >
+<div className="flex-1 overflow-y-auto bg-background text-foreground">
       <div className="p-4 md:p-8">
         {/* Header */}
         <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">

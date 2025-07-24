@@ -14,9 +14,9 @@ interface PageLayoutProps {
 
 export function PageLayout({ children }: PageLayoutProps) {
   const currentTrackIndex = useMusicPlayerStore(
-    (state) => state.currentTrackIndex
+    (state) => state.currentTrackIndex,
   );
-  const {  actions } = useMusicPlayerStore();
+  const { actions } = useMusicPlayerStore();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -26,10 +26,13 @@ export function PageLayout({ children }: PageLayoutProps) {
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
-      <div 
+      <div
         className={cn(
           "flex flex-1 flex-col overflow-y-auto",
-          currentTrackIndex !== null && "pb-32"
+          // Base padding for the bottom navbar on mobile.
+          "pb-16 md:pb-0",
+          // Add extra padding if the music player is active.
+          currentTrackIndex !== null && "pb-32 md:pb-20",
         )}
       >
         {children}

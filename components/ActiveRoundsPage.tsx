@@ -1,9 +1,6 @@
- 
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { cn } from "@/lib/utils";
 import { Clock, Play, Plus, Search, Send } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -31,9 +28,6 @@ const formatStatus = (status: "submissions" | "voting" | "finished") => {
 export function ActiveRoundsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const activeRounds = useQuery(api.rounds.getActiveForUser);
-  const currentTrackIndex = useMusicPlayerStore(
-    (state) => state.currentTrackIndex,
-  );
 
   const filteredRounds = useMemo(() => {
     if (!activeRounds) return [];
@@ -67,15 +61,10 @@ export function ActiveRoundsPage() {
   );
 
   return (
-    <div
-      className={cn(
-        "flex-1 overflow-y-auto bg-background text-foreground",
-        currentTrackIndex !== null && "pb-32",
-      )}
-    >
+    <div className="flex-1 overflow-y-auto bg-background text-foreground">
       <div className="p-4 md:p-8">
         {/* Header */}
-       <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+        <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <h1 className="text-4xl font-bold">Active Rounds</h1>
           <div className="relative w-full flex-1 md:max-w-sm">
             <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
@@ -129,7 +118,9 @@ export function ActiveRoundsPage() {
                     ) : (
                       <div
                         className="aspect-square w-full rounded-md bg-muted"
-                        dangerouslySetInnerHTML={{ __html: toSvg(round._id, 250) }}
+                        dangerouslySetInnerHTML={{
+                          __html: toSvg(round._id, 250),
+                        }}
                       />
                     )}
                   </div>

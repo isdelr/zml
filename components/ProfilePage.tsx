@@ -18,8 +18,6 @@ import {
 } from "@/components/ui/table";
 import Link from "next/link";
 import { Button } from "./ui/button";
-import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { cn } from "@/lib/utils";
 import { toSvg } from "jdenticon";
 
 const StatCard = ({
@@ -64,9 +62,6 @@ export function ProfilePage({ userId }: { userId: string }) {
   const profileData = useQuery(api.users.getProfile, {
     userId: userId as Id<"users">,
   });
-  const currentTrackIndex = useMusicPlayerStore(
-    (state) => state.currentTrackIndex,
-  );
 
   if (profileData === undefined) {
     return <ProfilePageSkeleton />;
@@ -83,13 +78,7 @@ export function ProfilePage({ userId }: { userId: string }) {
   const { name, image, creationTime, stats, leagues } = profileData;
 
   return (
-    <div
-      className={cn(
-         
-        "flex-1 overflow-y-auto p-4 md:p-8",
-        currentTrackIndex !== null && "pb-32",
-      )}
-    >
+    <div className="flex-1 overflow-y-auto p-4 md:p-8">
       {/* User Header */}
       <header className="mb-8 flex flex-col items-center gap-4 text-center md:flex-row md:gap-6 md:text-left">
         <Avatar className="size-24 border-4 border-primary">
