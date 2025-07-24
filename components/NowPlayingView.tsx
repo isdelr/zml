@@ -4,14 +4,27 @@
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import Image from "next/image";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { Users, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { cn } from "@/lib/utils";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { AvatarStack } from "./AvatarStack";
+import { Skeleton } from "./ui/skeleton";
 
 export function NowPlayingView() {
   const { currentTrackIndex, queue, actions, isContextViewOpen } = useMusicPlayerStore();
   const track = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+
+  const currentUser = useQuery(api.users.getCurrentUser);
+  const listeners = useQuery(
+    api.listening.getListenersForSubmission,
+    track ? { submissionId: track._id } : "skip"
+  );
+  
+  // Filter out the current user from the listeners list so they don't see their own avatar
+  const otherListeners = listeners?.filter(listener => listener.name !== currentUser?.name);
 
   if (!isContextViewOpen || !track) {
     return null;
@@ -87,6 +100,28 @@ export function NowPlayingView() {
             )}
           </CardContent>
         </Card>
+
+        {/* --- NEW LISTENING NOW CARD --- */}
+        <Card className="bg-card/50">
+          <CardHeader className="flex flex-row items-center gap-2 space-y-0">
+            <Users className="size-5 text-muted-foreground" />
+            <CardTitle className="text-base">Listening Now</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {listeners === undefined || currentUser === undefined ? (
+              <div className="flex items-center space-x-2">
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                  <Skeleton className="h-4 w-20" />
+              </div>
+            ) : otherListeners && otherListeners.length > 0 ? (
+              <AvatarStack users={otherListeners} />
+            ) : (
+              <p className="text-sm text-muted-foreground">You&apos;re the only one listening right now.</p>
+            )}
+          </CardContent>
+        </Card>
+        {/* --- END NEW CARD --- */}
+
       </div>
     </aside>
   );

@@ -65,6 +65,9 @@ export function MusicPlayer() {
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
   const { isAuthenticated } = useConvexAuth();
 
+  const updateListeningState = useMutation(api.listening.updateListeningState);
+  const previousTrackIdRef = useRef<Id<"submissions"> | null>(null);
+
   const isExternalLink =
     currentTrack?.submissionType === "spotify" ||
     currentTrack?.submissionType === "youtube";
@@ -205,6 +208,43 @@ export function MusicPlayer() {
     cachedWaveform,
     storeWaveform,
   ]);
+  
+  // --- CORRECTED EFFECT for Listening Activity ---
+  useEffect(() => {
+    let activityInterval: NodeJS.Timeout | undefined;
+
+    // If the track is playing, set up the listening state and the keep-alive interval
+    if (isPlaying && currentTrack) {
+        // Immediately report that the user is listening to the current track
+        updateListeningState({ submissionId: currentTrack._id as Id<"submissions"> });
+
+        // Keep track of what was being played so we can clear it on cleanup
+        previousTrackIdRef.current = currentTrack._id as Id<"submissions">;
+
+        // Set up an interval to periodically update the 'lastSeen' timestamp
+        activityInterval = setInterval(() => {
+            // The existence of this interval means isPlaying is true.
+            // When isPlaying becomes false, the cleanup function clears it.
+            updateListeningState({ submissionId: currentTrack._id as Id<"submissions"> });
+        }, 45 * 1000); // Send update every 45 seconds to keep the session "active"
+    }
+
+    // This is the cleanup function for the effect.
+    // It runs when the component unmounts OR when any dependency (isPlaying, currentTrack) changes.
+    return () => {
+        // Stop the periodic updates
+        clearInterval(activityInterval);
+
+        // If the user was listening to a track before this cleanup,
+        // clear their listening state now.
+        if (previousTrackIdRef.current) {
+             updateListeningState({ submissionId: undefined });
+             previousTrackIdRef.current = null;
+        }
+    };
+    // The effect re-runs whenever isPlaying or the currentTrack changes.
+  }, [isPlaying, currentTrack, updateListeningState]);
+  // --- END CORRECTION ---
 
   useEffect(() => {
     if (currentTrack) {
@@ -317,8 +357,6 @@ export function MusicPlayer() {
       return;
     }
 
-    // The error event itself is simple. networkState tells us if it's a network issue.
-    // NETWORK_NO_SOURCE is a strong indicator of an expired link (403 Forbidden).
     if (audioElement.networkState === audioElement.NETWORK_NO_SOURCE && audioElement.error) {
       console.error("Audio playback error:", audioElement.error);
       toast.info("Link expired. Refreshing song...", {
@@ -334,22 +372,16 @@ export function MusicPlayer() {
           const currentTime = audioElement.currentTime;
           console.log(`Fetched new URL. Resuming from ${currentTime}s.`);
           
-          // Set the new URL
           audioElement.src = newUrl;
-
-          // You MUST call load() after changing the src to make the browser fetch it.
           audioElement.load();
 
-          // To ensure seamless playback, we listen for the 'canplay' event,
-          // which fires when the browser has enough data to start playing.
           const playWhenReady = () => {
-            audioElement.currentTime = currentTime; // Seek to the old position
+            audioElement.currentTime = currentTime;
             if (isPlaying) {
               audioElement.play().catch(e => console.error("Error re-playing after refresh:", e));
             }
           };
           
-          // Use { once: true } so this listener only fires once per refresh.
           audioElement.addEventListener('canplay', playWhenReady, { once: true });
 
         } else {
@@ -376,7 +408,7 @@ export function MusicPlayer() {
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleTimeUpdate}
         onEnded={handleEnded}
-        onError={handleAudioError} // <-- ADD THIS LINE
+        onError={handleAudioError}
         className="hidden"
       />
       <MusicQueue isOpen={isQueueOpen} onOpenChange={setIsQueueOpen} />

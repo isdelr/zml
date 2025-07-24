@@ -92,7 +92,6 @@ export default defineSchema({
     text: v.string(),
   }).index("by_submission", ["submissionId"]),
  
-   
   notifications: defineTable({
     userId: v.id("users"),  
     type: v.union(
@@ -126,4 +125,13 @@ export default defineSchema({
   })
     .index("by_league_and_user", ["leagueId", "userId"])
     .index("by_league_and_points", ["leagueId", "totalPoints"]),
+
+  // --- NEW TABLE ---
+  listeningActivity: defineTable({
+    submissionId: v.id("submissions"),
+    userId: v.id("users"),
+    lastSeen: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_submission_lastSeen", ["submissionId", "lastSeen"]),
 });
