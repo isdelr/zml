@@ -2,6 +2,7 @@
 "use client";
 
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import { Users, X } from "lucide-react";
@@ -127,9 +128,9 @@ export function NowPlayingView() {
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={
-          "hidden md:flex flex-col w-96 bg-sidebar p-4 text-sidebar-foreground border-l border-sidebar-border h-screen overflow-y-auto pb-28"
-        }
+        className={cn(
+          "hidden md:flex flex-col w-96 bg-sidebar p-4 text-sidebar-foreground border-l border-sidebar-border h-screen overflow-y-auto pb-28",
+        )}
       >
         <div className="flex justify-between items-center mb-4">
           <p className="font-semibold">{artist}</p>
@@ -145,7 +146,7 @@ export function NowPlayingView() {
       </aside>
 
       {/* Mobile Sheet */}
-      <div className="md:hidden">
+      <div className="block md:hidden">
         <Sheet
           open={isContextViewOpen}
           onOpenChange={(isOpen) => !isOpen && actions.closeContextView()}

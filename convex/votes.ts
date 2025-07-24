@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 
 export const getForRound = query({
   args: { roundId: v.id("rounds") },
@@ -173,8 +174,56 @@ export const castVote = mutation({
     const finalUpvotes = finalVotes.filter(v => v.vote > 0).length;
     const finalDownvotes = finalVotes.filter(v => v.vote < 0).length;
 
-    if (finalUpvotes === league.maxPositiveVotes && finalDownvotes === league.maxNegativeVotes) {
-      return { message: "All votes used. Your participation is recorded!", isFinal: true };
+    const currentUserFinishedVoting = finalUpvotes === league.maxPositiveVotes && finalDownvotes === league.maxNegativeVotes;
+
+    if (currentUserFinishedVoting) {
+        const allSubmissionsInRound = await ctx.db
+            .query("submissions")
+            .withIndex("by_round", (q) => q.eq("roundId", round._id))
+            .collect();
+        
+        if (allSubmissionsInRound.length === 0) {
+            return { message: "All votes used. Your participation is recorded!", isFinal: true };
+        }
+
+        const submitterIds = [...new Set(allSubmissionsInRound.map(s => s.userId))];
+
+        const allVotesInRound = await ctx.db
+            .query("votes")
+            .withIndex("by_round", (q) => q.eq("roundId", round._id))
+            .collect();
+
+        let allSubmittersHaveVoted = true;
+        for (const submitterId of submitterIds) {
+            const submitterVotes = allVotesInRound.filter(v => v.userId === submitterId);
+            const submitterUpvotes = submitterVotes.filter(v => v.vote > 0).length;
+            const submitterDownvotes = submitterVotes.filter(v => v.vote < 0).length;
+
+            if (submitterUpvotes < league.maxPositiveVotes || submitterDownvotes < league.maxNegativeVotes) {
+                allSubmittersHaveVoted = false;
+                break;
+            }
+        }
+
+        if (allSubmittersHaveVoted) {
+            await ctx.db.patch(round._id, { status: "finished" });
+            
+            await ctx.scheduler.runAfter(0, internal.leagues.calculateAndStoreResults, {
+                roundId: round._id,
+            });
+
+            await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+                leagueId: league._id,
+                type: "round_finished",
+                message: `The round "${round.title}" in "${league.name}" has finished automatically! Check out the results.`,
+                link: `/leagues/${league._id}/round/${round._id}`,
+                triggeringUserId: userId,
+            });
+
+            return { message: "Your vote was the last one! The round is now finished.", isFinal: true };
+        }
+
+        return { message: "All votes used. Your participation is recorded!", isFinal: true };
     }
     
     return { message: "Vote saved.", isFinal: false };
