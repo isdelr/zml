@@ -7,36 +7,47 @@ import Link from "next/link";
 import { Users, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AvatarStack } from "./AvatarStack";
 import { Skeleton } from "./ui/skeleton";
 
 export function NowPlayingView() {
-  const { currentTrackIndex, queue, actions, isContextViewOpen } = useMusicPlayerStore();
+  const { currentTrackIndex, queue, actions, isContextViewOpen } =
+    useMusicPlayerStore();
   const track = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
 
   const currentUser = useQuery(api.users.getCurrentUser);
   const listeners = useQuery(
     api.listening.getListenersForSubmission,
-    track ? { submissionId: track._id } : "skip"
+    track ? { submissionId: track._id } : "skip",
   );
-  
+
   // Filter out the current user from the listeners list so they don't see their own avatar
-  const otherListeners = listeners?.filter(listener => listener.name !== currentUser?.name);
+  const otherListeners = listeners?.filter(
+    (listener) => listener.name !== currentUser?.name,
+  );
 
   if (!isContextViewOpen || !track) {
     return null;
   }
 
-  const { songTitle, artist, albumArtUrl, submittedBy, roundTitle, leagueName, leagueId, comment } = track;
+  const {
+    songTitle,
+    artist,
+    albumArtUrl,
+    submittedBy,
+    roundTitle,
+    leagueName,
+    leagueId,
+    comment,
+  } = track;
 
   return (
     <aside
-      className={cn(
-        "hidden md:flex flex-col w-96 bg-sidebar p-4 text-sidebar-foreground border-l border-sidebar-border h-screen overflow-y-auto"
-      )}
+      className={
+        "hidden md:flex flex-col w-96 bg-sidebar p-4 text-sidebar-foreground border-l border-sidebar-border h-screen overflow-y-auto pb-16"
+      }
     >
       <div className="flex justify-between items-center mb-4">
         <p className="font-semibold">{artist}</p>
@@ -64,9 +75,9 @@ export function NowPlayingView() {
         </div>
 
         {comment && (
-            <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground">
-                &quot;{comment}&quot;
-            </blockquote>
+          <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground">
+            &quot;{comment}&quot;
+          </blockquote>
         )}
 
         <Card className="bg-card/50">
@@ -110,18 +121,19 @@ export function NowPlayingView() {
           <CardContent>
             {listeners === undefined || currentUser === undefined ? (
               <div className="flex items-center space-x-2">
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                  <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <Skeleton className="h-4 w-20" />
               </div>
             ) : otherListeners && otherListeners.length > 0 ? (
               <AvatarStack users={otherListeners} />
             ) : (
-              <p className="text-sm text-muted-foreground">You&apos;re the only one listening right now.</p>
+              <p className="text-sm text-muted-foreground">
+                You&apos;re the only one listening right now.
+              </p>
             )}
           </CardContent>
         </Card>
         {/* --- END NEW CARD --- */}
-
       </div>
     </aside>
   );
