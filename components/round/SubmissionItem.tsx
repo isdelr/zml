@@ -8,6 +8,7 @@ import {
   MessageSquare,
   Play,
   Pause,
+  Ban,
 } from "lucide-react";
 import { FaSpotify, FaYoutube } from "react-icons/fa";
 import Image from "next/image";
@@ -16,6 +17,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toSvg } from "jdenticon";
 import { SubmissionComments } from "./SubmissionComments";
 import { Id } from "@/convex/_generated/dataModel";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
 
 interface SubmissionItemProps {
   song: unknown;
@@ -25,11 +32,12 @@ interface SubmissionItemProps {
   isLinkSubmission: boolean;
   isCommentsVisible: boolean;
   userIsSubmitter: boolean;
-  pendingSongVotes: { up: number; down: number };
+  currentVoteState: "up" | "down" | "none";
   roundStatus: "voting" | "finished" | "submissions";
   onToggleComments: () => void;
   hasVoted: boolean;
-  onVoteClick: (voteType: "up" | "down") => void;
+  canVote: boolean;
+  onVoteClick: (voteType: "up" | "down" | "none") => void;
   onBookmark: () => void;
   onPlaySong: () => void;
 }
@@ -41,15 +49,16 @@ export function SubmissionItem({
   isLinkSubmission,
   isCommentsVisible,
   userIsSubmitter,
-  pendingSongVotes,
+  currentVoteState,
   roundStatus,
   hasVoted,
+  canVote,
   onToggleComments,
   onVoteClick,
   onBookmark,
   onPlaySong,
 }: SubmissionItemProps) {
-  const { points, isBookmarked, comment } = song;
+  const { points, isBookmarked, comment, isPenalized } = song;
 
   const pointColor =
     points > 0
@@ -57,6 +66,15 @@ export function SubmissionItem({
       : points < 0
       ? "text-red-400"
       : "text-muted-foreground";
+
+  const handleUpvoteClick = () => {
+    const newVoteState = currentVoteState === "up" ? "none" : "up";
+    onVoteClick(newVoteState);
+  };
+  const handleDownvoteClick = () => {
+    const newVoteState = currentVoteState === "down" ? "none" : "down";
+    onVoteClick(newVoteState);
+  };
 
   const PlayButton = () => (
     <Button variant="ghost" size="icon" className="size-8" onClick={onPlaySong}>
@@ -111,12 +129,10 @@ export function SubmissionItem({
           isCommentsVisible && "bg-accent/50",
         )}
       >
-        {/* Desktop-only Play Button/Index */}
         <div className="hidden w-10 items-center justify-center md:flex">
           <PlayButton />
         </div>
 
-        {/* Track Info (always visible) */}
         <div className="flex items-center gap-4">
           <div className="md:hidden">
             <PlayButton />
@@ -129,12 +145,7 @@ export function SubmissionItem({
             className="rounded"
           />
           <div>
-            <p
-              className={cn(
-                "font-semibold",
-                isThisSongCurrent && "text-primary",
-              )}
-            >
+            <p className={cn("font-semibold", isThisSongCurrent && "text-primary")}>
               {song.songTitle}
             </p>
             <p className="text-sm text-muted-foreground">{song.artist}</p>
@@ -150,100 +161,74 @@ export function SubmissionItem({
           )}
         </div>
 
-        {/* Desktop-only Points */}
         <div className={cn("hidden text-right font-bold md:block", pointColor)}>
           {roundStatus === "finished" ? `${points} pts` : "?"}
+          {isPenalized && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex align-middle">
+                    <Ban className="ml-1 size-4 text-yellow-500" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    Positive votes for this submission were annulled because the
+                    submitter did not vote in this round.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
 
-        {/* Actions (always visible, far right column) */}
         <div className="flex items-center justify-center md:gap-1">
           <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Upvote"
-            onClick={() => onVoteClick("up")}
-            disabled={roundStatus !== "voting" || userIsSubmitter || hasVoted}
-            className="relative"
+            variant="ghost" size="icon" aria-label="Upvote"
+            onClick={handleUpvoteClick}
+            disabled={roundStatus !== "voting" || userIsSubmitter || hasVoted || !canVote}
           >
-            <ArrowUp
-              className={cn(
-                "size-5",
-                pendingSongVotes.up > 0 && "fill-green-400/20 text-green-400",
-              )}
-            />
-            {pendingSongVotes.up > 0 && !hasVoted && (
-              <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-green-500 text-xs text-white">
-                {pendingSongVotes.up}
-              </span>
-            )}
+            <ArrowUp className={cn("size-5", currentVoteState === 'up' && "fill-green-400/20 text-green-400")} />
           </Button>
           <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Downvote"
-            disabled={roundStatus !== "voting" || userIsSubmitter || hasVoted}
-            onClick={() => onVoteClick("down")}
-            className="relative"
+            variant="ghost" size="icon" aria-label="Downvote"
+            onClick={handleDownvoteClick}
+            disabled={roundStatus !== "voting" || userIsSubmitter || hasVoted || !canVote}
           >
-            <ArrowDown
-              className={cn(
-                "size-5",
-                pendingSongVotes.down > 0 && "fill-red-400/20 text-red-400",
-              )}
-            />
-            {pendingSongVotes.down > 0 && !hasVoted && (
-              <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
-                {pendingSongVotes.down}
-              </span>
-            )}
+            <ArrowDown className={cn("size-5", currentVoteState === 'down' && "fill-red-400/20 text-red-400")} />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Bookmark"
-            onClick={onBookmark}
-          >
-            <Bookmark
-              className={cn(
-                "size-5",
-                isBookmarked && "fill-primary text-primary",
-              )}
-            />
+          <Button variant="ghost" size="icon" aria-label="Bookmark" onClick={onBookmark}>
+            <Bookmark className={cn("size-5", isBookmarked && "fill-primary text-primary")} />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Comments"
-            onClick={onToggleComments}
-          >
-            <MessageSquare
-              className={cn("size-5", isCommentsVisible && "fill-accent")}
-            />
+          <Button variant="ghost" size="icon" aria-label="Comments" onClick={onToggleComments}>
+            <MessageSquare className={cn("size-5", isCommentsVisible && "fill-accent")} />
           </Button>
         </div>
 
-        {/* Mobile-only info row */}
         <div className="col-span-full space-y-2 pl-[56px] md:hidden">
           <div className="flex items-center justify-between">
             <SubmitterInfo />
             <div className={cn("text-sm font-bold", pointColor)}>
               {roundStatus === "finished" ? `${points} pts` : "?"}
+              {isPenalized && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild><span className="inline-flex align-middle"><Ban className="ml-1 size-3 text-yellow-500" /></span></TooltipTrigger>
+                    <TooltipContent><p>Positive votes for this submission were annulled because the submitter did not vote in this round.</p></TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           </div>
           {comment && (
-            <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground">
-              {comment}
-            </blockquote>
+            <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground">{comment}</blockquote>
           )}
         </div>
       </div>
 
       {isCommentsVisible && (
         <div className="p-3 pt-0 md:px-4 md:pb-4">
-          <SubmissionComments
-            submissionId={song._id as Id<"submissions">}
-            roundStatus={roundStatus}
-          />
+          <SubmissionComments submissionId={song._id as Id<"submissions">} roundStatus={roundStatus} />
         </div>
       )}
     </div>

@@ -1,3 +1,4 @@
+// types/index.ts
 import { Doc, Id } from "@/convex/_generated/dataModel";
 
 export type Song = {
@@ -12,5 +13,8 @@ export type Song = {
    
   submissionType: "file" | "spotify" | "youtube";
   songLink?: string | null;
-   
+  roundTitle?: string;
+  leagueName?: string;
+  leagueId?: Id<"leagues">;
+  comment?: string | null;
 };

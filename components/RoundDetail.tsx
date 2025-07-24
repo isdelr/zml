@@ -6,13 +6,12 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
 import { dynamicImport } from "./ui/dynamic-import";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import { AvatarStack } from "./AvatarStack";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { CheckCircle2 } from "lucide-react";
 
- 
+
 const RoundAdminControls = dynamicImport(() =>
   import("./round/RoundAdminControls").then((mod) => ({
     default: mod.RoundAdminControls,
@@ -46,7 +45,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     queue,
   } = useMusicPlayerStore();
 
-  const submitVotes = useMutation(api.votes.submitVotes);
+  const castVote = useMutation(api.votes.castVote);
 
   const submissions = useQuery(api.submissions.getForRound, {
     roundId: round._id,
@@ -56,88 +55,52 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     roundId: round._id,
   });
 
-  const [pendingVotes, setPendingVotes] = useState<
-    Record<string, { up: number; down: number }>
-  >({});
+  const voters = useQuery(api.votes.getVotersForRound, { roundId: round._id });
 
-  useEffect(() => {
-    if (userVoteStatus?.votes && submissions) {
-      const initialVotes: Record<string, { up: number; down: number }> = {};
-      submissions.forEach((sub) => {
-        initialVotes[sub._id] = { up: 0, down: 0 };
-      });
+  const upvotesUsed = userVoteStatus?.upvotesUsed ?? 0;
+  const downvotesUsed = userVoteStatus?.downvotesUsed ?? 0;
+  const positiveVotesRemaining = league.maxPositiveVotes - upvotesUsed;
+  const negativeVotesRemaining = league.maxNegativeVotes - downvotesUsed;
+  const isVoteFinal = userVoteStatus?.hasVoted ?? false;
 
-      userVoteStatus.votes.forEach(
-        (vote: { submissionId: Id<"submissions">; vote: number }) => {
-          if (initialVotes[vote.submissionId]) {
-            if (vote.vote > 0) {
-              initialVotes[vote.submissionId].up += 1;
-            } else if (vote.vote < 0) {
-              initialVotes[vote.submissionId].down += 1;
-            }
-          }
-        },
-      );
-      setPendingVotes(initialVotes);
-    } else if (submissions) {
-       
-      const initialVotes: Record<string, { up: number; down: number }> = {};
-      submissions.forEach((sub) => {
-        initialVotes[sub._id] = { up: 0, down: 0 };
-      });
-      setPendingVotes(initialVotes);
-    }
-   
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userVoteStatus, submissions?.length]);
-
-  const { pendingUpvotes, pendingDownvotes } = useMemo(() => {
-    return Object.values(pendingVotes).reduce(
-      (acc, votes) => {
-        acc.pendingUpvotes += votes.up;
-        acc.pendingDownvotes += votes.down;
-        return acc;
-      },
-      { pendingUpvotes: 0, pendingDownvotes: 0 },
-    );
-  }, [pendingVotes]);
-
-  const positiveVotesRemaining = league.maxPositiveVotes - pendingUpvotes;
-  const negativeVotesRemaining = league.maxNegativeVotes - pendingDownvotes;
-
-  const canSubmit =
-    positiveVotesRemaining === 0 && negativeVotesRemaining === 0;
-
-  const handleSubmitVotes = () => {
-    if (!canSubmit) {
-      toast.error("You must use all your available votes before submitting.");
+  const handleVoteClick = (
+    submissionId: Id<"submissions">,
+    newVoteState: "up" | "down" | "none",
+  ) => {
+    if (isVoteFinal) {
+      toast.info("Your votes for this round are final and cannot be changed.");
       return;
     }
 
-    const votesToSubmit = Object.entries(pendingVotes).flatMap(
-      ([submissionId, votes]) => [
-        ...Array(votes.up).fill({
-          submissionId: submissionId as Id<"submissions">,
-          voteType: "up",
-        }),
-        ...Array(votes.down).fill({
-          submissionId: submissionId as Id<"submissions">,
-          voteType: "down",
-        }),
-      ],
-    );
-
-    toast.promise(
-      submitVotes({
-        roundId: round._id,
-        votes: votesToSubmit,
-      }),
-      {
-        loading: "Submitting votes...",
-        success: "Votes submitted successfully!",
-        error: (err) => err.data?.message || "Failed to submit votes.",
+    toast.promise(castVote({ submissionId, newVoteState }), {
+      loading: "Saving vote...",
+      success: (result) => {
+        if (result.isFinal) {
+          toast.success(result.message);
+        }
+        return result.message;
       },
-    );
+      error: (err) => err.data?.message || "Failed to save vote.",
+    });
+  };
+
+  const totalDurationSeconds = useMemo(() => {
+    if (!submissions) return 0;
+    return submissions.reduce((total, sub) => total + (sub.duration || 0), 0);
+  }, [submissions]);
+
+  const formatDuration = (totalSeconds: number) => {
+    if (!totalSeconds || totalSeconds <= 0) return null;
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const parts = [];
+    if (hours > 0) parts.push(`${hours} hr`);
+    if (minutes > 0) parts.push(`${minutes} min`);
+    if (parts.length === 0) {
+      const seconds = Math.round(totalSeconds % 60);
+      parts.push(`${seconds} sec`);
+    }
+    return parts.join(" ");
   };
 
   const sortedSubmissions = useMemo(() => {
@@ -153,9 +116,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
   const votes = useQuery(api.votes.getForRound, { roundId: round._id });
   const currentUser = useQuery(api.users.getCurrentUser);
-
   const mySubmission = submissions?.find((s) => s.userId === currentUser?._id);
-
   const submittedUsers = useMemo(() => {
     if (!submissions) return [];
     return submissions.map((sub) => ({
@@ -164,40 +125,6 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     }));
   }, [submissions]);
 
-  const handleVoteClick = (
-    submissionId: Id<"submissions">,
-    voteType: "up" | "down",
-  ) => {
-    setPendingVotes((prev) => {
-      const newVotes = JSON.parse(JSON.stringify(prev));
-      const songVotes = newVotes[submissionId] ?? { up: 0, down: 0 };
-
-      if (voteType === "up") {
-        if (songVotes.down > 0) {
-          songVotes.down -= 1;
-        } else if (positiveVotesRemaining > 0) {
-          songVotes.up += 1;
-        } else if (songVotes.up > 0) {
-          songVotes.up -= 1;
-        } else {
-          toast.warning("No upvotes remaining.");
-        }
-      } else {
-         
-        if (songVotes.up > 0) {
-          songVotes.up -= 1;
-        } else if (negativeVotesRemaining > 0) {
-          songVotes.down += 1;
-        } else if (songVotes.down > 0) {
-          songVotes.down -= 1;
-        } else {
-          toast.warning("No downvotes remaining.");
-        }
-      }
-      newVotes[submissionId] = songVotes;
-      return newVotes;
-    });
-  };
   const handlePlaySong = (song: Song, index: number) => {
     const isThisSongCurrent =
       currentTrackIndex !== null && queue[currentTrackIndex]?._id === song._id;
@@ -218,16 +145,18 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         />
       )}
 
-      {userVoteStatus?.hasVoted && round.status === "voting" && (
-        <Alert className="mb-8 border-green-500/50 bg-green-500/10 text-green-400">
-          <CheckCircle2 className="size-5" />
-          <AlertTitle className="font-bold">Votes Submitted!</AlertTitle>
-          <AlertDescription className="text-green-400/80">
-            Your choices are locked in. Results will be available when the
-            round ends.
-          </AlertDescription>
-        </Alert>
-      )}
+      {round.status === "voting" &&
+        userVoteStatus &&
+        !userVoteStatus.hasVoted &&
+        !userVoteStatus.canVote && (
+          <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10 text-yellow-400">
+            <AlertTitle className="font-bold">Voting Restricted</AlertTitle>
+            <AlertDescription className="text-yellow-400/80">
+              You cannot vote in this round because you joined the league after
+              the voting phase started. You can vote in all future rounds.
+            </AlertDescription>
+          </Alert>
+        )}
 
       <RoundHeader
         round={round}
@@ -237,9 +166,10 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         }
         positiveVotesRemaining={positiveVotesRemaining}
         negativeVotesRemaining={negativeVotesRemaining}
-        hasVoted={userVoteStatus?.hasVoted ?? false}
-        upvotesUsed={pendingUpvotes}
-        downvotesUsed={pendingDownvotes}
+        hasVoted={isVoteFinal}
+        upvotesUsed={upvotesUsed}
+        downvotesUsed={downvotesUsed}
+        totalDuration={formatDuration(totalDurationSeconds)}
       />
 
       {round.status === "submissions" && (
@@ -250,15 +180,13 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             submissions={submissions}
             mySubmission={mySubmission}
           />
-
           <div className="mt-8 rounded-lg border bg-card p-6 text-center">
             <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
             {submissions && submissions.length > 0 ? (
               <div className="mt-4 flex flex-col items-center justify-center gap-2">
                 <AvatarStack users={submittedUsers} />
                 <p className="text-sm text-muted-foreground">
-                  {submissions.length} submission
-                  {submissions.length > 1 ? "s" : ""}
+                  {submissions.length} submission{submissions.length > 1 ? "s" : ""}
                 </p>
               </div>
             ) : (
@@ -271,20 +199,33 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       )}
 
       {(round.status === "voting" || round.status === "finished") && (
-        <SubmissionsList
-          submissions={sortedSubmissions}
-          userVoteStatus={userVoteStatus}
-          currentUser={currentUser}
-          roundStatus={round.status}
-          league={league}
-          currentTrackIndex={currentTrackIndex}
-          isPlaying={isPlaying}
-          queue={queue}
-          onPlaySong={handlePlaySong}
-          pendingVotes={pendingVotes}
-          onVoteClick={handleVoteClick}
-          onSubmitVotes={handleSubmitVotes}
-        />
+        <>
+          {round.status === "voting" && voters && voters.length > 0 && (
+            <div className="my-8 rounded-lg border bg-card p-6 text-center">
+              <h3 className="font-semibold">Who&apos;s Voted So Far?</h3>
+              <div className="mt-4 flex flex-col items-center justify-center gap-2">
+                <AvatarStack users={voters} />
+                <p className="text-sm text-muted-foreground">
+                  {voters.length} member{voters.length !== 1 ? "s" : ""} have
+                  cast their votes.
+                </p>
+              </div>
+            </div>
+          )}
+          <SubmissionsList
+            submissions={sortedSubmissions}
+            userVoteStatus={userVoteStatus}
+            userVotes={userVoteStatus?.votes ?? []}
+            currentUser={currentUser}
+            roundStatus={round.status}
+            league={league}
+            currentTrackIndex={currentTrackIndex}
+            isPlaying={isPlaying}
+            queue={queue}
+            onPlaySong={handlePlaySong}
+            onVoteClick={handleVoteClick}
+          />
+        </>
       )}
     </section>
   );

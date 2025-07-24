@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useMemo } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -59,9 +59,14 @@ export function MusicPlayer() {
   const [waveformData, setWaveformData] = useState<WaveformData | null>(null);
   const [isWaveformLoading, setIsWaveformLoading] = useState(false);
   const [lastVolume, setLastVolume] = useState(volume);
+  
+  const getPresignedSongUrl = useAction(api.submissions.getPresignedSongUrl);
 
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
   const { isAuthenticated } = useConvexAuth();
+
+  const updateListeningState = useMutation(api.listening.updateListeningState);
+  const previousTrackIdRef = useRef<Id<"submissions"> | null>(null);
 
   const isExternalLink =
     currentTrack?.submissionType === "spotify" ||
@@ -140,62 +145,23 @@ export function MusicPlayer() {
 
   useEffect(() => {
     if (
-      currentTrack?.submissionType === "file" &&
-      currentTrack?.songFileUrl &&
-      audioContextRef.current
-    ) {
-      setWaveformData(null);
-      setIsWaveformLoading(true);
-
-      fetch(currentTrack.songFileUrl, { cache: "no-cache" })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.arrayBuffer();
-        })
-        .then((buffer) => {
-          const options = {
-            audio_context: audioContextRef.current!,
-            array_buffer: buffer,
-            scale: 512,
-          };
-          WaveformData.createFromAudio(options, (err, waveform) => {
-            setIsWaveformLoading(false);
-            if (err) {
-              console.error("Error creating waveform:", err);
-            } else {
-              setWaveformData(waveform);
-            }
-          });
-        })
-        .catch((error) => {
-          console.error("Error fetching audio for waveform:", error);
-          toast.error(
-            "Could not load waveform. The audio file might be unavailable or blocked.",
-          );
-          setIsWaveformLoading(false);
-        });
-    } else {
-      setWaveformData(null);
-    }
-  }, [currentTrack?.songFileUrl, currentTrack?.submissionType]);
-  useEffect(() => {
-    if (
       currentTrack?.submissionType !== "file" ||
       !currentTrack?.songFileUrl ||
       !audioContextRef.current
     ) {
       setWaveformData(null);
+      setIsWaveformLoading(false);
       return;
     }
-
-    setWaveformData(null);
-    setIsWaveformLoading(true);
 
     if (cachedWaveform === undefined) {
+      setIsWaveformLoading(true);
+      setWaveformData(null);
       return;
     }
+
+    setIsWaveformLoading(true);
+    setWaveformData(null);
 
     if (cachedWaveform?.waveform) {
       try {
@@ -205,6 +171,7 @@ export function MusicPlayer() {
         setIsWaveformLoading(false);
       } catch (err) {
         console.error("Failed to parse cached waveform:", err);
+        setIsWaveformLoading(false);
       }
     } else {
       fetch(currentTrack.songFileUrl)
@@ -216,14 +183,15 @@ export function MusicPlayer() {
             scale: 512,
           };
           WaveformData.createFromAudio(options, (err, waveform) => {
-            setIsWaveformLoading(false);
             if (err) {
               console.error("Error creating waveform:", err);
+              setIsWaveformLoading(false);
             } else {
               setWaveformData(waveform);
+              setIsWaveformLoading(false);
               storeWaveform({
                 submissionId: currentTrack._id as Id<"submissions">,
-                waveformJson: JSON.stringify(waveform.json),
+                waveformJson: JSON.stringify(waveform.toJSON()),
               });
             }
           });
@@ -240,6 +208,43 @@ export function MusicPlayer() {
     cachedWaveform,
     storeWaveform,
   ]);
+  
+  // --- CORRECTED EFFECT for Listening Activity ---
+  useEffect(() => {
+    let activityInterval: NodeJS.Timeout | undefined;
+
+    // If the track is playing, set up the listening state and the keep-alive interval
+    if (isPlaying && currentTrack) {
+        // Immediately report that the user is listening to the current track
+        updateListeningState({ submissionId: currentTrack._id as Id<"submissions"> });
+
+        // Keep track of what was being played so we can clear it on cleanup
+        previousTrackIdRef.current = currentTrack._id as Id<"submissions">;
+
+        // Set up an interval to periodically update the 'lastSeen' timestamp
+        activityInterval = setInterval(() => {
+            // The existence of this interval means isPlaying is true.
+            // When isPlaying becomes false, the cleanup function clears it.
+            updateListeningState({ submissionId: currentTrack._id as Id<"submissions"> });
+        }, 45 * 1000); // Send update every 45 seconds to keep the session "active"
+    }
+
+    // This is the cleanup function for the effect.
+    // It runs when the component unmounts OR when any dependency (isPlaying, currentTrack) changes.
+    return () => {
+        // Stop the periodic updates
+        clearInterval(activityInterval);
+
+        // If the user was listening to a track before this cleanup,
+        // clear their listening state now.
+        if (previousTrackIdRef.current) {
+             updateListeningState({ submissionId: undefined });
+             previousTrackIdRef.current = null;
+        }
+    };
+    // The effect re-runs whenever isPlaying or the currentTrack changes.
+  }, [isPlaying, currentTrack, updateListeningState]);
+  // --- END CORRECTION ---
 
   useEffect(() => {
     if (currentTrack) {
@@ -346,6 +351,52 @@ export function MusicPlayer() {
     }
   };
 
+ const handleAudioError = async () => {
+    const audioElement = audioRef.current;
+    if (!audioElement || !currentTrack || currentTrack.submissionType !== 'file') {
+      return;
+    }
+
+    if (audioElement.networkState === audioElement.NETWORK_NO_SOURCE && audioElement.error) {
+      console.error("Audio playback error:", audioElement.error);
+      toast.info("Link expired. Refreshing song...", {
+        duration: 3000,
+      });
+
+      try {
+        const newUrl = await getPresignedSongUrl({
+          submissionId: currentTrack._id as Id<"submissions">
+        });
+
+        if (newUrl) {
+          const currentTime = audioElement.currentTime;
+          console.log(`Fetched new URL. Resuming from ${currentTime}s.`);
+          
+          audioElement.src = newUrl;
+          audioElement.load();
+
+          const playWhenReady = () => {
+            audioElement.currentTime = currentTime;
+            if (isPlaying) {
+              audioElement.play().catch(e => console.error("Error re-playing after refresh:", e));
+            }
+          };
+          
+          audioElement.addEventListener('canplay', playWhenReady, { once: true });
+
+        } else {
+          toast.error("Could not refresh the song's link.");
+          actions.setIsPlaying(false);
+        }
+      } catch (error) {
+        console.error("Failed to execute getPresignedSongUrl:", error);
+        toast.error("An error occurred while trying to refresh the song.");
+        actions.setIsPlaying(false);
+      }
+    }
+  };
+
+
   if (!currentTrack) {
     return null;
   }
@@ -357,6 +408,7 @@ export function MusicPlayer() {
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleTimeUpdate}
         onEnded={handleEnded}
+        onError={handleAudioError}
         className="hidden"
       />
       <MusicQueue isOpen={isQueueOpen} onOpenChange={setIsQueueOpen} />

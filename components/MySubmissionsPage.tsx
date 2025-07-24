@@ -10,6 +10,7 @@ import {
   Search,
   TrendingDown,
   TrendingUp,
+  Ban,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -20,6 +21,12 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Skeleton } from "./ui/skeleton";
 import { FaSpotify, FaYoutube } from "react-icons/fa";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 
 const getResultIcon = (result: { type: string; points: number }) => {
   switch (result.type) {
@@ -49,7 +56,7 @@ const getResultColor = (result: { type: string; points: number }) => {
 
 export function MySubmissionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const { actions: playerActions, currentTrackIndex } = useMusicPlayerStore();
+  const { actions: playerActions } = useMusicPlayerStore();
   const mySubmissions = useQuery(api.submissions.getMySubmissions);
 
   const filteredSubmissions = useMemo(() => {
@@ -142,12 +149,7 @@ export function MySubmissionsPage() {
   );
 
   return (
-    <div
-      className={cn(
-        "flex-1 overflow-y-auto bg-background text-foreground",
-        currentTrackIndex !== null && "pb-32",
-      )}
-    >
+<div className="flex-1 overflow-y-auto bg-background text-foreground">
       <div className="p-4 md:p-8">
         {/* Header */}
         <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
@@ -246,6 +248,23 @@ export function MySubmissionsPage() {
                                     ? "Winner"
                                     : `${submission.result.points} pts`}
                                 </span>
+                                {submission.result.penaltyApplied && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="inline-flex align-middle">
+                                          <Ban className="size-3 text-yellow-500" />
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>
+                                          Your positive votes were annulled in
+                                          this round because you did not vote.
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
                               </div>
                             ) : (
                               <div

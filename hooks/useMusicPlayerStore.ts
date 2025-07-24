@@ -1,3 +1,4 @@
+// hooks/useMusicPlayerStore.ts
 import { create } from "zustand";
 import { Song } from "@/types";
 
@@ -12,6 +13,7 @@ interface MusicPlayerState {
   isShuffled: boolean;
   seekTo: number | null;
   volume: number;
+  isContextViewOpen: boolean;
   actions: {
     playRound: (songs: Song[], startIndex?: number) => void;
     playSong: (song: Song) => void;
@@ -22,9 +24,11 @@ interface MusicPlayerState {
     clearQueue: () => void;
     toggleRepeat: () => void;
     toggleShuffle: () => void;
-    seek: (time: number) => void;  
-    resetSeek: () => void;  
+    seek: (time: number) => void;
+    resetSeek: () => void;
     setVolume: (volume: number) => void;
+    toggleContextView: () => void;
+    closeContextView: () => void;
   };
 }
 
@@ -36,7 +40,8 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
   repeatMode: "none",
   isShuffled: false,
   volume: 1,
-  seekTo: null,  
+  seekTo: null,
+  isContextViewOpen: false,
   actions: {
     playRound: (songs, startIndex = 0) => {
       set({
@@ -136,5 +141,14 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
     seek: (time) => set({ seekTo: time }),
     resetSeek: () => set({ seekTo: null }),
     setVolume: (volume) => set({ volume }),
+    toggleContextView: () => {
+      const { isContextViewOpen, currentTrackIndex } = get();
+      if (currentTrackIndex !== null) {
+        set({ isContextViewOpen: !isContextViewOpen });
+      } else {
+        set({ isContextViewOpen: false });
+      }
+    },
+    closeContextView: () => set({ isContextViewOpen: false }),
   },
 }));

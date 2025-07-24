@@ -1,4 +1,3 @@
- 
 "use client";
 
 import { FaDiscord } from "react-icons/fa";
@@ -9,15 +8,11 @@ import { useSearchParams } from "next/navigation";
 export default function SignInPage() {
   const { signIn } = useAuthActions();
   const searchParams = useSearchParams();
-  
-   
-  const redirectUrl = searchParams.get("redirect_url");
-
   const handleSignIn = () => {
-     
-     
-     
-     
+    // The redirect URL might be in the query params if the user was sent here
+    // from a protected page.
+    const redirectUrl = searchParams.get("redirect_url");
+
     signIn("discord", {
       redirectTo: redirectUrl || "/explore",
     });
@@ -39,6 +34,9 @@ export default function SignInPage() {
         <FaDiscord className="size-6" />
         Sign in with Discord
       </Button>
+              <p className="text-xs">
+          You have to be in the Music League Discord Server to Sign In.
+        </p>
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -15,7 +14,7 @@ const BookmarkList = dynamicImport(() => import("./bookmarks/BookmarkList").then
 
 export function BookmarkedPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const { actions: playerActions, currentTrackIndex } = useMusicPlayerStore();
+  const { actions: playerActions } = useMusicPlayerStore();
   const bookmarkedSongs = useQuery(api.bookmarks.getBookmarkedSongs);
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
 
@@ -41,12 +40,7 @@ export function BookmarkedPage() {
   };
 
   return (
-    <div
-      className={cn(
-        "flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8",
-        currentTrackIndex !== null && "pb-32",
-      )}
-    >
+<div className="flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8">
       <BookmarkHeader 
         searchTerm={searchTerm}
         onSearchChange={(value) => setSearchTerm(value)}

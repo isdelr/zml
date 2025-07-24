@@ -1,5 +1,6 @@
+// convex/submissions.ts
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
+import { mutation, query, action, internalQuery } from "./_generated/server"; 
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
@@ -28,6 +29,7 @@ export const getSongMetadataFromLink = action({
         songTitle: track.name,
         artist: track.artists.map((a) => a.name).join(", "),
         albumArtUrl: track.album.images[0].url,
+        duration: Math.round(track.duration_ms / 1000),
         submissionType: "spotify" as const,
       };
     } else if (
@@ -43,7 +45,7 @@ export const getSongMetadataFromLink = action({
         throw new Error("YouTube API key is not set in environment variables.");
       }
 
-      const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`;
+      const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch video data from YouTube API.");
@@ -55,12 +57,24 @@ export const getSongMetadataFromLink = action({
       }
 
       const snippet = data.items[0].snippet;
+      const contentDetails = data.items[0].contentDetails;
+
+      const parseISO8601Duration = (durationString: string) => {
+        const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
+        const matches = durationString.match(regex);
+        if (!matches) return 0;
+        const hours = parseInt(matches[1] || "0", 10);
+        const minutes = parseInt(matches[2] || "0", 10);
+        const seconds = parseInt(matches[3] || "0", 10);
+        return hours * 3600 + minutes * 60 + seconds;
+      };
 
       return {
         songTitle: snippet.title,
         artist: snippet.channelTitle,
         albumArtUrl: snippet.thumbnails.high.url,
         submissionType: "youtube" as const,
+        duration: contentDetails.duration ? parseISO8601Duration(contentDetails.duration) : 0,
       };
     }
     throw new Error(
@@ -84,6 +98,7 @@ export const submitSong = mutation({
     songFileKey: v.optional(v.string()),
     songLink: v.optional(v.string()),
     albumArtUrlValue: v.optional(v.string()),
+    duration: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -109,6 +124,7 @@ export const submitSong = mutation({
       songTitle: args.songTitle,
       artist: args.artist,
       comment: args.comment,
+      duration: args.duration,
     };
 
     if (args.submissionType === "file") {
@@ -152,6 +168,7 @@ export const editSong = mutation({
     songFileKey: v.optional(v.union(v.string(), v.null())),
     songLink: v.optional(v.union(v.string(), v.null())),
     albumArtUrlValue: v.optional(v.union(v.string(), v.null())),
+    duration: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -205,6 +222,9 @@ export const getForRound = query({
 
     const round = await ctx.db.get(args.roundId);
     if (!round) return [];
+    
+    const league = await ctx.db.get(round.leagueId);
+    if (!league) return [];
 
     const submissions = await ctx.db
       .query("submissions")
@@ -231,6 +251,8 @@ export const getForRound = query({
 
         let albumArtUrl: string | null = null;
         let songFileUrl: string | null = null;
+        
+        const isAnonymous = round.status === 'voting';
 
         if (submission.submissionType === "file") {
           [albumArtUrl, songFileUrl] = await Promise.all([
@@ -245,9 +267,27 @@ export const getForRound = query({
           albumArtUrl = submission.albumArtUrlValue ?? null;
           songFileUrl = submission.songLink ?? null;
         }
-        const points = allVotesForRound
-          .filter((v) => v.submissionId === submission._id)
-          .reduce((acc, vote) => acc + vote.vote, 0);
+
+        let points = 0;
+        let isPenalized = false;
+
+        if (round.status === "finished") {
+          const resultDoc = await ctx.db
+            .query("roundResults")
+            .withIndex("by_submission", (q) =>
+              q.eq("submissionId", submission._id),
+            )
+            .first();
+          if (resultDoc) {
+            points = resultDoc.points;
+            isPenalized = resultDoc.penaltyApplied ?? false;
+          }
+        } else {
+          points = allVotesForRound
+            .filter((v) => v.submissionId === submission._id)
+            .reduce((acc, vote) => acc + vote.vote, 0);
+        }
+
         let userUpvotes = 0;
         let userDownvotes = 0;
         if (userId) {
@@ -261,15 +301,19 @@ export const getForRound = query({
         }
         return {
           ...submission,
-          submittedBy: user?.name ?? "Anonymous",
-          submittedByImage: user?.image ?? null,
+          submittedBy: isAnonymous ? "Anonymous" : user?.name ?? "Anonymous",
+          submittedByImage: isAnonymous ? null : user?.image ?? null,
           albumArtUrl: albumArtUrl!,
           songFileUrl: songFileUrl,
           points,
           userUpvotes,
           userDownvotes,
+          isPenalized,
           isBookmarked: bookmarkedSubmissionIds.has(submission._id),
           roundStatus: round.status,
+          roundTitle: round.title,
+          leagueId: league._id,
+          leagueName: league.name,
         };
       }),
     );
@@ -310,7 +354,11 @@ export const getMySubmissions = query({
           songFileUrl = submission.songLink ?? null;
         }
 
-        let result: { type: string; points: number };
+        let result: {
+          type: string;
+          points: number;
+          penaltyApplied?: boolean;
+        };
 
         if (round.status === "finished") {
           const roundResult = await ctx.db
@@ -321,20 +369,37 @@ export const getMySubmissions = query({
             .first();
 
           if (roundResult) {
+            const penaltyApplied = roundResult.penaltyApplied ?? false;
             if (roundResult.isWinner) {
-              result = { type: "winner", points: roundResult.points };
+              result = {
+                type: "winner",
+                points: roundResult.points,
+                penaltyApplied,
+              };
             } else if (roundResult.points > 0) {
-              result = { type: "positive", points: roundResult.points };
+              result = {
+                type: "positive",
+                points: roundResult.points,
+                penaltyApplied,
+              };
             } else if (roundResult.points < 0) {
-              result = { type: "negative", points: roundResult.points };
+              result = {
+                type: "negative",
+                points: roundResult.points,
+                penaltyApplied,
+              };
             } else {
-              result = { type: "neutral", points: roundResult.points };
+              result = {
+                type: "neutral",
+                points: roundResult.points,
+                penaltyApplied,
+              };
             }
           } else {
-            result = { type: "pending", points: 0 };
+            result = { type: "pending", points: 0, penaltyApplied: false };
           }
         } else {
-          result = { type: "pending", points: 0 };
+          result = { type: "pending", points: 0, penaltyApplied: false };
         }
 
         return {
@@ -452,5 +517,37 @@ export const getWaveform = query({
   handler: async (ctx, args) => {
     const submission = await ctx.db.get(args.submissionId);
     return submission ? { waveform: submission.waveform } : null;
+  },
+});
+
+// 1. Add this helper query for our action to use securely.
+export const getSubmissionById = internalQuery({
+  args: { submissionId: v.id("submissions") },
+  handler: async (ctx, args) => {
+    // This query can be called by internal functions (like actions)
+    // to fetch data without exposing it publicly.
+    return await ctx.db.get(args.submissionId);
+  },
+});
+
+// 2. Add this action to generate and return a new URL.
+export const getPresignedSongUrl = action({
+  args: { submissionId: v.id("submissions") },
+  // FIX 1: Add an explicit return type to the handler.
+  handler: async (ctx, args): Promise<string | null> => {
+    // FIX 2: Add an explicit type to the 'submission' constant.
+    const submission: Doc<"submissions"> | null = await ctx.runQuery(internal.submissions.getSubmissionById, {
+      submissionId: args.submissionId,
+    });
+
+    // Check if the submission exists and is a file-based upload
+    if (!submission || submission.submissionType !== "file" || !submission.songFileKey) {
+      console.error("Could not generate URL: Submission is not a file or key is missing.");
+      return null;
+    }
+
+    // Generate a new, short-lived URL for the file.
+    // This is the core of the solution.
+    return await r2.getUrl(submission.songFileKey);
   },
 });

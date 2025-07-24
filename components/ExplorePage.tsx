@@ -3,8 +3,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { cn } from "@/lib/utils";
 import { dynamicImport } from "./ui/dynamic-import";
 
  
@@ -15,7 +13,6 @@ const LeagueGrid = dynamicImport(() => import("./explore/LeagueGrid").then(mod =
 export function ExplorePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("All");
-  const { currentTrackIndex } = useMusicPlayerStore();
   
   const leagues = useQuery(api.leagues.getPublicLeagues);
   
@@ -47,12 +44,7 @@ export function ExplorePage() {
   }, [leagues, searchTerm, activeTab]);
 
   return (
-    <div
-      className={cn(
-        "flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8",
-        currentTrackIndex !== null && "pb-32",
-      )}
-    >
+<div className="flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8">
       <ExploreHeader 
         searchTerm={searchTerm}
         onSearchChange={(value) => setSearchTerm(value)}

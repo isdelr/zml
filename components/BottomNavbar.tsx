@@ -1,38 +1,28 @@
- 
 "use client";
 
-import {
-  Bell,
-  Compass,
-  PlusCircle,
-  Send,
-  Swords,
-} from "lucide-react";
+import { Bell, Compass, PlusCircle, Send, Swords } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 const mainNav = [
   { name: "Explore", icon: Compass, href: "/explore" },
   { name: "Active", icon: Swords, href: "/active-rounds" },
-   
+
   { name: "Create", icon: PlusCircle, href: "/leagues/create" },
   { name: "Submissions", icon: Send, href: "/my-submissions" },
   { name: "Notifications", icon: Bell, href: "/notifications" },
 ];
 
 export function BottomNavbar() {
+  const {isAuthenticated} = useConvexAuth()
   const pathname = usePathname();
   const unreadCount = useQuery(api.notifications.getUnreadCount);
 
-  const navItems = [
-    mainNav[0],
-    mainNav[1],
-    mainNav[3],  
-    mainNav[4],  
-  ];
+  if (!isAuthenticated) return null;
+  const navItems = [mainNav[0], mainNav[1], mainNav[3], mainNav[4]];
 
   const middleIndex = Math.floor(navItems.length / 2);
 
@@ -53,11 +43,13 @@ export function BottomNavbar() {
             >
               <div className="relative">
                 <item.icon className="size-5" />
-                {item.name === "Notifications" && unreadCount !== undefined && unreadCount > 0 && (
-                  <span className="absolute -right-2 -top-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white">
-                    {unreadCount}
-                  </span>
-                )}
+                {item.name === "Notifications" &&
+                  unreadCount !== undefined &&
+                  unreadCount > 0 && (
+                    <span className="absolute -right-2 -top-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white">
+                      {unreadCount}
+                    </span>
+                  )}
               </div>
               <span className="text-xs font-medium">{item.name}</span>
             </Link>
@@ -86,11 +78,13 @@ export function BottomNavbar() {
             >
               <div className="relative">
                 <item.icon className="size-5" />
-                {item.name === "Notifications" && unreadCount !== undefined && unreadCount > 0 && (
-                   <span className="absolute -right-2 -top-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white">
-                    {unreadCount}
-                  </span>
-                )}
+                {item.name === "Notifications" &&
+                  unreadCount !== undefined &&
+                  unreadCount > 0 && (
+                    <span className="absolute -right-2 -top-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white">
+                      {unreadCount}
+                    </span>
+                  )}
               </div>
               <span className="text-xs font-medium">{item.name}</span>
             </Link>

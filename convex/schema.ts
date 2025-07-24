@@ -24,6 +24,7 @@ export default defineSchema({
   memberships: defineTable({
     userId: v.id("users"),
     leagueId: v.id("leagues"),
+    joinDate: v.optional(v.number()),
   })
     .index("by_league_and_user", ["leagueId", "userId"])
     .index("by_user", ["userId"])
@@ -61,6 +62,7 @@ export default defineSchema({
     songLink: v.optional(v.string()),
     albumArtUrlValue: v.optional(v.string()),
     waveform: v.optional(v.string()),
+    duration: v.optional(v.number()),
   })
     .index("by_round", ["roundId"])
     .index("by_round_and_user", ["roundId", "userId"])
@@ -90,7 +92,6 @@ export default defineSchema({
     text: v.string(),
   }).index("by_submission", ["submissionId"]),
  
-   
   notifications: defineTable({
     userId: v.id("users"),  
     type: v.union(
@@ -111,6 +112,7 @@ export default defineSchema({
     userId: v.id("users"),
     points: v.number(),
     isWinner: v.boolean(),
+    penaltyApplied: v.optional(v.boolean()),
   })
     .index("by_round", ["roundId"])
     .index("by_submission", ["submissionId"]),
@@ -123,4 +125,13 @@ export default defineSchema({
   })
     .index("by_league_and_user", ["leagueId", "userId"])
     .index("by_league_and_points", ["leagueId", "totalPoints"]),
+
+  // --- NEW TABLE ---
+  listeningActivity: defineTable({
+    submissionId: v.id("submissions"),
+    userId: v.id("users"),
+    lastSeen: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_submission_lastSeen", ["submissionId", "lastSeen"]),
 });

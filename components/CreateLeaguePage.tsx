@@ -8,8 +8,6 @@ import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Loader2, PlusCircle, Trash2, X } from "lucide-react";
-import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { cn } from "@/lib/utils";
 import { genres } from "@/lib/genres";
 
 import { Button } from "@/components/ui/button";
@@ -82,9 +80,6 @@ export function CreateLeaguePage() {
   });
   const router = useRouter();
   const [previews, setPreviews] = useState<Record<number, string>>({});
-  const currentTrackIndex = useMusicPlayerStore(
-    (state) => state.currentTrackIndex,
-  );
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -105,7 +100,6 @@ export function CreateLeaguePage() {
     name: "rounds",
   });
 
-   
   useEffect(() => {
     return () => {
       Object.values(previews).forEach(URL.revokeObjectURL);
@@ -115,12 +109,10 @@ export function CreateLeaguePage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const toastId = toast.loading("Creating your league...");
     try {
-       
       const processedRounds = await Promise.all(
         values.rounds.map(async (round) => {
           let imageKey: string | undefined = undefined;
           if (round.imageFile) {
-             
             imageKey = await uploadFile(round.imageFile);
           }
           return {
@@ -132,8 +124,6 @@ export function CreateLeaguePage() {
         }),
       );
 
-       
-       
       const leagueId = await createLeague({
         ...values,
         rounds: processedRounds,
@@ -142,21 +132,15 @@ export function CreateLeaguePage() {
       toast.success("League and rounds created successfully!", { id: toastId });
       form.reset();
       router.push(`/leagues/${leagueId}`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to create league. Please try again.", {
         id: toastId,
       });
-      console.error(error);
     }
   }
 
   return (
-    <div
-      className={cn(
-"flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8",  
-         currentTrackIndex !== null && "pb-24",
-       )}
-     >
+    <div className="flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8">
       <Card className="mx-auto max-w-4xl">
         <CardHeader>
           <CardTitle>Create a New League</CardTitle>
@@ -324,7 +308,6 @@ export function CreateLeaguePage() {
                       <FormField
                         control={form.control}
                         name={`rounds.${index}.imageFile`}
-                         
                         // eslint-disable-next-line @typescript-eslint/no-unused-vars
                         render={({ field: { onChange, value, ...rest } }) => (
                           <FormItem>
@@ -350,7 +333,7 @@ export function CreateLeaguePage() {
                                     );
                                     setPreviews((p) => {
                                       const newPreviews = { ...p };
-                                      URL.revokeObjectURL(p[index]);  
+                                      URL.revokeObjectURL(p[index]);
                                       delete newPreviews[index];
                                       return newPreviews;
                                     });
@@ -433,7 +416,11 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Submission Period (Days)</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} value={field.value as number || ''} />
+                          <Input
+                            type="number"
+                            {...field}
+                            value={(field.value as number) || ""}
+                          />
                         </FormControl>
                       </FormItem>
                     )}
@@ -445,7 +432,11 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Voting Period (Days)</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} value={field.value as number || ''} />
+                          <Input
+                            type="number"
+                            {...field}
+                            value={(field.value as number) || ""}
+                          />
                         </FormControl>
                       </FormItem>
                     )}
@@ -457,7 +448,11 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Upvotes per Member</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} value={field.value as number || ''} />
+                          <Input
+                            type="number"
+                            {...field}
+                            value={(field.value as number) || ""}
+                          />
                         </FormControl>
                       </FormItem>
                     )}
@@ -469,7 +464,11 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Downvotes per Member</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} value={field.value as number || ''} />
+                          <Input
+                            type="number"
+                            {...field}
+                            value={(field.value as number) || ""}
+                          />
                         </FormControl>
                       </FormItem>
                     )}
