@@ -46,7 +46,7 @@ export function NowPlayingView() {
   return (
     <aside
       className={
-        "hidden md:flex flex-col w-96 bg-sidebar p-4 text-sidebar-foreground border-l border-sidebar-border h-screen overflow-y-auto pb-16"
+        "hidden md:flex flex-col w-96 bg-sidebar p-4 text-sidebar-foreground border-l border-sidebar-border h-screen overflow-y-auto pb-28"
       }
     >
       <div className="flex justify-between items-center mb-4">
