@@ -146,26 +146,24 @@ export function NowPlayingView() {
       </aside>
 
       {/* Mobile Sheet */}
-
-      <Sheet
-        open={isContextViewOpen}
-        onOpenChange={(isOpen) => !isOpen && actions.closeContextView()}
-      >
-        <SheetContent
-          side="bottom"
-          className="h-[90dvh] flex flex-col p-0 md:hidden"
+      <div className="md:hidden">
+        <Sheet
+          open={isContextViewOpen}
+          onOpenChange={(isOpen) => !isOpen && actions.closeContextView()}
         >
-          <SheetHeader className="p-4 border-b flex-shrink-0">
-            <SheetTitle className="text-center">{songTitle}</SheetTitle>
-            <p className="text-sm text-muted-foreground text-center">
-              {artist}
-            </p>
-          </SheetHeader>
-          <div className="overflow-y-auto p-4 space-y-6">
-            <NowPlayingContent />
-          </div>
-        </SheetContent>
-      </Sheet>
+          <SheetContent side="bottom" className="h-[90dvh] flex flex-col p-0 ">
+            <SheetHeader className="p-4 border-b flex-shrink-0">
+              <SheetTitle className="text-center">{songTitle}</SheetTitle>
+              <p className="text-sm text-muted-foreground text-center">
+                {artist}
+              </p>
+            </SheetHeader>
+            <div className="overflow-y-auto p-4 space-y-6">
+              <NowPlayingContent />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
     </>
   );
 }
