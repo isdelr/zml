@@ -8,37 +8,38 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { toSvg } from "jdenticon";
+import Image from "next/image";
 
 interface RoundVoteSummaryProps {
   roundId: Id<"rounds">;
 }
 
-const VoteSummarySkeleton = () => (
+const VoteSummaryBySongSkeleton = () => (
     <Card className="my-8">
         <CardHeader>
             <Skeleton className="h-7 w-48" />
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-8">
             {[...Array(2)].map((_, i) => (
                 <div key={i} className="space-y-4">
-                    <div className="flex items-center gap-3">
-                        <Skeleton className="size-10 rounded-full" />
-                        <Skeleton className="h-6 w-32" />
+                    <div className="flex items-start gap-4">
+                        <Skeleton className="size-20 flex-shrink-0 rounded-md" />
+                        <div className="space-y-2 flex-1">
+                            <Skeleton className="h-6 w-3/4" />
+                            <Skeleton className="h-5 w-1/2" />
+                            <Skeleton className="h-5 w-1/3 mt-2" />
+                        </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-12">
-                        <div>
-                            <Skeleton className="h-5 w-20 mb-2" />
-                            <div className="space-y-2">
-                                <Skeleton className="h-10 w-full" />
-                                <Skeleton className="h-10 w-full" />
-                            </div>
-                        </div>
-                        <div>
-                            <Skeleton className="h-5 w-24 mb-2" />
-                            <div className="space-y-2">
-                                <Skeleton className="h-10 w-full" />
-                            </div>
-                        </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pl-4">
+                        {[...Array(3)].map((_, j) => (
+                           <div key={j} className="flex items-center gap-2">
+                                <Skeleton className="size-8 rounded-full" />
+                                <div className="space-y-1 flex-1">
+                                    <Skeleton className="h-4 w-full" />
+                                </div>
+                                <Skeleton className="h-5 w-8" />
+                           </div>
+                        ))}
                     </div>
                 </div>
             ))}
@@ -46,15 +47,16 @@ const VoteSummarySkeleton = () => (
     </Card>
 );
 
-export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
-  const voteSummary = useQuery(api.rounds.getVoteSummary, { roundId });
 
-  if (voteSummary === undefined) {
-    return <VoteSummarySkeleton />;
+export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
+  const voteSummaryBySong = useQuery(api.rounds.getVoteSummary, { roundId });
+
+  if (voteSummaryBySong === undefined) {
+    return <VoteSummaryBySongSkeleton />;
   }
 
-  if (voteSummary.length === 0) {
-    return null; // Don't show the card if there's no voting data.
+  if (voteSummaryBySong.length === 0) {
+    return null;
   }
 
   return (
@@ -63,61 +65,62 @@ export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
         <CardTitle className="text-2xl">Vote Summary</CardTitle>
       </CardHeader>
       <CardContent className="space-y-8">
-        {voteSummary.map((voterSummary) => (
-          <div key={voterSummary.voterId}>
-            <div className="flex items-center gap-3 mb-4">
-              <Avatar className="size-10">
-                <AvatarImage src={voterSummary.voterImage ?? undefined} alt={voterSummary.voterName} />
-                <AvatarFallback>
-                    <div dangerouslySetInnerHTML={{ __html: toSvg(voterSummary.voterId, 40) }} />
-                </AvatarFallback>
-              </Avatar>
-              <h3 className="text-lg font-semibold">{voterSummary.voterName}</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-4 md:pl-12">
-              {/* Upvotes Column */}
-              <div>
-                <h4 className="flex items-center gap-2 text-md font-medium text-green-500 mb-2">
-                  <ThumbsUp className="size-5" />
-                  Upvotes
-                </h4>
-                <div className="space-y-2">
-                  {voterSummary.upvotes.length > 0 ? (
-                    voterSummary.upvotes.map((vote) => (
-                      <div key={vote.submissionId} className="bg-muted/50 p-2 rounded-md text-sm">
-                        <p className="font-semibold">{vote.songTitle}</p>
-                        <p className="text-xs text-muted-foreground">by {vote.artist}</p>
-                        <p className="text-xs text-muted-foreground">Submitted by: {vote.submittedByName}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">No upvotes cast.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Downvotes Column */}
-              <div>
-                <h4 className="flex items-center gap-2 text-md font-medium text-red-500 mb-2">
-                  <ThumbsDown className="size-5" />
-                  Downvotes
-                </h4>
-                <div className="space-y-2">
-                  {voterSummary.downvotes.length > 0 ? (
-                    voterSummary.downvotes.map((vote) => (
-                      <div key={vote.submissionId} className="bg-muted/50 p-2 rounded-md text-sm">
-                        <p className="font-semibold">{vote.songTitle}</p>
-                        <p className="text-xs text-muted-foreground">by {vote.artist}</p>
-                        <p className="text-xs text-muted-foreground">Submitted by: {vote.submittedByName}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">No downvotes cast.</p>
-                  )}
+        {voteSummaryBySong.map((songSummary) => (
+          <div key={songSummary.submissionId}>
+             <div className="flex items-start gap-4 mb-4">
+                {songSummary.albumArtUrl ? (
+                    <Image
+                        src={songSummary.albumArtUrl}
+                        alt={songSummary.songTitle}
+                        width={80}
+                        height={80}
+                        className="rounded-md object-cover flex-shrink-0"
+                    />
+                ) : (
+                    <div
+                        className="size-20 flex-shrink-0 rounded-md bg-muted"
+                        dangerouslySetInnerHTML={{ __html: toSvg(songSummary.submissionId, 80) }}
+                    />
+                )}
+              <div className="flex-1">
+                <p className="text-lg font-bold">{songSummary.songTitle}</p>
+                <p className="text-muted-foreground">{songSummary.artist}</p>
+                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                  <span>Submitted by</span>
+                  <Avatar className="size-6">
+                    <AvatarImage src={songSummary.submittedByImage ?? undefined} />
+                    <AvatarFallback>
+                      <div dangerouslySetInnerHTML={{ __html: toSvg(songSummary.submittedById, 24) }} />
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="font-semibold text-foreground">{songSummary.submittedByName}</span>
                 </div>
               </div>
             </div>
+
+            {songSummary.votes.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 pl-4 border-l-2 ml-10">
+                {songSummary.votes.map(vote => (
+                  <div key={vote.voterId} className="flex items-center gap-2">
+                    <Avatar className="size-8">
+                      <AvatarImage src={vote.voterImage ?? undefined} />
+                      <AvatarFallback>
+                         <div dangerouslySetInnerHTML={{ __html: toSvg(vote.voterId, 32) }} />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 truncate">
+                        <p className="font-semibold truncate">{vote.voterName}</p>
+                    </div>
+                    <div className={`flex items-center gap-1 font-bold ${vote.vote > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {vote.vote > 0 ? <ThumbsUp className="size-4" /> : <ThumbsDown className="size-4" />}
+                        <span>{vote.vote > 0 ? `+${vote.vote}` : vote.vote}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="pl-4 ml-10 border-l-2 text-sm italic text-muted-foreground">No votes were cast for this song.</p>
+            )}
           </div>
         ))}
       </CardContent>

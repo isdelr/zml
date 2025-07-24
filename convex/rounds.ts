@@ -288,22 +288,23 @@ export const updateRound = mutation({
   },
 });
 
-// Define the return type for better type checking on the client side
-const voteDetailValidator = v.object({
-  submissionId: v.id("submissions"),
-  songTitle: v.string(),
-  artist: v.string(),
-  submittedById: v.optional(v.id("users")),
-  submittedByName: v.string(),
+const songVoteDetailValidator = v.object({
+  voterId: v.id("users"),
+  voterName: v.string(),
+  voterImage: v.union(v.string(), v.null()),
+  vote: v.number(),
 });
 
 const voteSummaryValidator = v.array(
   v.object({
-    voterId: v.id("users"),
-    voterName: v.string(),
-    voterImage: v.optional(v.string()),
-    upvotes: v.array(voteDetailValidator),
-    downvotes: v.array(voteDetailValidator),
+    submissionId: v.id("submissions"),
+    songTitle: v.string(),
+    artist: v.string(),
+    submittedById: v.id("users"),
+    submittedByName: v.string(),
+    submittedByImage: v.union(v.string(), v.null()),
+    albumArtUrl: v.union(v.string(), v.null()),
+    votes: v.array(songVoteDetailValidator),
   }),
 );
 
@@ -328,9 +329,6 @@ export const getVoteSummary = query({
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
       .collect();
 
-    const submissionMap = new Map(
-      submissions.map((sub) => [sub._id.toString(), sub]),
-    );
     const allUserIds = new Set<Id<"users">>();
     votes.forEach((v) => allUserIds.add(v.userId));
     submissions.forEach((s) => allUserIds.add(s.userId));
@@ -344,68 +342,51 @@ export const getVoteSummary = query({
         .map((user) => [user._id.toString(), user]),
     );
 
-    const voteSummaryByUser = new Map<
-      string,
-      {
-        voter: Doc<"users">;
-        upvotes: {
-          submission: Doc<"submissions">;
-          submitter: Doc<"users"> | undefined;
-        }[];
-        downvotes: {
-          submission: Doc<"submissions">;
-          submitter: Doc<"users"> | undefined;
-        }[];
-      }
-    >();
-
+    const votesBySubmission = new Map<string, Doc<"votes">[]>();
     for (const vote of votes) {
-      const voterIdString = vote.userId.toString();
-      if (!voteSummaryByUser.has(voterIdString)) {
-        const voter = userMap.get(voterIdString);
-        if (voter) {
-          voteSummaryByUser.set(voterIdString, {
-            voter,
-            upvotes: [],
-            downvotes: [],
-          });
-        }
+      const subId = vote.submissionId.toString();
+      if (!votesBySubmission.has(subId)) {
+        votesBySubmission.set(subId, []);
       }
-
-      const summary = voteSummaryByUser.get(voterIdString);
-      if (summary) {
-        const submission = submissionMap.get(vote.submissionId.toString());
-        if (submission) {
-          const submitter = userMap.get(submission.userId.toString());
-          const voteDetail = { submission, submitter };
-
-          if (vote.vote > 0) summary.upvotes.push(voteDetail);
-          else if (vote.vote < 0) summary.downvotes.push(voteDetail);
-        }
-      }
+      votesBySubmission.get(subId)!.push(vote);
     }
 
-    const result = Array.from(voteSummaryByUser.values()).map((summary) => ({
-      voterId: summary.voter._id,
-      voterName: summary.voter.name ?? "Unknown",
-      voterImage: summary.voter.image ?? undefined,
-      upvotes: summary.upvotes.map((uv) => ({
-        submissionId: uv.submission._id,
-        songTitle: uv.submission.songTitle,
-        artist: uv.submission.artist,
-        submittedById: uv.submitter?._id,
-        submittedByName: uv.submitter?.name ?? "Unknown",
-      })),
-      downvotes: summary.downvotes.map((dv) => ({
-        submissionId: dv.submission._id,
-        songTitle: dv.submission.songTitle,
-        artist: dv.submission.artist,
-        submittedById: dv.submitter?._id,
-        submittedByName: dv.submitter?.name ?? "Unknown",
-      })),
-    }));
+    const summary = await Promise.all(
+      submissions.map(async (submission) => {
+        const submitter = userMap.get(submission.userId.toString());
+        const submissionVotes =
+          votesBySubmission.get(submission._id.toString()) || [];
 
-    result.sort((a, b) => (a.voterName ?? "").localeCompare(b.voterName ?? ""));
-    return result;
+        const voteDetails = submissionVotes.map((vote) => {
+          const voter = userMap.get(vote.userId.toString());
+          return {
+            voterId: vote.userId,
+            voterName: voter?.name ?? "Unknown",
+            voterImage: voter?.image ?? null,
+            vote: vote.vote,
+          };
+        });
+
+        let albumArtUrl: string | null = null;
+        if (submission.submissionType === "file" && submission.albumArtKey) {
+          albumArtUrl = await r2.getUrl(submission.albumArtKey);
+        } else {
+          albumArtUrl = submission.albumArtUrlValue ?? null;
+        }
+
+        return {
+          submissionId: submission._id,
+          songTitle: submission.songTitle,
+          artist: submission.artist,
+          submittedById: submission.userId,
+          submittedByName: submitter?.name ?? "Unknown",
+          submittedByImage: submitter?.image ?? null,
+          albumArtUrl: albumArtUrl,
+          votes: voteDetails,
+        };
+      }),
+    );
+
+    return summary;
   },
 });

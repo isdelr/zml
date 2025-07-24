@@ -7,7 +7,6 @@ import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
 import { dynamicImport } from "./ui/dynamic-import";
 import { useMemo } from "react";
-import { RoundVoteSummary } from "./round/RoundVoteSummary";
 import { AvatarStack } from "./AvatarStack";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
