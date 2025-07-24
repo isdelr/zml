@@ -1,6 +1,6 @@
 // convex/submissions.ts
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
+import { mutation, query, action, internalQuery } from "./_generated/server"; 
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
@@ -517,5 +517,37 @@ export const getWaveform = query({
   handler: async (ctx, args) => {
     const submission = await ctx.db.get(args.submissionId);
     return submission ? { waveform: submission.waveform } : null;
+  },
+});
+
+// 1. Add this helper query for our action to use securely.
+export const getSubmissionById = internalQuery({
+  args: { submissionId: v.id("submissions") },
+  handler: async (ctx, args) => {
+    // This query can be called by internal functions (like actions)
+    // to fetch data without exposing it publicly.
+    return await ctx.db.get(args.submissionId);
+  },
+});
+
+// 2. Add this action to generate and return a new URL.
+export const getPresignedSongUrl = action({
+  args: { submissionId: v.id("submissions") },
+  // FIX 1: Add an explicit return type to the handler.
+  handler: async (ctx, args): Promise<string | null> => {
+    // FIX 2: Add an explicit type to the 'submission' constant.
+    const submission: Doc<"submissions"> | null = await ctx.runQuery(internal.submissions.getSubmissionById, {
+      submissionId: args.submissionId,
+    });
+
+    // Check if the submission exists and is a file-based upload
+    if (!submission || submission.submissionType !== "file" || !submission.songFileKey) {
+      console.error("Could not generate URL: Submission is not a file or key is missing.");
+      return null;
+    }
+
+    // Generate a new, short-lived URL for the file.
+    // This is the core of the solution.
+    return await r2.getUrl(submission.songFileKey);
   },
 });

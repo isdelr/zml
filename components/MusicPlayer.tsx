@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useMemo } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -59,6 +59,8 @@ export function MusicPlayer() {
   const [waveformData, setWaveformData] = useState<WaveformData | null>(null);
   const [isWaveformLoading, setIsWaveformLoading] = useState(false);
   const [lastVolume, setLastVolume] = useState(volume);
+  
+  const getPresignedSongUrl = useAction(api.submissions.getPresignedSongUrl);
 
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
   const { isAuthenticated } = useConvexAuth();
@@ -309,6 +311,60 @@ export function MusicPlayer() {
     }
   };
 
+ const handleAudioError = async () => {
+    const audioElement = audioRef.current;
+    if (!audioElement || !currentTrack || currentTrack.submissionType !== 'file') {
+      return;
+    }
+
+    // The error event itself is simple. networkState tells us if it's a network issue.
+    // NETWORK_NO_SOURCE is a strong indicator of an expired link (403 Forbidden).
+    if (audioElement.networkState === audioElement.NETWORK_NO_SOURCE && audioElement.error) {
+      console.error("Audio playback error:", audioElement.error);
+      toast.info("Link expired. Refreshing song...", {
+        duration: 3000,
+      });
+
+      try {
+        const newUrl = await getPresignedSongUrl({
+          submissionId: currentTrack._id as Id<"submissions">
+        });
+
+        if (newUrl) {
+          const currentTime = audioElement.currentTime;
+          console.log(`Fetched new URL. Resuming from ${currentTime}s.`);
+          
+          // Set the new URL
+          audioElement.src = newUrl;
+
+          // You MUST call load() after changing the src to make the browser fetch it.
+          audioElement.load();
+
+          // To ensure seamless playback, we listen for the 'canplay' event,
+          // which fires when the browser has enough data to start playing.
+          const playWhenReady = () => {
+            audioElement.currentTime = currentTime; // Seek to the old position
+            if (isPlaying) {
+              audioElement.play().catch(e => console.error("Error re-playing after refresh:", e));
+            }
+          };
+          
+          // Use { once: true } so this listener only fires once per refresh.
+          audioElement.addEventListener('canplay', playWhenReady, { once: true });
+
+        } else {
+          toast.error("Could not refresh the song's link.");
+          actions.setIsPlaying(false);
+        }
+      } catch (error) {
+        console.error("Failed to execute getPresignedSongUrl:", error);
+        toast.error("An error occurred while trying to refresh the song.");
+        actions.setIsPlaying(false);
+      }
+    }
+  };
+
+
   if (!currentTrack) {
     return null;
   }
@@ -320,6 +376,7 @@ export function MusicPlayer() {
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleTimeUpdate}
         onEnded={handleEnded}
+        onError={handleAudioError} // <-- ADD THIS LINE
         className="hidden"
       />
       <MusicQueue isOpen={isQueueOpen} onOpenChange={setIsQueueOpen} />
