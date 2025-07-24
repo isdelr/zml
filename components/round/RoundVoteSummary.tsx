@@ -6,9 +6,10 @@ import { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ThumbsUp, ThumbsDown } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 import { toSvg } from "jdenticon";
 import Image from "next/image";
+import { useMemo } from "react";
 
 interface RoundVoteSummaryProps {
   roundId: Id<"rounds">;
@@ -51,11 +52,42 @@ const VoteSummaryBySongSkeleton = () => (
 export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
   const voteSummaryBySong = useQuery(api.rounds.getVoteSummary, { roundId });
 
-  if (voteSummaryBySong === undefined) {
+  const processedSummary = useMemo(() => {
+    if (!voteSummaryBySong) return undefined;
+
+    return voteSummaryBySong.map(song => {
+      const votesByUser = new Map<string, { voterName: string; voterImage: string | null; voterId: Id<"users">; score: number }>();
+      
+      for (const vote of song.votes) {
+        const existing = votesByUser.get(vote.voterId);
+        if (existing) {
+          existing.score += vote.vote;
+        } else {
+          votesByUser.set(vote.voterId, {
+            voterId: vote.voterId,
+            voterName: vote.voterName,
+            voterImage: vote.voterImage,
+            score: vote.vote,
+          });
+        }
+      }
+      
+      const aggregatedVotes = Array.from(votesByUser.values());
+      aggregatedVotes.sort((a, b) => b.score - a.score);
+
+      return {
+        ...song,
+        aggregatedVotes,
+      };
+    });
+
+  }, [voteSummaryBySong]);
+
+  if (processedSummary === undefined) {
     return <VoteSummaryBySongSkeleton />;
   }
 
-  if (voteSummaryBySong.length === 0) {
+  if (processedSummary.length === 0) {
     return null;
   }
 
@@ -65,7 +97,7 @@ export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
         <CardTitle className="text-2xl">Vote Summary</CardTitle>
       </CardHeader>
       <CardContent className="space-y-8">
-        {voteSummaryBySong.map((songSummary) => (
+        {processedSummary.map((songSummary) => (
           <div key={songSummary.submissionId}>
              <div className="flex items-start gap-4 mb-4">
                 {songSummary.albumArtUrl ? (
@@ -98,22 +130,22 @@ export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
               </div>
             </div>
 
-            {songSummary.votes.length > 0 ? (
+            {songSummary.aggregatedVotes.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 pl-4 border-l-2 ml-10">
-                {songSummary.votes.map(vote => (
-                  <div key={vote.voterId} className="flex items-center gap-2">
+                {songSummary.aggregatedVotes.map(voter => (
+                  <div key={voter.voterId} className="flex items-center gap-2">
                     <Avatar className="size-8">
-                      <AvatarImage src={vote.voterImage ?? undefined} />
+                      <AvatarImage src={voter.voterImage ?? undefined} />
                       <AvatarFallback>
-                         <div dangerouslySetInnerHTML={{ __html: toSvg(vote.voterId, 32) }} />
+                         <div dangerouslySetInnerHTML={{ __html: toSvg(voter.voterId, 32) }} />
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 truncate">
-                        <p className="font-semibold truncate">{vote.voterName}</p>
+                        <p className="font-semibold truncate">{voter.voterName}</p>
                     </div>
-                    <div className={`flex items-center gap-1 font-bold ${vote.vote > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {vote.vote > 0 ? <ThumbsUp className="size-4" /> : <ThumbsDown className="size-4" />}
-                        <span>{vote.vote > 0 ? `+${vote.vote}` : vote.vote}</span>
+                    <div className={`flex items-center gap-1 font-bold ${voter.score > 0 ? 'text-green-500' : voter.score < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                        {voter.score > 0 ? <ThumbsUp className="size-4" /> : voter.score < 0 ? <ThumbsDown className="size-4" /> : <Minus className="size-4" />}
+                        <span>{voter.score > 0 ? `+${voter.score}` : voter.score}</span>
                     </div>
                   </div>
                 ))}
