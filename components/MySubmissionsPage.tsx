@@ -70,7 +70,7 @@ export function MySubmissionsPage() {
   }, [mySubmissions, searchTerm]);
 
   const groupedSubmissions = useMemo(() => {
-    return filteredSubmissions.reduce<
+    const grouped = filteredSubmissions.reduce<
       Record<string, NonNullable<(typeof filteredSubmissions)[number]>[]>
     >((acc, submission) => {
       if (!submission) return acc;
@@ -81,6 +81,20 @@ export function MySubmissionsPage() {
       acc[league].push(submission);
       return acc;
     }, {});
+
+    // Sort submissions within each league by points
+    for (const leagueName in grouped) {
+      grouped[leagueName].sort((a, b) => {
+        // Prioritize submissions with a numeric point value
+        const pointsA =
+          a.result.type !== "pending" ? a.result.points : -Infinity;
+        const pointsB =
+          b.result.type !== "pending" ? b.result.points : -Infinity;
+        return pointsB - pointsA;
+      });
+    }
+
+    return grouped;
   }, [filteredSubmissions]);
 
   const SubmissionsSkeleton = () => (
