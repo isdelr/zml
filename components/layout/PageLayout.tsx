@@ -32,7 +32,7 @@ export function PageLayout({ children }: PageLayoutProps) {
           // Base padding for the bottom navbar on mobile.
           "pb-16 md:pb-0",
           // Add extra padding if the music player is active.
-          currentTrackIndex !== null && "pb-32 md:pb-20",
+          currentTrackIndex !== null && "pb-56 md:pb-20",
         )}
       >
         {children}
