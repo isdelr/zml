@@ -105,6 +105,9 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
   const sortedSubmissions = useMemo(() => {
     if (!submissions) return undefined;
+    if (round.status === "finished") {
+      return [...submissions].sort((a, b) => b.points - a.points);
+    }
     return [...submissions].sort((a, b) => {
       const aIsFile = a.submissionType === "file";
       const bIsFile = b.submissionType === "file";
@@ -112,7 +115,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       if (!aIsFile && bIsFile) return 1;
       return 0;
     });
-  }, [submissions]);
+  }, [submissions, round.status]);
 
   const votes = useQuery(api.votes.getForRound, { roundId: round._id });
   const currentUser = useQuery(api.users.getCurrentUser);
@@ -181,7 +184,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             mySubmission={mySubmission}
           />
           <div className="mt-8 rounded-lg border bg-card p-6 text-center">
-            <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
+            <h3 className="font-semibold">Who's Submitted So Far?</h3>
             {submissions && submissions.length > 0 ? (
               <div className="mt-4 flex flex-col items-center justify-center gap-2">
                 <AvatarStack users={submittedUsers} />
@@ -202,7 +205,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         <>
           {round.status === "voting" && voters && voters.length > 0 && (
             <div className="my-8 rounded-lg border bg-card p-6 text-center">
-              <h3 className="font-semibold">Who&apos;s Voted So Far?</h3>
+              <h3 className="font-semibold">Who's Voted So Far?</h3>
               <div className="mt-4 flex flex-col items-center justify-center gap-2">
                 <AvatarStack users={voters} />
                 <p className="text-sm text-muted-foreground">
