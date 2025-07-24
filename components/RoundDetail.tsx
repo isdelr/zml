@@ -7,10 +7,10 @@ import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
 import { dynamicImport } from "./ui/dynamic-import";
 import { useMemo } from "react";
+import { RoundVoteSummary } from "./round/RoundVoteSummary";
 import { AvatarStack } from "./AvatarStack";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-
 
 const RoundAdminControls = dynamicImport(() =>
   import("./round/RoundAdminControls").then((mod) => ({
@@ -28,6 +28,12 @@ const SubmissionForm = dynamicImport(() =>
 const SubmissionsList = dynamicImport(() =>
   import("./round/SubmissionsList").then((mod) => ({
     default: mod.SubmissionsList,
+  })),
+);
+
+const RoundVoteSummary = dynamicImport(() =>
+  import("./round/RoundVoteSummary").then((mod) => ({
+    default: mod.RoundVoteSummary,
   })),
 );
 
@@ -189,7 +195,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
               <div className="mt-4 flex flex-col items-center justify-center gap-2">
                 <AvatarStack users={submittedUsers} />
                 <p className="text-sm text-muted-foreground">
-                  {submissions.length} submission{submissions.length > 1 ? "s" : ""}
+                  {submissions.length} submission
+                  {submissions.length > 1 ? "s" : ""}
                 </p>
               </div>
             ) : (
@@ -228,6 +235,9 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             onPlaySong={handlePlaySong}
             onVoteClick={handleVoteClick}
           />
+          {round.status === "finished" && (
+            <RoundVoteSummary roundId={round._id} />
+          )}
         </>
       )}
     </section>
