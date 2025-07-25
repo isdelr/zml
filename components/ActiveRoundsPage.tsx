@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Clock, Play, Plus, Search, Send } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { Preloaded, usePreloadedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "./ui/button";
@@ -16,7 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { Skeleton } from "./ui/skeleton";
 import { toSvg } from "jdenticon";
 
 const formatStatus = (status: "submissions" | "voting" | "finished") => {
@@ -25,9 +24,13 @@ const formatStatus = (status: "submissions" | "voting" | "finished") => {
   return "Finished";
 };
 
-export function ActiveRoundsPage() {
+interface ActiveRoundsPageProps {
+  preloadedActiveRounds: Preloaded<typeof api.rounds.getActiveForUser>;
+}
+
+export function ActiveRoundsPage({ preloadedActiveRounds }: ActiveRoundsPageProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const activeRounds = useQuery(api.rounds.getActiveForUser);
+  const activeRounds = usePreloadedQuery(preloadedActiveRounds);
 
   const filteredRounds = useMemo(() => {
     if (!activeRounds) return [];
@@ -39,26 +42,6 @@ export function ActiveRoundsPage() {
         round.leagueName.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [activeRounds, searchTerm]);
-
-  const RoundsSkeleton = () => (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {[...Array(4)].map((_, i) => (
-        <Card key={i} className="flex flex-col">
-          <CardHeader>
-            <Skeleton className="aspect-square w-full rounded-md" />
-            <Skeleton className="mt-4 h-6 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-          </CardHeader>
-          <CardContent className="flex-grow">
-            <Skeleton className="h-4 w-2/3" />
-          </CardContent>
-          <CardFooter>
-            <Skeleton className="h-10 w-full" />
-          </CardFooter>
-        </Card>
-      ))}
-    </div>
-  );
 
   return (
     <div className="flex-1 overflow-y-auto bg-background text-foreground">
@@ -85,9 +68,7 @@ export function ActiveRoundsPage() {
         </header>
 
         {/* Rounds Grid */}
-        {activeRounds === undefined ? (
-          <RoundsSkeleton />
-        ) : filteredRounds.length === 0 ? (
+        {filteredRounds.length === 0 ? (
           <div className="rounded-lg border border-dashed py-20 text-center">
             <h2 className="text-xl font-semibold">
               {searchTerm ? "No Rounds Found" : "No Active Rounds"}

@@ -1,20 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "convex/react";
+import { Preloaded, usePreloadedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { dynamicImport } from "./ui/dynamic-import";
 
- 
 const ExploreHeader = dynamicImport(() => import("./explore/ExploreHeader").then(mod => ({ default: mod.ExploreHeader })));
 const ExploreFilters = dynamicImport(() => import("./explore/ExploreFilters").then(mod => ({ default: mod.ExploreFilters })));
 const LeagueGrid = dynamicImport(() => import("./explore/LeagueGrid").then(mod => ({ default: mod.LeagueGrid })));
 
-export function ExplorePage() {
+interface ExplorePageProps {
+  preloadedLeagues: Preloaded<typeof api.leagues.getPublicLeagues>;
+}
+
+export function ExplorePage({ preloadedLeagues }: ExplorePageProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   
-  const leagues = useQuery(api.leagues.getPublicLeagues);
+  const leagues = usePreloadedQuery(preloadedLeagues);
   
   const filterTabs = ["All", "Popular", "New", "Active"];
   
@@ -23,7 +26,6 @@ export function ExplorePage() {
     
     let filtered = leagues;
     
-     
     if (searchTerm) {
       filtered = filtered.filter((league) =>
         league.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -31,7 +33,6 @@ export function ExplorePage() {
       );
     }
     
-     
     if (activeTab === "Popular") {
       filtered = [...filtered].sort((a, b) => b.memberCount - a.memberCount);
     } else if (activeTab === "New") {
@@ -44,7 +45,7 @@ export function ExplorePage() {
   }, [leagues, searchTerm, activeTab]);
 
   return (
-<div className="flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8">
+    <div className="flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8">
       <ExploreHeader 
         searchTerm={searchTerm}
         onSearchChange={(value) => setSearchTerm(value)}

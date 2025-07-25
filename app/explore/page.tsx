@@ -1,19 +1,20 @@
-import { dynamicImport } from "@/components/ui/dynamic-import";
 import { PageLayout } from "@/components/layout/PageLayout";
 import type { Metadata } from 'next';
-
- 
-const ExplorePage = dynamicImport(() => import("@/components/ExplorePage").then(mod => ({ default: mod.ExplorePage })));
+import { preloadQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { ExplorePage } from "@/components/ExplorePage";
 
 export const metadata: Metadata = {
   title: 'Explore Leagues',
   description: 'Discover public music leagues to join and compete with other music enthusiasts.',
 };
 
-export default function ExploreLeaguesPage() {
+export default async function ExploreLeaguesPage() {
+  const preloadedLeagues = await preloadQuery(api.leagues.getPublicLeagues);
+  
   return (
     <PageLayout>
-      <ExplorePage />
+      <ExplorePage preloadedLeagues={preloadedLeagues} />
     </PageLayout>
   );
 }

@@ -16,9 +16,8 @@ import Link from "next/link";
 import { Button } from "./ui/button";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
-import { useQuery } from "convex/react";
+import { Preloaded, usePreloadedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Skeleton } from "./ui/skeleton";
 import { FaSpotify, FaYoutube } from "react-icons/fa";
 
 const getResultIcon = (result: { type: string; points: number }) => {
@@ -47,10 +46,14 @@ const getResultColor = (result: { type: string; points: number }) => {
   }
 };
 
-export function MySubmissionsPage() {
+interface MySubmissionsPageProps {
+  preloadedSubmissions: Preloaded<typeof api.submissions.getMySubmissions>;
+}
+
+export function MySubmissionsPage({ preloadedSubmissions }: MySubmissionsPageProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const { actions: playerActions, currentTrackIndex } = useMusicPlayerStore();
-  const mySubmissions = useQuery(api.submissions.getMySubmissions);
+  const mySubmissions = usePreloadedQuery(preloadedSubmissions);
 
   const filteredSubmissions = useMemo(() => {
     if (!mySubmissions) return [];
@@ -83,50 +86,6 @@ export function MySubmissionsPage() {
     }, {});
   }, [filteredSubmissions]);
 
-  const SubmissionsSkeleton = () => (
-    <div className="space-y-10">
-      {[...Array(2)].map((_, i) => (
-        <section key={i}>
-          <Skeleton className="mb-4 h-7 w-1/3" />
-          <div className="overflow-hidden rounded-md border">
-            <div className="grid grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
-              <span className="w-4 text-center">#</span>
-              <span>Track</span>
-              <span>Round</span>
-              <span className="text-center">Result</span>
-              <span className="w-24"></span>
-            </div>
-            <div>
-              {[...Array(2)].map((_, j) => (
-                <div
-                  key={j}
-                  className="grid grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 border-b px-4 py-3"
-                >
-                  <Skeleton className="h-5 w-4" />
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="size-10 rounded" />
-                    <div className="w-full space-y-2">
-                      <Skeleton className="h-4 w-3/4" />
-                      <Skeleton className="h-4 w-1/2" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-2/3" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </div>
-                  <div className="flex justify-center">
-                    <Skeleton className="h-6 w-20 rounded-full" />
-                  </div>
-                  <div className="w-24"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      ))}
-    </div>
-  );
-
   return (
     <div
       className={cn(
@@ -150,9 +109,7 @@ export function MySubmissionsPage() {
           </div>
         </header>
 
-        {mySubmissions === undefined ? (
-          <SubmissionsSkeleton />
-        ) : Object.keys(groupedSubmissions).length === 0 ? (
+        {Object.keys(groupedSubmissions).length === 0 ? (
           <div className="rounded-lg border border-dashed py-20 text-center">
             <h2 className="text-xl font-semibold">
               {searchTerm ? "No Submissions Found" : "No Submissions Yet"}

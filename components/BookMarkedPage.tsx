@@ -2,20 +2,23 @@
 
 import { useMemo, useState } from "react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { useMutation, useQuery } from "convex/react";
+import { Preloaded, useMutation, usePreloadedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { dynamicImport } from "./ui/dynamic-import";
 
- 
 const BookmarkHeader = dynamicImport(() => import("./bookmarks/BookmarkHeader").then(mod => ({ default: mod.BookmarkHeader })));
 const BookmarkList = dynamicImport(() => import("./bookmarks/BookmarkList").then(mod => ({ default: mod.BookmarkList })));
 
-export function BookmarkedPage() {
+interface BookmarkedPageProps {
+  preloadedBookmarkedSongs: Preloaded<typeof api.bookmarks.getBookmarkedSongs>;
+}
+
+export function BookmarkedPage({ preloadedBookmarkedSongs }: BookmarkedPageProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const { actions: playerActions } = useMusicPlayerStore();
-  const bookmarkedSongs = useQuery(api.bookmarks.getBookmarkedSongs);
+  const bookmarkedSongs = usePreloadedQuery(preloadedBookmarkedSongs);
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
 
   const filteredSongs = useMemo(() => {
@@ -40,7 +43,7 @@ export function BookmarkedPage() {
   };
 
   return (
-<div className="flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8">
+    <div className="flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8">
       <BookmarkHeader 
         searchTerm={searchTerm}
         onSearchChange={(value) => setSearchTerm(value)}

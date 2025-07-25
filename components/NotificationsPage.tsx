@@ -1,7 +1,6 @@
- 
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { Preloaded, useMutation, usePreloadedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -10,7 +9,6 @@ import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Bell,
   MessageSquare,
@@ -28,8 +26,12 @@ const notificationIcons = {
   round_finished: <Trophy className="size-5 text-yellow-500" />,
 };
 
-export default function NotificationsPage() {
-  const notifications = useQuery(api.notifications.getForUser);
+interface NotificationsPageProps {
+  preloadedNotifications: Preloaded<typeof api.notifications.getForUser>;
+}
+
+export default function NotificationsPage({ preloadedNotifications }: NotificationsPageProps) {
+  const notifications = usePreloadedQuery(preloadedNotifications);
   const markAsRead = useMutation(api.notifications.markAsRead);
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
 
@@ -59,13 +61,6 @@ export default function NotificationsPage() {
           )}
         </CardHeader>
         <CardContent>
-          {notifications === undefined && (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full" />
-              ))}
-            </div>
-          )}
           {notifications && notifications.length === 0 && (
             <div className="py-20 text-center">
               <Bell className="mx-auto size-12 text-muted-foreground" />
