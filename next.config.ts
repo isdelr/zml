@@ -1,4 +1,3 @@
- 
 import type { NextConfig } from "next";
 
 /**
@@ -29,14 +28,16 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/image/**",
       },
+      {
+        protocol: "https",
+        hostname: "i.pravatar.cc",
+        port: "",
+        pathname: "/image/**",
+      },
     ],
 
-     
-     
-     
-     
-    deviceSizes: [320, 420, 640, 750, 828],  
-    imageSizes: [48, 64, 96, 128, 256],  
+    deviceSizes: [320, 420, 640, 750, 828],
+    imageSizes: [48, 64, 96, 128, 256],
 
     qualities: [70],
   },
