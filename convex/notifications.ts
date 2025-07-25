@@ -4,13 +4,11 @@ import {
   internalAction,
   query,
   mutation,
-  internalQuery,  
+  internalQuery,
 } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-
- 
 
 type CreateNotificationArgs = {
   userId: Id<"users">;
@@ -20,7 +18,6 @@ type CreateNotificationArgs = {
   triggeringUserId?: Id<"users">;
 };
 
- 
 export const create = internalMutation({
   args: {
     userId: v.id("users"),
@@ -50,7 +47,29 @@ export const create = internalMutation({
   },
 });
 
- 
+export const createMany = internalMutation({
+  args: {
+    notifications: v.array(
+      v.object({
+        userId: v.id("users"),
+        type: v.union(
+          v.literal("new_comment"),
+          v.literal("round_submission"),
+          v.literal("round_voting"),
+          v.literal("round_finished"),
+        ),
+        message: v.string(),
+        link: v.string(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    for (const notification of args.notifications) {
+      await ctx.db.insert("notifications", { ...notification, read: false });
+    }
+  },
+});
+
 export const createForLeague = internalAction({
   args: {
     leagueId: v.id("leagues"),
@@ -69,23 +88,23 @@ export const createForLeague = internalAction({
       { leagueId: args.leagueId },
     );
 
-    for (const membership of memberships) {
-      if (membership.userId === args.triggeringUserId) {
-        continue;
-      }
-
-      await ctx.runMutation(internal.notifications.create, {
+    const notificationsToCreate = memberships
+      .filter((membership) => membership.userId !== args.triggeringUserId)
+      .map((membership) => ({
         userId: membership.userId,
         type: args.type,
         message: args.message,
         link: args.link,
+      }));
+
+    if (notificationsToCreate.length > 0) {
+      await ctx.runMutation(internal.notifications.createMany, {
+        notifications: notificationsToCreate,
       });
     }
   },
 });
 
- 
- 
 export const getLeagueMemberships = internalQuery({
   args: { leagueId: v.id("leagues") },
   handler: async (ctx, args) => {
@@ -95,8 +114,6 @@ export const getLeagueMemberships = internalQuery({
       .collect();
   },
 });
-
- 
 
 export const getForUser = query({
   handler: async (ctx) => {

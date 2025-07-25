@@ -1,6 +1,6 @@
 // convex/submissions.ts
 import { v } from "convex/values";
-import { mutation, query, action, internalQuery } from "./_generated/server"; 
+import { mutation, query, action, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
@@ -74,7 +74,9 @@ export const getSongMetadataFromLink = action({
         artist: snippet.channelTitle,
         albumArtUrl: snippet.thumbnails.high.url,
         submissionType: "youtube" as const,
-        duration: contentDetails.duration ? parseISO8601Duration(contentDetails.duration) : 0,
+        duration: contentDetails.duration
+          ? parseISO8601Duration(contentDetails.duration)
+          : 0,
       };
     }
     throw new Error(
@@ -125,6 +127,7 @@ export const submitSong = mutation({
       artist: args.artist,
       comment: args.comment,
       duration: args.duration,
+      searchText: `${args.songTitle} ${args.artist}`,
     };
 
     if (args.submissionType === "file") {
@@ -196,6 +199,10 @@ export const editSong = mutation({
       }
     }
 
+    const newTitle = args.songTitle ?? submission.songTitle;
+    const newArtist = args.artist ?? submission.artist;
+    updates.searchText = `${newTitle} ${newArtist}`;
+
     if (args.albumArtKey === null) updates.albumArtKey = undefined;
     if (args.songFileKey === null) updates.songFileKey = undefined;
     if (args.songLink === null) updates.songLink = undefined;
@@ -222,7 +229,7 @@ export const getForRound = query({
 
     const round = await ctx.db.get(args.roundId);
     if (!round) return [];
-    
+
     const league = await ctx.db.get(round.leagueId);
     if (!league) return [];
 
@@ -251,8 +258,8 @@ export const getForRound = query({
 
         let albumArtUrl: string | null = null;
         let songFileUrl: string | null = null;
-        
-        const isAnonymous = round.status === 'voting';
+
+        const isAnonymous = round.status === "voting";
 
         if (submission.submissionType === "file") {
           [albumArtUrl, songFileUrl] = await Promise.all([
@@ -301,8 +308,8 @@ export const getForRound = query({
         }
         return {
           ...submission,
-          submittedBy: isAnonymous ? "Anonymous" : user?.name ?? "Anonymous",
-          submittedByImage: isAnonymous ? null : user?.image ?? null,
+          submittedBy: isAnonymous ? "Anonymous" : (user?.name ?? "Anonymous"),
+          submittedByImage: isAnonymous ? null : (user?.image ?? null),
           albumArtUrl: albumArtUrl!,
           songFileUrl: songFileUrl,
           points,
@@ -536,13 +543,22 @@ export const getPresignedSongUrl = action({
   // FIX 1: Add an explicit return type to the handler.
   handler: async (ctx, args): Promise<string | null> => {
     // FIX 2: Add an explicit type to the 'submission' constant.
-    const submission: Doc<"submissions"> | null = await ctx.runQuery(internal.submissions.getSubmissionById, {
-      submissionId: args.submissionId,
-    });
+    const submission: Doc<"submissions"> | null = await ctx.runQuery(
+      internal.submissions.getSubmissionById,
+      {
+        submissionId: args.submissionId,
+      },
+    );
 
     // Check if the submission exists and is a file-based upload
-    if (!submission || submission.submissionType !== "file" || !submission.songFileKey) {
-      console.error("Could not generate URL: Submission is not a file or key is missing.");
+    if (
+      !submission ||
+      submission.submissionType !== "file" ||
+      !submission.songFileKey
+    ) {
+      console.error(
+        "Could not generate URL: Submission is not a file or key is missing.",
+      );
       return null;
     }
 

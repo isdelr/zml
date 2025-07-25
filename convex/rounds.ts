@@ -104,17 +104,41 @@ export const getForLeague = query({
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .order("desc")
       .collect();
+
+    // Fetch all submissions for all rounds in this league in a single query
+    const roundIds = rounds.map((r) => r._id);
+    const allSubmissions = (
+      await Promise.all(
+        roundIds.map((roundId) =>
+          ctx.db
+            .query("submissions")
+            .withIndex("by_round", (q) => q.eq("roundId", roundId))
+            .collect(),
+        ),
+      )
+    ).flat();
+
+    // Group submissions by roundId for easy lookup
+    const submissionsByRound = allSubmissions.reduce(
+      (acc, submission) => {
+        const roundId = submission.roundId.toString();
+        if (!acc[roundId]) {
+          acc[roundId] = 0;
+        }
+        acc[roundId]++;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
     const roundsWithDetails = await Promise.all(
       rounds.map(async (round) => {
-        const submissions = await ctx.db
-          .query("submissions")
-          .withIndex("by_round", (q) => q.eq("roundId", round._id))
-          .collect();
         const artUrl =
           (round.imageKey && (await r2.getUrl(round.imageKey))) || null;
         return {
           ...round,
-          submissionCount: submissions.length,
+
+          submissionCount: submissionsByRound[round._id.toString()] ?? 0,
           art: artUrl,
         };
       }),

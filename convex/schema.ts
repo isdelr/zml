@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
- 
+
 export default defineSchema({
   ...authTables,
   numbers: defineTable({
@@ -19,8 +19,9 @@ export default defineSchema({
     inviteCode: v.union(v.string(), v.null()),
   })
     .index("by_creator", ["creatorId"])
-    .index("by_invite_code", ["inviteCode"]),
- 
+    .index("by_invite_code", ["inviteCode"])
+    .index("by_public", ["isPublic"]),
+
   memberships: defineTable({
     userId: v.id("users"),
     leagueId: v.id("leagues"),
@@ -29,7 +30,7 @@ export default defineSchema({
     .index("by_league_and_user", ["leagueId", "userId"])
     .index("by_user", ["userId"])
     .index("by_league", ["leagueId"]),
- 
+
   rounds: defineTable({
     leagueId: v.id("leagues"),
     title: v.string(),
@@ -43,8 +44,10 @@ export default defineSchema({
     ),
     submissionDeadline: v.number(),
     votingDeadline: v.number(),
-  }).index("by_league", ["leagueId"]),
- 
+  })
+    .index("by_league", ["leagueId"])
+    .index("by_league_and_status", ["leagueId", "status"]),
+
   submissions: defineTable({
     leagueId: v.id("leagues"),
     roundId: v.id("rounds"),
@@ -63,12 +66,17 @@ export default defineSchema({
     albumArtUrlValue: v.optional(v.string()),
     waveform: v.optional(v.string()),
     duration: v.optional(v.number()),
+    searchText: v.string(),
   })
     .index("by_round", ["roundId"])
     .index("by_round_and_user", ["roundId", "userId"])
     .index("by_user", ["userId"])
-    .index("by_user_and_league", ["userId", "leagueId"]),
- 
+    .index("by_user_and_league", ["userId", "leagueId"]) 
+    .searchIndex("by_text", {
+      searchField: "searchText",
+      filterFields: ["leagueId"],
+    }),
+
   votes: defineTable({
     roundId: v.id("rounds"),
     submissionId: v.id("submissions"),
@@ -78,34 +86,34 @@ export default defineSchema({
     .index("by_round", ["roundId"])
     .index("by_round_and_user", ["roundId", "userId"])
     .index("by_submission_and_user", ["submissionId", "userId"]),
- 
+
   bookmarks: defineTable({
     userId: v.id("users"),
     submissionId: v.id("submissions"),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_submission", ["userId", "submissionId"]),
- 
+
   comments: defineTable({
     submissionId: v.id("submissions"),
     userId: v.id("users"),
     text: v.string(),
   }).index("by_submission", ["submissionId"]),
- 
+
   notifications: defineTable({
-    userId: v.id("users"),  
+    userId: v.id("users"),
     type: v.union(
       v.literal("new_comment"),
       v.literal("round_submission"),
       v.literal("round_voting"),
       v.literal("round_finished"),
     ),
-    message: v.string(),  
-    link: v.string(),  
-    read: v.boolean(),  
-    triggeringUserId: v.optional(v.id("users")),  
+    message: v.string(),
+    link: v.string(),
+    read: v.boolean(),
+    triggeringUserId: v.optional(v.id("users")),
   }).index("by_user", ["userId"]),
- 
+
   roundResults: defineTable({
     roundId: v.id("rounds"),
     submissionId: v.id("submissions"),
@@ -116,7 +124,7 @@ export default defineSchema({
   })
     .index("by_round", ["roundId"])
     .index("by_submission", ["submissionId"]),
- 
+
   leagueStandings: defineTable({
     leagueId: v.id("leagues"),
     userId: v.id("users"),

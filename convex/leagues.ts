@@ -124,14 +124,12 @@ export const create = mutation({
         votingDeadline: votingDeadlineTimestamp,
       });
 
-       
-       
       await ctx.scheduler.runAfter(0, internal.notifications.create, {
-          userId: userId,
-          type: "round_submission",
-          message: `Your new round, "${round.title}", is open for submissions in "${args.name}"!`,
-          link: `/leagues/${leagueId}/round/${roundId}`,
-          triggeringUserId: userId,
+        userId: userId,
+        type: "round_submission",
+        message: `Your new round, "${round.title}", is open for submissions in "${args.name}"!`,
+        link: `/leagues/${leagueId}/round/${roundId}`,
+        triggeringUserId: userId,
       });
 
       submissionTime = votingDeadlineTimestamp;
@@ -144,7 +142,7 @@ export const getPublicLeagues = query({
   handler: async (ctx) => {
     const publicLeagues = await ctx.db
       .query("leagues")
-      .filter((q) => q.eq(q.field("isPublic"), true))
+      .withIndex("by_public", (q) => q.eq("isPublic", true))
       .order("desc")
       .collect();
     const leaguesWithDetails = await Promise.all(
@@ -507,7 +505,7 @@ export const getLeagueStandings = query({
     const standingsDocs = await ctx.db
       .query("leagueStandings")
       .withIndex("by_league_and_points", (q) => q.eq("leagueId", args.leagueId))
-      .order("desc")  
+      .order("desc")
       .collect();
 
     const standings = await Promise.all(
@@ -547,15 +545,15 @@ export const getLeagueMetadata = query({
       name: v.string(),
       description: v.string(),
       memberCount: v.number(),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     const league = await ctx.db.get(args.id);
-    
+
     if (!league) {
       return null;
     }
-    
+
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_league", (q) => q.eq("leagueId", league._id))
@@ -587,8 +585,9 @@ export const getLeagueStats = query({
   handler: async (ctx, args) => {
     const finishedRounds = await ctx.db
       .query("rounds")
-      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .filter((q) => q.eq(q.field("status"), "finished"))
+      .withIndex("by_league_and_status", (q) =>
+        q.eq("leagueId", args.leagueId).eq("status", "finished"),
+      )
       .collect();
 
     if (finishedRounds.length === 0) return null;
@@ -763,17 +762,15 @@ export const searchInLeague = query({
       return { rounds: [], songs: [] };
     }
     const lowerCaseSearch = args.searchText.toLowerCase();
-    
+
     const league = await ctx.db.get(args.leagueId);
     if (!league) return { rounds: [], songs: [] };
 
-     
     const allRounds = await ctx.db
       .query("rounds")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .collect();
 
-     
     const filteredRounds = allRounds
       .filter(
         (round) =>
@@ -782,69 +779,48 @@ export const searchInLeague = query({
       )
       .slice(0, 5);
 
-     
-
-     
-    const searchableRoundIds = allRounds
-      .filter(
-        (round) => round.status === "voting" || round.status === "finished",
+    // Use the new search index for efficient song searching
+    const searchedSongs = await ctx.db
+      .query("submissions")
+      .withSearchIndex("by_text", (q) =>
+        q.search("searchText", args.searchText).eq("leagueId", args.leagueId),
       )
-      .map((round) => round._id);
+      .take(5);
 
-    let searchableSubmissions: Doc<"submissions">[] = [];
-
-     
-    if (searchableRoundIds.length > 0) {
-      searchableSubmissions = (
-        await Promise.all(
-          searchableRoundIds.map((roundId) =>
-            ctx.db
-              .query("submissions")
-              .withIndex("by_round", (q) => q.eq("roundId", roundId))
-              .collect(),
-          ),
-        )
-      ).flat();
-    }
-
-     
+    // Hydrate song details
     const filteredSongs = (
       await Promise.all(
-        searchableSubmissions  
-          .filter(
-            (song) =>
-              song.songTitle.toLowerCase().includes(lowerCaseSearch) ||
-              song.artist.toLowerCase().includes(lowerCaseSearch),
-          )
-          .slice(0, 5)
-          .map(async (song) => {
-            const round = allRounds.find(r => r._id === song.roundId);
-            const user = await ctx.db.get(song.userId);
-            const isAnonymous = round?.status === 'voting';
+        searchedSongs.slice(0, 5).map(async (song) => {
+          const round = allRounds.find((r) => r._id === song.roundId);
+          // Do not return songs from rounds that are still in submission phase
+          if (!round || round.status === "submissions") return null;
 
-            const [albumArtUrl, songFileUrl] = await Promise.all([
-              song.albumArtKey
-                ? r2.getUrl(song.albumArtKey)
-                : Promise.resolve(song.albumArtUrlValue ?? null),
-              song.songFileKey
-                ? r2.getUrl(song.songFileKey)
-                : Promise.resolve(song.songLink ?? null),
-            ]);
-            return {
-              ...song,
-              albumArtUrl,
-              songFileUrl,
-              submittedBy: isAnonymous ? "Anonymous" : user?.name ?? "Anonymous",
-              roundStatus: round?.status,
-              roundTitle: round?.title,
-              leagueName: league.name,
-              leagueId: league._id,
-            };
-          }),
+          const user = await ctx.db.get(song.userId);
+          const isAnonymous = round?.status === "voting";
+
+          const [albumArtUrl, songFileUrl] = await Promise.all([
+            song.albumArtKey
+              ? r2.getUrl(song.albumArtKey)
+              : Promise.resolve(song.albumArtUrlValue ?? null),
+            song.songFileKey
+              ? r2.getUrl(song.songFileKey)
+              : Promise.resolve(song.songLink ?? null),
+          ]);
+          return {
+            ...song,
+            albumArtUrl,
+            songFileUrl,
+            submittedBy: isAnonymous
+              ? "Anonymous"
+              : (user?.name ?? "Anonymous"),
+            roundStatus: round?.status,
+            roundTitle: round?.title,
+            leagueName: league.name,
+            leagueId: league._id,
+          };
+        }),
       )
     ).filter((s): s is NonNullable<typeof s> => s !== null);
-
-     
 
     return { rounds: filteredRounds, songs: filteredSongs };
   },
@@ -858,20 +834,22 @@ export const calculateAndStoreResults = internalMutation({
       console.warn("Attempted to calculate results for a non-finished round.");
       return;
     }
-    
+
     const league = await ctx.db.get(round.leagueId);
     if (!league) {
-        console.error(`League not found for round ${args.roundId}, cannot calculate results`);
-        return;
+      console.error(
+        `League not found for round ${args.roundId}, cannot calculate results`,
+      );
+      return;
     }
 
     const submissions = await ctx.db
       .query("submissions")
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
       .collect();
-      
+
     if (submissions.length === 0) {
-      return; 
+      return;
     }
 
     const votes = await ctx.db
@@ -880,55 +858,62 @@ export const calculateAndStoreResults = internalMutation({
       .collect();
 
     // 1. Identify users who did not cast their full vote.
-    const allVotersInRound = new Map<Id<"users">, { up: number, down: number }>();
-    votes.forEach(vote => {
-        if (!allVotersInRound.has(vote.userId)) {
-            allVotersInRound.set(vote.userId, { up: 0, down: 0 });
-        }
-        const counts = allVotersInRound.get(vote.userId)!;
-        if (vote.vote > 0) counts.up++;
-        if (vote.vote < 0) counts.down++;
+    const allVotersInRound = new Map<
+      Id<"users">,
+      { up: number; down: number }
+    >();
+    votes.forEach((vote) => {
+      if (!allVotersInRound.has(vote.userId)) {
+        allVotersInRound.set(vote.userId, { up: 0, down: 0 });
+      }
+      const counts = allVotersInRound.get(vote.userId)!;
+      if (vote.vote > 0) counts.up++;
+      if (vote.vote < 0) counts.down++;
     });
 
-    const submitterIds = new Set(submissions.map(s => s.userId));
+    const submitterIds = new Set(submissions.map((s) => s.userId));
     const nonCompleteVoters = new Set<Id<"users">>();
 
-    submitterIds.forEach(submitterId => {
-        const voterInfo = allVotersInRound.get(submitterId);
-        if (!voterInfo || voterInfo.up < league.maxPositiveVotes || voterInfo.down < league.maxNegativeVotes) {
-            nonCompleteVoters.add(submitterId);
-        }
+    submitterIds.forEach((submitterId) => {
+      const voterInfo = allVotersInRound.get(submitterId);
+      if (
+        !voterInfo ||
+        voterInfo.up < league.maxPositiveVotes ||
+        voterInfo.down < league.maxNegativeVotes
+      ) {
+        nonCompleteVoters.add(submitterId);
+      }
     });
-    
+
     // 2. Calculate scores, applying penalty.
     const submissionScores = new Map<Id<"submissions">, number>();
     const penaltyApplied = new Map<Id<"submissions">, boolean>();
-    
+
     submissions.forEach((s) => {
       submissionScores.set(s._id, 0);
       penaltyApplied.set(s._id, false);
     });
 
     votes.forEach((vote) => {
-      const submission = submissions.find(s => s._id === vote.submissionId);
+      const submission = submissions.find((s) => s._id === vote.submissionId);
       if (!submission) return;
 
       const submitterId = submission.userId;
       const submitterDidNotVoteCompletely = nonCompleteVoters.has(submitterId);
 
       let voteValue = vote.vote;
-      
+
       if (submitterDidNotVoteCompletely && vote.vote > 0) {
         voteValue = 0;
         penaltyApplied.set(submission._id, true);
       }
-      
+
       submissionScores.set(
         vote.submissionId,
-        (submissionScores.get(vote.submissionId) ?? 0) + voteValue
+        (submissionScores.get(vote.submissionId) ?? 0) + voteValue,
       );
     });
-    
+
     // 3. Determine winners.
     const winners: Id<"submissions">[] = [];
     if (submissionScores.size > 0) {
@@ -946,7 +931,7 @@ export const calculateAndStoreResults = internalMutation({
         });
       }
     }
-    
+
     // 4. Store results and update standings.
     for (const sub of submissions) {
       const points = submissionScores.get(sub._id) ?? 0;
