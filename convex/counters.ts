@@ -13,5 +13,13 @@ export const memberCounter = new ShardedCounter<Id<"leagues">>(
   { defaultShards: 4 }
 );
 
-// You could also define other counters here, for example:
-// export const unreadNotificationCounter = new ShardedCounter<Id<"users">>(...);
+export const submissionCounter = new ShardedCounter<Id<"rounds">>(
+  components.shardedCounter,
+  { defaultShards: 4 }
+);
+
+export const submissionScoreCounter = new ShardedCounter<Id<"submissions">>(
+  components.shardedCounter,
+  // Submissions might get many votes quickly, so 8 shards is a safe choice.
+  { defaultShards: 8 }
+);

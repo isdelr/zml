@@ -55,12 +55,10 @@ export const getProfile = query({
       membershipsByUser.count(ctx, {
         //@ts-expect-error idk what's happening here tbh
         bounds: { prefix: [args.userId] },
-        namespace: undefined,
       }),
 
       submissionsByUser.count(ctx, {
         bounds: { prefix: [args.userId] },
-        namespace: undefined,
       }),
 
       ctx.db

@@ -7,6 +7,7 @@ import { components, internal } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
 import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 import { submissionsByUser } from "./aggregates";
+import { submissionCounter, submissionScoreCounter } from "./counters";
 
 const r2 = new R2(components.r2);
 
@@ -155,6 +156,7 @@ export const submitSong = mutation({
         albumArtUrlValue: args.albumArtUrlValue,
       });
     }
+    await submissionCounter.inc(ctx, args.roundId);
 
     const submissionDoc = await ctx.db.get(submissionId);
     await submissionsByUser.insert(ctx, submissionDoc!);
@@ -247,7 +249,6 @@ export const getForRound = query({
 
     if (submissions.length === 0) return [];
 
-    // --- OPTIMIZATION 1: Batch fetch users ---
     const userIds = submissions.map((s) => s.userId);
     const users = await Promise.all(
       userIds.map((id) => ctx.db.get(id)),
@@ -263,7 +264,7 @@ export const getForRound = query({
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
 
-    // --- OPTIMIZATION 2: Pre-calculate points ---
+
     const pointsBySubmission = new Map<string, number>();
     for (const vote of allVotesForRound) {
       const submissionId = vote.submissionId.toString();
@@ -283,9 +284,19 @@ export const getForRound = query({
       userBookmarks.map((b) => b.submissionId),
     );
 
+        const roundResultsMap = new Map<string, Doc<"roundResults">>();
+    if (round.status === "finished") {
+      const results = await ctx.db
+        .query("roundResults")
+        .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+        .collect();
+      for (const result of results) {
+        roundResultsMap.set(result.submissionId.toString(), result);
+      }
+    }
+
     return Promise.all(
       submissions.map(async (submission) => {
-        // --- Use pre-fetched data ---
         const user = userMap.get(submission.userId.toString());
         const isAnonymous = round.status === "voting";
 
@@ -302,19 +313,14 @@ export const getForRound = query({
         let isPenalized = false;
         
         if (round.status === "finished") {
-             const resultDoc = await ctx.db
-            .query("roundResults")
-            .withIndex("by_submission", (q) =>
-              q.eq("submissionId", submission._id),
-            )
-            .first();
+          const resultDoc = roundResultsMap.get(submission._id.toString());
           if (resultDoc) {
             points = resultDoc.points;
             isPenalized = resultDoc.penaltyApplied ?? false;
           }
         } else {
-             // --- Use pre-calculated points ---
-            points = pointsBySubmission.get(submission._id.toString()) ?? 0;
+          // 👇 Use the sharded counter for live scores
+          points = await submissionScoreCounter.count(ctx, submission._id);
         }
 
         return {

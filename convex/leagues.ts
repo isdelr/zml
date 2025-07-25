@@ -318,13 +318,14 @@ export const getInviteInfo = query({
         name: u.name,
         image: u.image,
       }));
+    const memberCount = await memberCounter.count(ctx, league._id);
     return {
       _id: league._id,
       name: league.name,
       description: league.description,
       creatorName: creator?.name ?? "Unknown",
       creatorImage: creator?.image,
-      memberCount: members.length,
+      memberCount,
       members,
     };
   },
@@ -408,6 +409,7 @@ export const joinPublicLeague = mutation({
     });
     const membershipDoc = await ctx.db.get(membershipId);
     await membershipsByUser.insert(ctx, membershipDoc!);
+    await memberCounter.inc(ctx, league._id); 
 
     await ctx.db.insert("leagueStandings", {
       leagueId: league._id,

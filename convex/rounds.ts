@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
+import { submissionCounter } from "./counters";
 
 const r2 = new R2(components.r2);
 
@@ -105,29 +106,16 @@ export const getForLeague = query({
       .order("desc")
       .collect();
 
-    // --- OPTIMIZATION: Fetch all submissions for the league at once ---
-    const allSubmissions = (await Promise.all(
-        rounds.map(round => 
-            ctx.db.query("submissions")
-                .withIndex("by_round_and_user", q => q.eq("roundId", round._id))
-                .collect()
-        )
-    )).flat();
-    
-    const submissionsByRound = allSubmissions.reduce((acc, submission) => {
-        const roundId = submission.roundId.toString();
-        acc[roundId] = (acc[roundId] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-
     return Promise.all(
       rounds.map(async (round) => {
         const artUrl =
           (round.imageKey && (await r2.getUrl(round.imageKey))) || null;
+        
+        const submissionCount = await submissionCounter.count(ctx, round._id);
+
         return {
           ...round,
-          // Use the pre-counted submissions
-          submissionCount: submissionsByRound[round._id.toString()] ?? 0,
+          submissionCount,
           art: artUrl,
         };
       }),
