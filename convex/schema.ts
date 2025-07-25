@@ -68,10 +68,9 @@ export default defineSchema({
     duration: v.optional(v.number()),
     searchText: v.string(),
   })
-    .index("by_round", ["roundId"])
     .index("by_round_and_user", ["roundId", "userId"])
-    .index("by_user", ["userId"])
-    .index("by_user_and_league", ["userId", "leagueId"]) 
+
+    .index("by_user_and_league", ["userId", "leagueId"])
     .searchIndex("by_text", {
       searchField: "searchText",
       filterFields: ["leagueId"],
@@ -83,16 +82,13 @@ export default defineSchema({
     userId: v.id("users"),
     vote: v.number(),
   })
-    .index("by_round", ["roundId"])
     .index("by_round_and_user", ["roundId", "userId"])
     .index("by_submission_and_user", ["submissionId", "userId"]),
 
   bookmarks: defineTable({
     userId: v.id("users"),
     submissionId: v.id("submissions"),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_and_submission", ["userId", "submissionId"]),
+  }).index("by_user_and_submission", ["userId", "submissionId"]),
 
   comments: defineTable({
     submissionId: v.id("submissions"),
@@ -112,7 +108,9 @@ export default defineSchema({
     link: v.string(),
     read: v.boolean(),
     triggeringUserId: v.optional(v.id("users")),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_read", ["userId", "read"]),
 
   roundResults: defineTable({
     roundId: v.id("rounds"),

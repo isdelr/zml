@@ -235,17 +235,17 @@ export const getForRound = query({
 
     const submissions = await ctx.db
       .query("submissions")
-      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
 
     const allVotesForRound = await ctx.db
       .query("votes")
-      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
     const userBookmarks = userId
       ? await ctx.db
           .query("bookmarks")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .withIndex("by_user_and_submission", (q) => q.eq("userId", userId))
           .collect()
       : [];
     const bookmarkedSubmissionIds = new Set(
@@ -333,7 +333,7 @@ export const getMySubmissions = query({
     if (!userId) return [];
     const userSubmissions = await ctx.db
       .query("submissions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_and_league", (q) => q.eq("userId", userId))
       .order("desc")
       .collect();
 

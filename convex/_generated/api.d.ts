@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as bookmarks from "../bookmarks.js";
+import type * as counters from "../counters.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as leagues from "../leagues.js";
@@ -39,6 +40,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   bookmarks: typeof bookmarks;
+  counters: typeof counters;
   files: typeof files;
   http: typeof http;
   leagues: typeof leagues;
@@ -270,6 +272,30 @@ export declare const components: {
         },
         { isNew: boolean }
       >;
+    };
+  };
+  shardedCounter: {
+    public: {
+      add: FunctionReference<
+        "mutation",
+        "internal",
+        { count: number; name: string; shard?: number; shards?: number },
+        number
+      >;
+      count: FunctionReference<"query", "internal", { name: string }, number>;
+      estimateCount: FunctionReference<
+        "query",
+        "internal",
+        { name: string; readFromShards?: number; shards?: number },
+        any
+      >;
+      rebalance: FunctionReference<
+        "mutation",
+        "internal",
+        { name: string; shards?: number },
+        any
+      >;
+      reset: FunctionReference<"mutation", "internal", { name: string }, any>;
     };
   };
 };

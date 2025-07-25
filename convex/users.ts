@@ -54,7 +54,7 @@ export const getProfile = query({
 
     const allUserSubmissions = await ctx.db
       .query("submissions")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_and_league", (q) => q.eq("userId", args.userId))
       .collect();
 
     const memberships = await ctx.db

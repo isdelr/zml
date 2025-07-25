@@ -10,6 +10,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
+import { memberCounter } from "./counters";
 
 const r2 = new R2(components.r2);
 
@@ -100,6 +101,8 @@ export const create = mutation({
       joinDate: Date.now(),
     });
 
+    await memberCounter.inc(ctx, leagueId);
+
     await ctx.db.insert("leagueStandings", {
       leagueId,
       userId,
@@ -147,10 +150,7 @@ export const getPublicLeagues = query({
       .collect();
     const leaguesWithDetails = await Promise.all(
       publicLeagues.map(async (league) => {
-        const memberships = await ctx.db
-          .query("memberships")
-          .withIndex("by_league", (q) => q.eq("leagueId", league._id))
-          .collect();
+        const memberCount = await memberCounter.count(ctx, league._id);
         const rounds = await ctx.db
           .query("rounds")
           .withIndex("by_league", (q) => q.eq("leagueId", league._id))
@@ -162,7 +162,7 @@ export const getPublicLeagues = query({
           : null;
         return {
           ...league,
-          memberCount: memberships.length,
+          memberCount,
           genres,
           art,
         };
@@ -247,9 +247,9 @@ export const get = query({
       .query("memberships")
       .withIndex("by_league", (q) => q.eq("leagueId", league._id))
       .collect();
-    const memberDocs = await Promise.all(
-      memberships.map((m) => ctx.db.get(m.userId)),
-    );
+    const memberIds = memberships.map((m) => m.userId);
+    const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
+    const memberCount = await memberCounter.count(ctx, league._id);
     const members = memberDocs
       .filter((u): u is Doc<"users"> => u !== null)
       .map((u) => ({
@@ -263,7 +263,7 @@ export const get = query({
       ...league,
       creatorName: creator?.name ?? "Unknown",
       creatorImage: creator?.image,
-      memberCount: members.length,
+      memberCount: memberCount,
       isOwner: isOwner,
       isMember: isMember,
       inviteCode: isOwner ? league.inviteCode : undefined,
@@ -304,9 +304,8 @@ export const getInviteInfo = query({
       .query("memberships")
       .withIndex("by_league", (q) => q.eq("leagueId", league._id))
       .collect();
-    const memberDocs = await Promise.all(
-      memberships.map((m) => ctx.db.get(m.userId)),
-    );
+    const memberIds = memberships.map((m) => m.userId);
+    const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
     const members = memberDocs
       .filter((u): u is Doc<"users"> => u !== null)
       .map((u) => ({
@@ -354,6 +353,8 @@ export const joinWithInviteCode = mutation({
       leagueId: league._id,
       joinDate: Date.now(),
     });
+
+    await memberCounter.inc(ctx, league._id);
 
     await ctx.db.insert("leagueStandings", {
       leagueId: league._id,
@@ -476,6 +477,8 @@ export const kickMember = mutation({
       throw new Error("This user is not a member of the league.");
     }
     await ctx.db.delete(membership._id);
+
+    await memberCounter.dec(ctx, args.leagueId);
 
     const standing = await ctx.db
       .query("leagueStandings")
@@ -609,7 +612,7 @@ export const getLeagueStats = query({
         roundIds.map((roundId) =>
           ctx.db
             .query("votes")
-            .withIndex("by_round", (q) => q.eq("roundId", roundId))
+            .withIndex("by_round_and_user", (q) => q.eq("roundId", roundId))
             .collect(),
         ),
       )
@@ -620,9 +623,8 @@ export const getLeagueStats = query({
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .collect();
 
-    const memberDocs = await Promise.all(
-      memberships.map((m) => ctx.db.get(m.userId)),
-    );
+    const memberIds = memberships.map((m) => m.userId);
+    const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
     const members = memberDocs.filter((u): u is Doc<"users"> => u !== null);
     const memberMap = new Map(
       members.map((m) => [m._id, { name: m.name, image: m.image }]),
@@ -690,7 +692,7 @@ export const getLeagueStats = query({
         roundIds.map((roundId) =>
           ctx.db
             .query("submissions")
-            .withIndex("by_round", (q) => q.eq("roundId", roundId))
+            .withIndex("by_round_and_user", (q) => q.eq("roundId", roundId))
             .collect(),
         ),
       )
@@ -845,7 +847,7 @@ export const calculateAndStoreResults = internalMutation({
 
     const submissions = await ctx.db
       .query("submissions")
-      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
 
     if (submissions.length === 0) {
@@ -854,7 +856,7 @@ export const calculateAndStoreResults = internalMutation({
 
     const votes = await ctx.db
       .query("votes")
-      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
 
     // 1. Identify users who did not cast their full vote.

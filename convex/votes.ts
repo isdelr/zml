@@ -9,7 +9,7 @@ export const getForRound = query({
   handler: async (ctx, args) => {
     const votes = await ctx.db
       .query("votes")
-      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
     return votes;
   },
@@ -77,7 +77,7 @@ export const getVotersForRound = query({
   handler: async (ctx, args) => {
     const votes = await ctx.db
       .query("votes")
-      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
 
     if (votes.length === 0) {
@@ -179,7 +179,7 @@ export const castVote = mutation({
     if (currentUserFinishedVoting) {
         const allSubmissionsInRound = await ctx.db
             .query("submissions")
-            .withIndex("by_round", (q) => q.eq("roundId", round._id))
+            .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
             .collect();
         
         if (allSubmissionsInRound.length === 0) {
@@ -190,7 +190,7 @@ export const castVote = mutation({
 
         const allVotesInRound = await ctx.db
             .query("votes")
-            .withIndex("by_round", (q) => q.eq("roundId", round._id))
+            .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
             .collect();
 
         let allSubmittersHaveVoted = true;

@@ -112,7 +112,7 @@ export const getForLeague = query({
         roundIds.map((roundId) =>
           ctx.db
             .query("submissions")
-            .withIndex("by_round", (q) => q.eq("roundId", roundId))
+            .withIndex("by_round_and_user", (q) => q.eq("roundId", roundId))
             .collect(),
         ),
       )
@@ -222,11 +222,11 @@ export const manageRoundState = mutation({
           throw new Error("Round is not in voting phase.");
         const submissions = await ctx.db
           .query("submissions")
-          .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+          .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
           .collect();
         const votes = await ctx.db
           .query("votes")
-          .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+          .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
           .collect();
         if (submissions.length === 0) {
           throw new Error(
@@ -301,7 +301,7 @@ export const updateRound = mutation({
     }
     const submissions = await ctx.db
       .query("submissions")
-      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
     if (submissions.length > 0) {
       throw new Error("Cannot edit a round with existing submissions.");
@@ -343,14 +343,14 @@ export const getVoteSummary = query({
 
     const votes = await ctx.db
       .query("votes")
-      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
 
     if (votes.length === 0) return [];
 
     const submissions = await ctx.db
       .query("submissions")
-      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
 
     const allUserIds = new Set<Id<"users">>();

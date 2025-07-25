@@ -44,7 +44,7 @@ export const getBookmarkedSongs = query({
 
     const bookmarks = await ctx.db
       .query("bookmarks")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_and_submission", (q) => q.eq("userId", userId))
       .collect();
 
     const songs = await Promise.all(
