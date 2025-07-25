@@ -5,6 +5,8 @@ import {
   query,
   internalMutation,
   MutationCtx,
+  internalAction,
+  internalQuery,
 } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
@@ -192,6 +194,7 @@ export const getLeaguesForUser = query({
     );
   },
 });
+
 
 export const get = query({
   args: { id: v.id("leagues") },
@@ -570,22 +573,34 @@ export const getLeagueMetadata = query({
   },
 });
 
-export const getLeagueStats = query({
+export const updateLeagueStats = internalAction({
   args: { leagueId: v.id("leagues") },
-  returns: v.union(
-    v.null(),
-    v.object({
-      overlord: v.union(v.null(), userStatValidator),
-      peopleChampion: v.union(v.null(), userStatValidator),
-      mostControversial: v.union(v.null(), userStatValidator),
-      prolificVoter: v.union(v.null(), userStatValidator),
-      topSong: v.union(v.null(), topSongValidator),
-      genreBreakdown: v.array(
-        v.object({ name: v.string(), value: v.number() }),
-      ),
-    }),
-  ),
   handler: async (ctx, args) => {
+    // The entire logic from your old getLeagueStats handler goes here.
+    // We use runQuery to access the database from an action.
+    const statsData = await ctx.runQuery(internal.leagues.getStatsData, {
+      leagueId: args.leagueId,
+    });
+
+    if (!statsData) {
+      console.log(
+        `No finished rounds for league ${args.leagueId}, skipping stats update.`,
+      );
+      return;
+    }
+
+    // Now, instead of returning the data, we call a mutation to store it.
+    await ctx.runMutation(internal.leagues.storeLeagueStats, {
+      leagueId: args.leagueId,
+      stats: statsData,
+    });
+  },
+});
+
+export const getStatsData = internalQuery({
+  args: { leagueId: v.id("leagues") },
+  handler: async (ctx, args) => {
+    // This is a direct copy of your original getLeagueStats handler logic
     const finishedRounds = await ctx.db
       .query("rounds")
       .withIndex("by_league_and_status", (q) =>
@@ -627,8 +642,9 @@ export const getLeagueStats = query({
     const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
     const members = memberDocs.filter((u): u is Doc<"users"> => u !== null);
     const memberMap = new Map(
-      members.map((m) => [m._id, { name: m.name, image: m.image }]),
+      members.map((m) => [m._id.toString(), { name: m.name, image: m.image }]),
     );
+
     const standings = await ctx.db
       .query("leagueStandings")
       .withIndex("by_league_and_user", (q) => q.eq("leagueId", args.leagueId))
@@ -640,20 +656,25 @@ export const getLeagueStats = query({
         ? { userId: mostWins[0].userId, count: mostWins[0].totalWins }
         : null;
 
-    const userUpvotes = new Map<Id<"users">, number>();
-    const userDownvotes = new Map<Id<"users">, number>();
+    const userUpvotes = new Map<string, number>();
+    const userDownvotes = new Map<string, number>();
     const submissionSubmitterMap = new Map(
-      results.map((r) => [r.submissionId, r.userId]),
+      results.map((r) => [r.submissionId.toString(), r.userId]),
     );
     votes.forEach((vote) => {
-      const submitterId = submissionSubmitterMap.get(vote.submissionId);
+      const submitterId = submissionSubmitterMap.get(
+        vote.submissionId.toString(),
+      );
       if (!submitterId) return;
       if (vote.vote > 0)
-        userUpvotes.set(submitterId, (userUpvotes.get(submitterId) ?? 0) + 1);
+        userUpvotes.set(
+          submitterId.toString(),
+          (userUpvotes.get(submitterId.toString()) ?? 0) + 1,
+        );
       if (vote.vote < 0)
         userDownvotes.set(
-          submitterId,
-          (userDownvotes.get(submitterId) ?? 0) + 1,
+          submitterId.toString(),
+          (userDownvotes.get(submitterId.toString()) ?? 0) + 1,
         );
     });
 
@@ -670,9 +691,12 @@ export const getLeagueStats = query({
         ? { userId: mostDownvotes[0][0], count: mostDownvotes[0][1] }
         : null;
 
-    const userVoteCount = new Map<Id<"users">, number>();
+    const userVoteCount = new Map<string, number>();
     votes.forEach((vote) =>
-      userVoteCount.set(vote.userId, (userVoteCount.get(vote.userId) ?? 0) + 1),
+      userVoteCount.set(
+        vote.userId.toString(),
+        (userVoteCount.get(vote.userId.toString()) ?? 0) + 1,
+      ),
     );
     const mostVotesCast = [...userVoteCount.entries()].sort(
       (a, b) => b[1] - a[1],
@@ -713,9 +737,7 @@ export const getLeagueStats = query({
       value,
     }));
 
-    const formatUserStat = (
-      stat: { userId: Id<"users">; count: number } | null,
-    ) => {
+    const formatUserStat = (stat: { userId: string; count: number } | null) => {
       if (!stat) return null;
       const user = memberMap.get(stat.userId);
       if (!user) return null;
@@ -733,7 +755,7 @@ export const getLeagueStats = query({
         albumArtUrl = submission.albumArtUrlValue ?? null;
       }
 
-      const submitter = memberMap.get(submission.userId);
+      const submitter = memberMap.get(submission.userId.toString());
       return {
         songTitle: submission.songTitle,
         artist: submission.artist,
@@ -963,5 +985,67 @@ export const calculateAndStoreResults = internalMutation({
         });
       }
     }
+  },
+});
+
+export const storeLeagueStats = internalMutation({
+  args: {
+    leagueId: v.id("leagues"),
+    // Re-use the validators from your schema for type safety
+    stats: v.object({
+      overlord: v.union(v.null(), userStatValidator),
+      peopleChampion: v.union(v.null(), userStatValidator),
+      mostControversial: v.union(v.null(), userStatValidator),
+      prolificVoter: v.union(v.null(), userStatValidator),
+      topSong: v.union(v.null(), topSongValidator),
+      genreBreakdown: v.array(
+        v.object({ name: v.string(), value: v.number() }),
+      ),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const existingStats = await ctx.db
+      .query("leagueStats")
+      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+      .first();
+
+    if (existingStats) {
+      // If stats already exist, patch them with the new data
+      await ctx.db.patch(existingStats._id, args.stats);
+    } else {
+      // Otherwise, insert a new document
+      await ctx.db.insert("leagueStats", {
+        leagueId: args.leagueId,
+        ...args.stats,
+      });
+    }
+  },
+});
+
+
+export const getLeagueStats = query({
+  args: { leagueId: v.id("leagues") },
+  // The returns validator can remain the same
+  returns: v.union(
+    v.null(),
+    v.object({
+      overlord: v.union(v.null(), userStatValidator),
+      peopleChampion: v.union(v.null(), userStatValidator),
+      mostControversial: v.union(v.null(), userStatValidator),
+      prolificVoter: v.union(v.null(), userStatValidator),
+      topSong: v.union(v.null(), topSongValidator),
+      genreBreakdown: v.array(
+        v.object({ name: v.string(), value: v.number() }),
+      ),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    // The new handler is just a simple lookup!
+    const stats = await ctx.db
+      .query("leagueStats")
+      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+      .first();
+      
+    return stats;
   },
 });

@@ -140,4 +140,50 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_submission_lastSeen", ["submissionId", "lastSeen"]),
+  leagueStats: defineTable({
+    leagueId: v.id("leagues"),
+    overlord: v.union(
+      v.null(),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(),
+      }),
+    ),
+    peopleChampion: v.union(
+      v.null(),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(),
+      }),
+    ),
+    mostControversial: v.union(
+      v.null(),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(),
+      }),
+    ),
+    prolificVoter: v.union(
+      v.null(),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(),
+      }),
+    ),
+    topSong: v.union(
+      v.null(),
+      v.object({
+        songTitle: v.string(),
+        artist: v.string(),
+        albumArtUrl: v.union(v.string(), v.null()),
+        score: v.number(),
+        submittedBy: v.string(),
+      }),
+    ),
+    genreBreakdown: v.array(v.object({ name: v.string(), value: v.number() })),
+  }).index("by_league", ["leagueId"]),
 });

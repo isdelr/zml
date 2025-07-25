@@ -245,6 +245,9 @@ export const manageRoundState = mutation({
             roundId: args.roundId,
           },
         );
+        await ctx.scheduler.runAfter(0, internal.leagues.updateLeagueStats, {
+          leagueId: round.leagueId,
+        });
         await ctx.scheduler.runAfter(
           0,
           internal.notifications.createForLeague,
