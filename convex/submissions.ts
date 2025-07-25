@@ -234,7 +234,6 @@ export const getForRound = query({
   args: { roundId: v.id("rounds") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-
     const round = await ctx.db.get(args.roundId);
     if (!round) return [];
 
@@ -246,10 +245,34 @@ export const getForRound = query({
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
 
+    if (submissions.length === 0) return [];
+
+    // --- OPTIMIZATION 1: Batch fetch users ---
+    const userIds = submissions.map((s) => s.userId);
+    const users = await Promise.all(
+      userIds.map((id) => ctx.db.get(id)),
+    );
+    const userMap = new Map(
+      users
+        .filter((u): u is Doc<"users"> => u !== null)
+        .map((u) => [u._id.toString(), u]),
+    );
+
     const allVotesForRound = await ctx.db
       .query("votes")
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
+
+    // --- OPTIMIZATION 2: Pre-calculate points ---
+    const pointsBySubmission = new Map<string, number>();
+    for (const vote of allVotesForRound) {
+      const submissionId = vote.submissionId.toString();
+      pointsBySubmission.set(
+        submissionId,
+        (pointsBySubmission.get(submissionId) ?? 0) + vote.vote,
+      );
+    }
+
     const userBookmarks = userId
       ? await ctx.db
           .query("bookmarks")
@@ -262,32 +285,24 @@ export const getForRound = query({
 
     return Promise.all(
       submissions.map(async (submission) => {
-        const user = await ctx.db.get(submission.userId);
-
-        let albumArtUrl: string | null = null;
-        let songFileUrl: string | null = null;
-
+        // --- Use pre-fetched data ---
+        const user = userMap.get(submission.userId.toString());
         const isAnonymous = round.status === "voting";
 
-        if (submission.submissionType === "file") {
-          [albumArtUrl, songFileUrl] = await Promise.all([
-            submission.albumArtKey
-              ? r2.getUrl(submission.albumArtKey)
-              : Promise.resolve(null),
-            submission.songFileKey
-              ? r2.getUrl(submission.songFileKey)
-              : Promise.resolve(null),
-          ]);
-        } else {
-          albumArtUrl = submission.albumArtUrlValue ?? null;
-          songFileUrl = submission.songLink ?? null;
-        }
-
+        const [albumArtUrl, songFileUrl] = await Promise.all([
+          submission.albumArtKey
+            ? r2.getUrl(submission.albumArtKey)
+            : Promise.resolve(submission.albumArtUrlValue ?? null),
+          submission.songFileKey
+            ? r2.getUrl(submission.songFileKey)
+            : Promise.resolve(submission.songLink ?? null),
+        ]);
+        
         let points = 0;
         let isPenalized = false;
-
+        
         if (round.status === "finished") {
-          const resultDoc = await ctx.db
+             const resultDoc = await ctx.db
             .query("roundResults")
             .withIndex("by_submission", (q) =>
               q.eq("submissionId", submission._id),
@@ -298,31 +313,17 @@ export const getForRound = query({
             isPenalized = resultDoc.penaltyApplied ?? false;
           }
         } else {
-          points = allVotesForRound
-            .filter((v) => v.submissionId === submission._id)
-            .reduce((acc, vote) => acc + vote.vote, 0);
+             // --- Use pre-calculated points ---
+            points = pointsBySubmission.get(submission._id.toString()) ?? 0;
         }
 
-        let userUpvotes = 0;
-        let userDownvotes = 0;
-        if (userId) {
-          const userVotesOnSubmission = allVotesForRound.filter(
-            (v) => v.userId === userId && v.submissionId === submission._id,
-          );
-          userUpvotes = userVotesOnSubmission.filter((v) => v.vote > 0).length;
-          userDownvotes = userVotesOnSubmission.filter(
-            (v) => v.vote < 0,
-          ).length;
-        }
         return {
           ...submission,
-          submittedBy: isAnonymous ? "Anonymous" : (user?.name ?? "Anonymous"),
-          submittedByImage: isAnonymous ? null : (user?.image ?? null),
+          submittedBy: isAnonymous ? "Anonymous" : user?.name ?? "Anonymous",
+          submittedByImage: isAnonymous ? null : user?.image ?? null,
           albumArtUrl: albumArtUrl!,
           songFileUrl: songFileUrl,
           points,
-          userUpvotes,
-          userDownvotes,
           isPenalized,
           isBookmarked: bookmarkedSubmissionIds.has(submission._id),
           roundStatus: round.status,
