@@ -6,6 +6,7 @@ import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
 import { SpotifyApi } from "@spotify/web-api-ts-sdk";
+import { submissionsByUser } from "./aggregates";
 
 const r2 = new R2(components.r2);
 
@@ -130,11 +131,12 @@ export const submitSong = mutation({
       searchText: `${args.songTitle} ${args.artist}`,
     };
 
+    let submissionId;
     if (args.submissionType === "file") {
       if (!args.albumArtKey || !args.songFileKey) {
         throw new Error("File keys are required for manual submission.");
       }
-      await ctx.db.insert("submissions", {
+      submissionId = await ctx.db.insert("submissions", {
         ...baseSubmissionData,
         submissionType: "file",
         albumArtKey: args.albumArtKey,
@@ -146,13 +148,16 @@ export const submitSong = mutation({
           "Link and album art URL are required for link submission.",
         );
       }
-      await ctx.db.insert("submissions", {
+      submissionId = await ctx.db.insert("submissions", {
         ...baseSubmissionData,
         submissionType: args.submissionType,
         songLink: args.songLink,
         albumArtUrlValue: args.albumArtUrlValue,
       });
     }
+
+    const submissionDoc = await ctx.db.get(submissionId);
+    await submissionsByUser.insert(ctx, submissionDoc!);
   },
 });
 
@@ -189,6 +194,7 @@ export const editSong = mutation({
       );
     }
 
+    const oldDoc = submission;
     const { submissionId, ...rest } = args;
 
     const updates: Partial<Doc<"submissions">> = {};
@@ -217,6 +223,8 @@ export const editSong = mutation({
     }
 
     await ctx.db.patch(submissionId, updates);
+    const newDoc = await ctx.db.get(submissionId);
+    await submissionsByUser.replace(ctx, oldDoc, newDoc!);
 
     return "Submission updated successfully.";
   },

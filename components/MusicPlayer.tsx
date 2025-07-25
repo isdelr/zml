@@ -66,6 +66,7 @@ export function MusicPlayer() {
   const { isAuthenticated } = useConvexAuth();
 
   const updateListeningState = useMutation(api.listening.updateListeningState);
+  const updatePresence = useMutation(api.presence.update);
   const previousTrackIdRef = useRef<Id<"submissions"> | null>(null);
 
   const isExternalLink =
@@ -209,42 +210,20 @@ export function MusicPlayer() {
     storeWaveform,
   ]);
   
-  // --- CORRECTED EFFECT for Listening Activity ---
   useEffect(() => {
-    let activityInterval: NodeJS.Timeout | undefined;
-
-    // If the track is playing, set up the listening state and the keep-alive interval
     if (isPlaying && currentTrack) {
-        // Immediately report that the user is listening to the current track
-        updateListeningState({ submissionId: currentTrack._id as Id<"submissions"> });
-
-        // Keep track of what was being played so we can clear it on cleanup
-        previousTrackIdRef.current = currentTrack._id as Id<"submissions">;
-
-        // Set up an interval to periodically update the 'lastSeen' timestamp
-        activityInterval = setInterval(() => {
-            // The existence of this interval means isPlaying is true.
-            // When isPlaying becomes false, the cleanup function clears it.
-            updateListeningState({ submissionId: currentTrack._id as Id<"submissions"> });
-        }, 45 * 1000); // Send update every 45 seconds to keep the session "active"
+      // User is actively listening to a track
+      updatePresence({ listeningTo: currentTrack._id as Id<"submissions"> });
+    } else {
+      // User is not listening (player is paused or no track)
+      updatePresence({ listeningTo: null });
     }
 
-    // This is the cleanup function for the effect.
-    // It runs when the component unmounts OR when any dependency (isPlaying, currentTrack) changes.
+    // This is the cleanup function. When the component unmounts, clear presence.
     return () => {
-        // Stop the periodic updates
-        clearInterval(activityInterval);
-
-        // If the user was listening to a track before this cleanup,
-        // clear their listening state now.
-        if (previousTrackIdRef.current) {
-             updateListeningState({ submissionId: undefined });
-             previousTrackIdRef.current = null;
-        }
+      updatePresence({ listeningTo: null });
     };
-    // The effect re-runs whenever isPlaying or the currentTrack changes.
-  }, [isPlaying, currentTrack, updateListeningState]);
-  // --- END CORRECTION ---
+  }, [isPlaying, currentTrack, updatePresence]);
 
   useEffect(() => {
     if (currentTrack) {

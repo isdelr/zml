@@ -1,8 +1,7 @@
- 
-
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { membershipsByUser, submissionsByUser } from "./aggregates";
 
 export const getCurrentUser = query({
   args: {},
@@ -52,15 +51,23 @@ export const getProfile = query({
       return null;
     }
 
-    const allUserSubmissions = await ctx.db
-      .query("submissions")
-      .withIndex("by_user_and_league", (q) => q.eq("userId", args.userId))
-      .collect();
+    const [leaguesJoined, totalSubmissions, memberships] = await Promise.all([
+      membershipsByUser.count(ctx, {
+        //@ts-expect-error idk what's happening here tbh
+        bounds: { prefix: [args.userId] },
+        namespace: undefined,
+      }),
 
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .collect();
+      submissionsByUser.count(ctx, {
+        bounds: { prefix: [args.userId] },
+        namespace: undefined,
+      }),
+
+      ctx.db
+        .query("memberships")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .collect(),
+    ]);
 
     const leagueIds = memberships.map((m) => m.leagueId);
     let totalWins = 0;
@@ -72,13 +79,11 @@ export const getProfile = query({
 
         const allStandingsForLeague = await ctx.db
           .query("leagueStandings")
-          .withIndex("by_league_and_points", (q) =>
-            q.eq("leagueId", leagueId),
-          )
+          .withIndex("by_league_and_points", (q) => q.eq("leagueId", leagueId))
           .order("desc")
           .collect();
 
-       const userStanding = allStandingsForLeague.find(
+        const userStanding = allStandingsForLeague.find(
           (s) => s.userId === args.userId,
         );
 
@@ -108,7 +113,7 @@ export const getProfile = query({
         };
       }),
     );
-    
+
     const filteredLeaguesData = leaguesData.filter(
       (l): l is NonNullable<typeof l> => l !== null,
     );
@@ -119,9 +124,9 @@ export const getProfile = query({
       image: user.image,
       creationTime: user._creationTime,
       stats: {
-        leaguesJoined: filteredLeaguesData.length,
+        leaguesJoined,
         totalWins,
-        totalSubmissions: allUserSubmissions.length,
+        totalSubmissions,
       },
       leagues: filteredLeaguesData,
     };

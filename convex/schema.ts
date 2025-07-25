@@ -4,6 +4,25 @@ import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
   ...authTables,
+  users: defineTable({
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
+    presence: v.optional(
+      v.object({
+        location: v.union(v.null(), v.id("submissions")),
+        updated: v.number(),
+        data: v.any(),
+      }),
+    ),
+  })
+    .index("email", ["email"])
+    .index("phone", ["phone"])
+    .index("by_presence", ["presence.location"]),
   numbers: defineTable({
     value: v.number(),
   }),
@@ -131,15 +150,6 @@ export default defineSchema({
   })
     .index("by_league_and_user", ["leagueId", "userId"])
     .index("by_league_and_points", ["leagueId", "totalPoints"]),
-
-  // --- NEW TABLE ---
-  listeningActivity: defineTable({
-    submissionId: v.id("submissions"),
-    userId: v.id("users"),
-    lastSeen: v.number(),
-  })
-    .index("by_user", ["userId"])
-    .index("by_submission_lastSeen", ["submissionId", "lastSeen"]),
   leagueStats: defineTable({
     leagueId: v.id("leagues"),
     overlord: v.union(

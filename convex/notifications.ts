@@ -9,6 +9,7 @@ import {
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
+import { unreadNotifications } from "./aggregates";
 
 type CreateNotificationArgs = {
   userId: Id<"users">;
@@ -36,7 +37,7 @@ export const create = internalMutation({
       return;
     }
 
-    await ctx.db.insert("notifications", {
+    const notificationId = await ctx.db.insert("notifications", {
       userId: args.userId,
       type: args.type,
       message: args.message,
@@ -44,6 +45,11 @@ export const create = internalMutation({
       read: false,
       triggeringUserId: args.triggeringUserId,
     });
+
+    const newDoc = await ctx.db.get(notificationId);
+    if (newDoc) {
+      await unreadNotifications.insert(ctx, newDoc);
+    }
   },
 });
 
@@ -65,7 +71,14 @@ export const createMany = internalMutation({
   },
   handler: async (ctx, args) => {
     for (const notification of args.notifications) {
-      await ctx.db.insert("notifications", { ...notification, read: false });
+      const notificationId = await ctx.db.insert("notifications", {
+        ...notification,
+        read: false,
+      });
+      const newDoc = await ctx.db.get(notificationId);
+      if (newDoc) {
+        await unreadNotifications.insert(ctx, newDoc);
+      }
     }
   },
 });
@@ -149,14 +162,9 @@ export const getUnreadCount = query({
     if (!userId) {
       return 0;
     }
-    const unreadNotifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_user_and_read", (q) =>
-        q.eq("userId", userId).eq("read", false)
-      )
-      .collect();
-
-    return unreadNotifications.length;
+    return await unreadNotifications.count(ctx, {
+      bounds: { prefix: [userId, false] },
+    });
   },
 });
 
@@ -171,7 +179,12 @@ export const markAsRead = mutation({
     if (!notification || notification.userId !== userId) {
       throw new Error("Notification not found or access denied.");
     }
+    if (notification.read) return;
+
+    const oldDoc = notification;
     await ctx.db.patch(args.notificationId, { read: true });
+    const newDoc = { ...oldDoc, read: true };
+    await unreadNotifications.replace(ctx, oldDoc, newDoc);
   },
 });
 
@@ -187,10 +200,11 @@ export const markAllAsRead = mutation({
       .filter((q) => q.eq(q.field("read"), false))
       .collect();
 
-    await Promise.all(
-      unread.map((notification) =>
-        ctx.db.patch(notification._id, { read: true }),
-      ),
-    );
+    for (const notification of unread) {
+      const oldDoc = notification;
+      await ctx.db.patch(notification._id, { read: true });
+      const newDoc = { ...oldDoc, read: true };
+      await unreadNotifications.replace(ctx, oldDoc, newDoc);
+    }
   },
 });

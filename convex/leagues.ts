@@ -13,6 +13,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
 import { memberCounter } from "./counters";
+import { membershipsByUser } from "./aggregates";
 
 const r2 = new R2(components.r2);
 
@@ -97,11 +98,13 @@ export const create = mutation({
       inviteCode: inviteCode!,
     });
 
-    await ctx.db.insert("memberships", {
+    const membershipId = await ctx.db.insert("memberships", {
       userId,
       leagueId,
       joinDate: Date.now(),
     });
+    const membershipDoc = await ctx.db.get(membershipId);
+    await membershipsByUser.insert(ctx, membershipDoc!);
 
     await memberCounter.inc(ctx, leagueId);
 
@@ -351,11 +354,13 @@ export const joinWithInviteCode = mutation({
     if (existingMembership) {
       return "already_joined";
     }
-    await ctx.db.insert("memberships", {
+    const membershipId = await ctx.db.insert("memberships", {
       userId,
       leagueId: league._id,
       joinDate: Date.now(),
     });
+    const membershipDoc = await ctx.db.get(membershipId);
+    await membershipsByUser.insert(ctx, membershipDoc!);
 
     await memberCounter.inc(ctx, league._id);
 
@@ -396,11 +401,13 @@ export const joinPublicLeague = mutation({
     if (existingMembership) {
       return "already_joined";
     }
-    await ctx.db.insert("memberships", {
+    const membershipId = await ctx.db.insert("memberships", {
       userId,
       leagueId: league._id,
       joinDate: Date.now(),
     });
+    const membershipDoc = await ctx.db.get(membershipId);
+    await membershipsByUser.insert(ctx, membershipDoc!);
 
     await ctx.db.insert("leagueStandings", {
       leagueId: league._id,
@@ -480,6 +487,7 @@ export const kickMember = mutation({
       throw new Error("This user is not a member of the league.");
     }
     await ctx.db.delete(membership._id);
+    await membershipsByUser.delete(ctx, membership);
 
     await memberCounter.dec(ctx, args.leagueId);
 

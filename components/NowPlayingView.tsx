@@ -21,8 +21,8 @@ export function NowPlayingView() {
 
   const currentUser = useQuery(api.users.getCurrentUser);
   const listeners = useQuery(
-    api.listening.getListenersForSubmission,
-    track ? { submissionId: track._id } : "skip",
+    api.presence.list,
+    track ? { location: track._id } : { location: null },
   );
 
   const otherListeners = listeners?.filter(
