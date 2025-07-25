@@ -65,9 +65,7 @@ export function MusicPlayer() {
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
   const { isAuthenticated } = useConvexAuth();
 
-  const updateListeningState = useMutation(api.listening.updateListeningState);
   const updatePresence = useMutation(api.presence.update);
-  const previousTrackIdRef = useRef<Id<"submissions"> | null>(null);
 
   const isExternalLink =
     currentTrack?.submissionType === "spotify" ||
