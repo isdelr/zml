@@ -1,7 +1,9 @@
+// components/LeaguePage.tsx
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useQuery } from "convex/react";
+import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
@@ -11,34 +13,36 @@ import {
   usePathname,
   useParams,
 } from "next/navigation";
-import { dynamicImport } from "./ui/dynamic-import";
-import { RoundDetail } from "./RoundDetail";
-import { Dialog, DialogContent } from "./ui/dialog";
+import { dynamicImport } from "@/components/ui/dynamic-import";
+import { RoundDetail } from "@/components/RoundDetail";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { RoundsSkeleton } from "@/components/league/LeagueRounds";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
- 
 const LeagueHeader = dynamicImport(() =>
-  import("./league/LeagueHeader").then((mod) => ({
+  import("@/components/league/LeagueHeader").then((mod) => ({
     default: mod.LeagueHeader,
   })),
 );
 const LeagueInfo = dynamicImport(() =>
-  import("./league/LeagueInfo").then((mod) => ({ default: mod.LeagueInfo })),
+  import("@/components/league/LeagueInfo").then((mod) => ({ default: mod.LeagueInfo })),
 );
 const LeagueTabs = dynamicImport(() =>
-  import("./league/LeagueTabs").then((mod) => ({ default: mod.LeagueTabs })),
+  import("@/components/league/LeagueTabs").then((mod) => ({ default: mod.LeagueTabs })),
 );
 const LeagueRounds = dynamicImport(() =>
-  import("./league/LeagueRounds").then((mod) => ({
+  import("@/components/league/LeagueRounds").then((mod) => ({
     default: mod.LeagueRounds,
   })),
 );
 const LeagueJoinCard = dynamicImport(() =>
-  import("./league/LeagueJoinCard").then((mod) => ({
+  import("@/components/league/LeagueJoinCard").then((mod) => ({
     default: mod.LeagueJoinCard,
   })),
 );
 const LeagueSettingsDialog = dynamicImport(() =>
-  import("./league/LeagueSettingsDialog").then((mod) => ({
+  import("@/components/league/LeagueSettingsDialog").then((mod) => ({
     default: mod.LeagueSettingsDialog,
   })),
 );
@@ -64,9 +68,17 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   const leagueData = useQuery(api.leagues.get, {
     id: leagueId as Id<"leagues">,
   });
-  const rounds = useQuery(api.rounds.getForLeague, {
-    leagueId: leagueId as Id<"leagues">,
-  });
+
+  const {
+    results: rounds,
+    status,
+    loadMore,
+  } = usePaginatedQuery(
+    api.rounds.getForLeague,
+    { leagueId: leagueId as Id<"leagues"> }, // This is correct.
+    { initialNumItems: 12 },
+  );
+
   const searchResults = useQuery(
     api.leagues.searchInLeague,
     searchTerm
@@ -113,18 +125,18 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   };
 
   useEffect(() => {
-    if (rounds && rounds.length > 0 && !selectedRoundId) {
-      const latestRound = rounds.sort(
-        (a, b) => b._creationTime - a._creationTime,
-      )[0];
-      router.replace(`/leagues/${leagueId}/round/${latestRound._id}`);
+    if (status === "CanLoadMore" || status === "Exhausted") {
+      if (rounds && rounds.length > 0 && !selectedRoundId) {
+        const latestRound = rounds[0];
+        router.replace(`/leagues/${leagueId}/round/${latestRound._id}`);
+      }
     }
-  }, [rounds, selectedRoundId, leagueId, router]);
+  }, [status, rounds, selectedRoundId, leagueId, router]);
 
   const selectedRound = rounds?.find((r) => r._id === selectedRoundId);
 
   if (leagueData === undefined) {
-    return null;  
+    return null;
   }
 
   if (leagueData === null) {
@@ -167,11 +179,31 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
         leagueId={leagueId}
         onTabChange={handleTabChange}
       >
-        <LeagueRounds
-          rounds={rounds}
-          selectedRoundId={selectedRoundId}
-          leagueId={leagueId}
-        />
+        {status === "LoadingFirstPage" ? (
+          <RoundsSkeleton />
+        ) : (
+          <LeagueRounds
+            rounds={rounds}
+            selectedRoundId={selectedRoundId}
+            leagueId={leagueId}
+          />
+        )}
+
+        {status === "CanLoadMore" && (
+          <div className="mt-8 flex justify-center">
+            <Button onClick={() => loadMore(12)} variant="outline">
+              Load More Rounds
+            </Button>
+          </div>
+        )}
+        {status === "LoadingMore" && (
+          <div className="mt-8 flex justify-center">
+            <Button disabled variant="outline">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading...
+            </Button>
+          </div>
+        )}
 
         <div className="my-12 border-b border-border"></div>
 

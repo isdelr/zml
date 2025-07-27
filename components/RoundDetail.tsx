@@ -5,8 +5,8 @@ import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
-import { dynamicImport } from "./ui/dynamic-import";
-import { useMemo } from "react";
+import { dynamicImport } from "@/components/ui/dynamic-import";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { AvatarStack } from "./AvatarStack";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
@@ -49,6 +49,29 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     isPlaying,
     queue,
   } = useMusicPlayerStore();
+
+  const [isVoteSummaryVisible, setIsVoteSummaryVisible] = useState(false);
+  const summaryTriggerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVoteSummaryVisible(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: "0px 0px 200px 0px",
+      },
+    );
+
+    if (summaryTriggerRef.current) {
+      observer.observe(summaryTriggerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
 
   const castVote = useMutation(api.votes.castVote);
 
@@ -235,7 +258,13 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             onVoteClick={handleVoteClick}
           />
           {round.status === "finished" && (
-            <RoundVoteSummary roundId={round._id} />
+            <div ref={summaryTriggerRef}>
+              {isVoteSummaryVisible ? (
+                <RoundVoteSummary roundId={round._id} />
+              ) : (
+                <div className="my-8 min-h-[24rem]" />
+              )}
+            </div>
           )}
         </>
       )}

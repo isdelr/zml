@@ -328,30 +328,29 @@ export function MusicPlayer() {
     }
   };
 
- const handleAudioError = async () => {
+  const handleAudioError = async () => {
     const audioElement = audioRef.current;
     if (!audioElement || !currentTrack || currentTrack.submissionType !== 'file') {
       return;
     }
 
+    // This condition checks if the error is due to an expired link
     if (audioElement.networkState === audioElement.NETWORK_NO_SOURCE && audioElement.error) {
       console.error("Audio playback error:", audioElement.error);
-      toast.info("Link expired. Refreshing song...", {
-        duration: 3000,
-      });
+      toast.info("Link expired. Refreshing song...", { duration: 3000 });
 
       try {
+        // Call the new action to get a fresh URL
         const newUrl = await getPresignedSongUrl({
           submissionId: currentTrack._id as Id<"submissions">
         });
 
         if (newUrl) {
           const currentTime = audioElement.currentTime;
-          console.log(`Fetched new URL. Resuming from ${currentTime}s.`);
-          
           audioElement.src = newUrl;
           audioElement.load();
-
+          
+          // Play from where it left off once the new URL is ready
           const playWhenReady = () => {
             audioElement.currentTime = currentTime;
             if (isPlaying) {

@@ -1,3 +1,5 @@
+// convex/rounds.ts
+
 import { v } from "convex/values";
 import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -5,6 +7,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
 import { submissionCounter } from "./counters";
+import { paginationOptsValidator } from "convex/server";
 
 const r2 = new R2(components.r2);
 
@@ -98,16 +101,22 @@ export const getRoundMetadata = query({
 });
 
 export const getForLeague = query({
-  args: { leagueId: v.id("leagues") },
+  // CORRECT IMPLEMENTATION:
+  // Add paginationOpts to the arguments object using the validator.
+  args: {
+    leagueId: v.id("leagues"),
+    paginationOpts: paginationOptsValidator,
+  },
   handler: async (ctx, args) => {
-    const rounds = await ctx.db
+    // Pass the paginationOpts from the arguments directly into .paginate()
+    const paginationResult = await ctx.db
       .query("rounds")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .order("desc")
-      .collect();
+      .paginate(args.paginationOpts);
 
-    return Promise.all(
-      rounds.map(async (round) => {
+    const roundsWithDetails = await Promise.all(
+      paginationResult.page.map(async (round) => {
         const artUrl =
           (round.imageKey && (await r2.getUrl(round.imageKey))) || null;
         
@@ -120,6 +129,13 @@ export const getForLeague = query({
         };
       }),
     );
+    
+    // Return the original pagination object, but replace the 'page'
+    // with our enriched data.
+    return {
+      ...paginationResult,
+      page: roundsWithDetails,
+    };
   },
 });
 

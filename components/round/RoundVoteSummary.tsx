@@ -9,7 +9,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 import { toSvg } from "jdenticon";
 import Image from "next/image";
-import { useMemo } from "react";
 
 interface RoundVoteSummaryProps {
   roundId: Id<"rounds">;
@@ -52,44 +51,10 @@ const VoteSummaryBySongSkeleton = () => (
 export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
   const voteSummaryBySong = useQuery(api.rounds.getVoteSummary, { roundId });
 
-  const processedSummary = useMemo(() => {
-    if (!voteSummaryBySong) return undefined;
-
-    return voteSummaryBySong.map(song => {
-      const votesByUser = new Map<string, { voterName: string; voterImage: string | null; voterId: Id<"users">; score: number }>();
-      
-      for (const vote of song.votes) {
-        const existing = votesByUser.get(vote.voterId);
-        if (existing) {
-          existing.score += vote.vote;
-        } else {
-          votesByUser.set(vote.voterId, {
-            voterId: vote.voterId,
-            voterName: vote.voterName,
-            voterImage: vote.voterImage,
-            score: vote.vote,
-          });
-        }
-      }
-      
-      const aggregatedVotes = Array.from(votesByUser.values());
-      aggregatedVotes.sort((a, b) => b.score - a.score);
-
-      return {
-        ...song,
-        aggregatedVotes,
-      };
-    });
-
-  }, [voteSummaryBySong]);
-
-  if (processedSummary === undefined) {
+  if (voteSummaryBySong === undefined) {
     return <VoteSummaryBySongSkeleton />;
   }
 
-  if (processedSummary.length === 0) {
-    return null;
-  }
 
   return (
     <Card className="my-8">
@@ -97,7 +62,7 @@ export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
         <CardTitle className="text-2xl">Vote Summary</CardTitle>
       </CardHeader>
       <CardContent className="space-y-8">
-        {processedSummary.map((songSummary) => (
+        {voteSummaryBySong.map((songSummary) => (
           <div key={songSummary.submissionId}>
              <div className="flex items-start gap-4 mb-4">
                 {songSummary.albumArtUrl ? (
@@ -130,9 +95,9 @@ export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
               </div>
             </div>
 
-            {songSummary.aggregatedVotes.length > 0 ? (
+            {songSummary.votes.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 pl-4 border-l-2 ml-10">
-                {songSummary.aggregatedVotes.map(voter => (
+                {songSummary.votes.map(voter => (
                   <div key={voter.voterId} className="flex items-center gap-2">
                     <Avatar className="size-8">
                       <AvatarImage src={voter.voterImage ?? undefined} />

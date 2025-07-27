@@ -15,16 +15,16 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 interface LeagueRoundsProps {
-  rounds: unknown[] | undefined;
+  rounds: unknown[];
   selectedRoundId: string | null;
   leagueId: string;
 }
 
-export function LeagueRounds({ rounds, selectedRoundId, leagueId }: LeagueRoundsProps) {
-  if (rounds === undefined) {
-    return <RoundsSkeleton />;
-  }
-
+export function LeagueRounds({
+  rounds,
+  selectedRoundId,
+  leagueId,
+}: LeagueRoundsProps) {
   if (rounds.length === 0) {
     return (
       <div className="rounded-md border border-dashed py-10 text-center">
@@ -71,10 +71,10 @@ export function LeagueRounds({ rounds, selectedRoundId, leagueId }: LeagueRounds
   );
 }
 
-function RoundsSkeleton() {
+export function RoundsSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {[...Array(4)].map((_, i) => (
+      {[...Array(8)].map((_, i) => (
         <Card key={i}>
           <CardHeader>
             <Skeleton className="mb-1 mt-4 h-6 w-3/4" />
