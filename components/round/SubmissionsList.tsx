@@ -47,31 +47,42 @@ export function SubmissionsList({
     Record<string, boolean>
   >({});
 
-  const toggleBookmark = useMutation(api.bookmarks.toggleBookmark).withOptimisticUpdate(
-    (localStore, { submissionId }) => {
+  const toggleBookmark = useMutation(api.bookmarks.toggleBookmark)
+    .withOptimisticUpdate((localStore, { submissionId }) => {
+      let songToToggle: Song | undefined = undefined;
+      let isNowBookmarked = false;
+
+      // Optimistically update the isBookmarked flag in any cached round views
       const roundQueries = localStore.getQuery(api.submissions.getForRound);
       if (roundQueries) {
         for (const [queryArgs, currentSubmissions] of roundQueries.entries()) {
-          if (currentSubmissions?.some(s => s._id === submissionId)) {
-            const newSubmissions = currentSubmissions.map(s =>
-              s._id === submissionId ? { ...s, isBookmarked: !s.isBookmarked } : s
-            );
+          if (currentSubmissions?.some((s) => s._id === submissionId)) {
+            const newSubmissions = currentSubmissions.map((s) => {
+              if (s._id === submissionId) {
+                songToToggle = s as Song;
+                isNowBookmarked = !s.isBookmarked;
+                return { ...s, isBookmarked: isNowBookmarked };
+              }
+              return s;
+            });
             localStore.setQuery(api.submissions.getForRound, queryArgs, newSubmissions);
           }
         }
       }
 
+      // Optimistically update the dedicated list of bookmarked songs
       const bookmarkedSongs = localStore.getQuery(api.bookmarks.getBookmarkedSongs, {});
       if (bookmarkedSongs) {
-        const isCurrentlyBookmarked = bookmarkedSongs.some(s => s._id === submissionId);
-        if (isCurrentlyBookmarked) {
-          localStore.setQuery(api.bookmarks.getBookmarkedSongs, {}, bookmarkedSongs.filter(s => s._id !== submissionId));
+        if (isNowBookmarked && songToToggle) {
+          // If bookmarking, add the song to the list
+          localStore.setQuery(api.bookmarks.getBookmarkedSongs, {}, [...bookmarkedSongs, songToToggle]);
         } else {
-          // As before, we don't optimistically add here.
+          // If unbookmarking, remove the song from the list
+          const newBookmarkedSongs = bookmarkedSongs.filter((s) => s._id !== submissionId);
+          localStore.setQuery(api.bookmarks.getBookmarkedSongs, {}, newBookmarkedSongs);
         }
       }
-    }
-  );
+    });
 
 
   const toggleComments = (submissionId: string) => {
