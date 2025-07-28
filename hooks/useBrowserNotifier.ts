@@ -63,7 +63,7 @@ export function useBrowserNotifier() {
   const showNotification = useCallback((title: string, options?: NotificationOptions) => {
     if (permission === 'granted') {
       new Notification(title, {
-          icon: '/favicon.svg',  
+          icon: '/icons/favicon.ico',  
           ...options,
       });
     }
