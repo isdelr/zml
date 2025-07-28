@@ -7,21 +7,34 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
+/**
+ * This component handles real-time, in-app notifications for the user.
+ * It does not render any UI itself, but listens for new notifications
+ * and displays them as toasts.
+ */
 export function GlobalNotificationHandler() {
-  const {
-    results: notifications,
-  } = usePaginatedQuery(
+  // We use a paginated query to fetch the most recent notifications.
+  // Although we don't use the pagination feature (loadMore) here, this hook
+  // is reactive and will update when new notifications are created.
+  const { results: notifications } = usePaginatedQuery(
     api.notifications.getForUser,
     {},
-    { initialNumItems: 10 },
+    { initialNumItems: 5 }, // Fetch a small number of recent items.
   );
+
   const { permission } = useBrowserNotifier();
-  const shownNotifications = useRef(new Set<string>());
   const router = useRouter();
 
+  // Use a ref to keep track of notifications shown in this session.
+  // This prevents re-showing toasts on re-renders or if the user navigates
+  // away and back, as this component persists in the layout.
+  const shownNotifications = useRef(new Set<string>());
+
   useEffect(() => {
-    // Only show notifications if the app is the active tab and permission is granted.
-    // The service worker will handle notifications when the app is in the background.
+    // Only show notifications if:
+    // 1. The browser tab is currently visible. The service worker handles background notifications.
+    // 2. The user has granted notification permissions for the site.
+    // 3. The notifications data has been loaded.
     if (
       document.visibilityState !== "visible" ||
       permission !== "granted" ||
@@ -31,13 +44,12 @@ export function GlobalNotificationHandler() {
     }
 
     notifications.forEach((notification) => {
-      // Check if notification is unread and has not been shown in this session.
+      // Check if the notification is unread and has not been shown in this session.
       if (
         !notification.read &&
         !shownNotifications.current.has(notification._id)
       ) {
-        // Use an in-app toast instead of a system notification.
-        // This avoids conflicts with the service worker and is better UX.
+        // Display the notification as an in-app toast.
         toast.info(notification.message, {
           description: notification.triggeringUserName
             ? `From: ${notification.triggeringUserName}`
@@ -46,15 +58,17 @@ export function GlobalNotificationHandler() {
             label: "View",
             onClick: () => router.push(notification.link),
           },
-          // Use the notification ID as the toast ID to prevent duplicates
+          // Use the notification ID as the toast ID to prevent duplicates if the
+          // effect runs multiple times in quick succession.
           id: notification._id,
         });
 
-        // Mark this notification as shown in this session.
+        // Mark this notification as shown for the current session.
         shownNotifications.current.add(notification._id);
       }
     });
   }, [notifications, permission, router]);
 
+  // This component does not render anything.
   return null;
 }
