@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
+import { Doc, Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { useConvexAuth } from "convex/react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
@@ -30,19 +30,44 @@ export function SubmissionComments({
   const comments = useQuery(api.submissions.getCommentsForSubmission, {
     submissionId,
   });
-  const addComment = useMutation(api.submissions.addComment);
   const currentUser = useQuery(api.users.getCurrentUser);
+
+  const addComment = useMutation(api.submissions.addComment).withOptimisticUpdate(
+    (localStore, { submissionId, text }) => {
+      // We need currentUser data to create an optimistic comment.
+      // This is a great example of where `useQuery` inside a component shines.
+      if (!currentUser) return;
+
+      const existingComments = localStore.getQuery(api.submissions.getCommentsForSubmission, { submissionId });
+      if (existingComments === undefined) return;
+
+      const optimisticComment: Doc<"comments"> & { authorName: string, authorImage: string | null } = {
+        _id: `optimistic_${Date.now()}` as Id<"comments">,
+        _creationTime: Date.now(),
+        submissionId,
+        userId: currentUser._id,
+        text,
+        authorName: currentUser.name ?? "You",
+        authorImage: currentUser.image ?? null,
+      };
+
+      const newComments = [...existingComments, optimisticComment];
+
+      localStore.setQuery(api.submissions.getCommentsForSubmission, { submissionId }, newComments);
+    }
+  );
 
   const handleAddComment = () => {
     if (!commentText.trim()) return;
-    toast.promise(addComment({ submissionId, text: commentText }), {
-      loading: "Posting comment...",
-      success: () => {
-        setCommentText("");
-        return "Comment posted!";
-      },
-      error: (err) => err.data?.message || "Failed to post comment.",
-    });
+
+    const textToSubmit = commentText;
+    setCommentText(""); // Optimistically clear the input
+
+    addComment({ submissionId, text: textToSubmit })
+      .catch((err) => {
+        toast.error(err.data?.message || "Failed to post comment.");
+        setCommentText(textToSubmit); // Revert input on error
+      });
   };
 
   const parseTimeToSeconds = (timeStr: string): number => {

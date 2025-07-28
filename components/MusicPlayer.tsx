@@ -10,30 +10,13 @@ import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import WaveformData from "waveform-data";
 import { WaveformComment } from "@/components/Waveform";
 import { dynamicImport } from "@/components/ui/dynamic-import";
+import { Song } from "@/types";
 
-const PlayerTrackInfo = dynamicImport(() =>
-  import("@/components/player/PlayerTrackInfo").then((mod) => ({
-    default: mod.PlayerTrackInfo,
-  })),
-);
-const PlayerControls = dynamicImport(() =>
-  import("@/components/player/PlayerControls").then((mod) => ({
-    default: mod.PlayerControls,
-  })),
-);
-const PlayerProgress = dynamicImport(() =>
-  import("@/components/player/PlayerProgress").then((mod) => ({
-    default: mod.PlayerProgress,
-  })),
-);
-const PlayerActions = dynamicImport(() =>
-  import("@/components/player/PlayerActions").then((mod) => ({
-    default: mod.PlayerActions,
-  })),
-);
-const MusicQueue = dynamicImport(() =>
-  import("@/components/MusicQueue").then((mod) => ({ default: mod.MusicQueue })),
-);
+const PlayerTrackInfo = dynamicImport(() => import("@/components/player/PlayerTrackInfo").then(mod => ({ default: mod.PlayerTrackInfo  })));
+const PlayerControls = dynamicImport(() => import("@/components/player/PlayerControls").then(mod => ({ default: mod.PlayerControls  })));
+const PlayerProgress = dynamicImport(() => import("@/components/player/PlayerProgress").then(mod => ({ default: mod.PlayerProgress  })));
+const PlayerActions = dynamicImport(() => import("@/components/player/PlayerActions").then(mod => ({ default: mod.PlayerActions  })));
+const MusicQueue = dynamicImport(() => import("@/components/MusicQueue").then(mod => ({ default: mod.MusicQueue  })));
 
 export function MusicPlayer() {
   const {
@@ -59,10 +42,38 @@ export function MusicPlayer() {
   const [waveformData, setWaveformData] = useState<WaveformData | null>(null);
   const [isWaveformLoading, setIsWaveformLoading] = useState(false);
   const [lastVolume, setLastVolume] = useState(volume);
-  
+
   const getPresignedSongUrl = useAction(api.submissions.getPresignedSongUrl);
 
-  const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
+  const toggleBookmark = useMutation(api.bookmarks.toggleBookmark)
+    .withOptimisticUpdate((localStore, { submissionId }) => {
+      // 1. Update the isBookmarked flag in any cached `getForRound` queries
+      const roundQueries = localStore.getQuery(api.submissions.getForRound);
+      if (roundQueries) {
+        for (const [queryArgs, submissions] of roundQueries.entries()) {
+          if (submissions?.some((s) => s._id === submissionId)) {
+            const newSubmissions = submissions.map((s) =>
+              s._id === submissionId ? { ...s, isBookmarked: !s.isBookmarked } : s
+            );
+            localStore.setQuery(api.submissions.getForRound, queryArgs, newSubmissions);
+          }
+        }
+      }
+
+      // 2. Update the dedicated list of bookmarked songs
+      const currentBookmarked = localStore.getQuery(api.bookmarks.getBookmarkedSongs, {});
+      if (currentBookmarked) {
+        const isAlreadyBookmarked = currentBookmarked.some((s) => s._id === submissionId);
+        if (isAlreadyBookmarked) {
+          const newBookmarked = currentBookmarked.filter((s) => s._id !== submissionId);
+          localStore.setQuery(api.bookmarks.getBookmarkedSongs, {}, newBookmarked);
+        } else {
+          // Optimistically adding requires the full song object, which we don't have here.
+          // It's safe to just let the server state catch up in this case.
+        }
+      }
+    });
+
   const { isAuthenticated } = useConvexAuth();
 
   const updatePresence = useMutation(api.presence.update);
@@ -172,7 +183,7 @@ export function MusicPlayer() {
         console.error("Failed to parse cached waveform:", err);
         setIsWaveformLoading(false);
       }
-    } else {
+    } else if (currentTrack.songFileUrl) { // Added null check here
       fetch(currentTrack.songFileUrl)
         .then((response) => response.arrayBuffer())
         .then((buffer) => {
@@ -207,7 +218,7 @@ export function MusicPlayer() {
     cachedWaveform,
     storeWaveform,
   ]);
-  
+
   useEffect(() => {
     if (isPlaying && currentTrack) {
       // User is actively listening to a track
@@ -235,22 +246,17 @@ export function MusicPlayer() {
       return;
     }
     if (!currentTrack?._id) return;
+
+    // Local state update for immediate feedback on the player icon itself
     const newBookmarkState = !isBookmarked;
     setIsBookmarked(newBookmarkState);
-    toast.promise(
-      toggleBookmark({ submissionId: currentTrack._id as Id<"submissions"> }),
-      {
-        loading: "Updating bookmark...",
-        duration: 700,
-        position: "bottom-left",
-        success: (data) =>
-          data.bookmarked ? "Song bookmarked!" : "Bookmark removed.",
-        error: (err) => {
-          setIsBookmarked(!newBookmarkState);
-          return err.data?.message || "Failed to update bookmark.";
-        },
-      },
-    );
+
+    toggleBookmark({ submissionId: currentTrack._id as Id<"submissions"> })
+      .catch(() => {
+        // Revert local state on error
+        setIsBookmarked(!newBookmarkState);
+        toast.error("Failed to update bookmark.");
+      });
   };
 
   useEffect(() => {
@@ -260,7 +266,7 @@ export function MusicPlayer() {
     if (isExternalLink) {
       audioElement.pause();
       if (isPlaying && currentTrack._id !== lastOpenedTrackId.current) {
-        window.open(currentTrack.songLink, "_blank", "noopener,noreferrer");
+        window.open(currentTrack.songLink!, "_blank", "noopener,noreferrer");
         lastOpenedTrackId.current = currentTrack._id as string;
       }
       return;
@@ -334,13 +340,11 @@ export function MusicPlayer() {
       return;
     }
 
-    // This condition checks if the error is due to an expired link
     if (audioElement.networkState === audioElement.NETWORK_NO_SOURCE && audioElement.error) {
       console.error("Audio playback error:", audioElement.error);
       toast.info("Link expired. Refreshing song...", { duration: 3000 });
 
       try {
-        // Call the new action to get a fresh URL
         const newUrl = await getPresignedSongUrl({
           submissionId: currentTrack._id as Id<"submissions">
         });
@@ -349,15 +353,14 @@ export function MusicPlayer() {
           const currentTime = audioElement.currentTime;
           audioElement.src = newUrl;
           audioElement.load();
-          
-          // Play from where it left off once the new URL is ready
+
           const playWhenReady = () => {
             audioElement.currentTime = currentTime;
             if (isPlaying) {
               audioElement.play().catch(e => console.error("Error re-playing after refresh:", e));
             }
           };
-          
+
           audioElement.addEventListener('canplay', playWhenReady, { once: true });
 
         } else {
@@ -402,7 +405,7 @@ export function MusicPlayer() {
               isExternalLink={isExternalLink}
               isShuffled={isShuffled}
               repeatMode={repeatMode}
-              currentTrack={currentTrack}
+              currentTrack={currentTrack as Song}
               onTogglePlayPause={actions.togglePlayPause}
               onPlayNext={actions.playNext}
               onPlayPrevious={actions.playPrevious}
@@ -414,7 +417,7 @@ export function MusicPlayer() {
               isExternalLink={isExternalLink}
               isWaveformLoading={isWaveformLoading}
               waveformData={waveformData}
-              currentTrack={currentTrack}
+              currentTrack={currentTrack as Song}
               progress={progress}
               duration={duration}
               comments={waveformComments}

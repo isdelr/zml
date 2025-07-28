@@ -8,15 +8,14 @@ import { toast } from "sonner";
 import { SubmissionItem } from "./SubmissionItem";
 import { Song } from "@/types";
 
+type SubmissionsListPropsSubmissions = Awaited<ReturnType<typeof api.submissions.getForRound>>;
+type UserVoteStatus = Awaited<ReturnType<typeof api.votes.getForUserInRound>>;
+
 interface SubmissionsListProps {
-  submissions:
-    | (Song & {
-        league: { maxPositiveVotes: number; maxNegativeVotes: number };
-      })[]
-    | undefined;
-  userVoteStatus: unknown;
+  submissions: SubmissionsListPropsSubmissions | undefined;
+  userVoteStatus: UserVoteStatus | undefined;
   userVotes: Doc<"votes">[];
-  currentUser: unknown;
+  currentUser: Doc<"users"> | null | undefined;
   roundStatus: "voting" | "finished" | "submissions";
   league: {
     maxPositiveVotes: number;
@@ -48,9 +47,34 @@ export function SubmissionsList({
     Record<string, boolean>
   >({});
 
-  const toggleBookmark = useMutation(api.bookmarks.toggleBookmark);
+  const toggleBookmark = useMutation(api.bookmarks.toggleBookmark).withOptimisticUpdate(
+    (localStore, { submissionId }) => {
+      const roundQueries = localStore.getQuery(api.submissions.getForRound);
+      if (roundQueries) {
+        for (const [queryArgs, currentSubmissions] of roundQueries.entries()) {
+          if (currentSubmissions?.some(s => s._id === submissionId)) {
+            const newSubmissions = currentSubmissions.map(s =>
+              s._id === submissionId ? { ...s, isBookmarked: !s.isBookmarked } : s
+            );
+            localStore.setQuery(api.submissions.getForRound, queryArgs, newSubmissions);
+          }
+        }
+      }
 
-  const toggleComments = (submissionId: Id<"submissions">) => {
+      const bookmarkedSongs = localStore.getQuery(api.bookmarks.getBookmarkedSongs, {});
+      if (bookmarkedSongs) {
+        const isCurrentlyBookmarked = bookmarkedSongs.some(s => s._id === submissionId);
+        if (isCurrentlyBookmarked) {
+          localStore.setQuery(api.bookmarks.getBookmarkedSongs, {}, bookmarkedSongs.filter(s => s._id !== submissionId));
+        } else {
+          // As before, we don't optimistically add here.
+        }
+      }
+    }
+  );
+
+
+  const toggleComments = (submissionId: string) => {
     setVisibleComments((prev) => ({
       ...prev,
       [submissionId]: !prev[submissionId],
@@ -61,12 +85,8 @@ export function SubmissionsList({
   const canVote = userVoteStatus?.canVote ?? false;
 
   const handleBookmark = (submissionId: Id<"submissions">) => {
-    toast.promise(toggleBookmark({ submissionId }), {
-      loading: "Updating bookmark...",
-      success: (data) =>
-        data.bookmarked ? "Song bookmarked!" : "Bookmark removed.",
-      error: (err) => err.data?.message || "Failed to update bookmark.",
-      position: "bottom-left",
+    toggleBookmark({ submissionId }).catch((err) => {
+      toast.error(err.data?.message || "Failed to update bookmark.");
     });
   };
 

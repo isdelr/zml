@@ -53,6 +53,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   const [isVoteSummaryVisible, setIsVoteSummaryVisible] = useState(false);
   const summaryTriggerRef = useRef<HTMLDivElement | null>(null);
 
+  const currentUser = useQuery(api.users.getCurrentUser);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -73,7 +75,48 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     return () => observer.disconnect();
   }, []);
 
-  const castVote = useMutation(api.votes.castVote);
+  const castVote = useMutation(api.votes.castVote).withOptimisticUpdate(
+    (localStore, { submissionId, newVoteState }) => {
+      const voteStatus = localStore.getQuery(api.votes.getForUserInRound, { roundId: round._id });
+      if (!voteStatus || !currentUser) return;
+
+      const newVoteStatus = JSON.parse(JSON.stringify(voteStatus));
+      
+      const existingVoteIndex = newVoteStatus.votes.findIndex((v: Doc<"votes">) => v.submissionId === submissionId);
+      if (existingVoteIndex > -1) {
+        newVoteStatus.votes.splice(existingVoteIndex, 1);
+      }
+
+      if (newVoteState === 'up') {
+        newVoteStatus.votes.push({
+          _id: `optimistic_up_${submissionId}`,
+          _creationTime: Date.now(),
+          roundId: round._id,
+          submissionId: submissionId,
+          userId: currentUser._id,
+          vote: 1,
+        });
+      } else if (newVoteState === 'down') {
+        newVoteStatus.votes.push({
+          _id: `optimistic_down_${submissionId}`,
+          _creationTime: Date.now(),
+          roundId: round._id,
+          submissionId: submissionId,
+          userId: currentUser._id,
+          vote: -1,
+        });
+      }
+      
+      const upvotesUsed = newVoteStatus.votes.filter((v: unknown) => v.vote > 0).length;
+      const downvotesUsed = newVoteStatus.votes.filter((v: unknown) => v.vote < 0).length;
+      
+      newVoteStatus.upvotesUsed = upvotesUsed;
+      newVoteStatus.downvotesUsed = downvotesUsed;
+      newVoteStatus.hasVoted = upvotesUsed === league.maxPositiveVotes && downvotesUsed === league.maxNegativeVotes;
+
+      localStore.setQuery(api.votes.getForUserInRound, { roundId: round._id }, newVoteStatus);
+    }
+  );
 
   const submissions = useQuery(api.submissions.getForRound, {
     roundId: round._id,
@@ -100,16 +143,15 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       return;
     }
 
-    toast.promise(castVote({ submissionId, newVoteState }), {
-      loading: "Saving vote...",
-      success: (result) => {
+    castVote({ submissionId, newVoteState })
+      .then((result) => {
         if (result.isFinal) {
           toast.success(result.message);
         }
-        return result.message;
-      },
-      error: (err) => err.data?.message || "Failed to save vote.",
-    });
+      })
+      .catch((err) => {
+        toast.error(err.data?.message || "Failed to save vote.");
+      });
   };
 
   const totalDurationSeconds = useMemo(() => {
@@ -146,7 +188,6 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   }, [submissions, round.status]);
 
   const votes = useQuery(api.votes.getForRound, { roundId: round._id });
-  const currentUser = useQuery(api.users.getCurrentUser);
   const mySubmission = submissions?.find((s) => s.userId === currentUser?._id);
   const submittedUsers = useMemo(() => {
     if (!submissions) return [];
