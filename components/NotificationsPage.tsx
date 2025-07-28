@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-
 const notificationIcons = {
   new_comment: <MessageSquare className="size-5 text-blue-500" />,
   round_submission: <PlayCircle className="size-5 text-green-500" />,
@@ -34,8 +33,12 @@ export default function NotificationsPage() {
     loadMore,
   } = usePaginatedQuery(
     api.notifications.getForUser,
-    {},
-    { initialNumItems: 15 },
+    {
+      id: "notifications XD",
+    },
+    {
+      initialNumItems: 20,
+    },
   );
   const markAsRead = useMutation(api.notifications.markAsRead);
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
