@@ -38,7 +38,7 @@ export function useBrowserNotifier() {
       if (
         permission === "granted" &&
         "serviceWorker" in navigator &&
-        process.env.VAPID_PUBLIC_KEY
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
       ) {
         try {
           const registration = await navigator.serviceWorker.ready;
@@ -47,7 +47,7 @@ export function useBrowserNotifier() {
           if (!subscription) {
             console.log("No existing subscription, creating new one...");
             const applicationServerKey = urlBase64ToUint8Array(
-              process.env.VAPID_PUBLIC_KEY!,
+              process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
             );
             subscription = await registration.pushManager.subscribe({
               userVisibleOnly: true,
