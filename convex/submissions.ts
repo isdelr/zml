@@ -250,9 +250,7 @@ export const getForRound = query({
     if (submissions.length === 0) return [];
 
     const userIds = submissions.map((s) => s.userId);
-    const users = await Promise.all(
-      userIds.map((id) => ctx.db.get(id)),
-    );
+    const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
     const userMap = new Map(
       users
         .filter((u): u is Doc<"users"> => u !== null)
@@ -263,7 +261,6 @@ export const getForRound = query({
       .query("votes")
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
-
 
     const pointsBySubmission = new Map<string, number>();
     for (const vote of allVotesForRound) {
@@ -284,7 +281,7 @@ export const getForRound = query({
       userBookmarks.map((b) => b.submissionId),
     );
 
-        const roundResultsMap = new Map<string, Doc<"roundResults">>();
+    const roundResultsMap = new Map<string, Doc<"roundResults">>();
     if (round.status === "finished") {
       const results = await ctx.db
         .query("roundResults")
@@ -300,13 +297,18 @@ export const getForRound = query({
         const user = userMap.get(submission.userId.toString());
         const isAnonymous = round.status === "voting";
 
-        const albumArtUrl = await (submission.albumArtKey
-          ? r2.getUrl(submission.albumArtKey)
-          : Promise.resolve(submission.albumArtUrlValue ?? null));
-        
+        const [albumArtUrl, songFileUrl] = await Promise.all([
+          submission.albumArtKey
+            ? r2.getUrl(submission.albumArtKey)
+            : Promise.resolve(submission.albumArtUrlValue ?? null),
+          submission.songFileKey
+            ? r2.getUrl(submission.songFileKey)
+            : Promise.resolve(submission.songLink ?? null),
+        ]);
+
         let points = 0;
         let isPenalized = false;
-        
+
         if (round.status === "finished") {
           const resultDoc = roundResultsMap.get(submission._id.toString());
           if (resultDoc) {
@@ -314,15 +316,15 @@ export const getForRound = query({
             isPenalized = resultDoc.penaltyApplied ?? false;
           }
         } else {
-          // 👇 Use the sharded counter for live scores
           points = await submissionScoreCounter.count(ctx, submission._id);
         }
 
         return {
           ...submission,
-          submittedBy: isAnonymous ? "Anonymous" : user?.name ?? "Anonymous",
-          submittedByImage: isAnonymous ? null : user?.image ?? null,
-          albumArtUrl: albumArtUrl!,
+          submittedBy: isAnonymous ? "Anonymous" : (user?.name ?? "Anonymous"),
+          submittedByImage: isAnonymous ? null : (user?.image ?? null),
+          albumArtUrl: albumArtUrl,
+          songFileUrl: songFileUrl,
           points,
           isPenalized,
           isBookmarked: bookmarkedSubmissionIds.has(submission._id),
@@ -567,7 +569,7 @@ export const getPresignedSongUrl = action({
       );
       return null;
     }
-    
+
     // Generate a new, short-lived URL for the file.
     return await r2.getUrl(submission.songFileKey);
   },
