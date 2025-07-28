@@ -285,7 +285,7 @@ export function MusicPlayer() {
         } else {
           audioElement.pause();
         }
-      } catch (error: any) {
+      } catch (error) {
         if (isCancelled) return;
         // The AbortError is expected if the user clicks away quickly.
         // We can safely ignore it to avoid cluttering the console.
