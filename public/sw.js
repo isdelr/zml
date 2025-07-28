@@ -4,40 +4,46 @@ const OFFLINE_URL = "/offline.html"; // We will need to create this page
 
 self.addEventListener('push', function (event) {
   if (event.data) {
-    const data = event.data.json()
+    const data = event.data.json();
     const options = {
       body: data.body,
-      icon: data.icon || '/icons/icon-192x192.png',
-      badge: '/icons/icon-96x96.png',
+      icon: data.icon || '/icons/web-app-manifest-192x192.png',
+      badge: data.badge || '/icons/web-app-manifest-192x192.png',
       vibrate: [100, 50, 100],
+      // **IMPORTANT**: Store the URL from the payload into the notification's data
       data: {
-        dateOfArrival: Date.now(),
-        primaryKey: '2',
+        url: data.data?.url || "/", // Default to root if no URL is provided
       },
-    }
-    event.waitUntil(self.registration.showNotification(data.title, options))
+    };
+    event.waitUntil(self.registration.showNotification(data.title, options));
   }
-})
+});
 
+// --- MODIFICATION 2: Update the 'notificationclick' event listener ---
 self.addEventListener('notificationclick', function (event) {
-  console.log('Notification click received.')
-  event.notification.close()
-  // IMPORTANT: Update this URL to your production website URL
-  event.waitUntil(clients.openWindow('https://zml.app'))
-})
+  console.log('Notification click received.');
+  event.notification.close();
 
-const STATIC_ASSETS = [
-  OFFLINE_URL,
-];
+  // **IMPORTANT**: Get the URL from the notification's data property
+  const urlToOpen = new URL(event.notification.data.url, self.location.origin).href;
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log("[Service Worker] Pre-caching offline page and static assets.");
-      return cache.addAll(STATIC_ASSETS);
+  // This logic finds an open tab with the same URL and focuses it,
+  // or opens a new tab if one isn't found.
+  const promiseChain = self.clients
+    .matchAll({
+      type: "window",
+      includeUncontrolled: true,
     })
-  );
-  self.skipWaiting();
+    .then((clientList) => {
+      let client = clientList.find(c => c.url === urlToOpen);
+
+      if (client) {
+        return client.focus();
+      }
+      return self.clients.openWindow(urlToOpen);
+    });
+
+  event.waitUntil(promiseChain);
 });
 
 self.addEventListener("activate", (event) => {

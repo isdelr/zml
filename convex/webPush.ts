@@ -66,6 +66,16 @@ export const removeSubscription = internalMutation({
   },
 });
 
+export const getSubscriptionsForUser = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("pushSubscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+  },
+});
+
 export const getAllSubscriptions = internalQuery({
   handler: async (ctx) => {
     return await ctx.db.query("pushSubscriptions").collect();

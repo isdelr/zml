@@ -50,6 +50,17 @@ export const create = internalMutation({
     if (newDoc) {
       await unreadNotifications.insert(ctx, newDoc);
     }
+    
+    await ctx.scheduler.runAfter(0, internal.webPushActions.send, {
+        userId: args.userId,
+        payload: {
+            title: "New ZML Notification",
+            body: args.message,
+            data: {
+                url: args.link
+            }
+        }
+    });
   },
 });
 
@@ -79,6 +90,16 @@ export const createMany = internalMutation({
       if (newDoc) {
         await unreadNotifications.insert(ctx, newDoc);
       }
+      await ctx.scheduler.runAfter(0, internal.webPushActions.send, {
+        userId: notification.userId,
+        payload: {
+            title: "New ZML Notification",
+            body: notification.message,
+            data: {
+                url: notification.link
+            }
+        }
+      });
     }
   },
 });
