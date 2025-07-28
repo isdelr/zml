@@ -101,14 +101,12 @@ export const getRoundMetadata = query({
 });
 
 export const getForLeague = query({
-  // CORRECT IMPLEMENTATION:
-  // Add paginationOpts to the arguments object using the validator.
   args: {
     leagueId: v.id("leagues"),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    // Pass the paginationOpts from the arguments directly into .paginate()
+
     const paginationResult = await ctx.db
       .query("rounds")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
@@ -130,8 +128,6 @@ export const getForLeague = query({
       }),
     );
     
-    // Return the original pagination object, but replace the 'page'
-    // with our enriched data.
     return {
       ...paginationResult,
       page: roundsWithDetails,

@@ -228,9 +228,12 @@ export const createForLeague = internalAction({
       }));
 
     if (notificationsToCreate.length > 0) {
-      const createdIds = await ctx.runMutation(internal.notifications.createMany, {
-        notifications: notificationsToCreate,
-      });
+      const createdIds = await ctx.runMutation(
+        internal.notifications.createMany,
+        {
+          notifications: notificationsToCreate,
+        },
+      );
       return createdIds;
     }
     return [];
@@ -259,14 +262,14 @@ export const getForUser = query({
       };
     }
 
-    const notifications = await ctx.db
+    const paginationResult = await ctx.db
       .query("notifications")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .paginate(args.paginationOpts);
 
     const enrichedNotifications = await Promise.all(
-      notifications.page.map(async (notification) => {
+      paginationResult.page.map(async (notification) => {
         let triggeringUser: Doc<"users"> | null = null;
         if (notification.triggeringUserId) {
           triggeringUser = await ctx.db.get(notification.triggeringUserId);
@@ -279,7 +282,7 @@ export const getForUser = query({
       }),
     );
     return {
-      ...notifications,
+      ...paginationResult,
       page: enrichedNotifications,
     };
   },
