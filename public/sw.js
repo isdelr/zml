@@ -1,6 +1,11 @@
 // public/sw.js
 const CACHE_NAME = "zml-cache-v1";
 const OFFLINE_URL = "/offline.html"; // We will need to create this page
+const STATIC_ASSETS = [
+  OFFLINE_URL,
+  // You can add other critical assets here if needed, like a logo
+  // '/icons/icon-192x192.png', 
+];
 
 self.addEventListener('push', function (event) {
   if (event.data) {
