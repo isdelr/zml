@@ -1,6 +1,6 @@
 "use client";
 
-import { usePaginatedQuery, useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useBrowserNotifier } from "@/hooks/useBrowserNotifier";
 import { useEffect, useRef } from "react";
@@ -10,8 +10,6 @@ import { useRouter } from "next/navigation";
 export function GlobalNotificationHandler() {
   const {
     results: notifications,
-    status,
-    loadMore,
   } = usePaginatedQuery(
     api.notifications.getForUser,
     {},
