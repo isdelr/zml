@@ -49,41 +49,65 @@ export function SubmissionsList({
 
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark)
     .withOptimisticUpdate((localStore, { submissionId }) => {
-      let songToToggle: Song | undefined = undefined;
-      let isNowBookmarked = false;
+      // Update all possible queries that might contain this submission
+      const updateSubmissionInQuery = (queryKey: unknown, queryArgs: unknown, submissions: unknown[]) => {
+        if (!submissions) return null;
+        
+        let updated = false;
+        const newSubmissions = submissions.map((submission) => {
+          if (submission._id === submissionId) {
+            updated = true;
+            return { 
+              ...submission, 
+              isBookmarked: !submission.isBookmarked 
+            };
+          }
+          return submission;
+        });
+        
+        if (updated) {
+          localStore.setQuery(queryKey, queryArgs, newSubmissions);
+          return newSubmissions.find(s => s._id === submissionId);
+        }
+        return null;
+      };
 
-      // Optimistically update the isBookmarked flag in any cached round views
-      const roundQueries = localStore.getQuery(api.submissions.getForRound);
-      if (roundQueries) {
-        for (const [queryArgs, currentSubmissions] of roundQueries.entries()) {
-          if (currentSubmissions?.some((s) => s._id === submissionId)) {
-            const newSubmissions = currentSubmissions.map((s) => {
-              if (s._id === submissionId) {
-                songToToggle = s as Song;
-                isNowBookmarked = !s.isBookmarked;
-                return { ...s, isBookmarked: isNowBookmarked };
-              }
-              return s;
-            });
-            localStore.setQuery(api.submissions.getForRound, queryArgs, newSubmissions);
+      let updatedSong: Song | null = null;
+      let newBookmarkState = false;
+
+      // Update submissions.getForRound queries
+      const roundQueries = localStore.getAllQueries(api.submissions.getForRound);
+      for (const { args, value } of roundQueries) {
+        const result = updateSubmissionInQuery(api.submissions.getForRound, args, value);
+        if (result) {
+          updatedSong = result as Song;
+          newBookmarkState = result.isBookmarked;
+        }
+      }
+
+      // Update bookmarked songs list
+      const bookmarkedQueries = localStore.getAllQueries(api.bookmarks.getBookmarkedSongs);
+      for (const { args, value: bookmarkedSongs } of bookmarkedQueries) {
+        if (bookmarkedSongs && updatedSong) {
+          if (newBookmarkState) {
+            // Adding bookmark - add to list if not already there
+            const exists = bookmarkedSongs.some(s => s._id === submissionId);
+            if (!exists) {
+              localStore.setQuery(
+                api.bookmarks.getBookmarkedSongs, 
+                args, 
+                [...bookmarkedSongs, updatedSong]
+              );
+            }
+          } else {
+            // Removing bookmark - remove from list
+            const filtered = bookmarkedSongs.filter(s => s._id !== submissionId);
+            localStore.setQuery(api.bookmarks.getBookmarkedSongs, args, filtered);
           }
         }
       }
 
-      // Optimistically update the dedicated list of bookmarked songs
-      const bookmarkedSongs = localStore.getQuery(api.bookmarks.getBookmarkedSongs, {});
-      if (bookmarkedSongs) {
-        if (isNowBookmarked && songToToggle) {
-          // If bookmarking, add the song to the list
-          localStore.setQuery(api.bookmarks.getBookmarkedSongs, {}, [...bookmarkedSongs, songToToggle]);
-        } else {
-          // If unbookmarking, remove the song from the list
-          const newBookmarkedSongs = bookmarkedSongs.filter((s) => s._id !== submissionId);
-          localStore.setQuery(api.bookmarks.getBookmarkedSongs, {}, newBookmarkedSongs);
-        }
-      }
     });
-
 
   const toggleComments = (submissionId: string) => {
     setVisibleComments((prev) => ({
@@ -95,10 +119,12 @@ export function SubmissionsList({
   const hasVoted = userVoteStatus?.hasVoted ?? false;
   const canVote = userVoteStatus?.canVote ?? false;
 
-  const handleBookmark = (submissionId: Id<"submissions">) => {
-    toggleBookmark({ submissionId }).catch((err) => {
+  const handleBookmark = async (submissionId: Id<"submissions">) => {
+    try {
+      await toggleBookmark({ submissionId });
+    } catch (err: unknown) {
       toast.error(err.data?.message || "Failed to update bookmark.");
-    });
+    }
   };
 
   if (!submissions || submissions.length === 0) {
