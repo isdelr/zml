@@ -4,6 +4,21 @@ import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
   ...authTables,
+  pushSubscriptions: defineTable({
+    userId: v.id("users"),
+    // Lift endpoint to the top level for indexing
+    endpoint: v.string(),
+    // The rest of the subscription object
+    subscription: v.object({
+      keys: v.object({
+        p256dh: v.string(),
+        auth: v.string(),
+      }),
+    }),
+  })
+    // This index will now work correctly
+    .index("by_endpoint", ["endpoint"])
+    .index("by_user", ["userId"]),
   users: defineTable({
     name: v.optional(v.string()),
     image: v.optional(v.string()),

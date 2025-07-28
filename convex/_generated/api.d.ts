@@ -23,6 +23,8 @@ import type * as rounds from "../rounds.js";
 import type * as submissions from "../submissions.js";
 import type * as users from "../users.js";
 import type * as votes from "../votes.js";
+import type * as webPush from "../webPush.js";
+import type * as webPushActions from "../webPushActions.js";
 
 import type {
   ApiFromModules,
@@ -54,6 +56,8 @@ declare const fullApi: ApiFromModules<{
   submissions: typeof submissions;
   users: typeof users;
   votes: typeof votes;
+  webPush: typeof webPush;
+  webPushActions: typeof webPushActions;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 
