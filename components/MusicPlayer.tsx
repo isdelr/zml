@@ -210,14 +210,11 @@ export function MusicPlayer() {
   
   useEffect(() => {
     if (isPlaying && currentTrack) {
-      // User is actively listening to a track
       updatePresence({ listeningTo: currentTrack._id as Id<"submissions"> });
     } else {
-      // User is not listening (player is paused or no track)
       updatePresence({ listeningTo: null });
     }
 
-    // This is the cleanup function. When the component unmounts, clear presence.
     return () => {
       updatePresence({ listeningTo: null });
     };
@@ -253,22 +250,26 @@ export function MusicPlayer() {
     );
   };
 
+  // ------------------- MODIFIED SECTION START -------------------
   useEffect(() => {
     const audioElement = audioRef.current;
     if (!audioElement || !currentTrack) return;
+    
+    let isCancelled = false;
     audioElement.volume = volume;
-    if (isExternalLink) {
-      audioElement.pause();
-      if (isPlaying && currentTrack._id !== lastOpenedTrackId.current) {
-        window.open(currentTrack.songLink, "_blank", "noopener,noreferrer");
-        lastOpenedTrackId.current = currentTrack._id as string;
-      }
-      return;
-    }
-
-    lastOpenedTrackId.current = null;
 
     const handlePlayback = async () => {
+      if (isExternalLink) {
+        audioElement.pause();
+        if (isPlaying && currentTrack._id !== lastOpenedTrackId.current) {
+          window.open(currentTrack.songLink, "_blank", "noopener,noreferrer");
+          lastOpenedTrackId.current = currentTrack._id as string;
+        }
+        return;
+      }
+
+      lastOpenedTrackId.current = null;
+
       if (
         currentTrack.songFileUrl &&
         audioElement.src !== currentTrack.songFileUrl
@@ -276,19 +277,34 @@ export function MusicPlayer() {
         audioElement.src = currentTrack.songFileUrl;
         setProgress(0);
       }
+
       try {
         if (isPlaying) {
           await audioElement.play();
+          if (isCancelled) return;
         } else {
           audioElement.pause();
         }
-      } catch (error) {
-        console.error("Error during playback:", error);
-        actions.setIsPlaying(false);
+      } catch (error: any) {
+        if (isCancelled) return;
+        // The AbortError is expected if the user clicks away quickly.
+        // We can safely ignore it to avoid cluttering the console.
+        if (error.name !== 'AbortError') {
+          console.error("Error during playback:", error);
+          actions.setIsPlaying(false);
+        }
       }
     };
+
     handlePlayback();
+    
+    // Cleanup function to prevent race conditions on re-renders
+    return () => {
+      isCancelled = true;
+    };
   }, [currentTrack, isPlaying, actions, isExternalLink, volume]);
+  // -------------------- MODIFIED SECTION END --------------------
+
 
   const handleTimeUpdate = () => {
     const audioElement = audioRef.current;
@@ -334,13 +350,11 @@ export function MusicPlayer() {
       return;
     }
 
-    // This condition checks if the error is due to an expired link
     if (audioElement.networkState === audioElement.NETWORK_NO_SOURCE && audioElement.error) {
       console.error("Audio playback error:", audioElement.error);
       toast.info("Link expired. Refreshing song...", { duration: 3000 });
 
       try {
-        // Call the new action to get a fresh URL
         const newUrl = await getPresignedSongUrl({
           submissionId: currentTrack._id as Id<"submissions">
         });
@@ -350,7 +364,6 @@ export function MusicPlayer() {
           audioElement.src = newUrl;
           audioElement.load();
           
-          // Play from where it left off once the new URL is ready
           const playWhenReady = () => {
             audioElement.currentTime = currentTime;
             if (isPlaying) {
