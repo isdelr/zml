@@ -7,10 +7,10 @@ import webpush, { PushSubscription, WebPushError } from "web-push";
 import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 
-if (process.env.PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY&& process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
     "mailto:isaias005@hotmail.com",
-    process.env.PUBLIC_VAPID_PUBLIC_KEY,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY,
   );
 }
@@ -50,7 +50,7 @@ export const send = internalAction({
   },
   // FIX: Add explicit types for handler and return value
   handler: async (ctx: ActionCtx, args: SendArgs): Promise<SendResult> => {
-    if (!process.env.PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+    if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY|| !process.env.VAPID_PRIVATE_KEY) {
       console.error("[Push] VAPID keys not configured");
       return { success: false, error: "VAPID keys not configured" };
     }
