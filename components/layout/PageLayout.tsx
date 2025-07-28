@@ -7,7 +7,8 @@ import { ReactNode, useEffect } from "react";
 import { Sidebar } from "../Sidebar";
 import { NowPlayingView } from "../NowPlayingView";
 import { usePathname } from "next/navigation";
-import { InstallPWABanner } from "../InstallPWABanner"; // Import the new banner
+import { InstallPWABanner } from "../InstallPWABanner";
+import { MobileTopBar } from "../MobileTopBar"; // Import the new MobileTopBar
 
 interface PageLayoutProps {
   children: ReactNode;
@@ -34,11 +35,14 @@ export function PageLayout({ children }: PageLayoutProps) {
           "pb-16 md:pb-0",
           // Add extra padding if the music player is active.
           currentTrackIndex !== null && "pb-56 md:pb-20",
+          // Add padding for the new top bar on mobile
+          "pt-16 md:pt-0" // Add top padding for mobile, remove for desktop
         )}
       >
+        <MobileTopBar /> {/* Render the new mobile top bar here */}
         {children}
       </div>
-      <InstallPWABanner /> {/* Add the banner here */}
+      <InstallPWABanner />
       <NowPlayingView />
     </div>
   );
