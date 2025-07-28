@@ -70,7 +70,7 @@ export const create = internalMutation({
         q.and(
           q.eq(q.field("type"), args.type),
           q.eq(q.field("link"), args.link),
-          q.gt(q.field("_creationTime"), Date.now() - 5 * 60 * 1000),
+          q.gt(q.field("_creationTime"), Date.now() - 0.5 * 60 * 1000),
         ),
       )
       .first();
