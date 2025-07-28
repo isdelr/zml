@@ -87,7 +87,7 @@ export function SubmissionComments({
     const parts = text.split(timestampRegex);
 
     return (
-      <p className="whitespace-pre-wrap text-sm text-foreground">
+      <p className="whitespace-pre-wrap text-sm text-foreground break-words">
         {parts.map((part, index) => {
           if (index % 2 === 1) {
             const timeInSeconds = parseTimeToSeconds(part);
@@ -124,7 +124,7 @@ export function SubmissionComments({
               />
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 min-w-0 space-y-2">
             <Textarea
               placeholder="Add your thoughts... use @M:SS to link a time!"
               value={commentText}
@@ -168,7 +168,7 @@ export function SubmissionComments({
                 />
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-semibold">{comment.authorName}</span>
                 <span className="text-xs text-muted-foreground">

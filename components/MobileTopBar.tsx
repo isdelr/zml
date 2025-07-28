@@ -6,9 +6,12 @@ import Link from "next/link";
 import { Button } from "./ui/button";
 import { useState } from "react";
 import { MobileMenuSheet } from "./MobileMenuSheet";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 export function MobileTopBar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const unreadCount = useQuery(api.notifications.getUnreadCount);
 
   return (
     <>
@@ -18,7 +21,14 @@ export function MobileTopBar() {
           <span className="font-bold text-lg">ZML</span>
         </Link>
         <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(true)}>
-          <Menu className="size-5" />
+          <div className="relative">
+            <Menu className="size-5" />
+            {unreadCount !== undefined && unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white">
+                {unreadCount}
+              </span>
+            )}
+          </div>
           <span className="sr-only">Open menu</span>
         </Button>
       </header>
