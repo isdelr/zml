@@ -1,8 +1,10 @@
 // hooks/useBrowserNotifier.ts
 
 import { useState, useEffect, useCallback } from "react";
-// NEW: Import the server action to save the subscription
 import { subscribeUser } from "@/app/actions";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+
 
 const DONT_ASK_AGAIN_KEY = "notification-permission-dont-ask";
 const PROMPT_DISMISSED_KEY = "notification-permission-prompt-dismissed";
@@ -20,6 +22,7 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 export function useBrowserNotifier() {
+      const currentUser = useQuery(api.users.getCurrentUser);
   const [permission, setPermission] =
     useState<NotificationPermission>("default");
   const [isPromptVisible, setIsPromptVisible] = useState(false);
@@ -60,6 +63,7 @@ export function useBrowserNotifier() {
 
           // Perform a robust check to ensure all necessary parts exist.
           if (
+            !currentUser?._id ||
             !subscriptionJSON.endpoint ||
             !subscriptionJSON.keys?.p256dh ||
             !subscriptionJSON.keys?.auth
@@ -73,6 +77,7 @@ export function useBrowserNotifier() {
           // THE FIX: Create a new, explicitly typed object that is guaranteed
           // to match the type expected by the `subscribeUser` action.
           const subscriptionToSend = {
+            userId: currentUser?._id, // Ensure this is the correct user ID
             endpoint: subscriptionJSON.endpoint,
             keys: {
               p256dh: subscriptionJSON.keys.p256dh,

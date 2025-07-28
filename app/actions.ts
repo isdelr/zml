@@ -1,13 +1,19 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { PushSubscription } from "web-push";
+import { Id } from "@/convex/_generated/dataModel";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-export async function subscribeUser(sub: PushSubscription) {
+interface PushSubscriptionDetails extends PushSubscription {
+  userId: Id<"users">; // Assuming you have a users table with Id
+}
+
+export async function subscribeUser(sub: PushSubscriptionDetails) {
   try {
     // Call the mutation with the updated arguments
     await convex.mutation(api.webPush.subscribe, {
+      userId: sub.userId,
       endpoint: sub.endpoint,
       subscription: {
         keys: {
@@ -24,9 +30,9 @@ export async function subscribeUser(sub: PushSubscription) {
 }
 
 // The rest of the file remains the same
-export async function unsubscribeUser(endpoint: string) {
+export async function unsubscribeUser(userId: Id<"users">, endpoint: string) {
   try {
-    await convex.mutation(api.webPush.unsubscribe, { endpoint });
+    await convex.mutation(api.webPush.unsubscribe, {userId, endpoint });
     return { success: true };
   } catch (error) {
     console.error("Failed to unsubscribe user:", error);

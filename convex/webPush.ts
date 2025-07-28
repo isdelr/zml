@@ -15,14 +15,14 @@ export const subscribe = mutation({
   args: {
     endpoint: v.string(),
     subscription: subscriptionDetailsSchema,
+    userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    if (!args.userId) {
       throw new Error("User must be authenticated to subscribe.");
     }
 
-    console.log(`[WebPush] Subscribe request for user ${userId}`);
+    console.log(`[WebPush] Subscribe request for user ${args.userId}`);
     console.log(`[WebPush] Endpoint: ${args.endpoint.substring(0, 50)}...`);
 
     // Validate endpoint URL
@@ -47,7 +47,7 @@ export const subscribe = mutation({
 
     if (existingByEndpoint) {
       // Update existing subscription if it belongs to the same user
-      if (existingByEndpoint.userId === userId) {
+      if (existingByEndpoint.userId ===args.userId) {
         console.log("[WebPush] Updating existing subscription for same user");
         await ctx.db.patch(existingByEndpoint._id, {
           subscription: args.subscription,
@@ -65,7 +65,7 @@ export const subscribe = mutation({
     // This can happen when a user subscribes from multiple devices or browsers
     const existingForUser = await ctx.db
       .query("pushSubscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
 
     console.log(`[WebPush] User has ${existingForUser.length} existing subscriptions`);
@@ -83,7 +83,7 @@ export const subscribe = mutation({
 
     // Create new subscription
     const newSubscription = await ctx.db.insert("pushSubscriptions", {
-      userId,
+      userId: args.userId,
       endpoint: args.endpoint,
       subscription: args.subscription,
       createdAt: Date.now(),
@@ -97,14 +97,10 @@ export const subscribe = mutation({
 });
 
 export const unsubscribe = mutation({
-  args: { endpoint: v.string() },
+  args: { endpoint: v.string(), userId: v.id("users") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User must be authenticated to unsubscribe.");
-    }
 
-    console.log(`[WebPush] Unsubscribe request for user ${userId}`);
+    console.log(`[WebPush] Unsubscribe request for user ${args.userId}`);
     console.log(`[WebPush] Endpoint: ${args.endpoint.substring(0, 50)}...`);
 
     const existing = await ctx.db
@@ -114,7 +110,7 @@ export const unsubscribe = mutation({
 
     if (existing) {
       // Verify the subscription belongs to the requesting user
-      if (existing.userId !== userId) {
+      if (existing.userId !== args.userId) {
         console.warn("[WebPush] User attempted to unsubscribe from subscription they don't own");
         throw new Error("Unauthorized to unsubscribe from this endpoint");
       }
