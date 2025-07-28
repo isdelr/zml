@@ -33,8 +33,8 @@ export default function NotificationsPage() {
     loadMore,
   } = usePaginatedQuery(
     api.notifications.getForUser,
-    {},
-    { initialNumItems: 15 },
+    "skip",
+    { initialNumItems: 10 },
   );
   const markAsRead = useMutation(api.notifications.markAsRead);
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);

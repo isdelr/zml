@@ -76,7 +76,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   } = usePaginatedQuery(
     api.rounds.getForLeague,
     { leagueId: leagueId as Id<"leagues"> }, // This is correct.
-    { initialNumItems: 12 },
+    { initialNumItems: 10 },
   );
 
   const searchResults = useQuery(
