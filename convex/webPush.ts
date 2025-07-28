@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { internalQuery, mutation, internalMutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
-// Enhanced schema to match the full PushSubscription structure
+
 const subscriptionDetailsSchema = v.object({
   keys: v.object({
     p256dh: v.string(),

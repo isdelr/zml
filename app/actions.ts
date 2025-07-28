@@ -1,5 +1,3 @@
-'use server'
-
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { PushSubscription } from "web-push";
@@ -33,15 +31,5 @@ export async function unsubscribeUser(endpoint: string) {
   } catch (error) {
     console.error("Failed to unsubscribe user:", error);
     return { success: false, error: "Failed to unsubscribe." };
-  }
-}
-
-export async function sendNotification(message: string) {
-  try {
-    await convex.action(api.webPushActions.sendToAll, { message });
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to send notification:", error);
-    return { success: false, error: "Failed to send notification." };
   }
 }
