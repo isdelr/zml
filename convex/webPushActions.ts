@@ -1,49 +1,84 @@
 // convex/webPushActions.ts
 "use node";
 
-import { internalAction } from "./_generated/server";
+import { internalAction, ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import webpush, { PushSubscription, WebPushError } from "web-push";
 import { v } from "convex/values";
+import { Doc, Id } from "./_generated/dataModel";
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
-    "mailto:your-email@example.com", // Replace with your email
+    "mailto:isaias005@hotmail.com",
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY,
   );
-} else {
-  console.warn("VAPID keys are not configured. Push notifications will not work.");
 }
+
+// FIX: Define a type for the action's arguments
+type SendArgs = {
+  userId: Id<"users">;
+  payload: {
+    title: string;
+    body: string;
+    data?: { url?: string };
+    icon?: string;
+    badge?: string;
+  };
+};
+
+// FIX: Define a type for the action's return value
+type SendResult = {
+  success: boolean;
+  error?: string;
+  successCount?: number;
+  failureCount?: number;
+  totalSubscriptions?: number;
+  errors?: { endpoint: string; statusCode: number; error: string }[];
+};
 
 export const send = internalAction({
   args: {
     userId: v.id("users"),
-    // This payload structure matches what your sw.js expects
     payload: v.object({
       title: v.string(),
       body: v.string(),
-      data: v.object({
-        url: v.string(),
-      }),
+      data: v.optional(v.object({ url: v.optional(v.string()) })),
+      icon: v.optional(v.string()),
+      badge: v.optional(v.string()),
     }),
   },
-  handler: async (ctx, args) => {
-    if (!process.env.VAPID_PUBLIC_KEY) {
-      console.error("VAPID public key not set.");
-      return;
+  // FIX: Add explicit types for handler and return value
+  handler: async (ctx: ActionCtx, args: SendArgs): Promise<SendResult> => {
+    if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+      console.error("[Push] VAPID keys not configured");
+      return { success: false, error: "VAPID keys not configured" };
     }
 
-    const subscriptions = await ctx.runQuery(internal.webPush.getSubscriptionsForUser, {
-      userId: args.userId,
-    });
+    // FIX: Add explicit type for subscriptions
+    const subscriptions: Doc<"pushSubscriptions">[] = await ctx.runQuery(
+      internal.webPush.getSubscriptionsForUser,
+      { userId: args.userId },
+    );
 
     if (subscriptions.length === 0) {
-      console.log(`No push subscriptions for user ${args.userId}`);
-      return;
+      return { success: false, error: "No subscriptions found" };
     }
 
-    const notificationPayload = JSON.stringify(args.payload);
+    const notificationPayload = JSON.stringify({
+      title: args.payload.title,
+      body: args.payload.body,
+      icon: args.payload.icon || "/icons/web-app-manifest-192x192.png",
+      badge: args.payload.badge || "/icons/web-app-manifest-192x192.png",
+      data: {
+        url: args.payload.data?.url || "/",
+        timestamp: Date.now(),
+      },
+    });
+
+    let successCount = 0;
+    let failureCount = 0;
+    const errors = [];
 
     for (const sub of subscriptions) {
       const fullSubscriptionObject = {
@@ -52,19 +87,86 @@ export const send = internalAction({
       };
 
       try {
-        await webpush.sendNotification(fullSubscriptionObject as PushSubscription, notificationPayload);
+        await webpush.sendNotification(
+          fullSubscriptionObject as PushSubscription,
+          notificationPayload,
+          { TTL: 86400, urgency: "normal" },
+        );
+        successCount++;
       } catch (error) {
         const webPushError = error as WebPushError;
+        failureCount++;
+        errors.push({
+          endpoint: sub.endpoint.substring(0, 50) + "...",
+          statusCode: webPushError.statusCode,
+          error: webPushError.body,
+        });
+
         if (webPushError.statusCode === 404 || webPushError.statusCode === 410) {
-          console.log("Subscription has expired or is no longer valid. Removing.");
           await ctx.runMutation(internal.webPush.removeSubscription, {
             endpoint: fullSubscriptionObject.endpoint,
           });
-        } else {
-          console.error("Error sending push notification:", webPushError.body);
         }
       }
     }
+
+    // FIX: Explicitly type the result object
+    const result: SendResult = {
+      success: successCount > 0,
+      successCount,
+      failureCount,
+      totalSubscriptions: subscriptions.length,
+      errors: errors.length > 0 ? errors : undefined,
+    };
+
+    return result;
   },
 });
 
+type SendToAllArgs = {
+  payload: {
+    title: string;
+    body: string;
+    data?: { url?: string };
+    icon?: string;
+    badge?: string;
+  };
+};
+
+export const sendToAll = internalAction({
+  args: {
+    payload: v.object({
+      title: v.string(),
+      body: v.string(),
+      data: v.optional(v.object({ url: v.optional(v.string()) })),
+      icon: v.optional(v.string()),
+      badge: v.optional(v.string()),
+    }),
+  },
+  // FIX: Add explicit types for handler
+  handler: async (ctx: ActionCtx, args: SendToAllArgs) => {
+    // FIX: Add explicit type for allSubscriptions
+    const allSubscriptions: Doc<"pushSubscriptions">[] = await ctx.runQuery(
+      internal.webPush.getAllSubscriptions,
+    );
+    // FIX: Add explicit type for userIds and the 'sub' parameter
+    const userIds: Id<"users">[] = [
+      ...new Set(allSubscriptions.map((sub: Doc<"pushSubscriptions">) => sub.userId)),
+    ];
+
+    const results = [];
+    for (const userId of userIds) {
+      // FIX: Explicitly type the result
+      const result: SendResult = await ctx.runAction(internal.webPushActions.send, {
+        userId,
+        payload: args.payload,
+      });
+      results.push({ userId, ...result });
+    }
+
+    return {
+      totalUsers: userIds.length,
+      results,
+    };
+  },
+});

@@ -6,17 +6,19 @@ export default defineSchema({
   ...authTables,
   pushSubscriptions: defineTable({
     userId: v.id("users"),
-    // Lift endpoint to the top level for indexing
     endpoint: v.string(),
-    // The rest of the subscription object
     subscription: v.object({
       keys: v.object({
         p256dh: v.string(),
         auth: v.string(),
       }),
     }),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+    isActive: v.optional(v.boolean()),
+    deactivatedAt: v.optional(v.number()),
+    deactivationReason: v.optional(v.string()),
   })
-    // This index will now work correctly
     .index("by_endpoint", ["endpoint"])
     .index("by_user", ["userId"]),
   users: defineTable({
@@ -142,6 +144,8 @@ export default defineSchema({
     link: v.string(),
     read: v.boolean(),
     triggeringUserId: v.optional(v.id("users")),
+    // FIX: Added the missing metadata field
+    metadata: v.optional(v.any()),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_read", ["userId", "read"]),
