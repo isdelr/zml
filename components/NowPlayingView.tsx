@@ -146,7 +146,7 @@ export function NowPlayingView() {
       </aside>
 
       {/* Mobile Sheet */}
-      <div className="md:hidden">
+      <div className="block md:hidden">
         <Sheet
           open={isContextViewOpen}
           onOpenChange={(isOpen) => !isOpen && actions.closeContextView()}

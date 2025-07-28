@@ -155,7 +155,7 @@ export function SubmissionItem({
         <div className="hidden md:block">
           <SubmitterInfo />
           {comment && (
-            <blockquote className="mt-1 border-l-2 pl-2 text-xs italic text-muted-foreground">
+            <blockquote className="mt-1 border-l-2 pl-2 text-xs italic text-muted-foreground break-words">
               {comment}
             </blockquote>
           )}
@@ -220,9 +220,7 @@ export function SubmissionItem({
               )}
             </div>
           </div>
-          {comment && (
-            <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground">{comment}</blockquote>
-          )}
+          {comment && <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground break-words">{comment}</blockquote>}
         </div>
       </div>
 

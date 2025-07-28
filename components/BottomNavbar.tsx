@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Compass, PlusCircle, Send, Swords } from "lucide-react";
+import { Compass, PlusCircle, Send, Swords, Bookmark } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -10,10 +10,9 @@ import { api } from "@/convex/_generated/api";
 const mainNav = [
   { name: "Explore", icon: Compass, href: "/explore" },
   { name: "Active", icon: Swords, href: "/active-rounds" },
-
   { name: "Create", icon: PlusCircle, href: "/leagues/create" },
   { name: "Submissions", icon: Send, href: "/my-submissions" },
-  { name: "Notifications", icon: Bell, href: "/notifications" },
+  { name: "Bookmarked", icon: Bookmark, href: "/bookmarked" },
 ];
 
 export function BottomNavbar() {

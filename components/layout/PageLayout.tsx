@@ -7,6 +7,7 @@ import { ReactNode, useEffect } from "react";
 import { Sidebar } from "../Sidebar";
 import { NowPlayingView } from "../NowPlayingView";
 import { usePathname } from "next/navigation";
+import { InstallPWABanner } from "../InstallPWABanner"; // Import the new banner
 
 interface PageLayoutProps {
   children: ReactNode;
@@ -37,6 +38,7 @@ export function PageLayout({ children }: PageLayoutProps) {
       >
         {children}
       </div>
+      <InstallPWABanner /> {/* Add the banner here */}
       <NowPlayingView />
     </div>
   );
