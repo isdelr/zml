@@ -1,6 +1,6 @@
 "use client";
 
-import { Preloaded, useMutation, usePreloadedQuery } from "convex/react";
+import { usePaginatedQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import {
   PlayCircle,
   Vote,
   Trophy,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,12 +27,16 @@ const notificationIcons = {
   round_finished: <Trophy className="size-5 text-yellow-500" />,
 };
 
-interface NotificationsPageProps {
-  preloadedNotifications: Preloaded<typeof api.notifications.getForUser>;
-}
-
-export default function NotificationsPage({ preloadedNotifications }: NotificationsPageProps) {
-  const notifications = usePreloadedQuery(preloadedNotifications);
+export default function NotificationsPage() {
+  const {
+    results: notifications,
+    status,
+    loadMore,
+  } = usePaginatedQuery(
+    api.notifications.getForUser,
+    {},
+    { initialNumItems: 15 },
+  );
   const markAsRead = useMutation(api.notifications.markAsRead);
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
 
@@ -61,17 +66,25 @@ export default function NotificationsPage({ preloadedNotifications }: Notificati
           )}
         </CardHeader>
         <CardContent>
-          {notifications && notifications.length === 0 && (
+          {status === "LoadingFirstPage" && (
             <div className="py-20 text-center">
-              <Bell className="mx-auto size-12 text-muted-foreground" />
-              <h3 className="mt-4 text-xl font-semibold">
-                No notifications yet
-              </h3>
-              <p className="mt-2 text-muted-foreground">
-                We&apos;ll let you know when there&apos;s something new.
-              </p>
+              <Loader2 className="mx-auto size-12 animate-spin text-muted-foreground" />
             </div>
           )}
+
+          {status !== "LoadingFirstPage" &&
+            notifications &&
+            notifications.length === 0 && (
+              <div className="py-20 text-center">
+                <Bell className="mx-auto size-12 text-muted-foreground" />
+                <h3 className="mt-4 text-xl font-semibold">
+                  No notifications yet
+                </h3>
+                <p className="mt-2 text-muted-foreground">
+                  We&apos;ll let you know when there&apos;s something new.
+                </p>
+              </div>
+            )}
           {notifications && notifications.length > 0 && (
             <div className="space-y-2">
               {notifications.map((notification) => (
@@ -124,6 +137,22 @@ export default function NotificationsPage({ preloadedNotifications }: Notificati
                   </div>
                 </Link>
               ))}
+            </div>
+          )}
+
+          {status === "CanLoadMore" && (
+            <div className="mt-4 flex justify-center">
+              <Button onClick={() => loadMore(10)} variant="outline">
+                Load More
+              </Button>
+            </div>
+          )}
+          {status === "LoadingMore" && (
+            <div className="mt-4 flex justify-center">
+              <Button disabled variant="outline">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading...
+              </Button>
             </div>
           )}
         </CardContent>

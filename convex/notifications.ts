@@ -11,6 +11,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { unreadNotifications } from "./aggregates";
+import { paginationOptsValidator } from "convex/server";
 
 type NotificationType =
   | "new_comment"
@@ -247,23 +248,25 @@ export const getLeagueMemberships = internalQuery({
 });
 
 export const getForUser = query({
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      return [];
+      return {
+        page: [],
+        isDone: true,
+        continueCursor: "",
+      };
     }
-
-    // FIX: Defined a limit for the query
-    const limit = 20;
 
     const notifications = await ctx.db
       .query("notifications")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(limit);
+      .paginate(args.paginationOpts);
 
     const enrichedNotifications = await Promise.all(
-      notifications.map(async (notification) => {
+      notifications.page.map(async (notification) => {
         let triggeringUser: Doc<"users"> | null = null;
         if (notification.triggeringUserId) {
           triggeringUser = await ctx.db.get(notification.triggeringUserId);
@@ -275,7 +278,10 @@ export const getForUser = query({
         };
       }),
     );
-    return enrichedNotifications;
+    return {
+      ...notifications,
+      page: enrichedNotifications,
+    };
   },
 });
 
