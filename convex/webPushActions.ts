@@ -48,10 +48,10 @@ export const send = internalAction({
       badge: v.optional(v.string()),
     }),
   },
-  // FIX: Add explicit types for handler and return value
+
   handler: async (ctx: ActionCtx, args: SendArgs): Promise<SendResult> => {
     if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY|| !process.env.VAPID_PRIVATE_KEY) {
-      console.error("[Push] VAPID keys not configured");
+      console.error("[Push] VAPID keys not configured", process.env);
       return { success: false, error: "VAPID keys not configured" };
     }
 
