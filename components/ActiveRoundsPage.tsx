@@ -59,7 +59,7 @@ export function ActiveRoundsPage({ preloadedActiveRounds }: ActiveRoundsPageProp
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Link href="/leagues/create" className="w-full md:w-auto">
+          <Link href="/leagues/create" className="md:block md:w-auto hidden">
             <Button>
               <Plus className="mr-2 size-4" />
               Create League
