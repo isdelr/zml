@@ -145,8 +145,8 @@ export function NowPlayingView() {
         <NowPlayingContent />
       </aside>
 
-      {/* Mobile Sheet */}
-      <div className="block md:hidden">
+      {/* Mobile Sheet - Only render on mobile screens */}
+      <div className="md:hidden">
         <Sheet
           open={isContextViewOpen}
           onOpenChange={(isOpen) => !isOpen && actions.closeContextView()}
