@@ -8,7 +8,6 @@ const DONT_ASK_AGAIN_KEY = "notification-permission-dont-ask";
 const PROMPT_DISMISSED_KEY = "notification-permission-prompt-dismissed";
 const PROMPT_DISMISSED_TIMEOUT = 7 * 24 * 60 * 60 * 1000;
 
-// NEW: Helper function to format the VAPID public key
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
