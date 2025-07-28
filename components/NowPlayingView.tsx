@@ -13,11 +13,14 @@ import { api } from "@/convex/_generated/api";
 import { AvatarStack } from "./AvatarStack";
 import { Skeleton } from "./ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
+import { useWindowSize } from "@/hooks/useWindowSize"; // A new custom hook
 
 export function NowPlayingView() {
   const { currentTrackIndex, queue, actions, isContextViewOpen } =
     useMusicPlayerStore();
   const track = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+  const { width } = useWindowSize();
+  const isMobile = width < 768; // 768px is the default for md in Tailwind
 
   const currentUser = useQuery(api.users.getCurrentUser);
   const listeners = useQuery(
@@ -29,7 +32,7 @@ export function NowPlayingView() {
     (listener) => listener.name !== currentUser?.name,
   );
 
-  if (!isContextViewOpen || !track) {
+  if (!track) {
     return null;
   }
 
@@ -124,29 +127,35 @@ export function NowPlayingView() {
     </div>
   );
 
+  if (!isContextViewOpen) {
+    return null;
+  }
+
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside
-        className={cn(
-          "hidden md:flex flex-col w-96 bg-sidebar p-4 text-sidebar-foreground border-l border-sidebar-border h-screen overflow-y-auto pb-28",
-        )}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <p className="font-semibold">{artist}</p>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={actions.closeContextView}
-          >
-            <X className="size-5" />
-          </Button>
-        </div>
-        <NowPlayingContent />
-      </aside>
+      {!isMobile && (
+        <aside
+          className={cn(
+            "hidden md:flex flex-col w-96 bg-sidebar p-4 text-sidebar-foreground border-l border-sidebar-border h-screen overflow-y-auto pb-28",
+          )}
+        >
+          <div className="flex justify-between items-center mb-4">
+            <p className="font-semibold">{artist}</p>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={actions.closeContextView}
+            >
+              <X className="size-5" />
+            </Button>
+          </div>
+          <NowPlayingContent />
+        </aside>
+      )}
 
-      {/* Mobile Sheet - Only render on mobile screens */}
-      <div className="md:hidden">
+      {/* Mobile Sheet */}
+      {isMobile && (
         <Sheet
           open={isContextViewOpen}
           onOpenChange={(isOpen) => !isOpen && actions.closeContextView()}
@@ -163,7 +172,7 @@ export function NowPlayingView() {
             </div>
           </SheetContent>
         </Sheet>
-      </div>
+      )}
     </>
   );
 }
