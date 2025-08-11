@@ -42,11 +42,8 @@ export function MusicPlayer() {
   const [waveformData, setWaveformData] = useState<WaveformData | null>(null);
   const [isWaveformLoading, setIsWaveformLoading] = useState(false);
   const [lastVolume, setLastVolume] = useState(volume);
-  const [listeningStartTime, setListeningStartTime] = useState<number | null>(null);
-  const [accumulatedListeningTime, setAccumulatedListeningTime] = useState(0);
 
   const getPresignedSongUrl = useAction(api.submissions.getPresignedSongUrl);
-  const updateListeningProgress = useMutation(api.listeningProgress.updateListeningProgress);
 
   const toggleBookmark = useMutation(api.bookmarks.toggleBookmark)
     .withOptimisticUpdate((localStore, { submissionId }) => {
@@ -226,61 +223,16 @@ export function MusicPlayer() {
     if (isPlaying && currentTrack) {
       // User is actively listening to a track
       updatePresence({ listeningTo: currentTrack._id as Id<"submissions"> });
-      if (!isExternalLink) {
-        setListeningStartTime(Date.now());
-      }
     } else {
       // User is not listening (player is paused or no track)
       updatePresence({ listeningTo: null });
-      setListeningStartTime(null);
     }
 
     // This is the cleanup function. When the component unmounts, clear presence.
     return () => {
       updatePresence({ listeningTo: null });
     };
-  }, [isPlaying, currentTrack, updatePresence, isExternalLink]);
-
-  // Submit accumulated listening time periodically and when track changes
-  useEffect(() => {
-    if (accumulatedListeningTime > 0 && currentTrack && !isExternalLink) {
-      const submitProgress = async () => {
-        try {
-          await updateListeningProgress({
-            submissionId: currentTrack._id as Id<"submissions">,
-            listenedTime: accumulatedListeningTime,
-            songDuration: duration || undefined,
-          });
-          setAccumulatedListeningTime(0);
-        } catch (error) {
-          console.error("Failed to update listening progress:", error);
-        }
-      };
-
-      // Submit immediately if we have accumulated significant time
-      if (accumulatedListeningTime >= 5) {
-        submitProgress();
-      }
-
-      // Set up interval to submit progress every 10 seconds
-      const interval = setInterval(submitProgress, 10000);
-
-      return () => clearInterval(interval);
-    }
-  }, [accumulatedListeningTime, currentTrack, updateListeningProgress, duration, isExternalLink]);
-
-  // Submit final progress when track changes or component unmounts
-  useEffect(() => {
-    return () => {
-      if (accumulatedListeningTime > 0 && currentTrack && !isExternalLink) {
-        updateListeningProgress({
-          submissionId: currentTrack._id as Id<"submissions">,
-          listenedTime: accumulatedListeningTime,
-          songDuration: duration || undefined,
-        }).catch(console.error);
-      }
-    };
-  }, [currentTrack]);
+  }, [isPlaying, currentTrack, updatePresence]);
 
   useEffect(() => {
     if (currentTrack) {
@@ -349,18 +301,6 @@ export function MusicPlayer() {
     if (audioElement && !isNaN(audioElement.duration)) {
       setProgress(audioElement.currentTime);
       setDuration(audioElement.duration);
-
-      // Track listening progress
-      if (currentTrack && isPlaying && !isExternalLink) {
-        const now = Date.now();
-        if (listeningStartTime) {
-          const listeningSegment = (now - listeningStartTime) / 1000; // Convert to seconds
-          if (listeningSegment > 0 && listeningSegment < 10) { // Only count reasonable segments (< 10 seconds)
-            setAccumulatedListeningTime(prev => prev + listeningSegment);
-          }
-        }
-        setListeningStartTime(now);
-      }
     }
   };
 
