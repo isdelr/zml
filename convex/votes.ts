@@ -339,6 +339,26 @@ export const castVote = mutation({
       };
     }
 
+    // Check if listening requirements are met
+    if (league.listeningRequirementPercentage && league.listeningRequirementPercentage > 0) {
+      const listeningProgress = await ctx.db
+        .query("listeningProgress")
+        .withIndex("by_user_and_submission", (q) =>
+          q.eq("userId", userId).eq("submissionId", args.submissionId)
+        )
+        .first();
+
+      if (!listeningProgress || !listeningProgress.meetsRequirement) {
+        const requiredPercentage = league.listeningRequirementPercentage;
+        const maxTimeMinutes = league.maxListeningTimeMinutes;
+        throw new Error(
+          `You must listen to ${requiredPercentage}% of this song before voting.${
+            maxTimeMinutes ? ` (Maximum ${maxTimeMinutes} minutes required)` : ''
+          }`
+        );
+      }
+    }
+
     return { message: "Vote saved.", isFinal: false };
   },
 });

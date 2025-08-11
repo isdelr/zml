@@ -53,6 +53,8 @@ export default defineSchema({
     maxPositiveVotes: v.number(),
     maxNegativeVotes: v.number(),
     inviteCode: v.union(v.string(), v.null()),
+    listeningRequirementPercentage: v.optional(v.number()), // 0-100, percentage of song that must be listened to
+    maxListeningTimeMinutes: v.optional(v.number()), // Maximum minutes required regardless of percentage
   })
     .index("by_creator", ["creatorId"])
     .index("by_invite_code", ["inviteCode"])
@@ -215,4 +217,18 @@ export default defineSchema({
     ),
     genreBreakdown: v.array(v.object({ name: v.string(), value: v.number() })),
   }).index("by_league", ["leagueId"]),
+
+  listeningProgress: defineTable({
+    userId: v.id("users"),
+    submissionId: v.id("submissions"),
+    leagueId: v.id("leagues"),
+    roundId: v.id("rounds"),
+    totalListenedTime: v.number(), // Total seconds listened to this song
+    songDuration: v.optional(v.number()), // Duration of the song in seconds
+    meetsRequirement: v.boolean(), // Whether the user has met the listening requirement
+    lastUpdated: v.number(), // Timestamp of last update
+  })
+    .index("by_user_and_submission", ["userId", "submissionId"])
+    .index("by_user_and_round", ["userId", "roundId"])
+    .index("by_submission", ["submissionId"]),
 });

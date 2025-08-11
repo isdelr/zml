@@ -36,6 +36,7 @@ import Image from "next/image";
 import { useUploadFile } from "@convex-dev/r2/react";
 import { Badge } from "./ui/badge";
 import { toSvg } from "jdenticon";
+import { Label } from "recharts";
 
 const MAX_ROUND_IMAGE_SIZE_MB = 5;
 const MAX_ROUND_IMAGE_SIZE_BYTES = MAX_ROUND_IMAGE_SIZE_MB * 1024 * 1024;
@@ -98,6 +99,8 @@ export function CreateLeaguePage() {
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "rounds",
+    listeningRequirementPercentage: "",
+    maxListeningTimeMinutes: "",
   });
 
   useEffect(() => {
@@ -473,6 +476,53 @@ export function CreateLeaguePage() {
                       </FormItem>
                     )}
                   />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Listening Requirements</h3>
+                <p className="text-sm text-muted-foreground">
+                  Set requirements for how much of each song players must listen to before they can vote.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="listeningRequirementPercentage">
+                      Required Listening Percentage (%)
+                    </Label>
+                    <Input
+                      id="listeningRequirementPercentage"
+                      name="listeningRequirementPercentage"
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="50"
+                      value={formData.listeningRequirementPercentage}
+                      onChange={handleChange}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Leave empty for no requirement
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="maxListeningTimeMinutes">
+                      Max Required Time (minutes)
+                    </Label>
+                    <Input
+                      id="maxListeningTimeMinutes"
+                      name="maxListeningTimeMinutes"
+                      type="number"
+                      min="1"
+                      max="480"
+                      placeholder="30"
+                      value={formData.maxListeningTimeMinutes}
+                      onChange={handleChange}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Cap listening time even for long songs
+                    </p>
+                  </div>
                 </div>
               </div>
 

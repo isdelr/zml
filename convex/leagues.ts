@@ -49,6 +49,8 @@ export const create = mutation({
     votingDeadline: v.number(),
     maxPositiveVotes: v.number(),
     maxNegativeVotes: v.number(),
+    listeningRequirementPercentage: v.optional(v.number()),
+    maxListeningTimeMinutes: v.optional(v.number()),
     rounds: v.array(
       v.object({
         title: v.string(),
@@ -74,6 +76,18 @@ export const create = mutation({
       throw new Error("Upvotes must be between 1 and 10.");
     }
 
+    // Validate listening requirements
+    if (args.listeningRequirementPercentage !== undefined) {
+      if (args.listeningRequirementPercentage < 0 || args.listeningRequirementPercentage > 100) {
+        throw new Error("Listening requirement percentage must be between 0 and 100.");
+      }
+    }
+    if (args.maxListeningTimeMinutes !== undefined) {
+      if (args.maxListeningTimeMinutes < 1 || args.maxListeningTimeMinutes > 480) {
+        throw new Error("Maximum listening time must be between 1 and 480 minutes (8 hours).");
+      }
+    }
+
     let inviteCode;
     let isUnique = false;
     while (!isUnique) {
@@ -96,6 +110,8 @@ export const create = mutation({
       maxPositiveVotes: args.maxPositiveVotes,
       maxNegativeVotes: args.maxNegativeVotes,
       inviteCode: inviteCode!,
+      listeningRequirementPercentage: args.listeningRequirementPercentage,
+      maxListeningTimeMinutes: args.maxListeningTimeMinutes,
     });
 
     const membershipId = await ctx.db.insert("memberships", {
@@ -214,6 +230,8 @@ export const get = query({
       votingDeadline: v.number(),
       maxPositiveVotes: v.number(),
       maxNegativeVotes: v.number(),
+      listeningRequirementPercentage: v.optional(v.number()),
+      maxListeningTimeMinutes: v.optional(v.number()),
       creatorName: v.string(),
       memberCount: v.number(),
       isOwner: v.boolean(),
