@@ -27,7 +27,6 @@ import {
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
-import { Progress } from "../ui/progress";
 
 interface SubmissionItemProps {
   song: unknown;
