@@ -28,6 +28,7 @@ interface WaveformProps {
   onSeek: (time: number) => void;
   className?: string;
   comments: WaveformComment[];
+  savedProgress?: number;
 }
 
 const formatTime = (seconds: number) => {
@@ -44,6 +45,7 @@ export function Waveform({
   onSeek,
   className,
   comments,
+  savedProgress,
 }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -75,6 +77,8 @@ export function Waveform({
     const numBars = Math.floor(width / totalBarWidth);
 
     const progressInBars = duration > 0 ? (progress / duration) * numBars : 0;
+    const savedProgressInBars =
+      duration > 0 && savedProgress ? (savedProgress / duration) * numBars : 0;
 
     const primaryColor = getComputedStyle(document.documentElement)
       .getPropertyValue("--primary")
@@ -86,27 +90,41 @@ export function Waveform({
     ctx.lineWidth = barWidth;
     ctx.lineCap = "round";
 
-    for (let i = 0; i < numBars; i++) {
-      const x = barGap + i * totalBarWidth + barWidth / 2;
+    const drawBars = (limit: number, color: string) => {
+      ctx.strokeStyle = color;
+      for (let i = 0; i < limit; i++) {
+        const x = barGap + i * totalBarWidth + barWidth / 2;
 
-      const sampleIndex = Math.floor((i / numBars) * waveform.length);
-      const maxSample = channel.max_sample(sampleIndex);
-      const minSample = channel.min_sample(sampleIndex);
+        const sampleIndex = Math.floor((i / numBars) * waveform.length);
+        const maxSample = channel.max_sample(sampleIndex);
+        const minSample = channel.min_sample(sampleIndex);
 
-      const topHalfHeight = (maxSample / 127) * middleY;
-      const bottomHalfHeight = (Math.abs(minSample) / 128) * middleY;
+        const topHalfHeight = (maxSample / 127) * middleY;
+        const bottomHalfHeight = (Math.abs(minSample) / 128) * middleY;
 
-      const barTopY = middleY - topHalfHeight;
-      const barBottomY = middleY + bottomHalfHeight;
+        const barTopY = middleY - topHalfHeight;
+        const barBottomY = middleY + bottomHalfHeight;
 
-      ctx.strokeStyle = i < progressInBars ? primaryColor : mutedColor;
+        ctx.beginPath();
+        ctx.moveTo(x, barTopY);
+        ctx.lineTo(x, barBottomY);
+        ctx.stroke();
+      }
+    };
 
-      ctx.beginPath();
-      ctx.moveTo(x, barTopY);
-      ctx.lineTo(x, barBottomY);
-      ctx.stroke();
+    // 1. Draw all bars in muted color
+    drawBars(numBars, mutedColor);
+
+    // 2. Draw saved progress with transparent primary
+    if (savedProgressInBars > 0) {
+      ctx.globalAlpha = 0.3;
+      drawBars(savedProgressInBars, primaryColor);
+      ctx.globalAlpha = 1.0;
     }
-  }, [waveform, progress, duration]);
+
+    // 3. Draw played progress with solid primary
+    drawBars(progressInBars, primaryColor);
+  }, [waveform, progress, duration, savedProgress]);
 
   const handleSeek = (e: MouseEvent<HTMLCanvasElement | HTMLDivElement>) => {
     const target = e.currentTarget as HTMLElement;
