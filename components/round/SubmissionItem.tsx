@@ -28,9 +28,10 @@ import {
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
+import { Song } from "@/types";
 
 interface SubmissionItemProps {
-  song: any;
+  song: Song;
   index: number;
   isThisSongPlaying: boolean;
   isThisSongCurrent: boolean;
