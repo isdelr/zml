@@ -1,4 +1,5 @@
 // components/round/SubmissionItem.tsx
+
 "use client";
 
 import { cn } from "@/lib/utils";
@@ -93,15 +94,20 @@ export function SubmissionItem({
     if (!canVote) return "You are not eligible to vote in this round (joined late).";
     if (hasVoted) return "Your vote for this round is final.";
 
-    // New overall and specific listening requirement checks
+    // Logic for listen duration enforcement
     if (league.enforceListenPercentage) {
+      // The user cannot vote on anything until all listening requirements are met.
       if (!isReadyToVoteOverall) {
+        // If this specific song is one of the ones that hasn't been completed,
+        // show a specific message for it.
+        if (song.submissionType === 'file' && !isListenRequirementMetForThisSong) {
+          return `You must listen to ${league.listenPercentage}% of this song to vote.`;
+        }
+        // For all other songs (which have been listened to), show a generic message.
         return "You must meet the listening requirements for all songs before you can vote.";
       }
-      if (song.submissionType === 'file' && !isListenRequirementMetForThisSong) {
-        return `You must listen to ${league.listenPercentage}% of this song to vote.`;
-      }
     }
+
 
     return null; // Voting is allowed
   }, [
