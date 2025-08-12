@@ -1,4 +1,3 @@
-/* eslint-disable no-case-declarations */
 // convex/leagues.ts
 import { v } from "convex/values";
 import {
@@ -985,5 +984,143 @@ export const getLeagueStats = query({
       .first();
 
     return stats;
+  },
+});
+
+/**
+ * Re-implemented: Search within a league across rounds and songs.
+ * - Rounds: simple case-insensitive match on title/description.
+ * - Songs: full-text search using submissions.by_text (searchText), filtered by leagueId.
+ * Returns small, UI-friendly objects for the dropdown and one-click play.
+ */
+export const searchInLeague = query({
+  args: {
+    leagueId: v.id("leagues"),
+    searchText: v.string(),
+    limit: v.optional(v.number()), // per category
+  },
+  returns: v.object({
+    rounds: v.array(
+      v.object({
+        _id: v.id("rounds"),
+        title: v.string(),
+      }),
+    ),
+    songs: v.array(
+      v.object({
+        _id: v.id("submissions"),
+        songTitle: v.string(),
+        artist: v.string(),
+        albumArtUrl: v.union(v.string(), v.null()),
+        songFileUrl: v.union(v.string(), v.null()),
+        submissionType: v.union(
+          v.literal("file"),
+          v.literal("spotify"),
+          v.literal("youtube"),
+        ),
+        songLink: v.union(v.string(), v.null()),
+        leagueId: v.id("leagues"),
+        leagueName: v.optional(v.string()),
+        roundId: v.id("rounds"),
+        roundTitle: v.optional(v.string()),
+      }),
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    const league = await ctx.db.get(args.leagueId);
+    if (!league) {
+      return { rounds: [], songs: [] };
+    }
+
+    // Permission check for private leagues:
+    if (!league.isPublic) {
+      const membership =
+        userId &&
+        (await ctx.db
+          .query("memberships")
+          .withIndex("by_league_and_user", (q) =>
+            q.eq("leagueId", league._id).eq("userId", userId!),
+          )
+          .first());
+      if (!membership) {
+        return { rounds: [], songs: [] };
+      }
+    }
+
+    const perCategoryLimit = Math.max(1, Math.min(args.limit ?? 5, 25));
+    const needle = args.searchText.trim().toLowerCase();
+
+    // Rounds: simple substring match on title/description within the league
+    const allRoundsInLeague = await ctx.db
+      .query("rounds")
+      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+      .collect();
+
+    const matchedRounds = allRoundsInLeague
+      .filter((r) => {
+        const t = r.title.toLowerCase();
+        const d = r.description.toLowerCase();
+        return t.includes(needle) || d.includes(needle);
+      })
+      .slice(0, perCategoryLimit)
+      .map((r) => ({
+        _id: r._id,
+        title: r.title,
+      }));
+
+    // Songs: full-text search using submissions.by_text, filtered by league
+    const matchedSubs = await ctx.db
+      .query("submissions")
+      .withSearchIndex("by_text", (q) =>
+        q.search("searchText", args.searchText).eq("leagueId", args.leagueId),
+      )
+      .take(perCategoryLimit);
+
+    // Batch fetch rounds for titles
+    const roundIds = [...new Set(matchedSubs.map((s) => s.roundId))];
+    const roundDocs = await Promise.all(roundIds.map((rid) => ctx.db.get(rid)));
+    const roundMap = new Map<string, Doc<"rounds">>();
+    roundDocs.forEach((rd) => {
+      if (rd) roundMap.set(rd._id.toString(), rd);
+    });
+
+    // Build song results with resolved URLs
+    const songs = await Promise.all(
+      matchedSubs.map(async (sub) => {
+        const round = roundMap.get(sub.roundId.toString());
+        let albumArtUrl: string | null = null;
+        let songFileUrl: string | null = null;
+
+        if (sub.submissionType === "file") {
+          [albumArtUrl, songFileUrl] = await Promise.all([
+            sub.albumArtKey ? r2.getUrl(sub.albumArtKey) : Promise.resolve(null),
+            sub.songFileKey ? r2.getUrl(sub.songFileKey) : Promise.resolve(null),
+          ]);
+        } else {
+          albumArtUrl = sub.albumArtUrlValue ?? null;
+          songFileUrl = sub.songLink ?? null;
+        }
+
+        return {
+          _id: sub._id,
+          songTitle: sub.songTitle,
+          artist: sub.artist,
+          albumArtUrl,
+          songFileUrl,
+          submissionType: sub.submissionType,
+          songLink: sub.songLink ?? null,
+          leagueId: sub.leagueId,
+          leagueName: league.name,
+          roundId: sub.roundId,
+          roundTitle: round?.title,
+        };
+      }),
+    );
+
+    return {
+      rounds: matchedRounds,
+      songs,
+    };
   },
 });
