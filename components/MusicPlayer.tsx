@@ -71,6 +71,7 @@ export function MusicPlayer() {
   );
 
   const getPresignedSongUrl = useAction(api.submissions.getPresignedSongUrl);
+  const updateDbProgress = useMutation(api.listenProgress.updateProgress);
 
   const toggleBookmark = useMutation(
     api.bookmarks.toggleBookmark,
@@ -126,6 +127,22 @@ export function MusicPlayer() {
   const isExternalLink =
     currentTrack?.submissionType === "spotify" ||
     currentTrack?.submissionType === "youtube";
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (isPlaying && currentTrack && audioRef.current && !isExternalLink) {
+        const progressSeconds = audioRef.current.currentTime;
+        if (progressSeconds > 0) {
+          updateDbProgress({
+            submissionId: currentTrack._id as Id<"submissions">,
+            progressSeconds,
+          }).catch(console.error);
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [isPlaying, currentTrack, isExternalLink, updateDbProgress]);
 
   useEffect(() => {
     if (!audioContextRef.current) {

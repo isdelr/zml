@@ -219,4 +219,11 @@ export default defineSchema({
     ),
     genreBreakdown: v.array(v.object({ name: v.string(), value: v.number() })),
   }).index("by_league", ["leagueId"]),
+
+  listenProgress: defineTable({
+    userId: v.id("users"),
+    submissionId: v.id("submissions"),
+    progressSeconds: v.number(),
+    isCompleted: v.boolean(),
+  }).index("by_user_and_submission", ["userId", "submissionId"]),
 });

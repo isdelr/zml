@@ -56,6 +56,22 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
   const currentUser = useQuery(api.users.getCurrentUser);
 
+  const listenProgressData = useQuery(api.listenProgress.getForRound, {
+    roundId: round._id,
+  });
+
+  const listenProgressMap = useMemo(() => {
+    if (!listenProgressData) return {};
+    const map: Record<string, Doc<"listenProgress">> = {};
+    for (const progress of listenProgressData) {
+      if(progress){
+          map[progress.submissionId] = progress;
+      }
+    }
+    return map;
+  }, [listenProgressData]);
+
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -312,6 +328,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             queue={queue}
             onPlaySong={handlePlaySong}
             onVoteClick={handleVoteClick}
+            listenProgressMap={listenProgressMap}
           />
           {round.status === "finished" && (
             <div ref={summaryTriggerRef}>

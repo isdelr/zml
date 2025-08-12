@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toSvg } from "jdenticon";
 import { SubmissionComments } from "./SubmissionComments";
-import { Id } from "@/convex/_generated/dataModel";
+import { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   Tooltip,
   TooltipContent,
@@ -27,6 +27,7 @@ import {
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
+import { Progress } from "../ui/progress";
 
 interface SubmissionItemProps {
   song: unknown;
@@ -45,6 +46,7 @@ interface SubmissionItemProps {
   onVoteClick: (voteType: "up" | "down" | "none") => void;
   onBookmark: () => void;
   onPlaySong: () => void;
+  listenProgress: Doc<"listenProgress"> | undefined;
 }
 
 export function SubmissionItem({
@@ -63,16 +65,21 @@ export function SubmissionItem({
   onVoteClick,
   onBookmark,
   onPlaySong,
+  listenProgress,
 }: SubmissionItemProps) {
   const { points, isBookmarked, comment, isPenalized } = song;
-  const { listenProgress } = useMusicPlayerStore();
+  const { listenProgress: localListenProgress } = useMusicPlayerStore();
 
   const isListenRequirementMet = useMemo(() => {
     if (!league.enforceListenPercentage) return true;
-    // The submitter doesn't vote on their own song, so no need to enforce
     if (userIsSubmitter) return true;
-    return !!listenProgress[song._id as Id<"submissions">];
-  }, [league, listenProgress, song._id, userIsSubmitter]);
+    
+    if (localListenProgress[song._id as Id<"submissions">]) return true;
+
+    if (listenProgress?.isCompleted) return true;
+    
+    return false;
+  }, [league, localListenProgress, listenProgress, song._id, userIsSubmitter]);
 
   const voteDisabledReason = useMemo(() => {
     if (!isListenRequirementMet)
@@ -91,6 +98,13 @@ export function SubmissionItem({
     canVote,
     league,
   ]);
+
+  const listenedPercent = useMemo(() => {
+    if (!league.enforceListenPercentage || !song.duration) return 0;
+    const currentProgress = listenProgress?.progressSeconds ?? 0;
+    return Math.min((currentProgress / song.duration) * 100, 100);
+  }, [listenProgress, song.duration, league]);
+
 
   const pointColor =
     points > 0
@@ -176,11 +190,32 @@ export function SubmissionItem({
             height={40}
             className="rounded"
           />
-          <div>
-            <p className={cn("font-semibold", isThisSongCurrent && "text-primary")}>
+          <div className="min-w-0 flex-1">
+            <p className={cn("truncate font-semibold", isThisSongCurrent && "text-primary")}>
               {song.songTitle}
             </p>
-            <p className="text-sm text-muted-foreground">{song.artist}</p>
+            <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
+            
+            {league.enforceListenPercentage && !userIsSubmitter && song.duration > 0 && roundStatus === "voting" && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                        <div className="relative mt-1.5 h-1.5 w-full cursor-default rounded-full bg-muted">
+                            <Progress value={listenedPercent} className="h-1.5" />
+                            <div
+                                className="absolute top-0 h-full w-0.5 bg-foreground/50"
+                                style={{ left: `${league.listenPercentage}%` }}
+                            />
+                        </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                        <p>
+                            Listened: {Math.floor(listenedPercent)}% (Required: {league.listenPercentage}%)
+                        </p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
           </div>
         </div>
 
@@ -280,4 +315,3 @@ export function SubmissionItem({
     </div>
   );
 }
-
