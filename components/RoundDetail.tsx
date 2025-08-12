@@ -71,6 +71,26 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     return map;
   }, [listenProgressData]);
 
+  const submissions = useQuery(api.submissions.getForRound, {
+    roundId: round._id,
+  });
+
+  const isReadyToVoteOverall = useMemo(() => {
+    if (!league.enforceListenPercentage || !submissions || !currentUser)
+      return true;
+
+    const requiredSubmissions = submissions.filter(
+      (s) => s.submissionType === "file" && s.userId !== currentUser._id,
+    );
+
+    if (requiredSubmissions.length === 0) return true;
+
+    return requiredSubmissions.every((sub) => {
+      const progress = listenProgressMap[sub._id];
+      return progress?.isCompleted === true;
+    });
+  }, [league.enforceListenPercentage, submissions, currentUser, listenProgressMap]);
+
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -148,10 +168,6 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       );
     },
   );
-
-  const submissions = useQuery(api.submissions.getForRound, {
-    roundId: round._id,
-  });
 
   const userVoteStatus = useQuery(api.votes.getForUserInRound, {
     roundId: round._id,
@@ -329,6 +345,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             onPlaySong={handlePlaySong}
             onVoteClick={handleVoteClick}
             listenProgressMap={listenProgressMap}
+            isReadyToVoteOverall={isReadyToVoteOverall}
           />
           {round.status === "finished" && (
             <div ref={summaryTriggerRef}>

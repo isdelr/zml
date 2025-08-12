@@ -170,6 +170,35 @@ export const castVote = mutation({
       throw new Error("You are not eligible to vote in this round.");
     }
 
+    // Enforce listening percentage server-side for security
+    if (league.enforceListenPercentage) {
+      const allSubmissionsInRound = await ctx.db
+        .query("submissions")
+        .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+        .collect();
+
+      const requiredSubmissions = allSubmissionsInRound.filter(
+        (s) => s.userId !== userId && s.submissionType === "file",
+      );
+
+      if (requiredSubmissions.length > 0) {
+        const progressDocs = await Promise.all(
+          requiredSubmissions.map((s) =>
+            ctx.db
+              .query("listenProgress")
+              .withIndex("by_user_and_submission", (q) => q.eq("userId", userId).eq("submissionId", s._id))
+              .first(),
+          ),
+        );
+
+        const allCompleted = progressDocs.every((p) => p !== null && p.isCompleted);
+
+        if (!allCompleted) {
+          throw new Error("You must listen to the required portion of all file submissions before voting.");
+        }
+      }
+    }
+
     const allUserVotesInRound = await ctx.db
       .query("votes")
       .withIndex("by_round_and_user", (q) =>

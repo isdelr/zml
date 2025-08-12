@@ -27,6 +27,7 @@ interface SubmissionsListProps {
     submissionId: Id<"submissions">,
     voteType: "up" | "down" | "none",
   ) => void;
+  isReadyToVoteOverall: boolean;
   listenProgressMap: Record<string, Doc<"listenProgress">>;
 }
 
@@ -43,6 +44,7 @@ export function SubmissionsList({
   onPlaySong,
   onVoteClick,
   listenProgressMap,
+  isReadyToVoteOverall,
 }: SubmissionsListProps) {
   const [visibleComments, setVisibleComments] = useState<
     Record<string, boolean>
@@ -186,6 +188,7 @@ export function SubmissionsList({
             onBookmark={() => handleBookmark(song._id)}
             onPlaySong={() => onPlaySong(song, index)}
             listenProgress={listenProgressMap[song._id]}
+            isReadyToVoteOverall={isReadyToVoteOverall}
           />
         );
       })}

@@ -47,6 +47,7 @@ interface SubmissionItemProps {
   onBookmark: () => void;
   onPlaySong: () => void;
   listenProgress: Doc<"listenProgress"> | undefined;
+  isReadyToVoteOverall: boolean;
 }
 
 export function SubmissionItem({
@@ -66,44 +67,60 @@ export function SubmissionItem({
   onBookmark,
   onPlaySong,
   listenProgress,
+  isReadyToVoteOverall,
 }: SubmissionItemProps) {
   const { points, isBookmarked, comment, isPenalized } = song;
   const { listenProgress: localListenProgress } = useMusicPlayerStore();
 
-  const isListenRequirementMet = useMemo(() => {
+  const isListenRequirementMetForThisSong = useMemo(() => {
     if (!league.enforceListenPercentage) return true;
-    if (userIsSubmitter) return true;
-    
+    // Non-file submissions don't have listening requirements
+    if (song.submissionType !== "file") return true;
+    if (userIsSubmitter) return true; // Can't vote on your own song anyway
+
+    // Check local store first for immediate feedback while playing
     if (localListenProgress[song._id as Id<"submissions">]) return true;
 
+    // Then check DB data
     if (listenProgress?.isCompleted) return true;
-    
+
     return false;
-  }, [league, localListenProgress, listenProgress, song._id, userIsSubmitter]);
+  }, [league, localListenProgress, listenProgress, song._id, song.submissionType, userIsSubmitter]);
 
   const voteDisabledReason = useMemo(() => {
-    if (!isListenRequirementMet)
-      return `You must listen to ${league.listenPercentage}% of this song to vote.`;
+    // These are absolute blockers, checked first
     if (roundStatus !== "voting") return "Voting is not currently open.";
     if (userIsSubmitter) return "You cannot vote on your own submission.";
+    if (!canVote) return "You are not eligible to vote in this round (joined late).";
     if (hasVoted) return "Your vote for this round is final.";
-    if (!canVote)
-      return "You are not eligible to vote in this round (joined late).";
-    return null;
+
+    // New overall and specific listening requirement checks
+    if (league.enforceListenPercentage) {
+      if (!isReadyToVoteOverall) {
+        return "You must meet the listening requirements for all songs before you can vote.";
+      }
+      if (song.submissionType === 'file' && !isListenRequirementMetForThisSong) {
+        return `You must listen to ${league.listenPercentage}% of this song to vote.`;
+      }
+    }
+
+    return null; // Voting is allowed
   }, [
-    isListenRequirementMet,
+    isListenRequirementMetForThisSong,
+    isReadyToVoteOverall,
     roundStatus,
     userIsSubmitter,
     hasVoted,
     canVote,
     league,
+    song.submissionType,
   ]);
 
   const listenedPercent = useMemo(() => {
-    if (!league.enforceListenPercentage || !song.duration) return 0;
+    if (!league.enforceListenPercentage || !song.duration || song.submissionType !== 'file') return 0;
     const currentProgress = listenProgress?.progressSeconds ?? 0;
     return Math.min((currentProgress / song.duration) * 100, 100);
-  }, [listenProgress, song.duration, league]);
+  }, [listenProgress, song.duration, league, song.submissionType]);
 
 
   const pointColor =
@@ -196,7 +213,7 @@ export function SubmissionItem({
             </p>
             <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
             
-            {league.enforceListenPercentage && !userIsSubmitter && song.duration > 0 && roundStatus === "voting" && (
+            {league.enforceListenPercentage && !userIsSubmitter && song.submissionType === 'file' && song.duration > 0 && roundStatus === "voting" && (
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
