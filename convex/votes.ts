@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { Doc } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { submissionScoreCounter } from "./counters";
 
@@ -29,6 +29,7 @@ export const getForUserInRound = query({
         downvotesUsed: 0,
       };
     }
+
     const round = await ctx.db.get(args.roundId);
     if (!round) {
       return {
@@ -39,10 +40,12 @@ export const getForUserInRound = query({
         downvotesUsed: 0,
       };
     }
+
     const league = await ctx.db.get(round.leagueId);
     if (!league) {
       throw new Error("Could not find league for this round");
     }
+
     const membership = await ctx.db
       .query("memberships")
       .withIndex("by_league_and_user", (q) =>
@@ -50,8 +53,7 @@ export const getForUserInRound = query({
       )
       .first();
 
-    // --- MODIFICATION START ---
-    // Check if the user has a submission in this round to handle legacy cases.
+    // User can vote if they joined before submissions closed OR they have a submission in this round (legacy/backfill case)
     const userSubmission = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) =>
@@ -59,13 +61,9 @@ export const getForUserInRound = query({
       )
       .first();
 
-    // A user can vote if they joined before the round started OR if they have a submission.
-    const joinedEarly = membership?.joinDate
-      ? membership.joinDate < round.submissionDeadline
-      : false;
-    const hasLegacySubmission = !!userSubmission;
-    const canVote = joinedEarly || hasLegacySubmission;
-    // --- MODIFICATION END ---
+    const joinedEarly =
+      membership?.joinDate ? membership.joinDate < round.submissionDeadline : false;
+    const canVote = joinedEarly || !!userSubmission;
 
     const userVotes = await ctx.db
       .query("votes")
@@ -74,10 +72,10 @@ export const getForUserInRound = query({
       )
       .collect();
 
-    const upvotesUsed = userVotes.filter((v) => v.vote > 0).length;
-    const downvotesUsed = userVotes.filter((v) => v.vote < 0).length;
+    // Sum magnitudes instead of counting docs (supports stacking)
+    const upvotesUsed = userVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
+    const downvotesUsed = userVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
 
-    // A user has "voted" (i.e., their vote is final) when they use all their votes.
     const hasVoted =
       upvotesUsed === league.maxPositiveVotes &&
       downvotesUsed === league.maxNegativeVotes;
@@ -105,13 +103,9 @@ export const getVotersForRound = query({
     }
     const userIds = [...new Set(votes.map((vote) => vote.userId))];
 
-    const users = await Promise.all(
-      userIds.map(async (userId) => {
-        return await ctx.db.get(userId);
-      }),
-    );
+    const users = await Promise.all(userIds.map(async (userId) => ctx.db.get(userId)));
     return users
-      .filter((user): user is Doc<"users"> => user !== null)
+      .filter((u): u is Doc<"users"> => u !== null)
       .map((user) => ({
         _id: user._id,
         name: user.name,
@@ -120,14 +114,17 @@ export const getVotersForRound = query({
   },
 });
 
+/**
+ * New voting semantics:
+ * - Each click is a delta (+1 for up arrow, -1 for down arrow).
+ * - A single vote document per (user, submission) stores an integer "vote" that can be negative, zero, or positive.
+ * - Totals across a round are constrained by league.maxPositiveVotes/maxNegativeVotes.
+ * - You cannot have both positive and negative votes on the same song at the same time (enforced by the single signed integer).
+ */
 export const castVote = mutation({
   args: {
     submissionId: v.id("submissions"),
-    newVoteState: v.union(
-      v.literal("up"),
-      v.literal("down"),
-      v.literal("none"),
-    ),
+    delta: v.union(v.literal(1), v.literal(-1)),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -140,10 +137,11 @@ export const castVote = mutation({
     if (!round) throw new Error("Round not found.");
     if (round.status !== "voting") throw new Error("Voting is not open.");
 
-    if (submission.userId === userId)
+    if (submission.userId === userId) {
       throw new Error("You cannot vote on your own submission.");
+    }
 
-    const league = await ctx.db.get(round.leagueId);
+    const league = await ctx.db.get(submission.leagueId);
     if (!league) throw new Error("League not found.");
 
     const membership = await ctx.db
@@ -153,7 +151,7 @@ export const castVote = mutation({
       )
       .first();
 
-    // We fetch the user's submission to check for the legacy case here as well.
+    // Legacy allowance: if user submitted in this round, let them vote even if they joined late.
     const userSubmission = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) =>
@@ -162,171 +160,139 @@ export const castVote = mutation({
       .first();
 
     const canVote =
-      (membership?.joinDate &&
-        membership.joinDate < round.submissionDeadline) ||
+      (membership?.joinDate && membership.joinDate < round.submissionDeadline) ||
       !!userSubmission;
 
     if (!canVote) {
       throw new Error("You are not eligible to vote in this round.");
     }
 
-    // Enforce listening percentage server-side for security
+    // Enforce listening requirement across all file submissions before any voting
     if (league.enforceListenPercentage) {
-      const allSubmissionsInRound = await ctx.db
+      const allSubs = await ctx.db
         .query("submissions")
         .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
         .collect();
 
-      const requiredSubmissions = allSubmissionsInRound.filter(
-        (s) => s.userId !== userId && s.submissionType === "file",
-      );
+      const requiredSubs = allSubs.filter((s) => s.userId !== userId && s.submissionType === "file");
 
-      if (requiredSubmissions.length > 0) {
+      if (requiredSubs.length > 0) {
         const progressDocs = await Promise.all(
-          requiredSubmissions.map((s) =>
+          requiredSubs.map((s) =>
             ctx.db
               .query("listenProgress")
-              .withIndex("by_user_and_submission", (q) => q.eq("userId", userId).eq("submissionId", s._id))
+              .withIndex("by_user_and_submission", (q) =>
+                q.eq("userId", userId).eq("submissionId", s._id),
+              )
               .first(),
           ),
         );
 
         const allCompleted = progressDocs.every((p) => p !== null && p.isCompleted);
-
         if (!allCompleted) {
-          throw new Error("You must listen to the required portion of all file submissions before voting.");
+          throw new Error(
+            "You must listen to the required portion of all file submissions before voting.",
+          );
         }
       }
     }
 
+    // Lock once full budgets are used
     const allUserVotesInRound = await ctx.db
       .query("votes")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", round._id).eq("userId", userId),
-      )
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId))
       .collect();
 
-    const existingVoteOnThisSubmission = allUserVotesInRound.find(
-      (v) => v.submissionId === args.submissionId,
+    const upUsedSoFar = allUserVotesInRound.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
+    const downUsedSoFar = allUserVotesInRound.reduce(
+      (sum, v) => sum + Math.abs(Math.min(0, v.vote)),
+      0,
     );
-
-    let voteDelta = 0;
-
-    const upvotesUsedSoFar = allUserVotesInRound.filter(
-      (v) => v.vote > 0,
-    ).length;
-    const downvotesUsedSoFar = allUserVotesInRound.filter(
-      (v) => v.vote < 0,
-    ).length;
-
-    if (
-      upvotesUsedSoFar === league.maxPositiveVotes &&
-      downvotesUsedSoFar === league.maxNegativeVotes
-    ) {
+    if (upUsedSoFar === league.maxPositiveVotes && downUsedSoFar === league.maxNegativeVotes) {
       throw new Error("Your votes are final and cannot be changed.");
     }
 
-    if (existingVoteOnThisSubmission) {
-      voteDelta -= existingVoteOnThisSubmission.vote;
-      await ctx.db.delete(existingVoteOnThisSubmission._id);
+    // Current vote for this submission (single doc), others for budget calculations
+    const existingVote = allUserVotesInRound.find((v) => v.submissionId === args.submissionId);
+    const otherVotes = allUserVotesInRound.filter((v) => v.submissionId !== args.submissionId);
+
+    const current = existingVote?.vote ?? 0;
+    const newVote = current + args.delta;
+
+    // Compute budget usage excluding this submission, then add the newVote parts
+    const otherPos = otherVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
+    const otherNeg = otherVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
+
+    const newPosUsed = otherPos + Math.max(0, newVote);
+    const newNegUsed = otherNeg + Math.abs(Math.min(0, newVote));
+
+    if (args.delta === 1 && newPosUsed > league.maxPositiveVotes) {
+      throw new Error("No upvotes remaining.");
+    }
+    if (args.delta === -1 && newNegUsed > league.maxNegativeVotes) {
+      // Note: this fires only when actually increasing negative usage (e.g., 0 -> -1, -1 -> -2, etc.).
+      // If you're reducing positive usage (e.g., 2 -> 1), newNegUsed doesn't increase and this won't trip.
+      throw new Error("No downvotes remaining.");
     }
 
-    const otherVotes = allUserVotesInRound.filter(
-      (v) => v.submissionId !== args.submissionId,
-    );
-    const upvotesUsed = otherVotes.filter((v) => v.vote > 0).length;
-    const downvotesUsed = otherVotes.filter((v) => v.vote < 0).length;
-
-    if (args.newVoteState === "up") {
-      if (upvotesUsed >= league.maxPositiveVotes) {
-        if (existingVoteOnThisSubmission)
-          await ctx.db.insert("votes", {
-            ...existingVoteOnThisSubmission,
-            _id: undefined,
-            _creationTime: undefined,
-          } as any);
-        throw new Error("No upvotes remaining.");
+    // Apply mutation
+    if (existingVote) {
+      if (newVote === 0) {
+        await ctx.db.delete(existingVote._id);
+      } else {
+        await ctx.db.patch(existingVote._id, { vote: newVote });
       }
-      await ctx.db.insert("votes", {
-        roundId: round._id,
-        submissionId: args.submissionId,
-        userId,
-        vote: 1,
-      });
-      voteDelta += 1;
-    } else if (args.newVoteState === "down") {
-      if (downvotesUsed >= league.maxNegativeVotes) {
-        if (existingVoteOnThisSubmission)
-          await ctx.db.insert("votes", {
-            ...existingVoteOnThisSubmission,
-            _id: undefined,
-            _creationTime: undefined,
-          } as any);
-        throw new Error("No downvotes remaining.");
+    } else {
+      if (newVote !== 0) {
+        await ctx.db.insert("votes", {
+          roundId: round._id,
+          submissionId: args.submissionId,
+          userId,
+          vote: newVote,
+        });
       }
-      await ctx.db.insert("votes", {
-        roundId: round._id,
-        submissionId: args.submissionId,
-        userId,
-        vote: -1,
-      });
-      voteDelta -= 1;
     }
 
-    if (voteDelta !== 0) {
-      await submissionScoreCounter.add(ctx, args.submissionId, voteDelta);
-    }
+    // Update live score counter for the submission
+    await submissionScoreCounter.add(ctx, args.submissionId, args.delta);
 
+    // Recompute final usage to decide if user just finalized
     const finalVotes = await ctx.db
       .query("votes")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", round._id).eq("userId", userId),
-      )
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId))
       .collect();
-    const finalUpvotes = finalVotes.filter((v) => v.vote > 0).length;
-    const finalDownvotes = finalVotes.filter((v) => v.vote < 0).length;
+
+    const finalUp = finalVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
+    const finalDown = finalVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
 
     const currentUserFinishedVoting =
-      finalUpvotes === league.maxPositiveVotes &&
-      finalDownvotes === league.maxNegativeVotes;
+      finalUp === league.maxPositiveVotes && finalDown === league.maxNegativeVotes;
 
     if (currentUserFinishedVoting) {
-      const allSubmissionsInRound = await ctx.db
-        .query("submissions")
-        .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
-        .collect();
-
-      if (allSubmissionsInRound.length === 0) {
-        return {
-          message: "All votes used. Your participation is recorded!",
-          isFinal: true,
-        };
-      }
-
-      const submitterIds = [
-        ...new Set(allSubmissionsInRound.map((s) => s.userId)),
-      ];
-
+      // If all submitters have finished, auto-finish the round.
       const allVotesInRound = await ctx.db
         .query("votes")
         .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
         .collect();
 
+      const allSubmissionsInRound = await ctx.db
+        .query("submissions")
+        .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+        .collect();
+
+      const submitterIds = [...new Set(allSubmissionsInRound.map((s) => s.userId))];
+
       let allSubmittersHaveVoted = true;
       for (const submitterId of submitterIds) {
-        const submitterVotes = allVotesInRound.filter(
-          (v) => v.userId === submitterId,
+        const submitterVotes = allVotesInRound.filter((v) => v.userId === submitterId);
+        const submitterUp = submitterVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
+        const submitterDown = submitterVotes.reduce(
+          (sum, v) => sum + Math.abs(Math.min(0, v.vote)),
+          0,
         );
-        const submitterUpvotes = submitterVotes.filter(
-          (v) => v.vote > 0,
-        ).length;
-        const submitterDownvotes = submitterVotes.filter(
-          (v) => v.vote < 0,
-        ).length;
-
         if (
-          submitterUpvotes < league.maxPositiveVotes ||
-          submitterDownvotes < league.maxNegativeVotes
+          submitterUp < league.maxPositiveVotes ||
+          submitterDown < league.maxNegativeVotes
         ) {
           allSubmittersHaveVoted = false;
           break;
@@ -336,36 +302,22 @@ export const castVote = mutation({
       if (allSubmittersHaveVoted) {
         await ctx.db.patch(round._id, { status: "finished" });
 
-        await ctx.scheduler.runAfter(
-          0,
-          internal.leagues.calculateAndStoreResults,
-          {
-            roundId: round._id,
-          },
-        );
+        await ctx.scheduler.runAfter(0, internal.leagues.calculateAndStoreResults, {
+          roundId: round._id,
+        });
 
-        await ctx.scheduler.runAfter(
-          0,
-          internal.notifications.createForLeague,
-          {
-            leagueId: league._id,
-            type: "round_finished",
-            message: `The round "${round.title}" in "${league.name}" has finished automatically! Check out the results.`,
-            link: `/leagues/${league._id}/round/${round._id}`,
-            triggeringUserId: userId,
-          },
-        );
+        await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+          leagueId: league._id,
+          type: "round_finished",
+          message: `The round "${round.title}" in "${league.name}" has finished automatically! Check out the results.`,
+          link: `/leagues/${league._id}/round/${round._id}`,
+          triggeringUserId: userId,
+        });
 
-        return {
-          message: "Your vote was the last one! The round is now finished.",
-          isFinal: true,
-        };
+        return { message: "Your vote was the last one! The round is now finished.", isFinal: true };
       }
 
-      return {
-        message: "All votes used. Your participation is recorded!",
-        isFinal: true,
-      };
+      return { message: "All votes used. Your participation is recorded!", isFinal: true };
     }
 
     return { message: "Vote saved.", isFinal: false };

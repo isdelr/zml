@@ -1,5 +1,6 @@
-// components/round/SubmissionsList.tsx
 "use client";
+
+// components/round/SubmissionsList.tsx
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
@@ -9,7 +10,9 @@ import { toast } from "sonner";
 import { SubmissionItem } from "./SubmissionItem";
 import { Song } from "@/types";
 
-type SubmissionsListPropsSubmissions = Awaited<ReturnType<typeof api.submissions.getForRound>>;
+type SubmissionsListPropsSubmissions = Awaited<
+  ReturnType<typeof api.submissions.getForRound>
+>;
 type UserVoteStatus = Awaited<ReturnType<typeof api.votes.getForUserInRound>>;
 
 interface SubmissionsListProps {
@@ -23,10 +26,7 @@ interface SubmissionsListProps {
   isPlaying: boolean;
   queue: Song[];
   onPlaySong: (song: Song, index: number) => void;
-  onVoteClick: (
-    submissionId: Id<"submissions">,
-    voteType: "up" | "down" | "none",
-  ) => void;
+  onVoteClick: (submissionId: Id<"submissions">, delta: 1 | -1) => void;
   isReadyToVoteOverall: boolean;
   listenProgressMap: Record<string, Doc<"listenProgress">>;
 }
@@ -50,67 +50,68 @@ export function SubmissionsList({
     Record<string, boolean>
   >({});
 
-  const toggleBookmark = useMutation(api.bookmarks.toggleBookmark)
-    .withOptimisticUpdate((localStore, { submissionId }) => {
-      // Update all possible queries that might contain this submission
-      const updateSubmissionInQuery = (queryKey: unknown, queryArgs: unknown, submissions: unknown[]) => {
-        if (!submissions) return null;
-        
-        let updated = false;
-        const newSubmissions = submissions.map((submission) => {
-          if (submission._id === submissionId) {
-            updated = true;
-            return { 
-              ...submission, 
-              isBookmarked: !submission.isBookmarked 
-            };
-          }
-          return submission;
-        });
-        
-        if (updated) {
-          localStore.setQuery(queryKey, queryArgs, newSubmissions);
-          return newSubmissions.find(s => s._id === submissionId);
+  const toggleBookmark = useMutation(
+    api.bookmarks.toggleBookmark,
+  ).withOptimisticUpdate((localStore, { submissionId }) => {
+    const updateSubmissionInQuery = (
+      queryKey: unknown,
+      queryArgs: unknown,
+      subs: unknown[],
+    ) => {
+      if (!subs) return null;
+      let updated = false;
+      const newSubs = subs.map((submission) => {
+        if (submission._id === submissionId) {
+          updated = true;
+          return { ...submission, isBookmarked: !submission.isBookmarked };
         }
-        return null;
-      };
+        return submission;
+      });
+      if (updated) {
+        localStore.setQuery(queryKey, queryArgs, newSubs);
+        return newSubs.find((s) => s._id === submissionId);
+      }
+      return null;
+    };
 
-      let updatedSong: Song | null = null;
-      let newBookmarkState = false;
+    let updatedSong: Song | null = null;
+    let newBookmarkState = false;
 
-      // Update submissions.getForRound queries
-      const roundQueries = localStore.getAllQueries(api.submissions.getForRound);
-      for (const { args, value } of roundQueries) {
-        const result = updateSubmissionInQuery(api.submissions.getForRound, args, value);
-        if (result) {
-          updatedSong = result as Song;
-          newBookmarkState = result.isBookmarked;
+    const roundQueries = localStore.getAllQueries(api.submissions.getForRound);
+    for (const { args, value } of roundQueries) {
+      const result = updateSubmissionInQuery(
+        api.submissions.getForRound,
+        args,
+        value,
+      );
+      if (result) {
+        updatedSong = result as Song;
+        newBookmarkState = result.isBookmarked;
+      }
+    }
+
+    const bookmarkedQueries = localStore.getAllQueries(
+      api.bookmarks.getBookmarkedSongs,
+    );
+    for (const { args, value: bookmarkedSongs } of bookmarkedQueries) {
+      if (bookmarkedSongs && updatedSong) {
+        if (newBookmarkState) {
+          const exists = bookmarkedSongs.some((s) => s._id === submissionId);
+          if (!exists) {
+            localStore.setQuery(api.bookmarks.getBookmarkedSongs, args, [
+              ...bookmarkedSongs,
+              updatedSong,
+            ]);
+          }
+        } else {
+          const filtered = bookmarkedSongs.filter(
+            (s) => s._id !== submissionId,
+          );
+          localStore.setQuery(api.bookmarks.getBookmarkedSongs, args, filtered);
         }
       }
-
-      // Update bookmarked songs list
-      const bookmarkedQueries = localStore.getAllQueries(api.bookmarks.getBookmarkedSongs);
-      for (const { args, value: bookmarkedSongs } of bookmarkedQueries) {
-        if (bookmarkedSongs && updatedSong) {
-          if (newBookmarkState) {
-            // Adding bookmark - add to list if not already there
-            const exists = bookmarkedSongs.some(s => s._id === submissionId);
-            if (!exists) {
-              localStore.setQuery(
-                api.bookmarks.getBookmarkedSongs, 
-                args, 
-                [...bookmarkedSongs, updatedSong]
-              );
-            }
-          } else {
-            // Removing bookmark - remove from list
-            const filtered = bookmarkedSongs.filter(s => s._id !== submissionId);
-            localStore.setQuery(api.bookmarks.getBookmarkedSongs, args, filtered);
-          }
-        }
-      }
-
-    });
+    }
+  });
 
   const toggleComments = (submissionId: string) => {
     setVisibleComments((prev) => ({
@@ -165,8 +166,12 @@ export function SubmissionsList({
         const userIsSubmitter = song.userId === currentUser?._id;
         const isCommentsVisible = !!visibleComments[song._id];
 
-        const userVoteOnThisSong = userVotes.find(v => v.submissionId === song._id);
-        const currentVoteState = userVoteOnThisSong ? (userVoteOnThisSong.vote > 0 ? 'up' : 'down') : 'none';
+        const userVoteOnThisSong = userVotes.find(
+          (v) => v.submissionId === song._id,
+        );
+        const currentVoteValue = userVoteOnThisSong
+          ? userVoteOnThisSong.vote
+          : 0;
 
         return (
           <SubmissionItem
@@ -178,13 +183,13 @@ export function SubmissionsList({
             isLinkSubmission={isLinkSubmission}
             isCommentsVisible={isCommentsVisible}
             userIsSubmitter={userIsSubmitter}
-            currentVoteState={currentVoteState}
+            currentVoteValue={currentVoteValue}
             roundStatus={roundStatus}
             hasVoted={hasVoted}
             league={league}
             canVote={canVote}
             onToggleComments={() => toggleComments(song._id)}
-            onVoteClick={(newVoteState) => onVoteClick(song._id, newVoteState)}
+            onVoteClick={(delta) => onVoteClick(song._id, delta)}
             onBookmark={() => handleBookmark(song._id)}
             onPlaySong={() => onPlaySong(song, index)}
             listenProgress={listenProgressMap[song._id]}

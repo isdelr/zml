@@ -1,6 +1,6 @@
-// components/round/SubmissionItem.tsx
-
 "use client";
+
+// components/round/SubmissionItem.tsx
 
 import { cn } from "@/lib/utils";
 import {
@@ -30,20 +30,20 @@ import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 
 interface SubmissionItemProps {
-  song: unknown;
+  song: any;
   index: number;
   isThisSongPlaying: boolean;
   isThisSongCurrent: boolean;
   isLinkSubmission: boolean;
   isCommentsVisible: boolean;
   userIsSubmitter: boolean;
-  currentVoteState: "up" | "down" | "none";
+  currentVoteValue: number; // stacked integer per user on this song
   roundStatus: "voting" | "finished" | "submissions";
   onToggleComments: () => void;
   league: NonNullable<Awaited<ReturnType<typeof api.leagues.get>>>;
   hasVoted: boolean;
   canVote: boolean;
-  onVoteClick: (voteType: "up" | "down" | "none") => void;
+  onVoteClick: (delta: 1 | -1) => void;
   onBookmark: () => void;
   onPlaySong: () => void;
   listenProgress: Doc<"listenProgress"> | undefined;
@@ -57,7 +57,7 @@ export function SubmissionItem({
   isLinkSubmission,
   isCommentsVisible,
   userIsSubmitter,
-  currentVoteState,
+  currentVoteValue,
   roundStatus,
   league,
   hasVoted,
@@ -74,70 +74,47 @@ export function SubmissionItem({
 
   const isListenRequirementMetForThisSong = useMemo(() => {
     if (!league.enforceListenPercentage) return true;
-    // Non-file submissions don't have listening requirements
     if (song.submissionType !== "file") return true;
-    if (userIsSubmitter) return true; // Can't vote on your own song anyway
+    if (userIsSubmitter) return true;
 
-    // Check local store first for immediate feedback while playing
     if (localListenProgress[song._id as Id<"submissions">]) return true;
-
-    // Then check DB data
     if (listenProgress?.isCompleted) return true;
 
     return false;
-  }, [league, localListenProgress, listenProgress, song._id, song.submissionType, userIsSubmitter]);
+  }, [
+    league,
+    localListenProgress,
+    listenProgress,
+    song._id,
+    song.submissionType,
+    userIsSubmitter,
+  ]);
 
   const voteDisabledReason = useMemo(() => {
-    // These are absolute blockers, checked first
     if (roundStatus !== "voting") return "Voting is not currently open.";
     if (userIsSubmitter) return "You cannot vote on your own submission.";
     if (!canVote) return "You are not eligible to vote in this round (joined late).";
     if (hasVoted) return "Your vote for this round is final.";
 
-    // Logic for listen duration enforcement
     if (league.enforceListenPercentage) {
-      // The user cannot vote on anything until all listening requirements are met.
       if (!isReadyToVoteOverall) {
-        // If this specific song is one of the ones that hasn't been completed,
-        // show a specific message for it.
-        if (song.submissionType === 'file' && !isListenRequirementMetForThisSong) {
+        if (song.submissionType === "file" && !isListenRequirementMetForThisSong) {
           return `You must listen to ${league.listenPercentage}% of this song to vote.`;
         }
-        // For all other songs (which have been listened to), show a generic message.
         return "You must meet the listening requirements for all songs before you can vote.";
       }
     }
-
-
-    return null; // Voting is allowed
+    return null;
   }, [
-    isListenRequirementMetForThisSong,
-    isReadyToVoteOverall,
     roundStatus,
     userIsSubmitter,
-    hasVoted,
     canVote,
+    hasVoted,
     league,
     song.submissionType,
+    isReadyToVoteOverall,
+    isListenRequirementMetForThisSong,
   ]);
-
-
-
-  const pointColor =
-    points > 0
-      ? "text-green-400"
-      : points < 0
-      ? "text-red-400"
-      : "text-muted-foreground";
-
-  const handleUpvoteClick = () => {
-    const newVoteState = currentVoteState === "up" ? "none" : "up";
-    onVoteClick(newVoteState);
-  };
-  const handleDownvoteClick = () => {
-    const newVoteState = currentVoteState === "down" ? "none" : "down";
-    onVoteClick(newVoteState);
-  };
 
   const PlayButton = () => (
     <Button variant="ghost" size="icon" className="size-8" onClick={onPlaySong}>
@@ -159,19 +136,13 @@ export function SubmissionItem({
     <div className="flex items-center gap-2 text-sm text-muted-foreground md:text-base">
       <Avatar className="size-6">
         <AvatarImage
-          src={
-            roundStatus === "voting"
-              ? undefined
-              : song.submittedByImage ?? undefined
-          }
+          src={roundStatus === "voting" ? undefined : song.submittedByImage ?? undefined}
           alt={roundStatus === "voting" ? "Anonymous" : song.submittedBy}
         />
         <AvatarFallback
           dangerouslySetInnerHTML={{
             __html: toSvg(
-              roundStatus === "voting"
-                ? song._id
-                : song.submittedBy ?? song.userId,
+              roundStatus === "voting" ? song._id : song.submittedBy ?? song.userId,
               24,
             ),
           }}
@@ -181,13 +152,20 @@ export function SubmissionItem({
     </div>
   );
 
+  const valueColor =
+    currentVoteValue > 0
+      ? "text-green-400"
+      : currentVoteValue < 0
+      ? "text-red-400"
+      : "text-muted-foreground";
+
   return (
     <div className="border-b border-border last:border-b-0">
       <div
         className={cn(
           "grid items-center gap-x-4 gap-y-1 p-3 transition-colors",
-          "grid-cols-[1fr_auto]",  
-          "md:grid-cols-[auto_4fr_3fr_2fr_auto] md:gap-4 md:px-4 md:py-2",  
+          "grid-cols-[1fr_auto]",
+          "md:grid-cols-[auto_4fr_3fr_2fr_auto] md:gap-4 md:px-4 md:py-2",
           isThisSongCurrent ? "bg-accent" : "hover:bg-accent/50",
           isCommentsVisible && "bg-accent/50",
         )}
@@ -224,7 +202,7 @@ export function SubmissionItem({
           )}
         </div>
 
-        <div className={cn("hidden text-right font-bold md:block", pointColor)}>
+        <div className={cn("hidden text-right font-bold md:block", points > 0 ? "text-green-400" : points < 0 ? "text-red-400" : "text-muted-foreground")}>
           {roundStatus === "finished" ? `${points} pts` : "?"}
           {isPenalized && (
             <TooltipProvider>
@@ -251,31 +229,60 @@ export function SubmissionItem({
               <TooltipTrigger asChild>
                 <span tabIndex={0}>
                   <Button
-                    variant="ghost" size="icon" aria-label="Upvote"
-                    onClick={handleUpvoteClick}
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Upvote +1"
+                    onClick={() => onVoteClick(1)}
                     disabled={!!voteDisabledReason}
                   >
-                    <ArrowUp className={cn("size-5", currentVoteState === 'up' && "fill-green-400/20 text-green-400")} />
+                    <ArrowUp
+                      className={cn(
+                        "size-5",
+                        currentVoteValue > 0 && "fill-green-400/20 text-green-400",
+                      )}
+                    />
                   </Button>
                 </span>
               </TooltipTrigger>
-              {voteDisabledReason && <TooltipContent><p>{voteDisabledReason}</p></TooltipContent>}
+              {voteDisabledReason && (
+                <TooltipContent>
+                  <p>{voteDisabledReason}</p>
+                </TooltipContent>
+              )}
             </Tooltip>
+
+            {/* Current stacked value indicator */}
+            <span className={cn("mx-1 w-6 text-center text-sm font-bold", valueColor)}>
+              {currentVoteValue > 0 ? `+${currentVoteValue}` : currentVoteValue}
+            </span>
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <span tabIndex={0}>
                   <Button
-                    variant="ghost" size="icon" aria-label="Downvote"
-                    onClick={handleDownvoteClick}
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Downvote -1"
+                    onClick={() => onVoteClick(-1)}
                     disabled={!!voteDisabledReason}
                   >
-                    <ArrowDown className={cn("size-5", currentVoteState === 'down' && "fill-red-400/20 text-red-400")} />
+                    <ArrowDown
+                      className={cn(
+                        "size-5",
+                        currentVoteValue < 0 && "fill-red-400/20 text-red-400",
+                      )}
+                    />
                   </Button>
                 </span>
               </TooltipTrigger>
-              {voteDisabledReason && <TooltipContent><p>{voteDisabledReason}</p></TooltipContent>}
+              {voteDisabledReason && (
+                <TooltipContent>
+                  <p>{voteDisabledReason}</p>
+                </TooltipContent>
+              )}
             </Tooltip>
           </TooltipProvider>
+
           <Button variant="ghost" size="icon" aria-label="Bookmark" onClick={onBookmark}>
             <Bookmark className={cn("size-5", isBookmarked && "fill-primary text-primary")} />
           </Button>
@@ -287,25 +294,41 @@ export function SubmissionItem({
         <div className="col-span-full space-y-2 pl-[56px] md:hidden">
           <div className="flex items-center justify-between">
             <SubmitterInfo />
-            <div className={cn("text-sm font-bold", pointColor)}>
+            <div className={cn("text-sm font-bold", points > 0 ? "text-green-400" : points < 0 ? "text-red-400" : "text-muted-foreground")}>
               {roundStatus === "finished" ? `${points} pts` : "?"}
               {isPenalized && (
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild><span className="inline-flex align-middle"><Ban className="ml-1 size-3 text-yellow-500" /></span></TooltipTrigger>
-                    <TooltipContent><p>Positive votes for this submission were annulled because the submitter did not vote in this round.</p></TooltipContent>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex align-middle">
+                        <Ban className="ml-1 size-3 text-yellow-500" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Positive votes for this submission were annulled because the
+                        submitter did not vote in this round.
+                      </p>
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )}
             </div>
           </div>
-          {comment && <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground break-words">{comment}</blockquote>}
+          {comment && (
+            <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground break-words">
+              {comment}
+            </blockquote>
+          )}
         </div>
       </div>
 
       {isCommentsVisible && (
         <div className="p-3 pt-0 md:px-4 md:pb-4">
-          <SubmissionComments submissionId={song._id as Id<"submissions">} roundStatus={roundStatus} />
+          <SubmissionComments
+            submissionId={song._id as Id<"submissions">}
+            roundStatus={roundStatus}
+          />
         </div>
       )}
     </div>

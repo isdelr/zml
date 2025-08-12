@@ -1,3 +1,4 @@
+/* eslint-disable no-case-declarations */
 // convex/leagues.ts
 import { v } from "convex/values";
 import {
@@ -203,7 +204,6 @@ export const getLeaguesForUser = query({
     );
   },
 });
-
 
 export const get = query({
   args: { id: v.id("leagues") },
@@ -418,7 +418,7 @@ export const joinPublicLeague = mutation({
     });
     const membershipDoc = await ctx.db.get(membershipId);
     await membershipsByUser.insert(ctx, membershipDoc!);
-    await memberCounter.inc(ctx, league._id); 
+    await memberCounter.inc(ctx, league._id);
 
     await ctx.db.insert("leagueStandings", {
       leagueId: league._id,
@@ -595,8 +595,6 @@ export const getLeagueMetadata = query({
 export const updateLeagueStats = internalAction({
   args: { leagueId: v.id("leagues") },
   handler: async (ctx, args) => {
-    // The entire logic from your old getLeagueStats handler goes here.
-    // We use runQuery to access the database from an action.
     const statsData = await ctx.runQuery(internal.leagues.getStatsData, {
       leagueId: args.leagueId,
     });
@@ -608,7 +606,6 @@ export const updateLeagueStats = internalAction({
       return;
     }
 
-    // Now, instead of returning the data, we call a mutation to store it.
     await ctx.runMutation(internal.leagues.storeLeagueStats, {
       leagueId: args.leagueId,
       stats: statsData,
@@ -619,7 +616,6 @@ export const updateLeagueStats = internalAction({
 export const getStatsData = internalQuery({
   args: { leagueId: v.id("leagues") },
   handler: async (ctx, args) => {
-    // This is a direct copy of your original getLeagueStats handler logic
     const finishedRounds = await ctx.db
       .query("rounds")
       .withIndex("by_league_and_status", (q) =>
@@ -675,6 +671,7 @@ export const getStatsData = internalQuery({
         ? { userId: mostWins[0].userId, count: mostWins[0].totalWins }
         : null;
 
+    // Sum vote magnitudes (supports stacked votes)
     const userUpvotes = new Map<string, number>();
     const userDownvotes = new Map<string, number>();
     const submissionSubmitterMap = new Map(
@@ -688,12 +685,13 @@ export const getStatsData = internalQuery({
       if (vote.vote > 0)
         userUpvotes.set(
           submitterId.toString(),
-          (userUpvotes.get(submitterId.toString()) ?? 0) + 1,
+          (userUpvotes.get(submitterId.toString()) ?? 0) + vote.vote, // add positive magnitude
         );
       if (vote.vote < 0)
         userDownvotes.set(
           submitterId.toString(),
-          (userDownvotes.get(submitterId.toString()) ?? 0) + 1,
+          (userDownvotes.get(submitterId.toString()) ?? 0) +
+            Math.abs(vote.vote), // add negative magnitude
         );
     });
 
@@ -710,11 +708,12 @@ export const getStatsData = internalQuery({
         ? { userId: mostDownvotes[0][0], count: mostDownvotes[0][1] }
         : null;
 
+    // Prolific voter: total units of votes cast (pos + neg magnitudes)
     const userVoteCount = new Map<string, number>();
     votes.forEach((vote) =>
       userVoteCount.set(
         vote.userId.toString(),
-        (userVoteCount.get(vote.userId.toString()) ?? 0) + 1,
+        (userVoteCount.get(vote.userId.toString()) ?? 0) + Math.abs(vote.vote),
       ),
     );
     const mostVotesCast = [...userVoteCount.entries()].sort(
@@ -795,80 +794,6 @@ export const getStatsData = internalQuery({
   },
 });
 
-export const searchInLeague = query({
-  args: {
-    leagueId: v.id("leagues"),
-    searchText: v.string(),
-  },
-  handler: async (ctx, args) => {
-    if (!args.searchText) {
-      return { rounds: [], songs: [] };
-    }
-    const lowerCaseSearch = args.searchText.toLowerCase();
-
-    const league = await ctx.db.get(args.leagueId);
-    if (!league) return { rounds: [], songs: [] };
-
-    const allRounds = await ctx.db
-      .query("rounds")
-      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .collect();
-
-    const filteredRounds = allRounds
-      .filter(
-        (round) =>
-          round.title.toLowerCase().includes(lowerCaseSearch) ||
-          round.description.toLowerCase().includes(lowerCaseSearch),
-      )
-      .slice(0, 5);
-
-    // Use the new search index for efficient song searching
-    const searchedSongs = await ctx.db
-      .query("submissions")
-      .withSearchIndex("by_text", (q) =>
-        q.search("searchText", args.searchText).eq("leagueId", args.leagueId),
-      )
-      .take(5);
-
-    // Hydrate song details
-    const filteredSongs = (
-      await Promise.all(
-        searchedSongs.slice(0, 5).map(async (song) => {
-          const round = allRounds.find((r) => r._id === song.roundId);
-          // Do not return songs from rounds that are still in submission phase
-          if (!round || round.status === "submissions") return null;
-
-          const user = await ctx.db.get(song.userId);
-          const isAnonymous = round?.status === "voting";
-
-          const [albumArtUrl, songFileUrl] = await Promise.all([
-            song.albumArtKey
-              ? r2.getUrl(song.albumArtKey)
-              : Promise.resolve(song.albumArtUrlValue ?? null),
-            song.songFileKey
-              ? r2.getUrl(song.songFileKey)
-              : Promise.resolve(song.songLink ?? null),
-          ]);
-          return {
-            ...song,
-            albumArtUrl,
-            songFileUrl,
-            submittedBy: isAnonymous
-              ? "Anonymous"
-              : (user?.name ?? "Anonymous"),
-            roundStatus: round?.status,
-            roundTitle: round?.title,
-            leagueName: league.name,
-            leagueId: league._id,
-          };
-        }),
-      )
-    ).filter((s): s is NonNullable<typeof s> => s !== null);
-
-    return { rounds: filteredRounds, songs: filteredSongs };
-  },
-});
-
 export const calculateAndStoreResults = internalMutation({
   args: { roundId: v.id("rounds") },
   handler: async (ctx, args) => {
@@ -900,7 +825,7 @@ export const calculateAndStoreResults = internalMutation({
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
 
-    // 1. Identify users who did not cast their full vote.
+    // Identify submitters who didn't complete full budget (use magnitudes)
     const allVotersInRound = new Map<
       Id<"users">,
       { up: number; down: number }
@@ -910,8 +835,8 @@ export const calculateAndStoreResults = internalMutation({
         allVotersInRound.set(vote.userId, { up: 0, down: 0 });
       }
       const counts = allVotersInRound.get(vote.userId)!;
-      if (vote.vote > 0) counts.up++;
-      if (vote.vote < 0) counts.down++;
+      if (vote.vote > 0) counts.up += vote.vote;
+      if (vote.vote < 0) counts.down += Math.abs(vote.vote);
     });
 
     const submitterIds = new Set(submissions.map((s) => s.userId));
@@ -928,7 +853,7 @@ export const calculateAndStoreResults = internalMutation({
       }
     });
 
-    // 2. Calculate scores, applying penalty.
+    // Calculate scores, applying penalty
     const submissionScores = new Map<Id<"submissions">, number>();
     const penaltyApplied = new Map<Id<"submissions">, boolean>();
 
@@ -957,7 +882,7 @@ export const calculateAndStoreResults = internalMutation({
       );
     });
 
-    // 3. Determine winners.
+    // Determine winners
     const winners: Id<"submissions">[] = [];
     if (submissionScores.size > 0) {
       let maxScore = -Infinity;
@@ -975,7 +900,7 @@ export const calculateAndStoreResults = internalMutation({
       }
     }
 
-    // 4. Store results and update standings.
+    // Store results and update standings
     for (const sub of submissions) {
       const points = submissionScores.get(sub._id) ?? 0;
       const isWinner = winners.includes(sub._id);
@@ -1010,7 +935,6 @@ export const calculateAndStoreResults = internalMutation({
 export const storeLeagueStats = internalMutation({
   args: {
     leagueId: v.id("leagues"),
-    // Re-use the validators from your schema for type safety
     stats: v.object({
       overlord: v.union(v.null(), userStatValidator),
       peopleChampion: v.union(v.null(), userStatValidator),
@@ -1029,10 +953,8 @@ export const storeLeagueStats = internalMutation({
       .first();
 
     if (existingStats) {
-      // If stats already exist, patch them with the new data
       await ctx.db.patch(existingStats._id, args.stats);
     } else {
-      // Otherwise, insert a new document
       await ctx.db.insert("leagueStats", {
         leagueId: args.leagueId,
         ...args.stats,
@@ -1041,10 +963,8 @@ export const storeLeagueStats = internalMutation({
   },
 });
 
-
 export const getLeagueStats = query({
   args: { leagueId: v.id("leagues") },
-  // The returns validator can remain the same
   returns: v.union(
     v.null(),
     v.object({
@@ -1059,12 +979,11 @@ export const getLeagueStats = query({
     }),
   ),
   handler: async (ctx, args) => {
-    // The new handler is just a simple lookup!
     const stats = await ctx.db
       .query("leagueStats")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .first();
-      
+
     return stats;
   },
 });

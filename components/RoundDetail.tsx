@@ -1,5 +1,6 @@
-// components/RoundDetail.tsx
 "use client";
+
+// components/RoundDetail.tsx
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -30,7 +31,6 @@ const SubmissionsList = dynamicImport(() =>
     default: mod.SubmissionsList,
   })),
 );
-
 const RoundVoteSummary = dynamicImport(() =>
   import("./round/RoundVoteSummary").then((mod) => ({
     default: mod.RoundVoteSummary,
@@ -50,7 +50,6 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     isPlaying,
     queue,
   } = useMusicPlayerStore();
-
   const [isVoteSummaryVisible, setIsVoteSummaryVisible] = useState(false);
   const summaryTriggerRef = useRef<HTMLDivElement | null>(null);
 
@@ -64,8 +63,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     if (!listenProgressData) return {};
     const map: Record<string, Doc<"listenProgress">> = {};
     for (const progress of listenProgressData) {
-      if(progress){
-          map[progress.submissionId] = progress;
+      if (progress) {
+        map[progress.submissionId] = progress;
       }
     }
     return map;
@@ -79,18 +78,22 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     if (!league.enforceListenPercentage || !submissions || !currentUser)
       return true;
 
-    const requiredSubmissions = submissions.filter(
+    const requiredSubs = submissions.filter(
       (s) => s.submissionType === "file" && s.userId !== currentUser._id,
     );
 
-    if (requiredSubmissions.length === 0) return true;
+    if (requiredSubs.length === 0) return true;
 
-    return requiredSubmissions.every((sub) => {
+    return requiredSubs.every((sub) => {
       const progress = listenProgressMap[sub._id];
       return progress?.isCompleted === true;
     });
-  }, [league.enforceListenPercentage, submissions, currentUser, listenProgressMap]);
-
+  }, [
+    league.enforceListenPercentage,
+    submissions,
+    currentUser,
+    listenProgressMap,
+  ]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -100,9 +103,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           observer.disconnect();
         }
       },
-      {
-        rootMargin: "0px 0px 200px 0px",
-      },
+      { rootMargin: "0px 0px 200px 0px" },
     );
 
     if (summaryTriggerRef.current) {
@@ -113,53 +114,62 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   }, []);
 
   const castVote = useMutation(api.votes.castVote).withOptimisticUpdate(
-    (localStore, { submissionId, newVoteState }) => {
+    (
+      localStore,
+      {
+        submissionId,
+        delta,
+      }: { submissionId: Id<"submissions">; delta: 1 | -1 },
+    ) => {
       const voteStatus = localStore.getQuery(api.votes.getForUserInRound, {
         roundId: round._id,
       });
       if (!voteStatus || !currentUser) return;
 
-      const newVoteStatus = JSON.parse(JSON.stringify(voteStatus));
+      // Clone to avoid mutating references
+      const newVoteStatus = JSON.parse(
+        JSON.stringify(voteStatus),
+      ) as NonNullable<typeof voteStatus>;
 
-      const existingVoteIndex = newVoteStatus.votes.findIndex(
+      // Update or create vote doc for this submission
+      const idx = newVoteStatus.votes.findIndex(
         (v: Doc<"votes">) => v.submissionId === submissionId,
       );
-      if (existingVoteIndex > -1) {
-        newVoteStatus.votes.splice(existingVoteIndex, 1);
+      if (idx > -1) {
+        const currentVal = newVoteStatus.votes[idx].vote;
+        const nextVal = currentVal + delta;
+        if (nextVal === 0) {
+          newVoteStatus.votes.splice(idx, 1);
+        } else {
+          newVoteStatus.votes[idx].vote = nextVal;
+        }
+      } else {
+        // only insert if delta produces non-zero
+        if (delta !== 0) {
+          newVoteStatus.votes.push({
+            _id: `optimistic_${submissionId}_${Date.now()}`,
+            _creationTime: Date.now(),
+            roundId: round._id,
+            submissionId,
+            userId: currentUser._id,
+            vote: delta,
+          });
+        }
       }
 
-      if (newVoteState === "up") {
-        newVoteStatus.votes.push({
-          _id: `optimistic_up_${submissionId}`,
-          _creationTime: Date.now(),
-          roundId: round._id,
-          submissionId: submissionId,
-          userId: currentUser._id,
-          vote: 1,
-        });
-      } else if (newVoteState === "down") {
-        newVoteStatus.votes.push({
-          _id: `optimistic_down_${submissionId}`,
-          _creationTime: Date.now(),
-          roundId: round._id,
-          submissionId: submissionId,
-          userId: currentUser._id,
-          vote: -1,
-        });
-      }
+      // Recompute totals using magnitudes
+      newVoteStatus.upvotesUsed = newVoteStatus.votes.reduce(
+        (sum: number, v: Doc<"votes">) => sum + Math.max(0, v.vote),
+        0,
+      );
+      newVoteStatus.downvotesUsed = newVoteStatus.votes.reduce(
+        (sum: number, v: Doc<"votes">) => sum + Math.abs(Math.min(0, v.vote)),
+        0,
+      );
 
-      const upvotesUsed = newVoteStatus.votes.filter(
-        (v: unknown) => v.vote > 0,
-      ).length;
-      const downvotesUsed = newVoteStatus.votes.filter(
-        (v: unknown) => v.vote < 0,
-      ).length;
-
-      newVoteStatus.upvotesUsed = upvotesUsed;
-      newVoteStatus.downvotesUsed = downvotesUsed;
       newVoteStatus.hasVoted =
-        upvotesUsed === league.maxPositiveVotes &&
-        downvotesUsed === league.maxNegativeVotes;
+        newVoteStatus.upvotesUsed === league.maxPositiveVotes &&
+        newVoteStatus.downvotesUsed === league.maxNegativeVotes;
 
       localStore.setQuery(
         api.votes.getForUserInRound,
@@ -181,16 +191,13 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   const negativeVotesRemaining = league.maxNegativeVotes - downvotesUsed;
   const isVoteFinal = userVoteStatus?.hasVoted ?? false;
 
-  const handleVoteClick = (
-    submissionId: Id<"submissions">,
-    newVoteState: "up" | "down" | "none",
-  ) => {
+  const handleVoteClick = (submissionId: Id<"submissions">, delta: 1 | -1) => {
     if (isVoteFinal) {
       toast.info("Your votes for this round are final and cannot be changed.");
       return;
     }
 
-    castVote({ submissionId, newVoteState })
+    castVote({ submissionId, delta })
       .then((result) => {
         if (result.isFinal) {
           toast.success(result.message);
