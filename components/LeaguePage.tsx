@@ -26,10 +26,14 @@ const LeagueHeader = dynamicImport(() =>
   })),
 );
 const LeagueInfo = dynamicImport(() =>
-  import("@/components/league/LeagueInfo").then((mod) => ({ default: mod.LeagueInfo })),
+  import("@/components/league/LeagueInfo").then((mod) => ({
+    default: mod.LeagueInfo,
+  })),
 );
 const LeagueTabs = dynamicImport(() =>
-  import("@/components/league/LeagueTabs").then((mod) => ({ default: mod.LeagueTabs })),
+  import("@/components/league/LeagueTabs").then((mod) => ({
+    default: mod.LeagueTabs,
+  })),
 );
 const LeagueRounds = dynamicImport(() =>
   import("@/components/league/LeagueRounds").then((mod) => ({
@@ -210,10 +214,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
         {selectedRound && leagueData ? (
           <RoundDetail
             round={selectedRound}
-            league={{
-              maxPositiveVotes: leagueData.maxPositiveVotes,
-              maxNegativeVotes: leagueData.maxNegativeVotes,
-            }}
+            league={leagueData}
             isOwner={leagueData.isOwner}
           />
         ) : null}
