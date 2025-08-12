@@ -1,3 +1,4 @@
+// components/round/SubmissionsList.tsx
 "use client";
 
 import { useState } from "react";
@@ -17,10 +18,7 @@ interface SubmissionsListProps {
   userVotes: Doc<"votes">[];
   currentUser: Doc<"users"> | null | undefined;
   roundStatus: "voting" | "finished" | "submissions";
-  league: {
-    maxPositiveVotes: number;
-    maxNegativeVotes: number;
-  };
+  league: NonNullable<Awaited<ReturnType<typeof api.leagues.get>>>;
   currentTrackIndex: number | null;
   isPlaying: boolean;
   queue: Song[];
@@ -37,6 +35,7 @@ export function SubmissionsList({
   userVotes,
   currentUser,
   roundStatus,
+  league,
   currentTrackIndex,
   isPlaying,
   queue,
@@ -178,6 +177,7 @@ export function SubmissionsList({
             currentVoteState={currentVoteState}
             roundStatus={roundStatus}
             hasVoted={hasVoted}
+            league={league}
             canVote={canVote}
             onToggleComments={() => toggleComments(song._id)}
             onVoteClick={(newVoteState) => onVoteClick(song._id, newVoteState)}

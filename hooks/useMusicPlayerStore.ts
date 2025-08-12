@@ -14,6 +14,7 @@ interface MusicPlayerState {
   seekTo: number | null;
   volume: number;
   isContextViewOpen: boolean;
+  listenProgress: Record<string, boolean>;
   actions: {
     playRound: (songs: Song[], startIndex?: number) => void;
     playSong: (song: Song) => void;
@@ -29,6 +30,7 @@ interface MusicPlayerState {
     setVolume: (volume: number) => void;
     toggleContextView: () => void;
     closeContextView: () => void;
+    setListenProgress: (submissionId: string, isListened: boolean) => void;
   };
 }
 
@@ -42,6 +44,7 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
   volume: 1,
   seekTo: null,
   isContextViewOpen: false,
+  listenProgress: {},
   actions: {
     playRound: (songs, startIndex = 0) => {
       set({
@@ -150,5 +153,13 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
       }
     },
     closeContextView: () => set({ isContextViewOpen: false }),
+    setListenProgress: (submissionId, isListened) => {
+      set((state) => ({
+        listenProgress: {
+          ...state.listenProgress,
+          [submissionId]: isListened,
+        },
+      }));
+    },
   },
 }));

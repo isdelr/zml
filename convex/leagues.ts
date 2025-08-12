@@ -49,6 +49,9 @@ export const create = mutation({
     votingDeadline: v.number(),
     maxPositiveVotes: v.number(),
     maxNegativeVotes: v.number(),
+    enforceListenPercentage: v.boolean(),
+    listenPercentage: v.optional(v.number()),
+    listenTimeLimitMinutes: v.optional(v.number()),
     rounds: v.array(
       v.object({
         title: v.string(),
@@ -95,6 +98,9 @@ export const create = mutation({
       votingDeadline: args.votingDeadline,
       maxPositiveVotes: args.maxPositiveVotes,
       maxNegativeVotes: args.maxNegativeVotes,
+      enforceListenPercentage: args.enforceListenPercentage,
+      listenPercentage: args.listenPercentage,
+      listenTimeLimitMinutes: args.listenTimeLimitMinutes,
       inviteCode: inviteCode!,
     });
 
@@ -227,6 +233,9 @@ export const get = query({
           image: v.optional(v.string()),
         }),
       ),
+      enforceListenPercentage: v.optional(v.boolean()),
+      listenPercentage: v.optional(v.number()),
+      listenTimeLimitMinutes: v.optional(v.number()),
     }),
   ),
   handler: async (ctx, args) => {

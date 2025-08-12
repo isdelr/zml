@@ -1,3 +1,4 @@
+// components/round/SubmissionItem.tsx
 "use client";
 
 import { cn } from "@/lib/utils";
@@ -23,6 +24,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import { useMemo } from "react";
+import { api } from "@/convex/_generated/api";
 
 interface SubmissionItemProps {
   song: unknown;
@@ -35,6 +39,7 @@ interface SubmissionItemProps {
   currentVoteState: "up" | "down" | "none";
   roundStatus: "voting" | "finished" | "submissions";
   onToggleComments: () => void;
+  league: NonNullable<Awaited<ReturnType<typeof api.leagues.get>>>;
   hasVoted: boolean;
   canVote: boolean;
   onVoteClick: (voteType: "up" | "down" | "none") => void;
@@ -44,6 +49,7 @@ interface SubmissionItemProps {
 
 export function SubmissionItem({
   song,
+  index,
   isThisSongPlaying,
   isThisSongCurrent,
   isLinkSubmission,
@@ -51,6 +57,7 @@ export function SubmissionItem({
   userIsSubmitter,
   currentVoteState,
   roundStatus,
+  league,
   hasVoted,
   canVote,
   onToggleComments,
@@ -59,6 +66,32 @@ export function SubmissionItem({
   onPlaySong,
 }: SubmissionItemProps) {
   const { points, isBookmarked, comment, isPenalized } = song;
+  const { listenProgress } = useMusicPlayerStore();
+
+  const isListenRequirementMet = useMemo(() => {
+    if (!league.enforceListenPercentage) return true;
+    // The submitter doesn't vote on their own song, so no need to enforce
+    if (userIsSubmitter) return true;
+    return !!listenProgress[song._id as Id<"submissions">];
+  }, [league, listenProgress, song._id, userIsSubmitter]);
+
+  const voteDisabledReason = useMemo(() => {
+    if (!isListenRequirementMet)
+      return `You must listen to ${league.listenPercentage}% of this song to vote.`;
+    if (roundStatus !== "voting") return "Voting is not currently open.";
+    if (userIsSubmitter) return "You cannot vote on your own submission.";
+    if (hasVoted) return "Your vote for this round is final.";
+    if (!canVote)
+      return "You are not eligible to vote in this round (joined late).";
+    return null;
+  }, [
+    isListenRequirementMet,
+    roundStatus,
+    userIsSubmitter,
+    hasVoted,
+    canVote,
+    league,
+  ]);
 
   const pointColor =
     points > 0
@@ -183,20 +216,36 @@ export function SubmissionItem({
         </div>
 
         <div className="flex items-center justify-center md:gap-1">
-          <Button
-            variant="ghost" size="icon" aria-label="Upvote"
-            onClick={handleUpvoteClick}
-            disabled={roundStatus !== "voting" || userIsSubmitter || hasVoted || !canVote}
-          >
-            <ArrowUp className={cn("size-5", currentVoteState === 'up' && "fill-green-400/20 text-green-400")} />
-          </Button>
-          <Button
-            variant="ghost" size="icon" aria-label="Downvote"
-            onClick={handleDownvoteClick}
-            disabled={roundStatus !== "voting" || userIsSubmitter || hasVoted || !canVote}
-          >
-            <ArrowDown className={cn("size-5", currentVoteState === 'down' && "fill-red-400/20 text-red-400")} />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={0}>
+                  <Button
+                    variant="ghost" size="icon" aria-label="Upvote"
+                    onClick={handleUpvoteClick}
+                    disabled={!!voteDisabledReason}
+                  >
+                    <ArrowUp className={cn("size-5", currentVoteState === 'up' && "fill-green-400/20 text-green-400")} />
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {voteDisabledReason && <TooltipContent><p>{voteDisabledReason}</p></TooltipContent>}
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={0}>
+                  <Button
+                    variant="ghost" size="icon" aria-label="Downvote"
+                    onClick={handleDownvoteClick}
+                    disabled={!!voteDisabledReason}
+                  >
+                    <ArrowDown className={cn("size-5", currentVoteState === 'down' && "fill-red-400/20 text-red-400")} />
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {voteDisabledReason && <TooltipContent><p>{voteDisabledReason}</p></TooltipContent>}
+            </Tooltip>
+          </TooltipProvider>
           <Button variant="ghost" size="icon" aria-label="Bookmark" onClick={onBookmark}>
             <Bookmark className={cn("size-5", isBookmarked && "fill-primary text-primary")} />
           </Button>
@@ -232,3 +281,4 @@ export function SubmissionItem({
     </div>
   );
 }
+

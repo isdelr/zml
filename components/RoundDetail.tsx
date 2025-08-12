@@ -1,3 +1,4 @@
+// components/RoundDetail.tsx
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
@@ -38,7 +39,7 @@ const RoundVoteSummary = dynamicImport(() =>
 
 interface RoundDetailProps {
   round: Doc<"rounds"> & { art: string | null; submissionCount: number };
-  league: { maxPositiveVotes: number; maxNegativeVotes: number };
+  league: NonNullable<Awaited<ReturnType<typeof api.leagues.get>>>;
   isOwner: boolean;
 }
 
@@ -77,17 +78,21 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
   const castVote = useMutation(api.votes.castVote).withOptimisticUpdate(
     (localStore, { submissionId, newVoteState }) => {
-      const voteStatus = localStore.getQuery(api.votes.getForUserInRound, { roundId: round._id });
+      const voteStatus = localStore.getQuery(api.votes.getForUserInRound, {
+        roundId: round._id,
+      });
       if (!voteStatus || !currentUser) return;
 
       const newVoteStatus = JSON.parse(JSON.stringify(voteStatus));
-      
-      const existingVoteIndex = newVoteStatus.votes.findIndex((v: Doc<"votes">) => v.submissionId === submissionId);
+
+      const existingVoteIndex = newVoteStatus.votes.findIndex(
+        (v: Doc<"votes">) => v.submissionId === submissionId,
+      );
       if (existingVoteIndex > -1) {
         newVoteStatus.votes.splice(existingVoteIndex, 1);
       }
 
-      if (newVoteState === 'up') {
+      if (newVoteState === "up") {
         newVoteStatus.votes.push({
           _id: `optimistic_up_${submissionId}`,
           _creationTime: Date.now(),
@@ -96,7 +101,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           userId: currentUser._id,
           vote: 1,
         });
-      } else if (newVoteState === 'down') {
+      } else if (newVoteState === "down") {
         newVoteStatus.votes.push({
           _id: `optimistic_down_${submissionId}`,
           _creationTime: Date.now(),
@@ -106,16 +111,26 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           vote: -1,
         });
       }
-      
-      const upvotesUsed = newVoteStatus.votes.filter((v: unknown) => v.vote > 0).length;
-      const downvotesUsed = newVoteStatus.votes.filter((v: unknown) => v.vote < 0).length;
-      
+
+      const upvotesUsed = newVoteStatus.votes.filter(
+        (v: unknown) => v.vote > 0,
+      ).length;
+      const downvotesUsed = newVoteStatus.votes.filter(
+        (v: unknown) => v.vote < 0,
+      ).length;
+
       newVoteStatus.upvotesUsed = upvotesUsed;
       newVoteStatus.downvotesUsed = downvotesUsed;
-      newVoteStatus.hasVoted = upvotesUsed === league.maxPositiveVotes && downvotesUsed === league.maxNegativeVotes;
+      newVoteStatus.hasVoted =
+        upvotesUsed === league.maxPositiveVotes &&
+        downvotesUsed === league.maxNegativeVotes;
 
-      localStore.setQuery(api.votes.getForUserInRound, { roundId: round._id }, newVoteStatus);
-    }
+      localStore.setQuery(
+        api.votes.getForUserInRound,
+        { roundId: round._id },
+        newVoteStatus,
+      );
+    },
   );
 
   const submissions = useQuery(api.submissions.getForRound, {

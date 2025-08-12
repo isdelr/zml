@@ -1,3 +1,4 @@
+// components/CreateLeaguePage.tsx
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,37 +41,66 @@ import { toSvg } from "jdenticon";
 const MAX_ROUND_IMAGE_SIZE_MB = 5;
 const MAX_ROUND_IMAGE_SIZE_BYTES = MAX_ROUND_IMAGE_SIZE_MB * 1024 * 1024;
 
-const formSchema = z.object({
-  name: z.string().min(3, {
-    message: "League name must be at least 3 characters.",
-  }),
-  description: z.string().min(10, {
-    message: "Description must be at least 10 characters.",
-  }),
-  isPublic: z.boolean().default(false),
-  submissionDeadline: z.coerce.number().min(1, "Must be at least 1 day."),
-  votingDeadline: z.coerce.number().min(1, "Must be at least 1 day."),
-  maxPositiveVotes: z.coerce.number().min(1, "Must be at least 1 vote."),
-  maxNegativeVotes: z.coerce.number().min(0, "Cannot be negative."),
-  rounds: z
-    .array(
-      z.object({
-        title: z.string().min(3, "Title must be at least 3 characters."),
-        description: z
-          .string()
-          .min(10, "Description must be at least 10 characters."),
-        genres: z.array(z.string()).optional(),
-        imageFile: z
-          .instanceof(File)
-          .optional()
-          .refine(
-            (file) => !file || file.size <= MAX_ROUND_IMAGE_SIZE_BYTES,
-            `Image must be less than ${MAX_ROUND_IMAGE_SIZE_MB}MB.`,
-          ),
-      }),
-    )
-    .min(1, "You must add at least one round."),
-});
+const formSchema = z
+  .object({
+    name: z.string().min(3, {
+      message: "League name must be at least 3 characters.",
+    }),
+    description: z.string().min(10, {
+      message: "Description must be at least 10 characters.",
+    }),
+    isPublic: z.boolean().default(false),
+    submissionDeadline: z.coerce.number().min(1, "Must be at least 1 day."),
+    votingDeadline: z.coerce.number().min(1, "Must be at least 1 day."),
+    maxPositiveVotes: z.coerce.number().min(1, "Must be at least 1 vote."),
+    maxNegativeVotes: z.coerce.number().min(0, "Cannot be negative."),
+    enforceListenPercentage: z.boolean().default(false),
+    listenPercentage: z.coerce
+      .number()
+      .min(1, "Must be between 1-100%")
+      .max(100, "Must be between 1-100%")
+      .optional(),
+    listenTimeLimitMinutes: z.coerce
+      .number()
+      .min(1, "Must be at least 1 minute.")
+      .optional(),
+    rounds: z
+      .array(
+        z.object({
+          title: z.string().min(3, "Title must be at least 3 characters."),
+          description: z
+            .string()
+            .min(10, "Description must be at least 10 characters."),
+          genres: z.array(z.string()).optional(),
+          imageFile: z
+            .instanceof(File)
+            .optional()
+            .refine(
+              (file) => !file || file.size <= MAX_ROUND_IMAGE_SIZE_BYTES,
+              `Image must be less than ${MAX_ROUND_IMAGE_SIZE_MB}MB.`,
+            ),
+        }),
+      )
+      .min(1, "You must add at least one round."),
+  })
+  .superRefine((data, ctx) => {
+    if (data.enforceListenPercentage) {
+      if (data.listenPercentage === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "A percentage is required.",
+          path: ["listenPercentage"],
+        });
+      }
+      if (data.listenTimeLimitMinutes === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "A time limit is required.",
+          path: ["listenTimeLimitMinutes"],
+        });
+      }
+    }
+  });
 
 export function CreateLeaguePage() {
   const createLeague = useMutation(api.leagues.create);
@@ -91,6 +121,7 @@ export function CreateLeaguePage() {
       votingDeadline: 3,
       maxPositiveVotes: 5,
       maxNegativeVotes: 1,
+      enforceListenPercentage: false,
       rounds: [{ title: "", description: "", genres: [] }],
     },
   });
@@ -473,6 +504,71 @@ export function CreateLeaguePage() {
                       </FormItem>
                     )}
                   />
+                </div>
+
+                {/* Listening Rules Section */}
+                <div className="space-y-4 pt-4 sm:col-span-2">
+                  <FormField
+                    control={form.control}
+                    name="enforceListenPercentage"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Enforce Listen Duration</FormLabel>
+                          <FormDescription>
+                            Require participants to listen to a portion of each
+                            song before voting.
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  {form.watch("enforceListenPercentage") && (
+                    <div className="grid grid-cols-1 gap-6 rounded-lg border p-4 sm:grid-cols-2">
+                      <FormField
+                        control={form.control}
+                        name="listenPercentage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Listen Percentage (%)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="e.g., 50"
+                                {...field}
+                                value={(field.value as number) || ""}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="listenTimeLimitMinutes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Max Time Limit (Minutes)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="e.g., 30"
+                                {...field}
+                                value={(field.value as number) || ""}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
