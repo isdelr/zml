@@ -36,7 +36,7 @@ export function PlayerProgress({
   listenProgress,
 }: PlayerProgressProps) {
   const formatTime = (seconds: number) => {
-    if (isNaN(seconds)) return "0:00";
+    if (isNaN(seconds) || seconds < 0) return "0:00";
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
@@ -48,6 +48,24 @@ export function PlayerProgress({
     if (!listenProgress || !duration) return 0;
     return Math.min((listenProgress.progressSeconds / duration) * 100, 100);
   }, [listenProgress, duration]);
+
+  const { requirementLinePercent, requiredListenTimeFormatted } = useMemo(() => {
+    if (!showListenRequirement || !duration) {
+      return { requirementLinePercent: 0, requiredListenTimeFormatted: "0:00" };
+    }
+
+    const requiredTimeFromPercentage = duration * (leagueData.listenPercentage! / 100);
+    const timeLimitInSeconds = (leagueData.listenTimeLimitMinutes ?? Infinity) * 60;
+
+    const actualRequiredListenTime = Math.min(requiredTimeFromPercentage, timeLimitInSeconds);
+    const percent = (actualRequiredListenTime / duration) * 100;
+    
+    return {
+      requirementLinePercent: percent,
+      requiredListenTimeFormatted: formatTime(actualRequiredListenTime)
+    };
+  }, [showListenRequirement, duration, leagueData]);
+
 
   return (
     <div className="flex w-full max-w-xl items-center gap-2">
@@ -74,11 +92,19 @@ export function PlayerProgress({
               comments={comments}
             />
             {showListenRequirement && (
-              <div
-                className="absolute top-0 h-full w-0.5 bg-foreground/50 opacity-50 transition-opacity group-hover:opacity-100"
-                style={{ left: `${leagueData.listenPercentage}%` }}
-                title={`Listen requirement: ${leagueData.listenPercentage}%`}
-              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      className="absolute top-0 h-full w-[1.5px] bg-primary opacity-70 transition-opacity group-hover:opacity-100"
+                      style={{ left: `${requirementLinePercent}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Listen Requirement: {requiredListenTimeFormatted} ({leagueData.listenPercentage}%)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </>
         ) : (
@@ -107,11 +133,13 @@ export function PlayerProgress({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div
-                      className="pointer-events-none absolute top-1/2 h-2.5 w-0.5 -translate-y-1/2 bg-foreground/50 opacity-50 transition-opacity group-hover:opacity-100"
-                      style={{ left: `${leagueData.listenPercentage}%` }}
+                      className="pointer-events-none absolute top-1/2 h-2.5 w-[1.5px] -translate-y-1/2 bg-primary opacity-70 transition-opacity group-hover:opacity-100"
+                      style={{ left: `${requirementLinePercent}%` }}
                     />
                   </TooltipTrigger>
-                  <TooltipContent><p>Listen Requirement: {leagueData.listenPercentage}%</p></TooltipContent>
+                  <TooltipContent>
+                    <p>Listen Requirement: {requiredListenTimeFormatted} ({leagueData.listenPercentage}%)</p>
+                  </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             )}
