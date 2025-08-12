@@ -89,6 +89,7 @@ export function PlayerProgress({
               duration={duration}
               onSeek={onSeek}
               className="h-8"
+              savedProgress={listenProgress?.progressSeconds}
               comments={comments}
             />
             {showListenRequirement && (
