@@ -116,11 +116,6 @@ export function SubmissionItem({
     song.submissionType,
   ]);
 
-  const listenedPercent = useMemo(() => {
-    if (!league.enforceListenPercentage || !song.duration || song.submissionType !== 'file') return 0;
-    const currentProgress = listenProgress?.progressSeconds ?? 0;
-    return Math.min((currentProgress / song.duration) * 100, 100);
-  }, [listenProgress, song.duration, league, song.submissionType]);
 
 
   const pointColor =
@@ -212,27 +207,6 @@ export function SubmissionItem({
               {song.songTitle}
             </p>
             <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
-            
-            {league.enforceListenPercentage && !userIsSubmitter && song.submissionType === 'file' && song.duration > 0 && roundStatus === "voting" && (
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                        <div className="relative mt-1.5 h-1.5 w-full cursor-default rounded-full bg-muted">
-                            <Progress value={listenedPercent} className="h-1.5" />
-                            <div
-                                className="absolute top-0 h-full w-0.5 bg-foreground/50"
-                                style={{ left: `${league.listenPercentage}%` }}
-                            />
-                        </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                        <p>
-                            Listened: {Math.floor(listenedPercent)}% (Required: {league.listenPercentage}%)
-                        </p>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            )}
           </div>
         </div>
 

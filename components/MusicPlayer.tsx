@@ -70,6 +70,19 @@ export function MusicPlayer() {
     currentTrack ? { id: currentTrack.leagueId } : "skip",
   );
 
+  // Fetch listen progress for the current round
+  const roundListenProgress = useQuery(
+    api.listenProgress.getForRound,
+    currentTrack ? { roundId: currentTrack.roundId as Id<"rounds"> } : "skip"
+  );
+
+  const currentTrackListenProgress = useMemo(() => {
+    if (!currentTrack || !roundListenProgress) {
+      return undefined;
+    }
+    return roundListenProgress.find(p => p && p.submissionId === currentTrack._id);
+  }, [currentTrack, roundListenProgress]);
+
   const getPresignedSongUrl = useAction(api.submissions.getPresignedSongUrl);
   const updateDbProgress = useMutation(api.listenProgress.updateProgress);
 
@@ -516,6 +529,8 @@ export function MusicPlayer() {
               duration={duration}
               comments={waveformComments}
               onSeek={handleSeek}
+              leagueData={leagueData}
+              listenProgress={currentTrackListenProgress}
             />
           </div>
 
