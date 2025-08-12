@@ -218,6 +218,22 @@ export const castVote = mutation({
 
     const current = existingVote?.vote ?? 0;
     const newVote = current + args.delta;
+    
+    // --- NEW LOGIC START ---
+    // Check per-submission vote limits if enabled
+    if (league.limitVotesPerSubmission) {
+      if (args.delta === 1) { // Trying to upvote
+        if (newVote > (league.maxPositiveVotesPerSubmission ?? 1)) {
+          throw new Error("You have reached the maximum number of upvotes for this song.");
+        }
+      }
+      if (args.delta === -1) { // Trying to downvote
+        if (Math.abs(newVote) > (league.maxNegativeVotesPerSubmission ?? 1)) {
+          throw new Error("You have reached the maximum number of downvotes for this song.");
+        }
+      }
+    }
+    // --- NEW LOGIC END ---
 
     // Compute budget usage excluding this submission, then add the newVote parts
     const otherPos = otherVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);

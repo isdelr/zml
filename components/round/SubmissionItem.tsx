@@ -90,12 +90,19 @@ export function SubmissionItem({
     song.submissionType,
     userIsSubmitter,
   ]);
-
-  const voteDisabledReason = useMemo(() => {
+  
+  // --- NEW LOGIC START ---
+  const upvoteDisabledReason = useMemo(() => {
     if (roundStatus !== "voting") return "Voting is not currently open.";
     if (userIsSubmitter) return "You cannot vote on your own submission.";
     if (!canVote) return "You are not eligible to vote in this round (joined late).";
     if (hasVoted) return "Your vote for this round is final.";
+
+    if (league.limitVotesPerSubmission) {
+      if (currentVoteValue >= (league.maxPositiveVotesPerSubmission ?? 1)) {
+        return `Max ${league.maxPositiveVotesPerSubmission} upvote(s) per song.`;
+      }
+    }
 
     if (league.enforceListenPercentage) {
       if (!isReadyToVoteOverall) {
@@ -105,17 +112,35 @@ export function SubmissionItem({
         return "You must meet the listening requirements for all songs before you can vote.";
       }
     }
+    
     return null;
-  }, [
-    roundStatus,
-    userIsSubmitter,
-    canVote,
-    hasVoted,
-    league,
-    song.submissionType,
-    isReadyToVoteOverall,
-    isListenRequirementMetForThisSong,
-  ]);
+  }, [roundStatus, userIsSubmitter, canVote, hasVoted, league, currentVoteValue, song.submissionType, isReadyToVoteOverall, isListenRequirementMetForThisSong]);
+
+  const downvoteDisabledReason = useMemo(() => {
+    if (roundStatus !== "voting") return "Voting is not currently open.";
+    if (userIsSubmitter) return "You cannot vote on your own submission.";
+    if (!canVote) return "You are not eligible to vote in this round (joined late).";
+    if (hasVoted) return "Your vote for this round is final.";
+    
+    if (league.limitVotesPerSubmission) {
+        // You can't add more downvotes if you're at the negative limit.
+        if (currentVoteValue <= -(league.maxNegativeVotesPerSubmission ?? 0)) {
+            return `Max ${league.maxNegativeVotesPerSubmission} downvote(s) per song.`;
+        }
+    }
+    
+    if (league.enforceListenPercentage) {
+      if (!isReadyToVoteOverall) {
+        if (song.submissionType === "file" && !isListenRequirementMetForThisSong) {
+          return `You must listen to ${league.listenPercentage}% of this song to vote.`;
+        }
+        return "You must meet the listening requirements for all songs before you can vote.";
+      }
+    }
+    
+    return null;
+  }, [roundStatus, userIsSubmitter, canVote, hasVoted, league, currentVoteValue, song.submissionType, isReadyToVoteOverall, isListenRequirementMetForThisSong]);
+  // --- NEW LOGIC END ---
 
   const PlayButton = () => (
     <Button variant="ghost" size="icon" className="size-8" onClick={onPlaySong}>
@@ -234,7 +259,7 @@ export function SubmissionItem({
                     size="icon"
                     aria-label="Upvote +1"
                     onClick={() => onVoteClick(1)}
-                    disabled={!!voteDisabledReason}
+                    disabled={!!upvoteDisabledReason}
                   >
                     <ArrowUp
                       className={cn(
@@ -245,9 +270,9 @@ export function SubmissionItem({
                   </Button>
                 </span>
               </TooltipTrigger>
-              {voteDisabledReason && (
+              {upvoteDisabledReason && (
                 <TooltipContent>
-                  <p>{voteDisabledReason}</p>
+                  <p>{upvoteDisabledReason}</p>
                 </TooltipContent>
               )}
             </Tooltip>
@@ -265,7 +290,7 @@ export function SubmissionItem({
                     size="icon"
                     aria-label="Downvote -1"
                     onClick={() => onVoteClick(-1)}
-                    disabled={!!voteDisabledReason}
+                    disabled={!!downvoteDisabledReason}
                   >
                     <ArrowDown
                       className={cn(
@@ -276,9 +301,9 @@ export function SubmissionItem({
                   </Button>
                 </span>
               </TooltipTrigger>
-              {voteDisabledReason && (
+              {downvoteDisabledReason && (
                 <TooltipContent>
-                  <p>{voteDisabledReason}</p>
+                  <p>{downvoteDisabledReason}</p>
                 </TooltipContent>
               )}
             </Tooltip>

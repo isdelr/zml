@@ -1,4 +1,4 @@
- // convex/schema.ts
+// convex/schema.ts
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
@@ -57,6 +57,11 @@ export default defineSchema({
     enforceListenPercentage: v.optional(v.boolean()),
     listenPercentage: v.optional(v.number()),
     listenTimeLimitMinutes: v.optional(v.number()),
+    // --- NEW FIELDS START ---
+    limitVotesPerSubmission: v.optional(v.boolean()),
+    maxPositiveVotesPerSubmission: v.optional(v.number()),
+    maxNegativeVotesPerSubmission: v.optional(v.number()),
+    // --- NEW FIELDS END ---
   })
     .index("by_creator", ["creatorId"])
     .index("by_invite_code", ["inviteCode"])

@@ -52,6 +52,11 @@ export const create = mutation({
     enforceListenPercentage: v.boolean(),
     listenPercentage: v.optional(v.number()),
     listenTimeLimitMinutes: v.optional(v.number()),
+    // --- NEW FIELDS START ---
+    limitVotesPerSubmission: v.boolean(),
+    maxPositiveVotesPerSubmission: v.optional(v.number()),
+    maxNegativeVotesPerSubmission: v.optional(v.number()),
+    // --- NEW FIELDS END ---
     rounds: v.array(
       v.object({
         title: v.string(),
@@ -102,6 +107,11 @@ export const create = mutation({
       listenPercentage: args.listenPercentage,
       listenTimeLimitMinutes: args.listenTimeLimitMinutes,
       inviteCode: inviteCode!,
+      // --- NEW FIELDS START ---
+      limitVotesPerSubmission: args.limitVotesPerSubmission,
+      maxPositiveVotesPerSubmission: args.maxPositiveVotesPerSubmission,
+      maxNegativeVotesPerSubmission: args.maxNegativeVotesPerSubmission,
+      // --- NEW FIELDS END ---
     });
 
     const membershipId = await ctx.db.insert("memberships", {
@@ -235,6 +245,11 @@ export const get = query({
       enforceListenPercentage: v.optional(v.boolean()),
       listenPercentage: v.optional(v.number()),
       listenTimeLimitMinutes: v.optional(v.number()),
+      // --- NEW FIELDS START ---
+      limitVotesPerSubmission: v.optional(v.boolean()),
+      maxPositiveVotesPerSubmission: v.optional(v.number()),
+      maxNegativeVotesPerSubmission: v.optional(v.number()),
+      // --- NEW FIELDS END ---
     }),
   ),
   handler: async (ctx, args) => {
@@ -440,6 +455,11 @@ export const updateLeague = mutation({
     votingDeadline: v.optional(v.number()),
     maxPositiveVotes: v.optional(v.number()),
     maxNegativeVotes: v.optional(v.number()),
+    // --- NEW FIELDS START ---
+    limitVotesPerSubmission: v.optional(v.boolean()),
+    maxPositiveVotesPerSubmission: v.optional(v.number()),
+    maxNegativeVotesPerSubmission: v.optional(v.number()),
+    // --- NEW FIELDS END ---
   },
   handler: async (ctx, args) => {
     await checkLeagueOwnership(ctx, args.leagueId);

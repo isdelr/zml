@@ -54,6 +54,17 @@ const formSchema = z
     votingDeadline: z.coerce.number().min(1, "Must be at least 1 day."),
     maxPositiveVotes: z.coerce.number().min(1, "Must be at least 1 vote."),
     maxNegativeVotes: z.coerce.number().min(0, "Cannot be negative."),
+    // --- NEW FIELDS START ---
+    limitVotesPerSubmission: z.boolean().default(false),
+    maxPositiveVotesPerSubmission: z.coerce
+      .number()
+      .min(1, "Must be at least 1 vote.")
+      .optional(),
+    maxNegativeVotesPerSubmission: z.coerce
+      .number()
+      .min(0, "Cannot be negative.")
+      .optional(),
+    // --- NEW FIELDS END ---
     enforceListenPercentage: z.boolean().default(false),
     listenPercentage: z.coerce
       .number()
@@ -100,6 +111,24 @@ const formSchema = z
         });
       }
     }
+    // --- NEW VALIDATION START ---
+    if (data.limitVotesPerSubmission) {
+      if (data.maxPositiveVotesPerSubmission === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "A max is required.",
+          path: ["maxPositiveVotesPerSubmission"],
+        });
+      }
+      if (data.maxNegativeVotesPerSubmission === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "A max is required.",
+          path: ["maxNegativeVotesPerSubmission"],
+        });
+      }
+    }
+    // --- NEW VALIDATION END ---
   });
 
 export function CreateLeaguePage() {
@@ -121,6 +150,9 @@ export function CreateLeaguePage() {
       votingDeadline: 3,
       maxPositiveVotes: 5,
       maxNegativeVotes: 1,
+      // --- NEW DEFAULTS START ---
+      limitVotesPerSubmission: false,
+      // --- NEW DEFAULTS END ---
       enforceListenPercentage: false,
       rounds: [{ title: "", description: "", genres: [] }],
     },
@@ -505,6 +537,71 @@ export function CreateLeaguePage() {
                     )}
                   />
                 </div>
+                
+                {/* --- NEW VOTE STACKING SECTION START --- */}
+                <div className="space-y-4 pt-4 sm:col-span-2">
+                  <FormField
+                    control={form.control}
+                    name="limitVotesPerSubmission"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel>Limit Votes Per Submission</FormLabel>
+                          <FormDescription>
+                            Set a max for how many times one person can vote on one song.
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  {form.watch("limitVotesPerSubmission") && (
+                    <div className="grid grid-cols-1 gap-6 rounded-lg border p-4 sm:grid-cols-2">
+                      <FormField
+                        control={form.control}
+                        name="maxPositiveVotesPerSubmission"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Max Upvotes Per Song</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="e.g., 3"
+                                {...field}
+                                value={(field.value as number) || ""}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="maxNegativeVotesPerSubmission"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Max Downvotes Per Song</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="e.g., 1"
+                                {...field}
+                                value={(field.value as number) || ""}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+                {/* --- NEW VOTE STACKING SECTION END --- */}
 
                 {/* Listening Rules Section */}
                 <div className="space-y-4 pt-4 sm:col-span-2">
@@ -597,3 +694,4 @@ export function CreateLeaguePage() {
     </div>
   );
 }
+

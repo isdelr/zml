@@ -19,11 +19,13 @@ import { Id } from "@/convex/_generated/dataModel";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Separator } from "../ui/separator";
 
 const leagueEditSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -35,7 +37,29 @@ const leagueEditSchema = z.object({
   votingDeadline: z.coerce.number().min(1),
   maxPositiveVotes: z.coerce.number().min(1),
   maxNegativeVotes: z.coerce.number().min(0),
-});
+  // --- NEW FIELDS START ---
+  limitVotesPerSubmission: z.boolean(),
+  maxPositiveVotesPerSubmission: z.coerce.number().min(1).optional(),
+  maxNegativeVotesPerSubmission: z.coerce.number().min(0).optional(),
+  // --- NEW FIELDS END ---
+}).superRefine((data, ctx) => { // --- NEW VALIDATION START ---
+    if (data.limitVotesPerSubmission) {
+        if (data.maxPositiveVotesPerSubmission === undefined || isNaN(data.maxPositiveVotesPerSubmission)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "A max is required.",
+                path: ["maxPositiveVotesPerSubmission"],
+            });
+        }
+        if (data.maxNegativeVotesPerSubmission === undefined || isNaN(data.maxNegativeVotesPerSubmission)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "A max is required.",
+                path: ["maxNegativeVotesPerSubmission"],
+            });
+        }
+    }
+}); // --- NEW VALIDATION END ---
 
 interface LeagueSettingsDialogProps {
   league: Record<string, unknown>;
@@ -116,6 +140,11 @@ function GeneralSettingsTab({
       votingDeadline: league.votingDeadline as number,
       maxPositiveVotes: league.maxPositiveVotes as number,
       maxNegativeVotes: league.maxNegativeVotes as number,
+      // --- NEW DEFAULTS START ---
+      limitVotesPerSubmission: (league.limitVotesPerSubmission as boolean) ?? false,
+      maxPositiveVotesPerSubmission: (league.maxPositiveVotesPerSubmission as number | undefined),
+      maxNegativeVotesPerSubmission: (league.maxNegativeVotesPerSubmission as number | undefined),
+      // --- NEW DEFAULTS END ---
     },
   });
 
@@ -203,6 +232,59 @@ function GeneralSettingsTab({
             )}
           />
         </div>
+        {/* --- NEW SECTION START --- */}
+        <Separator />
+        <FormField
+          control={form.control}
+          name="limitVotesPerSubmission"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                  <FormLabel>Limit Votes Per Submission</FormLabel>
+                  <FormDescription>
+                      Set a max for how many votes a member can give one song.
+                  </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        {form.watch("limitVotesPerSubmission") && (
+            <div className="grid grid-cols-2 gap-4">
+            <FormField
+                control={form.control}
+                name="maxPositiveVotesPerSubmission"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Max Upvotes/Song</FormLabel>
+                    <FormControl>
+                    <Input type="number" {...field} value={field.value ?? ""} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+            <FormField
+                control={form.control}
+                name="maxNegativeVotesPerSubmission"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Max Downvotes/Song</FormLabel>
+                    <FormControl>
+                    <Input type="number" {...field} value={field.value ?? ""} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+            </div>
+        )}
+        {/* --- NEW SECTION END --- */}
         <Button type="submit" disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting && (
             <Loader2 className="mr-2 size-4 animate-spin" />
