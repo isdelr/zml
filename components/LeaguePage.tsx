@@ -89,6 +89,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
       ? { leagueId: leagueId as Id<"leagues">, searchText: searchTerm }
       : "skip",
   );
+  
   const currentUser = useQuery(api.users.getCurrentUser);
   const { actions: playerActions } = useMusicPlayerStore();
 
@@ -131,7 +132,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   useEffect(() => {
     if (status === "CanLoadMore" || status === "Exhausted") {
       if (rounds && rounds.length > 0 && !selectedRoundId) {
-        const latestRound = rounds[0];
+        const latestRound = rounds[rounds?.length - 1];
         router.replace(`/leagues/${leagueId}/round/${latestRound._id}`);
       }
     }
@@ -187,7 +188,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
           <RoundsSkeleton />
         ) : (
           <LeagueRounds
-            rounds={rounds}
+            rounds={rounds.reverse()}
             selectedRoundId={selectedRoundId}
             leagueId={leagueId}
           />
