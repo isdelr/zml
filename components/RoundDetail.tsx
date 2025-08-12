@@ -70,6 +70,19 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     return map;
   }, [listenProgressData]);
 
+  // NEW: Promote any queued presubmissions when we land on a round
+  // that is open for submissions.
+  const promotePresubs = useMutation(api.submissions.promotePresubmissionsForRound);
+  const promotedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (round.status === "submissions" && promotedRef.current !== round._id) {
+      promotedRef.current = round._id as string;
+      promotePresubs({ roundId: round._id }).catch((e) => {
+        console.error("Failed to promote presubmissions:", e);
+      });
+    }
+  }, [round._id, round.status, promotePresubs]);
+
   const submissions = useQuery(api.submissions.getForRound, {
     roundId: round._id,
   });
@@ -298,14 +311,16 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         totalDuration={formatDuration(totalDurationSeconds)}
       />
 
-      {round.status === "submissions" && (
-        <div className="mt-8">
-          <SubmissionForm
-            roundId={round._id}
-            currentUser={currentUser}
-            submissions={submissions}
-            mySubmission={mySubmission}
-          />
+      {/* Show submission or presubmission form */}
+      <div className="mt-8">
+        <SubmissionForm
+          roundId={round._id}
+          roundStatus={round.status}
+          currentUser={currentUser}
+          submissions={submissions}
+          mySubmission={mySubmission}
+        />
+        {round.status === "submissions" ? (
           <div className="mt-8 rounded-lg border bg-card p-6 text-center">
             <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
             {submissions && submissions.length > 0 ? (
@@ -322,8 +337,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
               </p>
             )}
           </div>
-        </div>
-      )}
+        ) : null}
+      </div>
 
       {(round.status === "voting" || round.status === "finished") && (
         <>

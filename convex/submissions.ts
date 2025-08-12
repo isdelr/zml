@@ -1,10 +1,10 @@
-// convex/submissions.ts
+ // convex/submissions.ts
 import { v } from "convex/values";
 import { mutation, query, action, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
-import { Doc } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 import { submissionsByUser } from "./aggregates";
 import { submissionCounter, submissionScoreCounter } from "./counters";
@@ -121,6 +121,20 @@ export const submitSong = mutation({
       .first();
     if (existing) throw new Error("You have already submitted a song.");
 
+    // If a presubmission exists and we're in the live submission window,
+    // prevent duplicate by asking user to edit or remove presubmission.
+    const existingPre = await ctx.db
+      .query("presubmissions")
+      .withIndex("by_round_and_user", (q) =>
+        q.eq("roundId", args.roundId).eq("userId", userId),
+      )
+      .first();
+    if (existingPre) {
+      throw new Error(
+        "You already have a presubmission queued. You can wait for it to auto-submit or remove it first.",
+      );
+    }
+
     const baseSubmissionData = {
       leagueId: round.leagueId,
       roundId: args.roundId,
@@ -160,6 +174,187 @@ export const submitSong = mutation({
 
     const submissionDoc = await ctx.db.get(submissionId);
     await submissionsByUser.insert(ctx, submissionDoc!);
+  },
+});
+
+// NEW: Allow users to presubmit even when submissions aren’t open yet.
+export const presubmitSong = mutation({
+  args: {
+    roundId: v.id("rounds"),
+    submissionType: v.union(
+      v.literal("file"),
+      v.literal("spotify"),
+      v.literal("youtube"),
+    ),
+    songTitle: v.string(),
+    artist: v.string(),
+    comment: v.optional(v.string()),
+    albumArtKey: v.optional(v.string()),
+    songFileKey: v.optional(v.string()),
+    songLink: v.optional(v.string()),
+    albumArtUrlValue: v.optional(v.string()),
+    duration: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated.");
+
+    const round = await ctx.db.get(args.roundId);
+    if (!round) throw new Error("Round not found.");
+
+    // If user already has a live submission, block
+    const existing = await ctx.db
+      .query("submissions")
+      .withIndex("by_round_and_user", (q) =>
+        q.eq("roundId", args.roundId).eq("userId", userId),
+      )
+      .first();
+    if (existing) {
+      throw new Error("You have already submitted a song for this round.");
+    }
+
+    // Prevent duplicate presubmissions
+    const existingPre = await ctx.db
+      .query("presubmissions")
+      .withIndex("by_round_and_user", (q) =>
+        q.eq("roundId", args.roundId).eq("userId", userId),
+      )
+      .first();
+    if (existingPre) {
+      throw new Error("You already have a presubmission queued for this round.");
+    }
+
+    const baseData = {
+      leagueId: round.leagueId,
+      roundId: args.roundId,
+      userId,
+      songTitle: args.songTitle,
+      artist: args.artist,
+      comment: args.comment,
+      duration: args.duration,
+      searchText: `${args.songTitle} ${args.artist}`,
+      _note: "queued",
+    };
+
+    if (args.submissionType === "file") {
+      if (!args.albumArtKey || !args.songFileKey) {
+        throw new Error("File keys are required for manual presubmission.");
+      }
+      await ctx.db.insert("presubmissions", {
+        ...baseData,
+        submissionType: "file",
+        albumArtKey: args.albumArtKey,
+        songFileKey: args.songFileKey,
+      });
+    } else {
+      if (!args.songLink || !args.albumArtUrlValue) {
+        throw new Error(
+          "Link and album art URL are required for link presubmission.",
+        );
+      }
+      await ctx.db.insert("presubmissions", {
+        ...baseData,
+        submissionType: args.submissionType,
+        songLink: args.songLink,
+        albumArtUrlValue: args.albumArtUrlValue,
+      });
+    }
+  },
+});
+
+// NEW: Promote all presubmissions for a round into live submissions
+// when the round is open for submissions.
+export const promotePresubmissionsForRound = mutation({
+  args: { roundId: v.id("rounds") },
+  handler: async (ctx, args) => {
+    const round = await ctx.db.get(args.roundId);
+    if (!round) return;
+    if (round.status !== "submissions") {
+      // Only promote when submissions are open
+      return;
+    }
+
+    const queued = await ctx.db
+      .query("presubmissions")
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
+      .collect();
+
+    if (queued.length === 0) return;
+
+    for (const pre of queued) {
+      // Skip if the user already managed to submit manually
+      const existing = await ctx.db
+        .query("submissions")
+        .withIndex("by_round_and_user", (q) =>
+          q.eq("roundId", pre.roundId).eq("userId", pre.userId),
+        )
+        .first();
+      if (existing) {
+        // Remove presubmission to avoid clutter
+        await ctx.db.delete(pre._id);
+        continue;
+      }
+
+      const submissionId = await ctx.db.insert("submissions", {
+        leagueId: pre.leagueId,
+        roundId: pre.roundId,
+        userId: pre.userId,
+        songTitle: pre.songTitle,
+        artist: pre.artist,
+        comment: pre.comment,
+        duration: pre.duration,
+        searchText: pre.searchText,
+        submissionType: pre.submissionType,
+        albumArtKey: pre.albumArtKey,
+        songFileKey: pre.songFileKey,
+        songLink: pre.songLink,
+        albumArtUrlValue: pre.albumArtUrlValue,
+      });
+
+      await submissionCounter.inc(ctx, pre.roundId);
+      const doc = await ctx.db.get(submissionId);
+      await submissionsByUser.insert(ctx, doc!);
+
+      // Remove from presubmissions after promoting
+      await ctx.db.delete(pre._id);
+    }
+  },
+});
+
+// NEW: Allow client to know if the user has a queued presubmission for a round
+export const getMyPresubmissionForRound = query({
+  args: { roundId: v.id("rounds") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const pre = await ctx.db
+      .query("presubmissions")
+      .withIndex("by_round_and_user", (q) =>
+        q.eq("roundId", args.roundId).eq("userId", userId),
+      )
+      .first();
+
+    if (!pre) return null;
+
+    let albumArtUrl: string | null = null;
+    let songFileUrl: string | null = null;
+
+    if (pre.submissionType === "file") {
+      [albumArtUrl, songFileUrl] = await Promise.all([
+        pre.albumArtKey ? r2.getUrl(pre.albumArtKey) : Promise.resolve(null),
+        pre.songFileKey ? r2.getUrl(pre.songFileKey) : Promise.resolve(null),
+      ]);
+    } else {
+      albumArtUrl = pre.albumArtUrlValue ?? null;
+      songFileUrl = pre.songLink ?? null;
+    }
+
+    return {
+      ...pre,
+      albumArtUrl,
+      songFileUrl,
+    };
   },
 });
 

@@ -1,4 +1,4 @@
-// convex/schema.ts
+ // convex/schema.ts
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
@@ -115,6 +115,28 @@ export default defineSchema({
       searchField: "searchText",
       filterFields: ["leagueId"],
     }),
+
+  // NEW: presubmissions table to allow submitting in advance
+  presubmissions: defineTable({
+    leagueId: v.id("leagues"),
+    roundId: v.id("rounds"),
+    userId: v.id("users"),
+    songTitle: v.string(),
+    artist: v.string(),
+    albumArtKey: v.optional(v.string()),
+    songFileKey: v.optional(v.string()),
+    comment: v.optional(v.string()),
+    submissionType: v.union(
+      v.literal("file"),
+      v.literal("spotify"),
+      v.literal("youtube"),
+    ),
+    songLink: v.optional(v.string()),
+    albumArtUrlValue: v.optional(v.string()),
+    duration: v.optional(v.number()),
+    searchText: v.string(),
+    _note: v.optional(v.string()), // handy field for debugging if needed
+  }).index("by_round_and_user", ["roundId", "userId"]),
 
   votes: defineTable({
     roundId: v.id("rounds"),

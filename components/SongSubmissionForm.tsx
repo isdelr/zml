@@ -84,10 +84,12 @@ const formSchema = z
 
 interface SongSubmissionFormProps {
   roundId: Id<"rounds">;
+  isPresubmit?: boolean; // NEW: if true, queue as presubmission
 }
 
-export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
+export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmissionFormProps) {
   const submitSong = useMutation(api.submissions.submitSong);
+  const presubmitSong = useMutation(api.submissions.presubmitSong);
   const getSongMetadataFromLink = useAction(
     api.submissions.getSongMetadataFromLink,
   );
@@ -110,7 +112,9 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const toastId = toast.loading("Submitting your masterpiece...");
+    const toastId = toast.loading(
+      isPresubmit ? "Queuing your presubmission..." : "Submitting your masterpiece...",
+    );
     try {
       if (
         values.submissionType === "manual" &&
@@ -124,22 +128,28 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
           uploadFile(values.songFile),
         ]);
 
-        await submitSong({
+        const payload = {
           roundId,
-          submissionType: "file",
+          submissionType: "file" as const,
           songTitle: values.songTitle,
           artist: values.artist,
           albumArtKey,
           songFileKey,
           comment: values.comment,
           duration: values.duration,
-        });
+        };
+
+        if (isPresubmit) {
+          await presubmitSong(payload);
+        } else {
+          await submitSong(payload);
+        }
       } else if (values.submissionType === "link" && values.songLink) {
         const metadata = await getSongMetadataFromLink({
           link: values.songLink,
         });
 
-        await submitSong({
+        const payload = {
           roundId,
           submissionType: metadata.submissionType,
           songTitle: metadata.songTitle,
@@ -148,25 +158,40 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
           albumArtUrlValue: metadata.albumArtUrl,
           comment: values.comment,
           duration: metadata.duration,
-        });
+        };
+
+        if (isPresubmit) {
+          await presubmitSong(payload);
+        } else {
+          await submitSong(payload);
+        }
       }
 
-      toast.success("Song submitted successfully!", { id: toastId });
+      toast.success(
+        isPresubmit ? "Presubmission queued! It will auto-submit when the round opens." : "Song submitted successfully!",
+        { id: toastId },
+      );
       form.reset();
       setAlbumArtPreview("");
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";
-      toast.error(`Submission failed: ${errorMessage}`, { id: toastId });
+      toast.error(`${isPresubmit ? "Presubmission failed" : "Submission failed"}: ${errorMessage}`, {
+        id: toastId,
+      });
       console.error(error);
     }
   }
 
   return (
     <div className="rounded-lg border bg-card p-6">
-      <h2 className="text-2xl font-bold">Submit Your Track</h2>
+      <h2 className="text-2xl font-bold">
+        {isPresubmit ? "Presubmit Your Track" : "Submit Your Track"}
+      </h2>
       <p className="mb-6 text-muted-foreground">
-        Choose your submission method.
+        {isPresubmit
+          ? "Queue your track now. It will be automatically submitted when this round opens."
+          : "Choose your submission method."}
       </p>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -416,7 +441,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Paste the link to the song you want to submit. We&apos;ll fetch
+                      Paste the link to the song you want to {isPresubmit ? "presubmit" : "submit"}. We&apos;ll fetch
                       the details automatically.
                     </FormDescription>
                     <FormMessage />
@@ -434,7 +459,11 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
                 <FormLabel>Comment (Optional)</FormLabel>
                 <FormControl>
                   <Textarea
-                    placeholder="Add a little comment about your song..."
+                    placeholder={
+                      isPresubmit
+                        ? "Add a comment that will appear with your song when it auto-submits..."
+                        : "Add a little comment about your song..."
+                    }
                     {...field}
                   />
                 </FormControl>
@@ -456,7 +485,7 @@ export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
             {form.formState.isSubmitting && (
               <Loader2 className="mr-2 size-4 animate-spin" />
             )}
-            Submit Song
+            {isPresubmit ? "Presubmit Song" : "Submit Song"}
           </Button>
         </form>
       </Form>

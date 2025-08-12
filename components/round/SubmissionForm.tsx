@@ -16,9 +16,13 @@ import Image from "next/image";
 import { useState } from "react";
 import { EditSubmissionForm } from "@/components/EditSubmissionForm";
 import { Id } from "@/convex/_generated/dataModel";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { FaSpotify, FaYoutube } from "react-icons/fa";
 
 interface SubmissionFormProps {
   roundId: Id<"rounds">;
+  roundStatus: "voting" | "finished" | "submissions";
   currentUser: unknown;
   submissions: unknown[] | undefined;
   mySubmission: unknown;
@@ -26,16 +30,19 @@ interface SubmissionFormProps {
 
 export function SubmissionForm({
   roundId,
+  roundStatus,
   currentUser,
   submissions,
   mySubmission,
 }: SubmissionFormProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const myPresubmission = useQuery(api.submissions.getMyPresubmissionForRound, { roundId });
 
   if (currentUser === undefined || submissions === undefined) {
     return <Skeleton className="h-64 w-full" />;
   }
 
+  // If user already submitted, show their submission + edit
   if (mySubmission) {
     return (
       <div className="space-y-4">
@@ -92,5 +99,53 @@ export function SubmissionForm({
     );
   }
 
-  return <SongSubmissionForm roundId={roundId} />;
+  // If the user has a queued presubmission, show a summary
+  if (myPresubmission) {
+    const pre = myPresubmission;
+    return (
+      <div className="space-y-4">
+        <h3 className="text-xl font-semibold">Your Presubmission (Queued)</h3>
+        <Card>
+          <div className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                {pre.albumArtUrl && (
+                  <Image
+                    src={pre.albumArtUrl}
+                    alt={pre.songTitle}
+                    width={56}
+                    height={56}
+                    className="rounded"
+                  />
+                )}
+                <div>
+                  <p className="font-semibold">{pre.songTitle}</p>
+                  <p className="text-sm text-muted-foreground">{pre.artist}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                {pre.submissionType === "spotify" && <FaSpotify />}
+                {pre.submissionType === "youtube" && <FaYoutube />}
+              </div>
+            </div>
+            {pre.comment && (
+              <blockquote className="mt-4 border-l-2 pl-3 text-sm italic text-muted-foreground">
+                {pre.comment}
+              </blockquote>
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">
+              This track will be auto-submitted when the round opens for submissions.
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Otherwise show a form. If roundStatus !== 'submissions', it becomes a presubmit form.
+  const isPresubmit = roundStatus !== "submissions";
+
+  return (
+    <SongSubmissionForm roundId={roundId} isPresubmit={isPresubmit} />
+  );
 }
