@@ -49,7 +49,6 @@ interface SubmissionItemProps {
 
 export function SubmissionItem({
   song,
-  index,
   isThisSongPlaying,
   isThisSongCurrent,
   isLinkSubmission,
