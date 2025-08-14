@@ -105,6 +105,9 @@ export function RoundHeader({
                 </>
               )}
             </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {round.description}
+            </p>
           </div>
           {round.status !== "submissions" &&
             submissions &&
