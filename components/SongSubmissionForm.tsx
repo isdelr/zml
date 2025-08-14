@@ -428,12 +428,15 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
               <FormField
                 control={form.control}
                 name="songLink"
-                render={({}) => (
+                render={({ field }) => (
                   <FormItem>
                     <FormLabel>Spotify or YouTube Link</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input placeholder="https://open.spotify.com/track/..." />
+                        <Input
+                          placeholder="https://open.spotify.com/track/..."
+                          {...field}
+                        />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-2">
                           <FaSpotify className="text-green-500" />
                           <FaYoutube className="text-red-500" />
