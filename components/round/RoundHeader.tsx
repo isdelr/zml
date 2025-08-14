@@ -1,13 +1,43 @@
 "use client";
 
 import { Doc } from "@/convex/_generated/dataModel";
-import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import Image from "next/image";
 import { toSvg } from "jdenticon";
 import { Song } from "@/types";
 import { cn } from "@/lib/utils";
+
+const formatDistanceWithHours = (deadline: number) => {
+  const now = Date.now();
+  const diffMs = deadline - now;
+
+  if (diffMs <= 0) {
+    return "ending soon";
+  }
+
+  const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+
+  const parts = [];
+  if (days > 0) {
+    parts.push(`${days} day${days > 1 ? 's' : ''}`);
+  }
+  if (hours > 0) {
+    parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
+  }
+
+  if (parts.length === 0) {
+    const minutes = Math.floor(diffMs / (1000 * 60));
+    if (minutes > 0) {
+      return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+    }
+    return "less than a minute";
+  }
+
+  return parts.join(" and ");
+};
 
 interface RoundHeaderProps {
   round: Doc<"rounds"> & { art: string | null; submissionCount: number };
@@ -22,16 +52,16 @@ interface RoundHeaderProps {
 }
 
 export function RoundHeader({
-  round,
-  submissions,
-  onPlayAll,
-  positiveVotesRemaining,
-  negativeVotesRemaining,
-  hasVoted,
-  upvotesUsed,
-  downvotesUsed,
-  totalDuration,
-}: RoundHeaderProps) {
+                              round,
+                              submissions,
+                              onPlayAll,
+                              positiveVotesRemaining,
+                              negativeVotesRemaining,
+                              hasVoted,
+                              upvotesUsed,
+                              downvotesUsed,
+                              totalDuration,
+                            }: RoundHeaderProps) {
   return (
     <div className="mb-8 flex flex-col gap-6 md:flex-row md:gap-8">
       {round.art ? (
@@ -62,8 +92,10 @@ export function RoundHeader({
             <p className="mt-2 text-muted-foreground">
               {round.status.charAt(0).toUpperCase() + round.status.slice(1)} •{" "}
               {round.status === "submissions"
-                ? `Submissions close in ${formatDistanceToNow(round.submissionDeadline)}`
-                : `Voting ends in ${formatDistanceToNow(round.votingDeadline)}`}
+                ? `Submissions close in ${formatDistanceWithHours(round.submissionDeadline)}`
+                : round.status === 'voting'
+                  ? `Voting ends in ${formatDistanceWithHours(round.votingDeadline)}`
+                  : "Finished"}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {round.submissionCount > 0 && (

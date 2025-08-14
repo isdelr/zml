@@ -259,15 +259,26 @@ export const adjustRoundTime = mutation({
     const round = await ctx.db.get(args.roundId);
     if (!round) throw new Error("Round not found");
     await checkOwnership(ctx, round.leagueId);
+
+    const now = Date.now();
     const timeAdjustment = args.hours * 60 * 60 * 1000;
+
     if (round.status === "submissions") {
+      const newSubmissionDeadline = round.submissionDeadline + timeAdjustment;
+      if (newSubmissionDeadline < now) {
+        throw new Error("Cannot set submission deadline to a time in the past.");
+      }
       await ctx.db.patch(round._id, {
-        submissionDeadline: round.submissionDeadline + timeAdjustment,
+        submissionDeadline: newSubmissionDeadline,
         votingDeadline: round.votingDeadline + timeAdjustment,
       });
     } else if (round.status === "voting") {
+      const newVotingDeadline = round.votingDeadline + timeAdjustment;
+      if (newVotingDeadline < now) {
+        throw new Error("Cannot set voting deadline to a time in the past.");
+      }
       await ctx.db.patch(round._id, {
-        votingDeadline: round.votingDeadline + timeAdjustment,
+        votingDeadline: newVotingDeadline,
       });
     } else {
       throw new Error("Cannot adjust time for a finished round.");
