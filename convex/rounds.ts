@@ -11,8 +11,6 @@ import { paginationOptsValidator } from "convex/server";
 
 const r2 = new R2(components.r2);
 
-const daysToMs = (days: number) => days * 24 * 60 * 60 * 1000;
-
 const checkOwnership = async (
   ctx: MutationCtx | QueryCtx,
   leagueId: Id<"leagues">,
@@ -42,8 +40,8 @@ export const create = mutation({
     const { league, userId } = await checkOwnership(ctx, args.leagueId);
 
     const now = Date.now();
-    const submissionDeadline = now + daysToMs(league.submissionDeadline);
-    const votingDeadline = submissionDeadline + daysToMs(league.votingDeadline);
+    const submissionDeadline = now + (league.submissionDeadline * 60 * 60 * 1000);
+    const votingDeadline = submissionDeadline + (league.votingDeadline * 60 * 60 * 1000);
 
     const roundId = await ctx.db.insert("rounds", {
       leagueId: args.leagueId,
@@ -117,7 +115,7 @@ export const getForLeague = query({
       paginationResult.page.map(async (round) => {
         const artUrl =
           (round.imageKey && (await r2.getUrl(round.imageKey))) || null;
-        
+
         const submissionCount = await submissionCounter.count(ctx, round._id);
 
         return {
@@ -127,7 +125,7 @@ export const getForLeague = query({
         };
       }),
     );
-    
+
     return {
       ...paginationResult,
       page: roundsWithDetails,
@@ -255,13 +253,13 @@ export const manageRoundState = mutation({
 export const adjustRoundTime = mutation({
   args: {
     roundId: v.id("rounds"),
-    days: v.number(),
+    hours: v.number(),
   },
   handler: async (ctx, args) => {
     const round = await ctx.db.get(args.roundId);
     if (!round) throw new Error("Round not found");
     await checkOwnership(ctx, round.leagueId);
-    const timeAdjustment = args.days * 24 * 60 * 60 * 1000;
+    const timeAdjustment = args.hours * 60 * 60 * 1000;
     if (round.status === "submissions") {
       await ctx.db.patch(round._id, {
         submissionDeadline: round.submissionDeadline + timeAdjustment,

@@ -50,8 +50,8 @@ const formSchema = z
       message: "Description must be at least 10 characters.",
     }),
     isPublic: z.boolean().default(false),
-    submissionDeadline: z.coerce.number().min(1, "Must be at least 1 day."),
-    votingDeadline: z.coerce.number().min(1, "Must be at least 1 day."),
+    submissionDeadline: z.coerce.number().min(1, "Must be at least 1 hour.").max(720, "Max duration is 30 days (720 hours)."),
+    votingDeadline: z.coerce.number().min(1, "Must be at least 1 hour.").max(720, "Max duration is 30 days (720 hours)."),
     maxPositiveVotes: z.coerce.number().min(1, "Must be at least 1 vote."),
     maxNegativeVotes: z.coerce.number().min(0, "Cannot be negative."),
     // --- NEW FIELDS START ---
@@ -146,8 +146,8 @@ export function CreateLeaguePage() {
       name: "",
       description: "",
       isPublic: false,
-      submissionDeadline: 7,
-      votingDeadline: 3,
+      submissionDeadline: 168, // 7 days in hours
+      votingDeadline: 72,   // 3 days in hours
       maxPositiveVotes: 5,
       maxNegativeVotes: 1,
       // --- NEW DEFAULTS START ---
@@ -412,7 +412,7 @@ export function CreateLeaguePage() {
                                   dangerouslySetInnerHTML={{
                                     __html: toSvg(
                                       form.getValues(`rounds.${index}.title`) ||
-                                        `round-${index}`,
+                                      `round-${index}`,
                                       200,
                                     ),
                                   }}
@@ -477,7 +477,7 @@ export function CreateLeaguePage() {
                     name="submissionDeadline"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Submission Period (Days)</FormLabel>
+                        <FormLabel>Submission Period (Hours)</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -493,7 +493,7 @@ export function CreateLeaguePage() {
                     name="votingDeadline"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Voting Period (Days)</FormLabel>
+                        <FormLabel>Voting Period (Hours)</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -537,7 +537,7 @@ export function CreateLeaguePage() {
                     )}
                   />
                 </div>
-                
+
                 {/* --- NEW VOTE STACKING SECTION START --- */}
                 <div className="space-y-4 pt-4 sm:col-span-2">
                   <FormField
@@ -694,4 +694,3 @@ export function CreateLeaguePage() {
     </div>
   );
 }
-

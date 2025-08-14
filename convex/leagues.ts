@@ -17,7 +17,7 @@ import { membershipsByUser } from "./aggregates";
 
 const r2 = new R2(components.r2);
 
-const daysToMs = (days: number) => days * 24 * 60 * 60 * 1000;
+const hoursToMs = (hours: number) => hours * 60 * 60 * 1000;
 const generateInviteCode = () => {
   const characters =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -72,11 +72,12 @@ export const create = mutation({
       throw new Error("You must be logged in to create a league.");
     }
 
-    if (args.submissionDeadline < 1 || args.submissionDeadline > 30) {
-      throw new Error("Submission period must be between 1 and 30 days.");
+    const maxHours = 30 * 24; // 30 days
+    if (args.submissionDeadline < 1 || args.submissionDeadline > maxHours) {
+      throw new Error(`Submission period must be between 1 and ${maxHours} hours.`);
     }
-    if (args.votingDeadline < 1 || args.votingDeadline > 30) {
-      throw new Error("Voting period must be between 1 and 30 days.");
+    if (args.votingDeadline < 1 || args.votingDeadline > maxHours) {
+      throw new Error(`Voting period must be between 1 and ${maxHours} hours.`);
     }
     if (args.maxPositiveVotes < 1 || args.maxPositiveVotes > 10) {
       throw new Error("Upvotes must be between 1 and 10.");
@@ -134,9 +135,9 @@ export const create = mutation({
     let submissionTime = Date.now();
     for (const round of args.rounds) {
       const submissionDeadlineTimestamp =
-        submissionTime + daysToMs(args.submissionDeadline);
+        submissionTime + hoursToMs(args.submissionDeadline);
       const votingDeadlineTimestamp =
-        submissionDeadlineTimestamp + daysToMs(args.votingDeadline);
+        submissionDeadlineTimestamp + hoursToMs(args.votingDeadline);
       const roundId = await ctx.db.insert("rounds", {
         leagueId: leagueId,
         title: round.title,
@@ -464,6 +465,15 @@ export const updateLeague = mutation({
   handler: async (ctx, args) => {
     await checkLeagueOwnership(ctx, args.leagueId);
     const { leagueId, ...updates } = args;
+
+    const maxHours = 30 * 24; // 30 days
+    if (updates.submissionDeadline !== undefined && (updates.submissionDeadline < 1 || updates.submissionDeadline > maxHours)) {
+      throw new Error(`Submission period must be between 1 and ${maxHours} hours.`);
+    }
+    if (updates.votingDeadline !== undefined && (updates.votingDeadline < 1 || updates.votingDeadline > maxHours)) {
+      throw new Error(`Voting period must be between 1 and ${maxHours} hours.`);
+    }
+
     await ctx.db.patch(leagueId, updates);
     return "League updated successfully.";
   },
@@ -710,7 +720,7 @@ export const getStatsData = internalQuery({
         userDownvotes.set(
           submitterId.toString(),
           (userDownvotes.get(submitterId.toString()) ?? 0) +
-            Math.abs(vote.vote), // add negative magnitude
+          Math.abs(vote.vote), // add negative magnitude
         );
     });
 

@@ -33,8 +33,8 @@ const leagueEditSchema = z.object({
     .string()
     .min(10, "Description must be at least 10 characters."),
   isPublic: z.boolean(),
-  submissionDeadline: z.coerce.number().min(1),
-  votingDeadline: z.coerce.number().min(1),
+  submissionDeadline: z.coerce.number().min(1, "Must be at least 1 hour.").max(720, "Max duration is 30 days (720 hours)."),
+  votingDeadline: z.coerce.number().min(1, "Must be at least 1 hour.").max(720, "Max duration is 30 days (720 hours)."),
   maxPositiveVotes: z.coerce.number().min(1),
   maxNegativeVotes: z.coerce.number().min(0),
   // --- NEW FIELDS START ---
@@ -43,22 +43,22 @@ const leagueEditSchema = z.object({
   maxNegativeVotesPerSubmission: z.coerce.number().min(0).optional(),
   // --- NEW FIELDS END ---
 }).superRefine((data, ctx) => { // --- NEW VALIDATION START ---
-    if (data.limitVotesPerSubmission) {
-        if (data.maxPositiveVotesPerSubmission === undefined || isNaN(data.maxPositiveVotesPerSubmission)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "A max is required.",
-                path: ["maxPositiveVotesPerSubmission"],
-            });
-        }
-        if (data.maxNegativeVotesPerSubmission === undefined || isNaN(data.maxNegativeVotesPerSubmission)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "A max is required.",
-                path: ["maxNegativeVotesPerSubmission"],
-            });
-        }
+  if (data.limitVotesPerSubmission) {
+    if (data.maxPositiveVotesPerSubmission === undefined || isNaN(data.maxPositiveVotesPerSubmission)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A max is required.",
+        path: ["maxPositiveVotesPerSubmission"],
+      });
     }
+    if (data.maxNegativeVotesPerSubmission === undefined || isNaN(data.maxNegativeVotesPerSubmission)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A max is required.",
+        path: ["maxNegativeVotesPerSubmission"],
+      });
+    }
+  }
 }); // --- NEW VALIDATION END ---
 
 interface LeagueSettingsDialogProps {
@@ -68,10 +68,10 @@ interface LeagueSettingsDialogProps {
 }
 
 export function LeagueSettingsDialog({
-  league,
-  currentUser,
-  onClose,
-}: LeagueSettingsDialogProps) {
+                                       league,
+                                       currentUser,
+                                       onClose,
+                                     }: LeagueSettingsDialogProps) {
   return (
     <Tabs defaultValue="general" className="w-full">
       <TabsList className="grid w-full grid-cols-3">
@@ -123,9 +123,9 @@ export function LeagueSettingsDialog({
 }
 
 function GeneralSettingsTab({
-  league,
-  onClose,
-}: {
+                              league,
+                              onClose,
+                            }: {
   league: Record<string, unknown>;
   onClose: () => void;
 }) {
@@ -212,7 +212,7 @@ function GeneralSettingsTab({
             name="submissionDeadline"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Submission Period (Days)</FormLabel>
+                <FormLabel>Submission Period (Hours)</FormLabel>
                 <FormControl>
                   <Input type="number" {...field} />
                 </FormControl>
@@ -224,7 +224,7 @@ function GeneralSettingsTab({
             name="votingDeadline"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Voting Period (Days)</FormLabel>
+                <FormLabel>Voting Period (Hours)</FormLabel>
                 <FormControl>
                   <Input type="number" {...field} />
                 </FormControl>
@@ -240,10 +240,10 @@ function GeneralSettingsTab({
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
               <div className="space-y-0.5">
-                  <FormLabel>Limit Votes Per Submission</FormLabel>
-                  <FormDescription>
-                      Set a max for how many votes a member can give one song.
-                  </FormDescription>
+                <FormLabel>Limit Votes Per Submission</FormLabel>
+                <FormDescription>
+                  Set a max for how many votes a member can give one song.
+                </FormDescription>
               </div>
               <FormControl>
                 <Switch
@@ -255,34 +255,34 @@ function GeneralSettingsTab({
           )}
         />
         {form.watch("limitVotesPerSubmission") && (
-            <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <FormField
-                control={form.control}
-                name="maxPositiveVotesPerSubmission"
-                render={({ field }) => (
+              control={form.control}
+              name="maxPositiveVotesPerSubmission"
+              render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Max Upvotes/Song</FormLabel>
-                    <FormControl>
+                  <FormLabel>Max Upvotes/Song</FormLabel>
+                  <FormControl>
                     <Input type="number" {...field} value={field.value ?? ""} />
-                    </FormControl>
-                    <FormMessage />
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
-                )}
+              )}
             />
             <FormField
-                control={form.control}
-                name="maxNegativeVotesPerSubmission"
-                render={({ field }) => (
+              control={form.control}
+              name="maxNegativeVotesPerSubmission"
+              render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Max Downvotes/Song</FormLabel>
-                    <FormControl>
+                  <FormLabel>Max Downvotes/Song</FormLabel>
+                  <FormControl>
                     <Input type="number" {...field} value={field.value ?? ""} />
-                    </FormControl>
-                    <FormMessage />
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
-                )}
+              )}
             />
-            </div>
+          </div>
         )}
         {/* --- NEW SECTION END --- */}
         <Button type="submit" disabled={form.formState.isSubmitting}>
@@ -297,9 +297,9 @@ function GeneralSettingsTab({
 }
 
 function MembersTab({
-  league,
-  currentUser,
-}: {
+                      league,
+                      currentUser,
+                    }: {
   league: Record<string, unknown>;
   currentUser: Record<string, unknown>;
 }) {

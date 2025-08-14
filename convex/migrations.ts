@@ -54,4 +54,23 @@ export const backfillSubmissionsAggregate = migrations.define({
   },
 });
 
+export const convertLeagueDeadlinesToHours = migrations.define({
+  table: "leagues",
+  batchSize: 100,
+  migrateOne: async (ctx, doc) => {
+    // Heuristic: If a deadline value is 30 or less, it's from the old "days" system.
+    const submissionDeadlineInHours = doc.submissionDeadline <= 30 ? doc.submissionDeadline * 24 : doc.submissionDeadline;
+    const votingDeadlineInHours = doc.votingDeadline <= 30 ? doc.votingDeadline * 24 : doc.votingDeadline;
+
+    if (submissionDeadlineInHours !== doc.submissionDeadline || votingDeadlineInHours !== doc.votingDeadline) {
+      await ctx.db.patch(doc._id, {
+        submissionDeadline: submissionDeadlineInHours,
+        votingDeadline: votingDeadlineInHours,
+      });
+      console.log(`Migrated league ${doc._id}: Deadlines converted from days to hours.`);
+    }
+  },
+});
+
+
 export const run = migrations.runner();

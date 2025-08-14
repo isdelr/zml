@@ -35,14 +35,14 @@ interface RoundAdminControlsProps {
 }
 
 export function RoundAdminControls({
-  round,
-  submissions,
-  votes,
-}: RoundAdminControlsProps) {
+                                     round,
+                                     submissions,
+                                     votes,
+                                   }: RoundAdminControlsProps) {
   const manageRoundState = useMutation(api.rounds.manageRoundState);
   const adjustRoundTime = useMutation(api.rounds.adjustRoundTime);
   const [isEditRoundOpen, setIsEditRoundOpen] = useState(false);
-  
+
   const handleAction = async (
     mutation: typeof manageRoundState | typeof adjustRoundTime,
     args: Record<string, unknown>,
@@ -54,13 +54,13 @@ export function RoundAdminControls({
       error: (err) => err.data?.message || "An error occurred.",
     });
   };
-  
+
   const canEndVoting =
     submissions && submissions.length > 0 && votes && votes.length > 0;
   const canEditRound =
     round.status === "submissions" &&
     (!submissions || submissions.length === 0);
-    
+
   return (
     <Card className="mb-8 border-primary/20 bg-secondary/30">
       <CardHeader>
@@ -176,7 +176,7 @@ export function RoundAdminControls({
               onClick={() =>
                 handleAction(
                   adjustRoundTime,
-                  { roundId: round._id, days: 1 },
+                  { roundId: round._id, hours: 24 },
                   "Added 1 day to the current phase.",
                 )
               }
@@ -188,12 +188,36 @@ export function RoundAdminControls({
               onClick={() =>
                 handleAction(
                   adjustRoundTime,
-                  { roundId: round._id, days: -1 },
+                  { roundId: round._id, hours: -24 },
                   "Removed 1 day from the current phase.",
                 )
               }
             >
               -1 Day
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                handleAction(
+                  adjustRoundTime,
+                  { roundId: round._id, hours: 1 },
+                  "Added 1 hour to the current phase.",
+                )
+              }
+            >
+              +1 Hour
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                handleAction(
+                  adjustRoundTime,
+                  { roundId: round._id, hours: -1 },
+                  "Removed 1 hour from the current phase.",
+                )
+              }
+            >
+              -1 Hour
             </Button>
           </>
         )}
