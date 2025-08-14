@@ -65,15 +65,29 @@ export const getSongMetadataFromLink = action({
         clientSecret,
       );
 
-      // Defensive try/catch to turn SDK internals into a friendly error
+      // --- START: MODIFIED CODE ---
       let track;
       try {
         track = await spotifyApi.tracks.get(trackId);
-      } catch (err) {
+      } catch (err: any) {
+        // Log the detailed error on the server for debugging
+        console.error("Spotify API error:", err);
+
+        // Provide a more specific error message to the client
+        const errorMessage = err.message || "An unknown error occurred with the Spotify API.";
+        if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
+          throw new Error("Spotify API authentication failed. Please check server credentials.");
+        }
+        if (errorMessage.includes("404") || errorMessage.includes("Not found")) {
+          throw new Error("Could not find this track on Spotify. Please check the link.");
+        }
+
+        // Fallback for other errors
         throw new Error(
           "Failed to fetch track metadata from Spotify. Please verify the link.",
         );
       }
+      // --- END: MODIFIED CODE ---
 
       return {
         songTitle: track.name,
