@@ -4,7 +4,7 @@ import { mutation, query, action, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
-import { Doc, Id } from "./_generated/dataModel";
+import { Doc } from "./_generated/dataModel";
 import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 import { submissionsByUser } from "./aggregates";
 import { submissionCounter, submissionScoreCounter } from "./counters";
@@ -65,15 +65,11 @@ export const getSongMetadataFromLink = action({
         clientSecret,
       );
 
-      // --- START: MODIFIED CODE ---
       let track;
       try {
         track = await spotifyApi.tracks.get(trackId);
       } catch (err: any) {
-        // Log the detailed error on the server for debugging
         console.error("Spotify API error:", err);
-
-        // Provide a more specific error message to the client
         const errorMessage = err.message || "An unknown error occurred with the Spotify API.";
         if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
           throw new Error("Spotify API authentication failed. Please check server credentials.");
@@ -81,17 +77,19 @@ export const getSongMetadataFromLink = action({
         if (errorMessage.includes("404") || errorMessage.includes("Not found")) {
           throw new Error("Could not find this track on Spotify. Please check the link.");
         }
-
-        // Fallback for other errors
         throw new Error(
           "Failed to fetch track metadata from Spotify. Please verify the link.",
         );
       }
-      // --- END: MODIFIED CODE ---
 
       return {
         songTitle: track.name,
-        artist: track.artists.map((a) => a.name).join(", "),
+        // --- START: MODIFIED CODE ---
+        // Safely handle the artist array
+        artist: Array.isArray(track.artists) && track.artists.length > 0
+          ? track.artists.map((a) => a.name).join(", ")
+          : "Unknown Artist",
+        // --- END: MODIFIED CODE ---
         albumArtUrl: track.album.images?.[0]?.url ?? null,
         duration: Math.round((track.duration_ms ?? 0) / 1000),
         submissionType: "spotify" as const,
