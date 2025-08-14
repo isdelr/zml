@@ -4,7 +4,7 @@ import { mutation, query, action, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
-import { Doc } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 import { submissionsByUser } from "./aggregates";
 import { submissionCounter, submissionScoreCounter } from "./counters";
@@ -218,8 +218,6 @@ export const submitSong = mutation({
       .first();
     if (existing) throw new Error("You have already submitted a song.");
 
-    // If a presubmission exists and we're in the live submission window,
-    // prevent duplicate by asking user to edit or remove presubmission.
     const existingPre = await ctx.db
       .query("presubmissions")
       .withIndex("by_round_and_user", (q) =>
@@ -274,7 +272,6 @@ export const submitSong = mutation({
   },
 });
 
-// NEW: Allow users to presubmit even when submissions aren’t open yet.
 export const presubmitSong = mutation({
   args: {
     roundId: v.id("rounds"),
@@ -299,7 +296,6 @@ export const presubmitSong = mutation({
     const round = await ctx.db.get(args.roundId);
     if (!round) throw new Error("Round not found.");
 
-    // If user already has a live submission, block
     const existing = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) =>
@@ -310,7 +306,6 @@ export const presubmitSong = mutation({
       throw new Error("You have already submitted a song for this round.");
     }
 
-    // Prevent duplicate presubmissions
     const existingPre = await ctx.db
       .query("presubmissions")
       .withIndex("by_round_and_user", (q) =>
@@ -361,15 +356,12 @@ export const presubmitSong = mutation({
   },
 });
 
-// NEW: Promote all presubmissions for a round into live submissions
-// when the round is open for submissions.
 export const promotePresubmissionsForRound = mutation({
   args: { roundId: v.id("rounds") },
   handler: async (ctx, args) => {
     const round = await ctx.db.get(args.roundId);
     if (!round) return;
     if (round.status !== "submissions") {
-      // Only promote when submissions are open
       return;
     }
 
@@ -381,7 +373,6 @@ export const promotePresubmissionsForRound = mutation({
     if (queued.length === 0) return;
 
     for (const pre of queued) {
-      // Skip if the user already managed to submit manually
       const existing = await ctx.db
         .query("submissions")
         .withIndex("by_round_and_user", (q) =>
@@ -389,7 +380,6 @@ export const promotePresubmissionsForRound = mutation({
         )
         .first();
       if (existing) {
-        // Remove presubmission to avoid clutter
         await ctx.db.delete(pre._id);
         continue;
       }
@@ -414,13 +404,11 @@ export const promotePresubmissionsForRound = mutation({
       const doc = await ctx.db.get(submissionId);
       await submissionsByUser.insert(ctx, doc!);
 
-      // Remove from presubmissions after promoting
       await ctx.db.delete(pre._id);
     }
   },
 });
 
-// NEW: Allow client to know if the user has a queued presubmission for a round
 export const getMyPresubmissionForRound = query({
   args: { roundId: v.id("rounds") },
   handler: async (ctx, args) => {
@@ -567,9 +555,9 @@ export const getForRound = query({
 
     const userBookmarks = userId
       ? await ctx.db
-          .query("bookmarks")
-          .withIndex("by_user_and_submission", (q) => q.eq("userId", userId))
-          .collect()
+        .query("bookmarks")
+        .withIndex("by_user_and_submission", (q) => q.eq("userId", userId))
+        .collect()
       : [];
     const bookmarkedSubmissionIds = new Set(
       userBookmarks.map((b) => b.submissionId),
@@ -832,9 +820,6 @@ export const getWaveform = query({
   },
 });
 
-// convex/submissions.ts
-
-// 1. Add this helper query for our action to use securely.
 export const getSubmissionById = internalQuery({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args) => {
@@ -842,7 +827,6 @@ export const getSubmissionById = internalQuery({
   },
 });
 
-// 2. Add this action to generate and return a new URL.
 export const getPresignedSongUrl = action({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args): Promise<string | null> => {
@@ -864,7 +848,72 @@ export const getPresignedSongUrl = action({
       return null;
     }
 
-    // Generate a new, short-lived URL for the file.
     return await r2.getUrl(submission.songFileKey);
+  },
+});
+
+export const checkForPotentialDuplicates = mutation({
+  args: {
+    leagueId: v.id("leagues"),
+    songTitle: v.string(),
+    artist: v.string(),
+    currentSubmissionId: v.optional(v.id("submissions")),
+  },
+  handler: async (ctx, args) => {
+    const submissions = await ctx.db
+      .query("submissions")
+      .withIndex("by_user_and_league", (q) => q.eq("leagueId", args.leagueId))
+      .collect();
+
+    const presubmissions = await ctx.db
+      .query("presubmissions")
+      .filter(q => q.eq(q.field("leagueId"), args.leagueId))
+      .collect();
+
+    const allPotentialSubmissions = [...submissions, ...presubmissions];
+
+    if (allPotentialSubmissions.length === 0) {
+      return { songExists: null, artistExists: null };
+    }
+
+    const normalizedTitle = args.songTitle.trim().toLowerCase().replace(/\(.*\)|\[.*\]/g, "").trim();
+    const normalizedArtist = args.artist.trim().toLowerCase();
+
+    let songExists: { title: string; artist: string; roundTitle: string } | null = null;
+    let artistExists: { title: string; artist: string; roundTitle: string } | null = null;
+
+    const roundIds = [...new Set(allPotentialSubmissions.map(s => s.roundId))];
+    const rounds = await Promise.all(roundIds.map(id => ctx.db.get(id)));
+    const roundMap = new Map(rounds.filter(Boolean).map(r => [r!._id.toString(), r!.title]));
+
+    for (const submission of allPotentialSubmissions) {
+      if (args.currentSubmissionId && submission._id === args.currentSubmissionId) {
+        continue;
+      }
+
+      const dbTitle = submission.songTitle.trim().toLowerCase().replace(/\(.*\)|\[.*\]/g, "").trim();
+      const dbArtist = submission.artist.trim().toLowerCase();
+      const roundTitle = roundMap.get(submission.roundId.toString()) ?? "a previous round";
+
+      if (!songExists && (dbTitle.includes(normalizedTitle) || normalizedTitle.includes(dbTitle))) {
+        songExists = {
+          title: submission.songTitle,
+          artist: submission.artist,
+          roundTitle,
+        };
+      }
+
+      if (!artistExists && dbArtist === normalizedArtist) {
+        artistExists = {
+          title: submission.songTitle,
+          artist: submission.artist,
+          roundTitle,
+        };
+      }
+
+      if (songExists && artistExists) break;
+    }
+
+    return { songExists, artistExists };
   },
 });

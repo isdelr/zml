@@ -57,11 +57,9 @@ export default defineSchema({
     enforceListenPercentage: v.optional(v.boolean()),
     listenPercentage: v.optional(v.number()),
     listenTimeLimitMinutes: v.optional(v.number()),
-    // --- NEW FIELDS START ---
     limitVotesPerSubmission: v.optional(v.boolean()),
     maxPositiveVotesPerSubmission: v.optional(v.number()),
     maxNegativeVotesPerSubmission: v.optional(v.number()),
-    // --- NEW FIELDS END ---
   })
     .index("by_creator", ["creatorId"])
     .index("by_invite_code", ["inviteCode"])
@@ -121,7 +119,6 @@ export default defineSchema({
       filterFields: ["leagueId"],
     }),
 
-  // NEW: presubmissions table to allow submitting in advance
   presubmissions: defineTable({
     leagueId: v.id("leagues"),
     roundId: v.id("rounds"),
@@ -140,7 +137,7 @@ export default defineSchema({
     albumArtUrlValue: v.optional(v.string()),
     duration: v.optional(v.number()),
     searchText: v.string(),
-    _note: v.optional(v.string()), // handy field for debugging if needed
+    _note: v.optional(v.string()),
   }).index("by_round_and_user", ["roundId", "userId"]),
 
   votes: defineTable({
@@ -175,7 +172,6 @@ export default defineSchema({
     link: v.string(),
     read: v.boolean(),
     triggeringUserId: v.optional(v.id("users")),
-    // FIX: Added the missing metadata field
     metadata: v.optional(v.any()),
   })
     .index("by_user", ["userId"])
