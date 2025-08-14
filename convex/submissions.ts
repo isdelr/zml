@@ -70,27 +70,64 @@ export const getSongMetadataFromLink = action({
         track = await spotifyApi.tracks.get(trackId);
       } catch (err: any) {
         console.error("Spotify API error:", err);
-        const errorMessage = err.message || "An unknown error occurred with the Spotify API.";
-        if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
-          throw new Error("Spotify API authentication failed. Please check server credentials.");
+
+        // Improved error handling
+        let errorMessage = "Failed to fetch track metadata from Spotify.";
+
+        // Handle different error structures
+        if (err && typeof err === 'object') {
+          if (err.message && typeof err.message === 'string') {
+            errorMessage = err.message;
+          } else if (err.body && err.body.error && err.body.error.message) {
+            errorMessage = err.body.error.message;
+          } else if (err.status) {
+            switch (err.status) {
+              case 401:
+                errorMessage = "Spotify API authentication failed. Please check server credentials.";
+                break;
+              case 404:
+                errorMessage = "Could not find this track on Spotify. Please check the link.";
+                break;
+              case 429:
+                errorMessage = "Too many requests to Spotify API. Please try again later.";
+                break;
+              case 400:
+                errorMessage = "Invalid Spotify track ID or URL format.";
+                break;
+              default:
+                errorMessage = `Spotify API error (${err.status}). Please try again.`;
+            }
+          }
         }
-        if (errorMessage.includes("404") || errorMessage.includes("Not found")) {
-          throw new Error("Could not find this track on Spotify. Please check the link.");
+
+        // Additional checks for common error patterns
+        const errorString = String(err);
+        if (errorString.includes("401") || errorString.includes("Unauthorized")) {
+          errorMessage = "Spotify API authentication failed. Please check server credentials.";
+        } else if (errorString.includes("404") || errorString.includes("Not found")) {
+          errorMessage = "Could not find this track on Spotify. Please check the link.";
+        } else if (errorString.includes("400") || errorString.includes("Bad Request")) {
+          errorMessage = "Invalid Spotify track ID or URL format.";
         }
-        throw new Error(
-          "Failed to fetch track metadata from Spotify. Please verify the link.",
-        );
+
+        throw new Error(errorMessage);
+      }
+
+      // Validate that we have a valid track object
+      if (!track || !track.name) {
+        throw new Error("Invalid track data received from Spotify API.");
       }
 
       return {
         songTitle: track.name,
-        // --- START: MODIFIED CODE ---
-        // Safely handle the artist array
+        // Safely handle the artist array with additional validation
         artist: Array.isArray(track.artists) && track.artists.length > 0
-          ? track.artists.map((a) => a.name).join(", ")
+          ? track.artists
+            .filter(artist => artist && artist.name) // Filter out invalid artists
+            .map((a) => a.name)
+            .join(", ")
           : "Unknown Artist",
-        // --- END: MODIFIED CODE ---
-        albumArtUrl: track.album.images?.[0]?.url ?? null,
+        albumArtUrl: track.album?.images?.[0]?.url ?? null,
         duration: Math.round((track.duration_ms ?? 0) / 1000),
         submissionType: "spotify" as const,
       };
