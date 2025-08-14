@@ -1,10 +1,9 @@
- // convex/submissions.ts
 import { v } from "convex/values";
 import { mutation, query, action, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
-import { Doc, Id } from "./_generated/dataModel";
+import { Doc } from "./_generated/dataModel";
 import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 import { submissionsByUser } from "./aggregates";
 import { submissionCounter, submissionScoreCounter } from "./counters";
@@ -26,7 +25,16 @@ export const getSongMetadataFromLink = action({
         process.env.SPOTIFY_CLIENT_SECRET!,
       );
       const trackId = args.link.split("/track/")[1].split("?")[0];
-      const track = await spotifyApi.tracks.get(trackId);
+
+      // FIX: The `tracks.get` method expects an array of track IDs.
+      const tracks = await spotifyApi.tracks.get([trackId]);
+
+      // The method now returns an array of tracks, so we take the first element.
+      if (!tracks || tracks.length === 0) {
+        throw new Error("Track not found on Spotify.");
+      }
+      const track = tracks[0];
+
       return {
         songTitle: track.name,
         artist: track.artists.map((a) => a.name).join(", "),
@@ -468,9 +476,9 @@ export const getForRound = query({
 
     const userBookmarks = userId
       ? await ctx.db
-          .query("bookmarks")
-          .withIndex("by_user_and_submission", (q) => q.eq("userId", userId))
-          .collect()
+        .query("bookmarks")
+        .withIndex("by_user_and_submission", (q) => q.eq("userId", userId))
+        .collect()
       : [];
     const bookmarkedSubmissionIds = new Set(
       userBookmarks.map((b) => b.submissionId),
