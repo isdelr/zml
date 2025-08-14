@@ -1,4 +1,4 @@
- // convex/submissions.ts
+// convex/submissions.ts
 import { v } from "convex/values";
 import { mutation, query, action, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -20,18 +20,66 @@ function getYouTubeVideoId(url: string) {
 export const getSongMetadataFromLink = action({
   args: { link: v.string() },
   handler: async (ctx, args) => {
+    // Helper: robustly extract a Spotify track ID from many link formats
+    const extractSpotifyTrackId = (raw: string): string | null => {
+      try {
+        // 1) spotify:track:ID
+        if (raw.startsWith("spotify:track:")) {
+          const id = raw.slice("spotify:track:".length);
+          return /^[A-Za-z0-9]{22}$/.test(id) ? id : null;
+        }
+
+        // 2) Normal https URL variants
+        const url = new URL(raw);
+        if (url.hostname.includes("open.spotify.com")) {
+          // Paths can include /intl-xx/, so find the segment "track"
+          const segments = url.pathname.split("/").filter(Boolean);
+          const i = segments.findIndex((s) => s.toLowerCase() === "track");
+          if (i !== -1 && segments[i + 1]) {
+            const id = segments[i + 1].split("?")[0];
+            return /^[A-Za-z0-9]{22}$/.test(id) ? id : null;
+          }
+        }
+      } catch {
+        // Not a URL; fall through (maybe a malformed string)
+      }
+      return null;
+    };
+
     if (args.link.includes("spotify")) {
+      const clientId = process.env.SPOTIFY_CLIENT_ID;
+      const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+      if (!clientId || !clientSecret) {
+        throw new Error(
+          "Spotify credentials are not configured on the server.",
+        );
+      }
+
+      const trackId = extractSpotifyTrackId(args.link);
+      if (!trackId) {
+        throw new Error("Could not extract a Spotify track ID from the link.");
+      }
+
       const spotifyApi = SpotifyApi.withClientCredentials(
-        process.env.SPOTIFY_CLIENT_ID!,
-        process.env.SPOTIFY_CLIENT_SECRET!,
+        clientId,
+        clientSecret,
       );
-      const trackId = args.link.split("/track/")[1].split("?")[0];
-      const track = await spotifyApi.tracks.get(trackId);
+
+      // Defensive try/catch to turn SDK internals into a friendly error
+      let track;
+      try {
+        track = await spotifyApi.tracks.get(trackId);
+      } catch (err) {
+        throw new Error(
+          "Failed to fetch track metadata from Spotify. Please verify the link.",
+        );
+      }
+
       return {
         songTitle: track.name,
         artist: track.artists.map((a) => a.name).join(", "),
-        albumArtUrl: track.album.images[0].url,
-        duration: Math.round(track.duration_ms / 1000),
+        albumArtUrl: track.album.images?.[0]?.url ?? null,
+        duration: Math.round((track.duration_ms ?? 0) / 1000),
         submissionType: "spotify" as const,
       };
     } else if (
@@ -221,7 +269,9 @@ export const presubmitSong = mutation({
       )
       .first();
     if (existingPre) {
-      throw new Error("You already have a presubmission queued for this round.");
+      throw new Error(
+        "You already have a presubmission queued for this round.",
+      );
     }
 
     const baseData = {
