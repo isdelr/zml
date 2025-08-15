@@ -3,7 +3,6 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { formatDeadline } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { Clock, Crown, Music, Send, Vote } from "lucide-react";
