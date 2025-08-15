@@ -29,6 +29,14 @@ const checkOwnership = async (
   return { league, userId };
 };
 
+// Add this simple get query for fetching round by ID
+export const get = query({
+  args: { roundId: v.id("rounds") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.roundId);
+  },
+});
+
 export const create = mutation({
   args: {
     leagueId: v.id("leagues"),

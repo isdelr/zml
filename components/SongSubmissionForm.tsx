@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -109,6 +109,8 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
     generateUploadUrl: api.files.generateSubmissionFileUploadUrl,
     syncMetadata: api.files.syncSubmissionFileMetadata,
   });
+
+  const round = useQuery(api.rounds.get, { roundId });
 
   const [albumArtPreview, setAlbumArtPreview] = useState<string>("");
   const [warningState, setWarningState] = useState<{
@@ -219,7 +221,7 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
         return;
       }
 
-      const round = await form.trigger() ? (await ctx.db.get(roundId)) : null;
+      // Check if round data is loaded
       if (!round) {
         toast.error("Could not find the current round.", { id: toastId });
         return;
@@ -249,6 +251,17 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
     }
   }
 
+  // Show loading state while round data is being fetched
+  if (round === undefined) {
+    return (
+      <div className="rounded-lg border bg-card p-6">
+        <div className="flex items-center justify-center">
+          <Loader2 className="mr-2 size-4 animate-spin" />
+          Loading round information...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
