@@ -1,5 +1,3 @@
-// File: components/round/SubmissionItem.tsx
-
 "use client";
 
 import { cn } from "@/lib/utils";
@@ -76,6 +74,7 @@ export function SubmissionItem({
                                  onPlaySong,
                                  listenProgress,
                                  isReadyToVoteOverall,
+                                 onToggleComments, // Added missing prop to destructuring
                                }: SubmissionItemProps) {
   const { listenProgress: localListenProgress } = useMusicPlayerStore();
   const isLinkSubmission = song.submissionType === 'spotify' || song.submissionType === 'youtube';
@@ -92,8 +91,6 @@ export function SubmissionItem({
     if (hasVoted) return "Your vote for this round is final.";
     if (league.limitVotesPerSubmission && currentVoteValue >= (league.maxPositiveVotesPerSubmission ?? 1)) return `Max ${league.maxPositiveVotesPerSubmission} upvote(s) per song.`;
 
-    // *** FIX STARTS HERE ***
-    // Provide a specific message for this song first, then the general one.
     if (league.enforceListenPercentage) {
       if (song.submissionType === "file" && !isListenRequirementMetForThisSong) {
         return `You must listen to ${league.listenPercentage}% of this song to vote.`;
@@ -102,7 +99,6 @@ export function SubmissionItem({
         return "You must meet the listening requirements for all songs before you can vote.";
       }
     }
-    // *** FIX ENDS HERE ***
 
     return null;
   }, [roundStatus, userIsSubmitter, canVote, hasVoted, league, currentVoteValue, isReadyToVoteOverall, song, isListenRequirementMetForThisSong]);
@@ -114,8 +110,6 @@ export function SubmissionItem({
     if (hasVoted) return "Your vote for this round is final.";
     if (league.limitVotesPerSubmission && currentVoteValue <= -(league.maxNegativeVotesPerSubmission ?? 0)) return `Max ${league.maxNegativeVotesPerSubmission} downvote(s) per song.`;
 
-    // *** FIX STARTS HERE ***
-    // Provide a specific message for this song first, then the general one.
     if (league.enforceListenPercentage) {
       if (song.submissionType === "file" && !isListenRequirementMetForThisSong) {
         return `You must listen to ${league.listenPercentage}% of this song to vote.`;
@@ -124,7 +118,6 @@ export function SubmissionItem({
         return "You must meet the listening requirements for all songs before you can vote.";
       }
     }
-    // *** FIX ENDS HERE ***
 
     return null;
   }, [roundStatus, userIsSubmitter, canVote, hasVoted, league, currentVoteValue, isReadyToVoteOverall, song, isListenRequirementMetForThisSong]);

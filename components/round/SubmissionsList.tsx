@@ -1,5 +1,3 @@
-// File: components/round/SubmissionsList.tsx
-
 "use client";
 
 import { useMutation } from "convex/react";
