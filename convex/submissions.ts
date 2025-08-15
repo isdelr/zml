@@ -4,8 +4,7 @@ import { mutation, query, action, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
-import { Doc, Id } from "./_generated/dataModel";
-import { SpotifyApi } from "@spotify/web-api-ts-sdk";
+import { Doc } from "./_generated/dataModel";
 import { submissionsByUser } from "./aggregates";
 import { submissionCounter, submissionScoreCounter } from "./counters";
 
@@ -60,14 +59,49 @@ export const getSongMetadataFromLink = action({
         throw new Error("Could not extract a Spotify track ID from the link.");
       }
 
-      const spotifyApi = SpotifyApi.withClientCredentials(
-        clientId,
-        clientSecret,
-      );
-
+      // Alternative approach: Use direct API calls instead of the SDK
       let track;
       try {
-        track = await spotifyApi.tracks.get(trackId);
+        // First, get an access token
+        const credentials = btoa(`${clientId}:${clientSecret}`);
+        const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Basic ${credentials}`
+          },
+          body: 'grant_type=client_credentials'
+        });
+
+        if (!tokenResponse.ok) {
+          throw new Error(`Failed to authenticate with Spotify: ${tokenResponse.status}`);
+        }
+
+        const tokenData = await tokenResponse.json();
+        const accessToken = tokenData.access_token;
+
+        if (!accessToken) {
+          throw new Error('Failed to obtain Spotify access token');
+        }
+
+        // Now get the track data
+        const trackResponse = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+
+        if (!trackResponse.ok) {
+          if (trackResponse.status === 404) {
+            throw new Error("Could not find this track on Spotify. Please check the link.");
+          } else if (trackResponse.status === 401) {
+            throw new Error("Spotify API authentication failed. Please check server credentials.");
+          } else {
+            throw new Error(`Spotify API error: ${trackResponse.status}`);
+          }
+        }
+
+        track = await trackResponse.json();
       } catch (err: any) {
         console.error("Spotify API error:", err);
 
@@ -123,8 +157,8 @@ export const getSongMetadataFromLink = action({
         // Safely handle the artist array with additional validation
         artist: Array.isArray(track.artists) && track.artists.length > 0
           ? track.artists
-            .filter(artist => artist && artist.name) // Filter out invalid artists
-            .map((a) => a.name)
+            .filter((artist: any) => artist && artist.name) // Filter out invalid artists
+            .map((a: any) => a.name)
             .join(", ")
           : "Unknown Artist",
         albumArtUrl: track.album?.images?.[0]?.url ?? null,
@@ -862,7 +896,7 @@ export const checkForPotentialDuplicates = mutation({
   handler: async (ctx, args) => {
     const submissions = await ctx.db
       .query("submissions")
-      .withIndex("by_user_and_league", (q) => q.eq("leagueId", args.leagueId))
+      .filter(q => q.eq(q.field("leagueId"), args.leagueId))
       .collect();
 
     const presubmissions = await ctx.db
