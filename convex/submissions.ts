@@ -896,12 +896,12 @@ export const checkForPotentialDuplicates = mutation({
   handler: async (ctx, args) => {
     const submissions = await ctx.db
       .query("submissions")
-      .filter(q => q.eq(q.field("leagueId"), args.leagueId))
+      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .collect();
 
     const presubmissions = await ctx.db
       .query("presubmissions")
-      .filter(q => q.eq(q.field("leagueId"), args.leagueId))
+      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .collect();
 
     const allPotentialSubmissions = [...submissions, ...presubmissions];

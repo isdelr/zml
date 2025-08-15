@@ -112,8 +112,8 @@ export default defineSchema({
     searchText: v.string(),
   })
     .index("by_round_and_user", ["roundId", "userId"])
-
     .index("by_user_and_league", ["userId", "leagueId"])
+    .index("by_league", ["leagueId"])
     .searchIndex("by_text", {
       searchField: "searchText",
       filterFields: ["leagueId"],
@@ -138,7 +138,8 @@ export default defineSchema({
     duration: v.optional(v.number()),
     searchText: v.string(),
     _note: v.optional(v.string()),
-  }).index("by_round_and_user", ["roundId", "userId"]),
+  }).index("by_round_and_user", ["roundId", "userId"])
+    .index("by_league", ["leagueId"]),
 
   votes: defineTable({
     roundId: v.id("rounds"),
