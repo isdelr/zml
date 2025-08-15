@@ -1,6 +1,6 @@
-"use client";
+// File: components/round/SubmissionsList.tsx
 
-// components/round/SubmissionsList.tsx
+"use client";
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
@@ -32,20 +32,20 @@ interface SubmissionsListProps {
 }
 
 export function SubmissionsList({
-  submissions,
-  userVoteStatus,
-  userVotes,
-  currentUser,
-  roundStatus,
-  league,
-  currentTrackIndex,
-  isPlaying,
-  queue,
-  onPlaySong,
-  onVoteClick,
-  listenProgressMap,
-  isReadyToVoteOverall,
-}: SubmissionsListProps) {
+                                  submissions,
+                                  userVoteStatus,
+                                  userVotes,
+                                  currentUser,
+                                  roundStatus,
+                                  league,
+                                  currentTrackIndex,
+                                  isPlaying,
+                                  queue,
+                                  onPlaySong,
+                                  onVoteClick,
+                                  listenProgressMap,
+                                  isReadyToVoteOverall,
+                                }: SubmissionsListProps) {
   const [visibleComments, setVisibleComments] = useState<
     Record<string, boolean>
   >({});
@@ -127,7 +127,7 @@ export function SubmissionsList({
     try {
       await toggleBookmark({ submissionId });
     } catch (err: unknown) {
-      toast.error(err.data?.message || "Failed to update bookmark.");
+      toast.error((err as Error).message || "Failed to update bookmark.");
     }
   };
 
@@ -146,23 +146,20 @@ export function SubmissionsList({
     currentTrackIndex !== null ? queue[currentTrackIndex] : null;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col rounded-lg border mt-3">
       <div className="hidden border-b border-border text-xs font-semibold uppercase text-muted-foreground md:block">
         <div className="grid grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 px-4 py-2">
           <span className="w-10 text-center">#</span>
-          <span>TRACK</span>
-          <span>SUBMITTED BY</span>
-          <span className="text-right">POINTS</span>
-          <span className="w-40 text-center">ACTIONS</span>
+          <span>Track</span>
+          <span>Submitted By</span>
+          <span className="text-right">Points</span>
+          <span className="w-44 text-center">Actions</span>
         </div>
       </div>
 
       {submissions.map((song, index) => {
         const isThisSongPlaying = isPlaying && currentTrack?._id === song._id;
         const isThisSongCurrent = currentTrack?._id === song._id;
-        const isLinkSubmission =
-          song.submissionType === "spotify" ||
-          song.submissionType === "youtube";
         const userIsSubmitter = song.userId === currentUser?._id;
         const isCommentsVisible = !!visibleComments[song._id];
 
@@ -180,7 +177,6 @@ export function SubmissionsList({
             index={index}
             isThisSongPlaying={isThisSongPlaying}
             isThisSongCurrent={isThisSongCurrent}
-            isLinkSubmission={isLinkSubmission}
             isCommentsVisible={isCommentsVisible}
             userIsSubmitter={userIsSubmitter}
             currentVoteValue={currentVoteValue}
