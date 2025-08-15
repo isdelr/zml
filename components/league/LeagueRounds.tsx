@@ -3,10 +3,11 @@
 "use client";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { RoundListItem } from "./RoundListItem"; // Import the new component
+import { RoundListItem } from "./RoundListItem";
+import { Doc } from "@/convex/_generated/dataModel"; // Import the new component
 
 interface LeagueRoundsProps {
-  rounds: any[]; // Use a more specific 'Round' type once your API is updated
+  rounds: Doc<"rounds">; // Use a more specific 'Round' type once your API is updated
   selectedRoundId: string | null;
   leagueId: string;
 }
