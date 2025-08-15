@@ -1,3 +1,5 @@
+// File: components/round/SubmissionItem.tsx
+
 "use client";
 
 import { cn } from "@/lib/utils";
@@ -87,7 +89,7 @@ export function SubmissionItem({
   const upvoteDisabledReason = useMemo(() => {
     if (roundStatus !== "voting") return "Voting is not currently open.";
     if (userIsSubmitter) return "You cannot vote on your own submission.";
-    if (!canVote) return "You are not eligible to vote in this round (joined late).";
+    if (!canVote) return "You must submit a song to vote in this round.";
     if (hasVoted) return "Your vote for this round is final.";
     if (league.limitVotesPerSubmission && currentVoteValue >= (league.maxPositiveVotesPerSubmission ?? 1)) return `Max ${league.maxPositiveVotesPerSubmission} upvote(s) per song.`;
 
@@ -106,7 +108,7 @@ export function SubmissionItem({
   const downvoteDisabledReason = useMemo(() => {
     if (roundStatus !== "voting") return "Voting is not currently open.";
     if (userIsSubmitter) return "You cannot vote on your own submission.";
-    if (!canVote) return "You are not eligible to vote in this round (joined late).";
+    if (!canVote) return "You must submit a song to vote in this round.";
     if (hasVoted) return "Your vote for this round is final.";
     if (league.limitVotesPerSubmission && currentVoteValue <= -(league.maxNegativeVotesPerSubmission ?? 0)) return `Max ${league.maxNegativeVotesPerSubmission} downvote(s) per song.`;
 

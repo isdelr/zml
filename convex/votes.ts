@@ -1,3 +1,5 @@
+// File: convex/votes.ts
+
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -45,13 +47,6 @@ export const getForUserInRound = query({
       throw new Error("Could not find league for this round");
     }
 
-    const membership = await ctx.db
-      .query("memberships")
-      .withIndex("by_league_and_user", (q) =>
-        q.eq("leagueId", round.leagueId).eq("userId", userId),
-      )
-      .first();
-
     const userSubmission = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) =>
@@ -59,9 +54,7 @@ export const getForUserInRound = query({
       )
       .first();
 
-    const joinedEarly =
-      membership?.joinDate ? membership.joinDate < round.submissionDeadline : false;
-    const canVote = joinedEarly || !!userSubmission;
+    const canVote = !!userSubmission;
 
     const userVotes = await ctx.db
       .query("votes")
@@ -134,13 +127,6 @@ export const castVote = mutation({
     const league = await ctx.db.get(submission.leagueId);
     if (!league) throw new Error("League not found.");
 
-    const membership = await ctx.db
-      .query("memberships")
-      .withIndex("by_league_and_user", (q) =>
-        q.eq("leagueId", round.leagueId).eq("userId", userId),
-      )
-      .first();
-
     const userSubmission = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) =>
@@ -148,12 +134,8 @@ export const castVote = mutation({
       )
       .first();
 
-    const canVote =
-      (membership?.joinDate && membership.joinDate < round.submissionDeadline) ||
-      !!userSubmission;
-
-    if (!canVote) {
-      throw new Error("You are not eligible to vote in this round.");
+    if (!userSubmission) {
+      throw new Error("You must submit a song in this round to be able to vote.");
     }
 
     if (league.enforceListenPercentage) {

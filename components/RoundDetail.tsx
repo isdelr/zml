@@ -14,6 +14,7 @@ import { AvatarStack } from "./AvatarStack";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { SubmissionCommentsPanel } from "./round/SubmissionCommentsPanel";
+import { Ban } from "lucide-react";
 
 const RoundAdminControls = dynamicImport(() =>
   import("./round/RoundAdminControls").then((mod) => ({
@@ -44,6 +45,7 @@ interface RoundDetailProps {
   league: NonNullable<Awaited<ReturnType<typeof api.leagues.get>>>;
   isOwner: boolean;
 }
+
 
 export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   const {
@@ -269,9 +271,10 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
       {round.status === "voting" && userVoteStatus && !userVoteStatus.hasVoted && !userVoteStatus.canVote && (
         <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10 text-yellow-400">
+          <Ban className="size-4" />
           <AlertTitle className="font-bold">Voting Restricted</AlertTitle>
           <AlertDescription className="text-yellow-400/80">
-            You cannot vote in this round because you joined the league after the voting phase started. You can vote in all future rounds.
+            You must submit a song to a round to be eligible to vote.
           </AlertDescription>
         </Alert>
       )}
