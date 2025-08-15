@@ -137,7 +137,7 @@ export function SubmissionsList({
   const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
 
   return (
-    <div className="flex flex-col rounded-lg border">
+    <div className="flex flex-col rounded-lg border mt-3">
       <div className="hidden border-b border-border text-xs font-semibold uppercase text-muted-foreground md:block">
         <div className="grid grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 px-4 py-2">
           <span className="w-10 text-center">#</span>
