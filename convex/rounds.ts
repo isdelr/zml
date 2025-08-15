@@ -353,76 +353,51 @@ export const updateRound = mutation({
       throw new Error("Cannot edit a finished round.");
     }
 
-    // Check for destructive changes
     const submissionsPerUserChanged =
       round.submissionsPerUser !== args.submissionsPerUser;
 
-    if (submissionsPerUserChanged) {
-      if (round.status === "submissions") {
-        const submissions = await ctx.db
-          .query("submissions")
-          .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-          .collect();
+    if (submissionsPerUserChanged && round.status === "voting") {
+      throw new Error(
+        "Cannot change the number of submissions for a round that is in the voting phase.",
+      );
+    }
 
-        if (submissions.length > 0) {
-          // Delete submissions and their associated data
-          for (const submission of submissions) {
-            await ctx.db.delete(submission._id);
-            await submissionsByUser.delete(ctx, submission); // aggregate
-            await submissionCounter.dec(ctx, round._id); // counter
-            const comments = await ctx.db
-              .query("comments")
-              .withIndex("by_submission", (q) =>
-                q.eq("submissionId", submission._id),
-              )
-              .collect();
-            for (const comment of comments) {
-              await ctx.db.delete(comment._id);
-            }
+    if (submissionsPerUserChanged && round.status === "submissions") {
+      const submissions = await ctx.db
+        .query("submissions")
+        .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
+        .collect();
+
+      if (submissions.length > 0) {
+        for (const submission of submissions) {
+          await ctx.db.delete(submission._id);
+          await submissionsByUser.delete(ctx, submission);
+          await submissionCounter.dec(ctx, round._id);
+          const comments = await ctx.db
+            .query("comments")
+            .withIndex("by_submission", (q) =>
+              q.eq("submissionId", submission._id),
+            )
+            .collect();
+          for (const comment of comments) {
+            await ctx.db.delete(comment._id);
           }
-
-          // Notify participants
-          await ctx.scheduler.runAfter(
-            0,
-            internal.notifications.createForLeague,
-            {
-              leagueId: league._id,
-              type: "round_submission",
-              message: `The round "${round.title}" in "${league.name}" was updated. Please submit your song again.`,
-              link: `/leagues/${league._id}/round/${round._id}`,
-              triggeringUserId: adminUserId,
-            },
-          );
         }
-      } else if (round.status === "voting") {
-        // Destructive edit in voting phase: just delete votes. Submissions stay.
-        const votes = await ctx.db
-          .query("votes")
-          .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-          .collect();
 
-        if (votes.length > 0) {
-          for (const vote of votes) {
-            await ctx.db.delete(vote._id);
-          }
-
-          // Notify participants
-          await ctx.scheduler.runAfter(
-            0,
-            internal.notifications.createForLeague,
-            {
-              leagueId: league._id,
-              type: "round_voting",
-              message: `Rules for round "${round.title}" in "${league.name}" were updated. Your votes have been cleared, please vote again.`,
-              link: `/leagues/${league._id}/round/${round._id}`,
-              triggeringUserId: adminUserId,
-            },
-          );
-        }
+        await ctx.scheduler.runAfter(
+          0,
+          internal.notifications.createForLeague,
+          {
+            leagueId: league._id,
+            type: "round_submission",
+            message: `The round "${round.title}" in "${league.name}" was updated. Please submit your song again.`,
+            link: `/leagues/${league._id}/round/${round._id}`,
+            triggeringUserId: adminUserId,
+          },
+        );
       }
     }
 
-    // Always perform the update for all fields
     const { roundId, ...updates } = args;
     await ctx.db.patch(roundId, updates);
 

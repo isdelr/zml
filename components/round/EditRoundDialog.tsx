@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Doc } from "@/convex/_generated/dataModel";
 
 const roundEditSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters."),
@@ -33,7 +34,7 @@ const roundEditSchema = z.object({
 });
 
 interface EditRoundDialogProps {
-  round: Record<string, unknown>;
+  round: Doc<"rounds">;
   onClose: () => void;
 }
 
@@ -42,9 +43,9 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
   const form = useForm<z.infer<typeof roundEditSchema>>({
     resolver: zodResolver(roundEditSchema),
     defaultValues: {
-      title: (round.title as string) || "",
-      description: (round.description as string) || "",
-      submissionsPerUser: (round.submissionsPerUser as number) ?? 1,
+      title: round.title || "",
+      description: round.description || "",
+      submissionsPerUser: round.submissionsPerUser ?? 1,
     },
   });
 
@@ -95,11 +96,16 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
             <FormItem>
               <FormLabel>Submissions per User</FormLabel>
               <FormControl>
-                <Input type="number" {...field} />
+                <Input
+                  type="number"
+                  {...field}
+                  disabled={round.status === "voting"}
+                />
               </FormControl>
               <FormDescription>
-                Changing this for a round with submissions will delete them and
-                notify users to resubmit.
+                {round.status === "voting"
+                  ? "This cannot be changed while a round is in the voting phase."
+                  : "Changing this for a round with submissions will delete them and notify users to resubmit."}
               </FormDescription>
               <FormMessage />
             </FormItem>
