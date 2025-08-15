@@ -34,6 +34,40 @@ export const get = query({
   },
 });
 
+
+export const getRoundMetadata = query({
+  args: { roundId: v.id("rounds") },
+  returns: v.union(
+    v.null(),
+    v.object({
+      roundTitle: v.string(),
+      roundDescription: v.string(),
+      imageUrl: v.union(v.string(), v.null()),
+      leagueName: v.string(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const round = await ctx.db.get(args.roundId);
+    if (!round) {
+      return null;
+    }
+
+    const league = await ctx.db.get(round.leagueId);
+    if (!league) {
+      return null;
+    }
+
+    const imageUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
+
+    return {
+      roundTitle: round.title,
+      roundDescription: round.description,
+      imageUrl,
+      leagueName: league.name,
+    };
+  },
+});
+
 export const getForLeague = query({
   args: {
     leagueId: v.id("leagues"),
