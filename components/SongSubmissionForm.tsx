@@ -350,6 +350,7 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
                     <FormField
                       control={form.control}
                       name="albumArtFile"
+                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
                       render={({ field: { onChange, value, ...rest } }) => (
                         <FormItem>
                           <FormLabel>Album Art</FormLabel>
