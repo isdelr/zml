@@ -1,5 +1,5 @@
 // convex/leagues.ts
-import { v } from "convex/values";
+  import { v } from "convex/values";
 import {
   mutation,
   query,
@@ -52,15 +52,14 @@ export const create = mutation({
     enforceListenPercentage: v.boolean(),
     listenPercentage: v.optional(v.number()),
     listenTimeLimitMinutes: v.optional(v.number()),
-    // --- NEW FIELDS START ---
     limitVotesPerSubmission: v.boolean(),
     maxPositiveVotesPerSubmission: v.optional(v.number()),
     maxNegativeVotesPerSubmission: v.optional(v.number()),
-    // --- NEW FIELDS END ---
     rounds: v.array(
       v.object({
         title: v.string(),
         description: v.string(),
+        submissionsPerUser: v.optional(v.number()),
         imageKey: v.optional(v.string()),
         genres: v.array(v.string()),
       }),
@@ -108,11 +107,9 @@ export const create = mutation({
       listenPercentage: args.listenPercentage,
       listenTimeLimitMinutes: args.listenTimeLimitMinutes,
       inviteCode: inviteCode!,
-      // --- NEW FIELDS START ---
       limitVotesPerSubmission: args.limitVotesPerSubmission,
       maxPositiveVotesPerSubmission: args.maxPositiveVotesPerSubmission,
       maxNegativeVotesPerSubmission: args.maxNegativeVotesPerSubmission,
-      // --- NEW FIELDS END ---
     });
 
     const membershipId = await ctx.db.insert("memberships", {
@@ -142,6 +139,7 @@ export const create = mutation({
         leagueId: leagueId,
         title: round.title,
         description: round.description,
+        submissionsPerUser: round.submissionsPerUser ?? 1,
         imageKey: round.imageKey,
         genres: round.genres,
         status: "submissions",
@@ -246,11 +244,9 @@ export const get = query({
       enforceListenPercentage: v.optional(v.boolean()),
       listenPercentage: v.optional(v.number()),
       listenTimeLimitMinutes: v.optional(v.number()),
-      // --- NEW FIELDS START ---
       limitVotesPerSubmission: v.optional(v.boolean()),
       maxPositiveVotesPerSubmission: v.optional(v.number()),
       maxNegativeVotesPerSubmission: v.optional(v.number()),
-      // --- NEW FIELDS END ---
     }),
   ),
   handler: async (ctx, args) => {
@@ -456,11 +452,9 @@ export const updateLeague = mutation({
     votingDeadline: v.optional(v.number()),
     maxPositiveVotes: v.optional(v.number()),
     maxNegativeVotes: v.optional(v.number()),
-    // --- NEW FIELDS START ---
     limitVotesPerSubmission: v.optional(v.boolean()),
     maxPositiveVotesPerSubmission: v.optional(v.number()),
     maxNegativeVotesPerSubmission: v.optional(v.number()),
-    // --- NEW FIELDS END ---
   },
   handler: async (ctx, args) => {
     await checkLeagueOwnership(ctx, args.leagueId);
@@ -854,7 +848,6 @@ export const calculateAndStoreResults = internalMutation({
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
 
-    // Identify submitters who didn't complete full budget (use magnitudes)
     const allVotersInRound = new Map<
       Id<"users">,
       { up: number; down: number }
@@ -882,7 +875,6 @@ export const calculateAndStoreResults = internalMutation({
       }
     });
 
-    // Calculate scores, applying penalty
     const submissionScores = new Map<Id<"submissions">, number>();
     const penaltyApplied = new Map<Id<"submissions">, boolean>();
 
@@ -911,28 +903,32 @@ export const calculateAndStoreResults = internalMutation({
       );
     });
 
-    // Determine winners
-    const winners: Id<"submissions">[] = [];
-    if (submissionScores.size > 0) {
+    const userScores = new Map<Id<"users">, number>();
+    for (const sub of submissions) {
+      const score = submissionScores.get(sub._id) ?? 0;
+      userScores.set(sub.userId, (userScores.get(sub.userId) ?? 0) + score);
+    }
+
+    const winningUserIds: Id<"users">[] = [];
+    if (userScores.size > 0) {
       let maxScore = -Infinity;
-      submissionScores.forEach((score) => {
+      userScores.forEach((score) => {
         if (score > maxScore) {
           maxScore = score;
         }
       });
       if (maxScore > 0) {
-        submissionScores.forEach((score, subId) => {
+        userScores.forEach((score, userId) => {
           if (score === maxScore) {
-            winners.push(subId);
+            winningUserIds.push(userId);
           }
         });
       }
     }
 
-    // Store results and update standings
     for (const sub of submissions) {
       const points = submissionScores.get(sub._id) ?? 0;
-      const isWinner = winners.includes(sub._id);
+      const isWinner = winningUserIds.includes(sub.userId);
       const wasPenalized = penaltyApplied.get(sub._id) ?? false;
 
       await ctx.db.insert("roundResults", {
@@ -943,17 +939,20 @@ export const calculateAndStoreResults = internalMutation({
         isWinner,
         penaltyApplied: wasPenalized,
       });
+    }
 
+    for (const [userId, totalPoints] of userScores.entries()) {
+      const isWinner = winningUserIds.includes(userId);
       const userStanding = await ctx.db
         .query("leagueStandings")
         .withIndex("by_league_and_user", (q) =>
-          q.eq("leagueId", round.leagueId).eq("userId", sub.userId),
+          q.eq("leagueId", round.leagueId).eq("userId", userId),
         )
         .first();
 
       if (userStanding) {
         await ctx.db.patch(userStanding._id, {
-          totalPoints: userStanding.totalPoints + points,
+          totalPoints: userStanding.totalPoints + totalPoints,
           totalWins: userStanding.totalWins + (isWinner ? 1 : 0),
         });
       }
@@ -1017,12 +1016,6 @@ export const getLeagueStats = query({
   },
 });
 
-/**
- * Re-implemented: Search within a league across rounds and songs.
- * - Rounds: simple case-insensitive match on title/description.
- * - Songs: full-text search using submissions.by_text (searchText), filtered by leagueId.
- * Returns small, UI-friendly objects for the dropdown and one-click play.
- */
 export const searchInLeague = query({
   args: {
     leagueId: v.id("leagues"),
@@ -1063,7 +1056,6 @@ export const searchInLeague = query({
       return { rounds: [], songs: [] };
     }
 
-    // Permission check for private leagues:
     if (!league.isPublic) {
       const membership =
         userId &&
@@ -1081,7 +1073,6 @@ export const searchInLeague = query({
     const perCategoryLimit = Math.max(1, Math.min(args.limit ?? 5, 25));
     const needle = args.searchText.trim().toLowerCase();
 
-    // Rounds: simple substring match on title/description within the league
     const allRoundsInLeague = await ctx.db
       .query("rounds")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
@@ -1099,7 +1090,6 @@ export const searchInLeague = query({
         title: r.title,
       }));
 
-    // Songs: full-text search using submissions.by_text, filtered by league
     const matchedSubs = await ctx.db
       .query("submissions")
       .withSearchIndex("by_text", (q) =>
@@ -1107,7 +1097,6 @@ export const searchInLeague = query({
       )
       .take(perCategoryLimit);
 
-    // Batch fetch rounds for titles
     const roundIds = [...new Set(matchedSubs.map((s) => s.roundId))];
     const roundDocs = await Promise.all(roundIds.map((rid) => ctx.db.get(rid)));
     const roundMap = new Map<string, Doc<"rounds">>();
@@ -1115,7 +1104,6 @@ export const searchInLeague = query({
       if (rd) roundMap.set(rd._id.toString(), rd);
     });
 
-    // Build song results with resolved URLs
     const songs = await Promise.all(
       matchedSubs.map(async (sub) => {
         const round = roundMap.get(sub.roundId.toString());

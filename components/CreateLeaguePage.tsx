@@ -54,7 +54,6 @@ const formSchema = z
     votingDeadline: z.coerce.number().min(1, "Must be at least 1 hour.").max(720, "Max duration is 30 days (720 hours)."),
     maxPositiveVotes: z.coerce.number().min(1, "Must be at least 1 vote."),
     maxNegativeVotes: z.coerce.number().min(0, "Cannot be negative."),
-    // --- NEW FIELDS START ---
     limitVotesPerSubmission: z.boolean().default(false),
     maxPositiveVotesPerSubmission: z.coerce
       .number()
@@ -64,7 +63,6 @@ const formSchema = z
       .number()
       .min(0, "Cannot be negative.")
       .optional(),
-    // --- NEW FIELDS END ---
     enforceListenPercentage: z.boolean().default(false),
     listenPercentage: z.coerce
       .number()
@@ -82,6 +80,7 @@ const formSchema = z
           description: z
             .string()
             .min(10, "Description must be at least 10 characters."),
+          submissionsPerUser: z.coerce.number().min(1, "Must be at least 1.").max(5, "Max 5 submissions."),
           genres: z.array(z.string()).optional(),
           imageFile: z
             .instanceof(File)
@@ -96,14 +95,14 @@ const formSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.enforceListenPercentage) {
-      if (data.listenPercentage === undefined) {
+      if (data.listenPercentage === undefined || isNaN(data.listenPercentage)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "A percentage is required.",
           path: ["listenPercentage"],
         });
       }
-      if (data.listenTimeLimitMinutes === undefined) {
+      if (data.listenTimeLimitMinutes === undefined || isNaN(data.listenTimeLimitMinutes)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "A time limit is required.",
@@ -111,16 +110,15 @@ const formSchema = z
         });
       }
     }
-    // --- NEW VALIDATION START ---
     if (data.limitVotesPerSubmission) {
-      if (data.maxPositiveVotesPerSubmission === undefined) {
+      if (data.maxPositiveVotesPerSubmission === undefined || isNaN(data.maxPositiveVotesPerSubmission)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "A max is required.",
           path: ["maxPositiveVotesPerSubmission"],
         });
       }
-      if (data.maxNegativeVotesPerSubmission === undefined) {
+      if (data.maxNegativeVotesPerSubmission === undefined || isNaN(data.maxNegativeVotesPerSubmission)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "A max is required.",
@@ -128,7 +126,6 @@ const formSchema = z
         });
       }
     }
-    // --- NEW VALIDATION END ---
   });
 
 export function CreateLeaguePage() {
@@ -146,15 +143,13 @@ export function CreateLeaguePage() {
       name: "",
       description: "",
       isPublic: false,
-      submissionDeadline: 168, // 7 days in hours
-      votingDeadline: 72,   // 3 days in hours
+      submissionDeadline: 168,
+      votingDeadline: 72,
       maxPositiveVotes: 5,
       maxNegativeVotes: 1,
-      // --- NEW DEFAULTS START ---
       limitVotesPerSubmission: false,
-      // --- NEW DEFAULTS END ---
       enforceListenPercentage: false,
-      rounds: [{ title: "", description: "", genres: [] }],
+      rounds: [{ title: "", description: "", genres: [], submissionsPerUser: 1 }],
     },
   });
 
@@ -181,6 +176,7 @@ export function CreateLeaguePage() {
           return {
             title: round.title,
             description: round.description,
+            submissionsPerUser: round.submissionsPerUser,
             genres: round.genres ?? [],
             imageKey: imageKey,
           };
@@ -214,7 +210,6 @@ export function CreateLeaguePage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              {/* --- League Info Section --- */}
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">League Information</h3>
                 <FormField
@@ -271,7 +266,6 @@ export function CreateLeaguePage() {
                 />
               </div>
 
-              {/* --- Rounds Section --- */}
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-medium">Initial Rounds</h3>
@@ -280,7 +274,7 @@ export function CreateLeaguePage() {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      append({ title: "", description: "", genres: [] })
+                      append({ title: "", description: "", genres: [], submissionsPerUser: 1 })
                     }
                   >
                     <PlusCircle className="mr-2 size-4" />
@@ -322,6 +316,19 @@ export function CreateLeaguePage() {
                                 placeholder="Describe the theme of this round."
                                 {...field}
                               />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`rounds.${index}.submissionsPerUser`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Submissions per User</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={1} max={5} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -371,8 +378,7 @@ export function CreateLeaguePage() {
                       <FormField
                         control={form.control}
                         name={`rounds.${index}.imageFile`}
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        render={({ field: { onChange, value, ...rest } }) => (
+                        render={({ field: { onChange, ...rest } }) => (
                           <FormItem>
                             <FormLabel>Round Image (Optional)</FormLabel>
                             {previews[index] ? (
@@ -468,7 +474,6 @@ export function CreateLeaguePage() {
                 )}
               </div>
 
-              {/* --- Rules Section --- */}
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">League Rules</h3>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -538,7 +543,6 @@ export function CreateLeaguePage() {
                   />
                 </div>
 
-                {/* --- NEW VOTE STACKING SECTION START --- */}
                 <div className="space-y-4 pt-4 sm:col-span-2">
                   <FormField
                     control={form.control}
@@ -601,9 +605,7 @@ export function CreateLeaguePage() {
                     </div>
                   )}
                 </div>
-                {/* --- NEW VOTE STACKING SECTION END --- */}
 
-                {/* Listening Rules Section */}
                 <div className="space-y-4 pt-4 sm:col-span-2">
                   <FormField
                     control={form.control}

@@ -4,9 +4,9 @@ import { mutation, query, action, internalQuery } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
-import { Doc } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { submissionsByUser } from "./aggregates";
-import { submissionCounter, submissionScoreCounter } from "./counters";
+import { submissionCounter } from "./counters";
 
 const r2 = new R2(components.r2);
 
@@ -19,19 +19,15 @@ function getYouTubeVideoId(url: string) {
 export const getSongMetadataFromLink = action({
   args: { link: v.string() },
   handler: async (ctx, args) => {
-    // Helper: robustly extract a Spotify track ID from many link formats
     const extractSpotifyTrackId = (raw: string): string | null => {
       try {
-        // 1) spotify:track:ID
         if (raw.startsWith("spotify:track:")) {
           const id = raw.slice("spotify:track:".length);
           return /^[A-Za-z0-9]{22}$/.test(id) ? id : null;
         }
 
-        // 2) Normal https URL variants
         const url = new URL(raw);
         if (url.hostname.includes("open.spotify.com")) {
-          // Paths can include /intl-xx/, so find the segment "track"
           const segments = url.pathname.split("/").filter(Boolean);
           const i = segments.findIndex((s) => s.toLowerCase() === "track");
           if (i !== -1 && segments[i + 1]) {
@@ -40,7 +36,7 @@ export const getSongMetadataFromLink = action({
           }
         }
       } catch {
-        // Not a URL; fall through (maybe a malformed string)
+        // Not a URL
       }
       return null;
     };
@@ -59,10 +55,8 @@ export const getSongMetadataFromLink = action({
         throw new Error("Could not extract a Spotify track ID from the link.");
       }
 
-      // Alternative approach: Use direct API calls instead of the SDK
       let track;
       try {
-        // First, get an access token
         const credentials = btoa(`${clientId}:${clientSecret}`);
         const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
           method: 'POST',
@@ -84,7 +78,6 @@ export const getSongMetadataFromLink = action({
           throw new Error('Failed to obtain Spotify access token');
         }
 
-        // Now get the track data
         const trackResponse = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`
@@ -104,60 +97,24 @@ export const getSongMetadataFromLink = action({
         track = await trackResponse.json();
       } catch (err: any) {
         console.error("Spotify API error:", err);
-
-        // Improved error handling
         let errorMessage = "Failed to fetch track metadata from Spotify.";
-
-        // Handle different error structures
         if (err && typeof err === 'object') {
           if (err.message && typeof err.message === 'string') {
             errorMessage = err.message;
-          } else if (err.body && err.body.error && err.body.error.message) {
-            errorMessage = err.body.error.message;
-          } else if (err.status) {
-            switch (err.status) {
-              case 401:
-                errorMessage = "Spotify API authentication failed. Please check server credentials.";
-                break;
-              case 404:
-                errorMessage = "Could not find this track on Spotify. Please check the link.";
-                break;
-              case 429:
-                errorMessage = "Too many requests to Spotify API. Please try again later.";
-                break;
-              case 400:
-                errorMessage = "Invalid Spotify track ID or URL format.";
-                break;
-              default:
-                errorMessage = `Spotify API error (${err.status}). Please try again.`;
-            }
           }
         }
-
-        // Additional checks for common error patterns
-        const errorString = String(err);
-        if (errorString.includes("401") || errorString.includes("Unauthorized")) {
-          errorMessage = "Spotify API authentication failed. Please check server credentials.";
-        } else if (errorString.includes("404") || errorString.includes("Not found")) {
-          errorMessage = "Could not find this track on Spotify. Please check the link.";
-        } else if (errorString.includes("400") || errorString.includes("Bad Request")) {
-          errorMessage = "Invalid Spotify track ID or URL format.";
-        }
-
         throw new Error(errorMessage);
       }
 
-      // Validate that we have a valid track object
       if (!track || !track.name) {
         throw new Error("Invalid track data received from Spotify API.");
       }
 
       return {
         songTitle: track.name,
-        // Safely handle the artist array with additional validation
         artist: Array.isArray(track.artists) && track.artists.length > 0
           ? track.artists
-            .filter((artist: any) => artist && artist.name) // Filter out invalid artists
+            .filter((artist: any) => artist && artist.name)
             .map((a: any) => a.name)
             .join(", ")
           : "Unknown Artist",
@@ -244,13 +201,19 @@ export const submitSong = mutation({
     if (round.status !== "submissions")
       throw new Error("Submissions are not open.");
 
-    const existing = await ctx.db
+    const submissionsPerUser = round.submissionsPerUser ?? 1;
+    const existingSubmissions = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) =>
         q.eq("roundId", args.roundId).eq("userId", userId),
       )
-      .first();
-    if (existing) throw new Error("You have already submitted a song.");
+      .collect();
+
+    if (existingSubmissions.length >= submissionsPerUser) {
+      throw new Error(
+        `You have already submitted the maximum of ${submissionsPerUser} song(s).`,
+      );
+    }
 
     const existingPre = await ctx.db
       .query("presubmissions")
@@ -330,25 +293,25 @@ export const presubmitSong = mutation({
     const round = await ctx.db.get(args.roundId);
     if (!round) throw new Error("Round not found.");
 
-    const existing = await ctx.db
+    const submissionsPerUser = round.submissionsPerUser ?? 1;
+
+    const existingSubmissions = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) =>
         q.eq("roundId", args.roundId).eq("userId", userId),
       )
-      .first();
-    if (existing) {
-      throw new Error("You have already submitted a song for this round.");
-    }
+      .collect();
 
     const existingPre = await ctx.db
       .query("presubmissions")
       .withIndex("by_round_and_user", (q) =>
         q.eq("roundId", args.roundId).eq("userId", userId),
       )
-      .first();
-    if (existingPre) {
+      .collect();
+
+    if (existingSubmissions.length + existingPre.length >= submissionsPerUser) {
       throw new Error(
-        "You already have a presubmission queued for this round.",
+        `You have already submitted or presubmitted the maximum of ${submissionsPerUser} song(s).`,
       );
     }
 
@@ -449,33 +412,35 @@ export const getMyPresubmissionForRound = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
 
-    const pre = await ctx.db
+    const presubmissions = await ctx.db
       .query("presubmissions")
       .withIndex("by_round_and_user", (q) =>
         q.eq("roundId", args.roundId).eq("userId", userId),
       )
-      .first();
+      .collect();
 
-    if (!pre) return null;
+    if (presubmissions.length === 0) return [];
 
-    let albumArtUrl: string | null = null;
-    let songFileUrl: string | null = null;
+    return Promise.all(presubmissions.map(async (pre) => {
+      let albumArtUrl: string | null = null;
+      let songFileUrl: string | null = null;
 
-    if (pre.submissionType === "file") {
-      [albumArtUrl, songFileUrl] = await Promise.all([
-        pre.albumArtKey ? r2.getUrl(pre.albumArtKey) : Promise.resolve(null),
-        pre.songFileKey ? r2.getUrl(pre.songFileKey) : Promise.resolve(null),
-      ]);
-    } else {
-      albumArtUrl = pre.albumArtUrlValue ?? null;
-      songFileUrl = pre.songLink ?? null;
-    }
+      if (pre.submissionType === "file") {
+        [albumArtUrl, songFileUrl] = await Promise.all([
+          pre.albumArtKey ? r2.getUrl(pre.albumArtKey) : Promise.resolve(null),
+          pre.songFileKey ? r2.getUrl(pre.songFileKey) : Promise.resolve(null),
+        ]);
+      } else {
+        albumArtUrl = pre.albumArtUrlValue ?? null;
+        songFileUrl = pre.songLink ?? null;
+      }
 
-    return {
-      ...pre,
-      albumArtUrl,
-      songFileUrl,
-    };
+      return {
+        ...pre,
+        albumArtUrl,
+        songFileUrl,
+      };
+    }));
   },
 });
 
@@ -631,8 +596,6 @@ export const getForRound = query({
             points = resultDoc.points;
             isPenalized = resultDoc.penaltyApplied ?? false;
           }
-        } else {
-          points = await submissionScoreCounter.count(ctx, submission._id);
         }
 
         return {

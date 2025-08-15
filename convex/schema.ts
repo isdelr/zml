@@ -87,6 +87,7 @@ export default defineSchema({
     ),
     submissionDeadline: v.number(),
     votingDeadline: v.number(),
+    submissionsPerUser: v.optional(v.number()),
   })
     .index("by_league", ["leagueId"])
     .index("by_league_and_status", ["leagueId", "status"]),

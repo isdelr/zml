@@ -3,7 +3,6 @@ import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { submissionScoreCounter } from "./counters";
 
 export const getForRound = query({
   args: { roundId: v.id("rounds") },
@@ -53,7 +52,6 @@ export const getForUserInRound = query({
       )
       .first();
 
-    // User can vote if they joined before submissions closed OR they have a submission in this round (legacy/backfill case)
     const userSubmission = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) =>
@@ -72,7 +70,6 @@ export const getForUserInRound = query({
       )
       .collect();
 
-    // Sum magnitudes instead of counting docs (supports stacking)
     const upvotesUsed = userVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
     const downvotesUsed = userVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
 
@@ -114,13 +111,6 @@ export const getVotersForRound = query({
   },
 });
 
-/**
- * New voting semantics:
- * - Each click is a delta (+1 for up arrow, -1 for down arrow).
- * - A single vote document per (user, submission) stores an integer "vote" that can be negative, zero, or positive.
- * - Totals across a round are constrained by league.maxPositiveVotes/maxNegativeVotes.
- * - You cannot have both positive and negative votes on the same song at the same time (enforced by the single signed integer).
- */
 export const castVote = mutation({
   args: {
     submissionId: v.id("submissions"),
@@ -151,7 +141,6 @@ export const castVote = mutation({
       )
       .first();
 
-    // Legacy allowance: if user submitted in this round, let them vote even if they joined late.
     const userSubmission = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) =>
@@ -167,7 +156,6 @@ export const castVote = mutation({
       throw new Error("You are not eligible to vote in this round.");
     }
 
-    // Enforce listening requirement across all file submissions before any voting
     if (league.enforceListenPercentage) {
       const allSubs = await ctx.db
         .query("submissions")
@@ -197,7 +185,6 @@ export const castVote = mutation({
       }
     }
 
-    // Lock once full budgets are used
     const allUserVotesInRound = await ctx.db
       .query("votes")
       .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId))
@@ -212,30 +199,25 @@ export const castVote = mutation({
       throw new Error("Your votes are final and cannot be changed.");
     }
 
-    // Current vote for this submission (single doc), others for budget calculations
     const existingVote = allUserVotesInRound.find((v) => v.submissionId === args.submissionId);
     const otherVotes = allUserVotesInRound.filter((v) => v.submissionId !== args.submissionId);
 
     const current = existingVote?.vote ?? 0;
     const newVote = current + args.delta;
-    
-    // --- NEW LOGIC START ---
-    // Check per-submission vote limits if enabled
+
     if (league.limitVotesPerSubmission) {
-      if (args.delta === 1) { // Trying to upvote
+      if (args.delta === 1) {
         if (newVote > (league.maxPositiveVotesPerSubmission ?? 1)) {
           throw new Error("You have reached the maximum number of upvotes for this song.");
         }
       }
-      if (args.delta === -1) { // Trying to downvote
-        if (Math.abs(newVote) > (league.maxNegativeVotesPerSubmission ?? 1)) {
+      if (args.delta === -1) {
+        if (Math.abs(newVote) > (league.maxNegativeVotesPerSubmission ?? 0)) {
           throw new Error("You have reached the maximum number of downvotes for this song.");
         }
       }
     }
-    // --- NEW LOGIC END ---
 
-    // Compute budget usage excluding this submission, then add the newVote parts
     const otherPos = otherVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
     const otherNeg = otherVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
 
@@ -246,12 +228,9 @@ export const castVote = mutation({
       throw new Error("No upvotes remaining.");
     }
     if (args.delta === -1 && newNegUsed > league.maxNegativeVotes) {
-      // Note: this fires only when actually increasing negative usage (e.g., 0 -> -1, -1 -> -2, etc.).
-      // If you're reducing positive usage (e.g., 2 -> 1), newNegUsed doesn't increase and this won't trip.
       throw new Error("No downvotes remaining.");
     }
 
-    // Apply mutation
     if (existingVote) {
       if (newVote === 0) {
         await ctx.db.delete(existingVote._id);
@@ -269,10 +248,6 @@ export const castVote = mutation({
       }
     }
 
-    // Update live score counter for the submission
-    await submissionScoreCounter.add(ctx, args.submissionId, args.delta);
-
-    // Recompute final usage to decide if user just finalized
     const finalVotes = await ctx.db
       .query("votes")
       .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId))
@@ -285,7 +260,6 @@ export const castVote = mutation({
       finalUp === league.maxPositiveVotes && finalDown === league.maxNegativeVotes;
 
     if (currentUserFinishedVoting) {
-      // If all submitters have finished, auto-finish the round.
       const allVotesInRound = await ctx.db
         .query("votes")
         .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))

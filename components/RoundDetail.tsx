@@ -1,5 +1,4 @@
-// File: components/RoundDetail.tsx
-
+// components/RoundDetail.tsx
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
@@ -92,7 +91,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       } else {
         if (delta !== 0) {
           newVoteStatus.votes.push({
-            _id: `optimistic_${submissionId}_${Date.now()}`,
+            _id: `optimistic_${submissionId}_${Date.now()}` as unknown as Id<"votes">,
             _creationTime: Date.now(),
             roundId: round._id,
             submissionId,
@@ -232,7 +231,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   const negativeVotesRemaining = league.maxNegativeVotes - downvotesUsed;
   const isVoteFinal = userVoteStatus?.hasVoted ?? false;
   const totalDurationSeconds = useMemo(() => submissions?.reduce((total, sub) => total + (sub.duration || 0), 0) ?? 0, [submissions]);
-  const mySubmission = submissions?.find((s) => s.userId === currentUser?._id);
+  const mySubmissions = useMemo(() => submissions?.filter((s) => s.userId === currentUser?._id), [submissions, currentUser]);
   const submittedUsers = useMemo(() => submissions?.map((sub) => ({ name: sub.submittedBy, image: sub.submittedByImage })) ?? [], [submissions]);
 
   const formatDuration = (totalSeconds: number) => {
@@ -275,7 +274,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       />
 
       <div className="mt-8">
-        <SubmissionForm roundId={round._id} roundStatus={round.status} currentUser={currentUser} submissions={submissions} mySubmission={mySubmission} />
+        <SubmissionForm round={round as Doc<"rounds">} roundStatus={round.status} currentUser={currentUser} mySubmissions={mySubmissions} />
         {round.status === "submissions" && (
           <div className="mt-8 rounded-lg border bg-card p-6 text-center">
             <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
