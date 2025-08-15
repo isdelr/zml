@@ -87,7 +87,7 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
             <AvatarFallback>{round.winner.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <p className="font-semibold text-foreground/80 truncate">{round.winner.name}</p>
-          <span className="truncate">- "{round.winner.songTitle}"</span>
+          <span className="truncate">- &#34;{round.winner.songTitle}&#34;</span>
         </div>
       )}
     </div>
@@ -152,7 +152,7 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
                 <AvatarFallback>{round.winner.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <p className="font-semibold text-foreground truncate">{round.winner.name}</p>
-              <span className="truncate hidden lg:inline">- "{round.winner.songTitle}"</span>
+              <span className="truncate hidden lg:inline">- &#34;{round.winner.songTitle}&#34;</span>
             </div>
           )}
         </div>
