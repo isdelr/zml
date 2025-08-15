@@ -1,5 +1,3 @@
-// convex/rounds.ts
-
 import { v } from "convex/values";
 import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -29,80 +27,10 @@ const checkOwnership = async (
   return { league, userId };
 };
 
-// Add this simple get query for fetching round by ID
 export const get = query({
   args: { roundId: v.id("rounds") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.roundId);
-  },
-});
-
-export const create = mutation({
-  args: {
-    leagueId: v.id("leagues"),
-    title: v.string(),
-    description: v.string(),
-    genres: v.array(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const { league, userId } = await checkOwnership(ctx, args.leagueId);
-
-    const now = Date.now();
-    const submissionDeadline = now + (league.submissionDeadline * 60 * 60 * 1000);
-    const votingDeadline = submissionDeadline + (league.votingDeadline * 60 * 60 * 1000);
-
-    const roundId = await ctx.db.insert("rounds", {
-      leagueId: args.leagueId,
-      title: args.title,
-      description: args.description,
-      genres: args.genres,
-      status: "submissions",
-      submissionDeadline,
-      votingDeadline,
-    });
-
-    await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
-      leagueId: league._id,
-      type: "round_submission",
-      message: `A new round, "${args.title}", has started in "${league.name}"!`,
-      link: `/leagues/${league._id}/round/${roundId}`,
-      triggeringUserId: userId,
-    });
-
-    return roundId;
-  },
-});
-
-export const getRoundMetadata = query({
-  args: { roundId: v.id("rounds") },
-  returns: v.union(
-    v.null(),
-    v.object({
-      roundTitle: v.string(),
-      roundDescription: v.string(),
-      imageUrl: v.union(v.string(), v.null()),
-      leagueName: v.string(),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    const round = await ctx.db.get(args.roundId);
-    if (!round) {
-      return null;
-    }
-
-    const league = await ctx.db.get(round.leagueId);
-    if (!league) {
-      return null;
-    }
-
-    const imageUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
-
-    return {
-      roundTitle: round.title,
-      roundDescription: round.description,
-      imageUrl,
-      leagueName: league.name,
-    };
   },
 });
 
@@ -112,7 +40,6 @@ export const getForLeague = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-
     const paginationResult = await ctx.db
       .query("rounds")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
@@ -121,15 +48,63 @@ export const getForLeague = query({
 
     const roundsWithDetails = await Promise.all(
       paginationResult.page.map(async (round) => {
-        const artUrl =
-          (round.imageKey && (await r2.getUrl(round.imageKey))) || null;
+        const league = await ctx.db.get(round.leagueId);
+        const submissions = await ctx.db
+          .query("submissions")
+          .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+          .collect();
 
-        const submissionCount = await submissionCounter.count(ctx, round._id);
+        const allUserIds = new Set(submissions.map((s) => s.userId));
+
+        let winnerInfo = null;
+        let voters: Doc<"users">[] = [];
+
+        if (round.status === "finished") {
+          const results = await ctx.db
+            .query("roundResults")
+            .withIndex("by_round", (q) => q.eq("roundId", round._id))
+            .filter((q) => q.eq(q.field("isWinner"), true))
+            .collect();
+
+          if (results.length > 0) {
+            const winnerResult = results[0];
+            const [winnerUser, winningSubmission] = await Promise.all([
+              ctx.db.get(winnerResult.userId),
+              ctx.db.get(winnerResult.submissionId),
+            ]);
+            if (winnerUser && winningSubmission) {
+              winnerInfo = {
+                name: winnerUser.name ?? "Unknown",
+                image: winnerUser.image ?? null,
+                songTitle: winningSubmission.songTitle,
+                points: winnerResult.points,
+              };
+            }
+          }
+        }
+
+        if (round.status === "voting" || round.status === 'finished') {
+          const votes = await ctx.db.query("votes").withIndex("by_round_and_user", q => q.eq("roundId", round._id)).collect();
+          const voterIds = [...new Set(votes.map(v => v.userId))];
+          voterIds.forEach(id => allUserIds.add(id));
+          const voterDocs = await Promise.all(voterIds.map(id => ctx.db.get(id)));
+          voters = voterDocs.filter((u): u is Doc<"users"> => u !== null);
+        }
+
+        const userDocs = await Promise.all(Array.from(allUserIds).map(id => ctx.db.get(id)));
+        const userMap = new Map(userDocs.filter(Boolean).map(u => [u!._id, u]));
+
+        const submitters = submissions.map(s => userMap.get(s.userId)).filter(Boolean);
 
         return {
           ...round,
-          submissionCount,
-          art: artUrl,
+          leagueName: league?.name ?? "Unknown League",
+          submissionCount: submissions.length,
+          leagueMemberCount: (await ctx.db.query("memberships").withIndex("by_league", q => q.eq("leagueId", round.leagueId)).collect()).length,
+          voterCount: voters.length,
+          submitters: submitters.map(u => ({ name: u!.name, image: u!.image })),
+          voters: voters.map(u => ({ name: u!.name, image: u!.image })),
+          winner: winnerInfo,
         };
       }),
     );

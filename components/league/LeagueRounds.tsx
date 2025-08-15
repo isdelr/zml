@@ -1,30 +1,17 @@
+// File: components/league/LeagueRounds.tsx
+
 "use client";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
+import { RoundListItem } from "./RoundListItem"; // Import the new component
 
 interface LeagueRoundsProps {
-  rounds: unknown[];
+  rounds: any[]; // Use a more specific 'Round' type once your API is updated
   selectedRoundId: string | null;
   leagueId: string;
 }
 
-export function LeagueRounds({
-  rounds,
-  selectedRoundId,
-  leagueId,
-}: LeagueRoundsProps) {
+export function LeagueRounds({ rounds, selectedRoundId, leagueId }: LeagueRoundsProps) {
   if (rounds.length === 0) {
     return (
       <div className="rounded-md border border-dashed py-10 text-center">
@@ -36,36 +23,17 @@ export function LeagueRounds({
     );
   }
 
+  // NOTE: Assuming your rounds from the API are already sorted newest to oldest.
+  // If not, you might want to add a .sort() here.
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="flex flex-col gap-2">
       {rounds.map((round) => (
-        <Link key={round._id} href={`/leagues/${leagueId}/round/${round._id}`}>
-          <Card
-            key={round._id}
-            className={cn(
-              "cursor-pointer bg-card transition-colors hover:bg-accent h-full",
-              selectedRoundId === round._id ? "ring-2 ring-primary" : "",
-            )}
-          >
-            <CardHeader>
-              <CardTitle>{round.title}</CardTitle>
-              <CardDescription>
-                {round.status.charAt(0).toUpperCase() + round.status.slice(1)}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                {round.submissionCount} submissions
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full bg-primary font-bold text-primary-foreground hover:bg-primary/90">
-                <Play className="mr-2 size-4 fill-primary-foreground" />
-                View Round
-              </Button>
-            </CardFooter>
-          </Card>
-        </Link>
+        <RoundListItem
+          key={round._id}
+          round={round}
+          leagueId={leagueId}
+          isSelected={selectedRoundId === round._id}
+        />
       ))}
     </div>
   );
@@ -73,20 +41,19 @@ export function LeagueRounds({
 
 export function RoundsSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {[...Array(8)].map((_, i) => (
-        <Card key={i}>
-          <CardHeader>
-            <Skeleton className="mb-1 mt-4 h-6 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-5 w-1/3" />
-          </CardContent>
-          <CardFooter>
-            <Skeleton className="h-10 w-full" />
-          </CardFooter>
-        </Card>
+    <div className="flex flex-col gap-2">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="flex h-[68px] items-center gap-4 rounded-lg border p-3">
+          <div className="flex items-center gap-3">
+            <Skeleton className="size-6 rounded-md" />
+            <Skeleton className="h-5 w-20" />
+          </div>
+          <div className="flex-1">
+            <Skeleton className="h-5 w-40" />
+          </div>
+          <Skeleton className="h-6 w-24 hidden md:block" />
+          <Skeleton className="h-8 w-20" />
+        </div>
       ))}
     </div>
   );
