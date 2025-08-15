@@ -1,3 +1,4 @@
+// File: components/round/EditRoundDialog.tsx
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,6 +11,7 @@ import { Loader2 } from "lucide-react";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -24,6 +26,10 @@ const roundEditSchema = z.object({
   description: z
     .string()
     .min(10, "Description must be at least 10 characters."),
+  submissionsPerUser: z.coerce
+    .number()
+    .min(1, "Must be at least 1.")
+    .max(5, "Max 5 submissions per user."),
 });
 
 interface EditRoundDialogProps {
@@ -31,19 +37,17 @@ interface EditRoundDialogProps {
   onClose: () => void;
 }
 
-export function EditRoundDialog({
-  round,
-  onClose,
-}: EditRoundDialogProps) {
+export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
   const updateRound = useMutation(api.rounds.updateRound);
   const form = useForm<z.infer<typeof roundEditSchema>>({
     resolver: zodResolver(roundEditSchema),
     defaultValues: {
-      title: round.title as string,
-      description: round.description as string,
+      title: (round.title as string) || "",
+      description: (round.description as string) || "",
+      submissionsPerUser: (round.submissionsPerUser as number) ?? 1,
     },
   });
-  
+
   async function onSubmit(values: z.infer<typeof roundEditSchema>) {
     toast.promise(updateRound({ roundId: round._id, ...values }), {
       loading: "Updating round...",
@@ -54,7 +58,7 @@ export function EditRoundDialog({
       error: (err) => err.data?.message || "Failed to update round.",
     });
   }
-  
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -80,6 +84,23 @@ export function EditRoundDialog({
               <FormControl>
                 <Textarea {...field} />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="submissionsPerUser"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Submissions per User</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} />
+              </FormControl>
+              <FormDescription>
+                Changing this for a round with submissions will delete them and
+                notify users to resubmit.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

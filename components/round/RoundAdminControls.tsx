@@ -1,10 +1,17 @@
+// File: components/round/RoundAdminControls.tsx
 "use client";
 
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Edit } from "lucide-react";
 import {
@@ -57,9 +64,7 @@ export function RoundAdminControls({
 
   const canEndVoting =
     submissions && submissions.length > 0 && votes && votes.length > 0;
-  const canEditRound =
-    round.status === "submissions" &&
-    (!submissions || submissions.length === 0);
+  const canEditRound = round.status !== "finished";
 
   return (
     <Card className="mb-8 border-primary/20 bg-secondary/30">
@@ -72,60 +77,36 @@ export function RoundAdminControls({
       </CardHeader>
       <CardContent className="flex flex-wrap items-center gap-4">
         {round.status === "submissions" && (
-          <>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button>Start Voting Now</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    Are you sure you want to start the voting phase?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will close submissions for the current round. This
-                    action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() =>
-                      handleAction(
-                        manageRoundState,
-                        { roundId: round._id, action: "startVoting" },
-                        "Voting has been started!",
-                      )
-                    }
-                  >
-                    Continue
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <Dialog open={isEditRoundOpen} onOpenChange={setIsEditRoundOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  disabled={!canEditRound}
-                  title={
-                    !canEditRound ? "Cannot edit a round with submissions." : ""
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button>Start Voting Now</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Are you sure you want to start the voting phase?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will close submissions for the current round. This action
+                  cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() =>
+                    handleAction(
+                      manageRoundState,
+                      { roundId: round._id, action: "startVoting" },
+                      "Voting has been started!",
+                    )
                   }
                 >
-                  <Edit className="mr-2 size-4" /> Edit Round
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Edit Round: {round.title}</DialogTitle>
-                </DialogHeader>
-                <EditRoundDialog
-                  round={round}
-                  onClose={() => setIsEditRoundOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
-          </>
+                  Continue
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
         {round.status === "voting" && (
           <AlertDialog>
@@ -169,6 +150,26 @@ export function RoundAdminControls({
             </AlertDialogContent>
           </AlertDialog>
         )}
+
+        {canEditRound && (
+          <Dialog open={isEditRoundOpen} onOpenChange={setIsEditRoundOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Edit className="mr-2 size-4" /> Edit Round
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Round: {round.title}</DialogTitle>
+              </DialogHeader>
+              <EditRoundDialog
+                round={round}
+                onClose={() => setIsEditRoundOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+
         {(round.status === "submissions" || round.status === "voting") && (
           <>
             <Button

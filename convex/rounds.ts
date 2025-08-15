@@ -1,3 +1,4 @@
+// File: convex/rounds.ts
 import { v } from "convex/values";
 import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -6,6 +7,7 @@ import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
 import { submissionCounter } from "./counters";
 import { paginationOptsValidator } from "convex/server";
+import { submissionsByUser } from "./aggregates";
 
 const r2 = new R2(components.r2);
 
@@ -334,25 +336,96 @@ export const adjustRoundTime = mutation({
 export const updateRound = mutation({
   args: {
     roundId: v.id("rounds"),
-    title: v.optional(v.string()),
-    description: v.optional(v.string()),
+    title: v.string(),
+    description: v.string(),
+    submissionsPerUser: v.number(),
   },
   handler: async (ctx, args) => {
     const round = await ctx.db.get(args.roundId);
     if (!round) throw new Error("Round not found.");
-    await checkOwnership(ctx, round.leagueId);
-    if (round.status !== "submissions") {
-      throw new Error("Only rounds open for submissions can be edited.");
+
+    const { league, userId: adminUserId } = await checkOwnership(
+      ctx,
+      round.leagueId,
+    );
+
+    if (round.status === "finished") {
+      throw new Error("Cannot edit a finished round.");
     }
-    const submissions = await ctx.db
-      .query("submissions")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-      .collect();
-    if (submissions.length > 0) {
-      throw new Error("Cannot edit a round with existing submissions.");
+
+    // Check for destructive changes
+    const submissionsPerUserChanged =
+      round.submissionsPerUser !== args.submissionsPerUser;
+
+    if (submissionsPerUserChanged) {
+      if (round.status === "submissions") {
+        const submissions = await ctx.db
+          .query("submissions")
+          .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
+          .collect();
+
+        if (submissions.length > 0) {
+          // Delete submissions and their associated data
+          for (const submission of submissions) {
+            await ctx.db.delete(submission._id);
+            await submissionsByUser.delete(ctx, submission); // aggregate
+            await submissionCounter.dec(ctx, round._id); // counter
+            const comments = await ctx.db
+              .query("comments")
+              .withIndex("by_submission", (q) =>
+                q.eq("submissionId", submission._id),
+              )
+              .collect();
+            for (const comment of comments) {
+              await ctx.db.delete(comment._id);
+            }
+          }
+
+          // Notify participants
+          await ctx.scheduler.runAfter(
+            0,
+            internal.notifications.createForLeague,
+            {
+              leagueId: league._id,
+              type: "round_submission",
+              message: `The round "${round.title}" in "${league.name}" was updated. Please submit your song again.`,
+              link: `/leagues/${league._id}/round/${round._id}`,
+              triggeringUserId: adminUserId,
+            },
+          );
+        }
+      } else if (round.status === "voting") {
+        // Destructive edit in voting phase: just delete votes. Submissions stay.
+        const votes = await ctx.db
+          .query("votes")
+          .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
+          .collect();
+
+        if (votes.length > 0) {
+          for (const vote of votes) {
+            await ctx.db.delete(vote._id);
+          }
+
+          // Notify participants
+          await ctx.scheduler.runAfter(
+            0,
+            internal.notifications.createForLeague,
+            {
+              leagueId: league._id,
+              type: "round_voting",
+              message: `Rules for round "${round.title}" in "${league.name}" were updated. Your votes have been cleared, please vote again.`,
+              link: `/leagues/${league._id}/round/${round._id}`,
+              triggeringUserId: adminUserId,
+            },
+          );
+        }
+      }
     }
+
+    // Always perform the update for all fields
     const { roundId, ...updates } = args;
     await ctx.db.patch(roundId, updates);
+
     return "Round updated successfully.";
   },
 });
@@ -361,7 +434,7 @@ const songVoteDetailValidator = v.object({
   voterId: v.id("users"),
   voterName: v.string(),
   voterImage: v.union(v.string(), v.null()),
-  vote: v.number(),
+  score: v.number(),
 });
 
 const voteSummaryValidator = v.array(
@@ -432,7 +505,7 @@ export const getVoteSummary = query({
             voterId: vote.userId,
             voterName: voter?.name ?? "Unknown",
             voterImage: voter?.image ?? null,
-            vote: vote.vote,
+            score: vote.vote,
           };
         });
 
