@@ -94,7 +94,7 @@ export function useBrowserNotifier() {
     };
 
     createSubscription();
-  }, [permission]);
+  }, [permission, currentUser?._id]);
   // --- END OF NEW CODE BLOCK ---
 
   useEffect(() => {

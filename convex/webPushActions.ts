@@ -55,7 +55,6 @@ export const send = internalAction({
       return { success: false, error: "VAPID keys not configured" };
     }
 
-    // FIX: Add explicit type for subscriptions
     const subscriptions: Doc<"pushSubscriptions">[] = await ctx.runQuery(
       internal.webPush.getSubscriptionsForUser,
       { userId: args.userId },
@@ -110,7 +109,6 @@ export const send = internalAction({
       }
     }
 
-    // FIX: Explicitly type the result object
     const result: SendResult = {
       success: successCount > 0,
       successCount,
