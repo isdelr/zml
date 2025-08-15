@@ -1,4 +1,5 @@
-// components/round/SubmissionForm.tsx
+// File: components/round/SubmissionForm.tsx
+
 "use client";
 
 import { SongSubmissionForm } from "@/components/SongSubmissionForm";
@@ -108,10 +109,12 @@ export function SubmissionForm({
                   </p>
                 </div>
               </div>
-              <Button variant="outline" onClick={() => setEditingSubmission(submission)}>
-                <Edit className="mr-2 size-4" />
-                Edit
-              </Button>
+              {roundStatus === "submissions" && (
+                <Button variant="outline" onClick={() => setEditingSubmission(submission)}>
+                  <Edit className="mr-2 size-4" />
+                  Edit
+                </Button>
+              )}
             </div>
             {submission.comment && (
               <blockquote className="mt-4 border-l-2 pl-3 text-sm italic text-muted-foreground">
@@ -124,8 +127,8 @@ export function SubmissionForm({
 
       {myPresubmissions?.map((pre) => <PresubmissionItem key={pre._id} pre={pre} />)}
 
-      {canSubmitMore && (
-        <SongSubmissionForm roundId={round._id} isPresubmit={roundStatus !== "submissions"} />
+      {canSubmitMore && roundStatus === "submissions" && (
+        <SongSubmissionForm roundId={round._id} isPresubmit={false} />
       )}
 
       <Dialog open={!!editingSubmission} onOpenChange={(isOpen) => !isOpen && setEditingSubmission(null)}>
