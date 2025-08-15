@@ -2,13 +2,12 @@
 
 "use client";
 
-import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
-import { toast } from "sonner";
 import { SubmissionItem } from "./SubmissionItem";
 import { Song } from "@/types";
+import { toast } from "sonner";
 
 type SubmissionsListPropsSubmissions = Awaited<
   ReturnType<typeof api.submissions.getForRound>
@@ -29,6 +28,9 @@ interface SubmissionsListProps {
   onVoteClick: (submissionId: Id<"submissions">, delta: 1 | -1) => void;
   isReadyToVoteOverall: boolean;
   listenProgressMap: Record<string, Doc<"listenProgress">>;
+  // --- NEW PROPS ---
+  activeCommentsSubmissionId: Id<"submissions"> | null;
+  onToggleComments: (submissionId: Id<"submissions"> | null) => void;
 }
 
 export function SubmissionsList({
@@ -45,11 +47,10 @@ export function SubmissionsList({
                                   onVoteClick,
                                   listenProgressMap,
                                   isReadyToVoteOverall,
+                                  // --- DESTRUCTURE NEW PROPS ---
+                                  activeCommentsSubmissionId,
+                                  onToggleComments,
                                 }: SubmissionsListProps) {
-  const [visibleComments, setVisibleComments] = useState<
-    Record<string, boolean>
-  >({});
-
   const toggleBookmark = useMutation(
     api.bookmarks.toggleBookmark,
   ).withOptimisticUpdate((localStore, { submissionId }) => {
@@ -113,12 +114,6 @@ export function SubmissionsList({
     }
   });
 
-  const toggleComments = (submissionId: string) => {
-    setVisibleComments((prev) => ({
-      ...prev,
-      [submissionId]: !prev[submissionId],
-    }));
-  };
 
   const hasVoted = userVoteStatus?.hasVoted ?? false;
   const canVote = userVoteStatus?.canVote ?? false;
@@ -141,12 +136,10 @@ export function SubmissionsList({
       </div>
     );
   }
-
-  const currentTrack =
-    currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+  const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
 
   return (
-    <div className="flex flex-col rounded-lg border mt-3">
+    <div className="flex flex-col rounded-lg border">
       <div className="hidden border-b border-border text-xs font-semibold uppercase text-muted-foreground md:block">
         <div className="grid grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 px-4 py-2">
           <span className="w-10 text-center">#</span>
@@ -161,14 +154,11 @@ export function SubmissionsList({
         const isThisSongPlaying = isPlaying && currentTrack?._id === song._id;
         const isThisSongCurrent = currentTrack?._id === song._id;
         const userIsSubmitter = song.userId === currentUser?._id;
-        const isCommentsVisible = !!visibleComments[song._id];
+        // --- UPDATED LOGIC FOR isCommentsVisible ---
+        const isCommentsVisible = activeCommentsSubmissionId === song._id;
 
-        const userVoteOnThisSong = userVotes.find(
-          (v) => v.submissionId === song._id,
-        );
-        const currentVoteValue = userVoteOnThisSong
-          ? userVoteOnThisSong.vote
-          : 0;
+        const userVoteOnThisSong = userVotes.find((v) => v.submissionId === song._id);
+        const currentVoteValue = userVoteOnThisSong ? userVoteOnThisSong.vote : 0;
 
         return (
           <SubmissionItem
@@ -184,7 +174,7 @@ export function SubmissionsList({
             hasVoted={hasVoted}
             league={league}
             canVote={canVote}
-            onToggleComments={() => toggleComments(song._id)}
+            onToggleComments={() => onToggleComments(isCommentsVisible ? null : song._id as Id<"submissions">)}
             onVoteClick={(delta) => onVoteClick(song._id, delta)}
             onBookmark={() => handleBookmark(song._id)}
             onPlaySong={() => onPlaySong(song, index)}

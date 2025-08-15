@@ -111,17 +111,13 @@ export function SubmissionComments({
 
 
   return (
-    <div className="-mx-4 mt-2 space-y-4 rounded-md bg-muted/50 p-4 pt-4">
+    <div className="space-y-6">
       {isAuthenticated && (
         <div className="flex items-start gap-3">
           <Avatar className="mt-1 size-8 flex-shrink-0">
             <AvatarImage src={currentUser?.image ?? undefined} />
             <AvatarFallback>
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: toSvg(currentUser?._id ?? "anon", 32),
-                }}
-              />
+              <div dangerouslySetInnerHTML={{ __html: toSvg(currentUser?._id ?? "anon", 32) }} />
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0 space-y-2">
@@ -138,13 +134,7 @@ export function SubmissionComments({
               }}
             />
             <div className="flex justify-end">
-              <Button
-                onClick={handleAddComment}
-                disabled={!commentText.trim()}
-                size="sm"
-              >
-                Post
-              </Button>
+              <Button onClick={handleAddComment} disabled={!commentText.trim()} size="sm">Post</Button>
             </div>
           </div>
         </div>
@@ -161,20 +151,14 @@ export function SubmissionComments({
             <Avatar className="size-8 flex-shrink-0">
               <AvatarImage src={comment.authorImage ?? undefined} />
               <AvatarFallback>
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: toSvg(comment.userId, 32),
-                  }}
-                />
+                <div dangerouslySetInnerHTML={{ __html: toSvg(comment.userId, 32) }} />
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-semibold">{comment.authorName}</span>
                 <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(comment._creationTime, {
-                    addSuffix: true,
-                  })}
+                  {formatDistanceToNow(comment._creationTime, { addSuffix: true })}
                 </span>
               </div>
               {renderCommentText(comment.text)}

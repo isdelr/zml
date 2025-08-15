@@ -17,7 +17,6 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toSvg } from "jdenticon";
-import { SubmissionComments } from "./SubmissionComments";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   Tooltip,
@@ -237,11 +236,6 @@ export function SubmissionItem({
           </div>
         </div>
       </div>
-      {isCommentsVisible && (
-        <div className="p-3 pt-0 md:px-4 md:pb-4">
-          <SubmissionComments submissionId={song._id as Id<"submissions">} roundStatus={roundStatus} />
-        </div>
-      )}
     </div>
   );
 }
