@@ -108,11 +108,7 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
             {statusInfo.icon}
             <p className="truncate font-semibold">{round.title}</p>
           </div>
-          <Button size="sm" variant={isSelected ? "default" : "secondary"} className="flex-shrink-0">
-            {round.status === 'submissions' && 'Submit'}
-            {round.status === 'voting' && 'Vote'}
-            {round.status === 'finished' && 'Results'}
-          </Button>
+          <AvatarStack max={5} users={(round.status === 'submissions' ? round.submitters : round.voters) ?? []} />
         </div>
         {renderMobileSecondaryInfo()}
       </div>
