@@ -188,15 +188,6 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
             </div>
           )}
         </div>
-
-        {/* Action Button */}
-        <div className="flex justify-end">
-          <Button size="sm" variant={isSelected ? "default" : "secondary"} className="group-hover:bg-primary group-hover:text-primary-foreground">
-            {round.status === 'submissions' && 'Submit'}
-            {round.status === 'voting' && 'Vote'}
-            {round.status === 'finished' && 'Results'}
-          </Button>
-        </div>
       </div>
     </Link>
   );

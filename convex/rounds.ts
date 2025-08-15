@@ -130,8 +130,12 @@ export const getForLeague = query({
 
         const submitters = submissions.map(s => userMap.get(s.userId)).filter(Boolean);
 
+        // Add the art URL generation here
+        const artUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
+
         return {
           ...round,
+          art: artUrl, // Add this line
           leagueName: league?.name ?? "Unknown League",
           submissionCount: submissions.length,
           leagueMemberCount: (await ctx.db.query("memberships").withIndex("by_league", q => q.eq("leagueId", round.leagueId)).collect()).length,
@@ -143,9 +147,33 @@ export const getForLeague = query({
       }),
     );
 
+    // Sort rounds by their relevant deadline (earliest first)
+    const sortedRounds = roundsWithDetails.sort((a, b) => {
+      // Determine the relevant deadline for each round based on status
+      const getRelevantDeadline = (round: typeof a) => {
+        switch (round.status) {
+          case "submissions":
+            return round.submissionDeadline;
+          case "voting":
+            return round.votingDeadline;
+          case "finished":
+            // For finished rounds, use votingDeadline as the "completion" time
+            return round.votingDeadline;
+          default:
+            return round.submissionDeadline;
+        }
+      };
+
+      const aDeadline = getRelevantDeadline(a);
+      const bDeadline = getRelevantDeadline(b);
+
+      // Sort by deadline (earliest first)
+      return aDeadline - bDeadline;
+    });
+
     return {
       ...paginationResult,
-      page: roundsWithDetails,
+      page: sortedRounds,
     };
   },
 });

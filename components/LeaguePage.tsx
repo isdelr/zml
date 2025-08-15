@@ -79,7 +79,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
     loadMore,
   } = usePaginatedQuery(
     api.rounds.getForLeague,
-    { leagueId: leagueId as Id<"leagues"> }, // This is correct.
+    { leagueId: leagueId as Id<"leagues"> },
     { initialNumItems: 10 },
   );
 
@@ -188,7 +188,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
           <RoundsSkeleton />
         ) : (
           <LeagueRounds
-            rounds={rounds.reverse()}
+            rounds={rounds}
             selectedRoundId={selectedRoundId}
             leagueId={leagueId}
           />
