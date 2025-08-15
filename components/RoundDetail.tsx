@@ -1,3 +1,5 @@
+// File: components/RoundDetail.tsx
+
 // components/RoundDetail.tsx
 "use client";
 
@@ -172,16 +174,29 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
   const sortedSubmissions = useMemo(() => {
     if (!submissions) return undefined;
+
+    // If the round is finished, sort by points (descending).
     if (round.status === "finished") {
       return [...submissions].sort((a, b) => b.points - a.points);
     }
-    return [...submissions].sort((a, b) => {
-      const aIsFile = a.submissionType === "file";
-      const bIsFile = b.submissionType === "file";
-      if (aIsFile && !bIsFile) return -1;
-      if (!aIsFile && bIsFile) return 1;
-      return 0;
-    });
+
+    // For active rounds, group by type and shuffle each group.
+    const shuffleArray = <T,>(array: T[]): T[] => {
+      const newArray = [...array];
+      for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+      }
+      return newArray;
+    };
+
+    const fileSubmissions = submissions.filter(s => s.submissionType === 'file');
+    const linkSubmissions = submissions.filter(s => s.submissionType === 'spotify' || s.submissionType === 'youtube');
+
+    const shuffledFiles = shuffleArray(fileSubmissions);
+    const shuffledLinks = shuffleArray(linkSubmissions);
+
+    return [...shuffledFiles, ...shuffledLinks];
   }, [submissions, round.status]);
 
   const activeSubmissionForPanel = useMemo(() => {
