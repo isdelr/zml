@@ -15,6 +15,7 @@ import type * as counters from "../counters.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as leagues from "../leagues.js";
+import type * as listenProgress from "../listenProgress.js";
 import type * as migrations from "../migrations.js";
 import type * as myFunctions from "../myFunctions.js";
 import type * as notifications from "../notifications.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   files: typeof files;
   http: typeof http;
   leagues: typeof leagues;
+  listenProgress: typeof listenProgress;
   migrations: typeof migrations;
   myFunctions: typeof myFunctions;
   notifications: typeof notifications;
