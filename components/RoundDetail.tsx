@@ -12,6 +12,19 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { SubmissionCommentsPanel } from "./round/SubmissionCommentsPanel";
 import { Ban } from "lucide-react";
+// New imports for the confirmation dialog
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 
 const RoundAdminControls = dynamicImport(() =>
   import("./round/RoundAdminControls").then((mod) => ({
@@ -55,6 +68,14 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   const [isVoteSummaryVisible, setIsVoteSummaryVisible] = useState(false);
   const summaryTriggerRef = useRef<HTMLDivElement | null>(null);
   const [activeCommentsSubmissionId, setActiveCommentsSubmissionId] = useState<Id<"submissions"> | null>(null);
+  // State for the confirmation dialog
+  const [confirmationState, setConfirmationState] = useState<{
+    isOpen: boolean;
+    submissionId: Id<"submissions"> | null;
+    delta: 1 | -1 | null;
+  }>({ isOpen: false, submissionId: null, delta: null });
+  const [confirmText, setConfirmText] = useState("");
+
 
   const currentUser = useQuery(api.users.getCurrentUser);
   const listenersBySubmission = useQuery(api.presence.listForRound, { roundId: round._id });
@@ -175,30 +196,20 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   const sortedSubmissions = useMemo(() => {
     if (!submissions) return undefined;
 
-    // If the round is finished, sort by points (descending).
     if (round.status === "finished") {
       return [...submissions].sort((a, b) => b.points - a.points);
     }
 
-    // For active rounds, create a deterministic shuffle based on the round's ID
-    // to ensure everyone gets the same playlist order.
-
-    /**
-     * Creates a numeric seed from a string.
-     */
     const createSeed = (str: string) => {
       let seed = 0;
       for (let i = 0; i < str.length; i++) {
         const charCode = str.charCodeAt(i);
         seed = (seed << 5) - seed + charCode;
-        seed |= 0; // Convert to 32bit integer
+        seed |= 0;
       }
       return seed;
     };
 
-    /**
-     * A simple pseudo-random number generator (PRNG) based on Mulberry32.
-     */
     const seededRandom = (seed: number) => {
       return function () {
         let t = seed += 0x6D2B79F5;
@@ -208,13 +219,9 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       };
     };
 
-    // Use the round's unique ID as the seed for the random number generator.
     const seed = createSeed(round._id);
     const random = seededRandom(seed);
 
-    /**
-     * Shuffles an array in place using the Fisher-Yates algorithm with our seeded RNG.
-     */
     const shuffleArray = <T,>(array: T[]): T[] => {
       const newArray = [...array];
       for (let i = newArray.length - 1; i > 0; i--) {
@@ -227,9 +234,6 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     const fileSubmissions = submissions.filter(s => s.submissionType === 'file');
     const linkSubmissions = submissions.filter(s => s.submissionType === 'spotify' || s.submissionType === 'youtube');
 
-    // IMPORTANT: Sort submissions before shuffling. The order of items from the database
-    // is not guaranteed. Sorting first ensures that the input to the shuffle function
-    // is always the same for all users, guaranteeing a consistent output.
     const sortById = (a: { _id: Id<"submissions"> }, b: { _id: Id<"submissions"> }) => a._id.localeCompare(b._id);
     fileSubmissions.sort(sortById);
     linkSubmissions.sort(sortById);
@@ -248,11 +252,41 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     return sortedSubmissions.find(s => s._id === activeCommentsSubmissionId) ?? null;
   }, [activeCommentsSubmissionId, sortedSubmissions]);
 
+  const handleConfirmFinalVote = () => {
+    if (confirmationState.submissionId && confirmationState.delta) {
+      castVote({
+        submissionId: confirmationState.submissionId,
+        delta: confirmationState.delta,
+      })
+        .then((result) => {
+          if (result.isFinal) {
+            toast.success(result.message);
+          }
+        })
+        .catch((err) => {
+          toast.error((err as Error).message || "Failed to save vote.");
+        });
+    }
+    setConfirmationState({ isOpen: false, submissionId: null, delta: null });
+    setConfirmText("");
+  };
+
   const handleVoteClick = (submissionId: Id<"submissions">, delta: 1 | -1) => {
     if (userVoteStatus?.hasVoted) {
       toast.info("Your votes for this round are final and cannot be changed.");
       return;
     }
+
+    const upvotesUsed = userVoteStatus?.upvotesUsed ?? 0;
+    const downvotesUsed = userVoteStatus?.downvotesUsed ?? 0;
+    const totalVotesUsed = upvotesUsed + downvotesUsed;
+    const totalVotesAllowed = league.maxPositiveVotes + league.maxNegativeVotes;
+
+    if (totalVotesUsed === totalVotesAllowed - 1) {
+      setConfirmationState({ isOpen: true, submissionId, delta });
+      return;
+    }
+
     castVote({ submissionId, delta })
       .then((result) => {
         if (result.isFinal) {
@@ -397,6 +431,54 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         onOpenChange={(isOpen) => !isOpen && setActiveCommentsSubmissionId(null)}
         onPlaySong={handlePlaySongFromPanel}
       />
+
+      <AlertDialog
+        open={confirmationState.isOpen}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setConfirmationState({ isOpen: false, submissionId: null, delta: null });
+            setConfirmText("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Final Vote Confirmation</AlertDialogTitle>
+            <AlertDialogDescription>
+              This is your last vote for this round. Once you cast this vote, all
+              your votes will be locked and cannot be changed. Are you sure you
+              want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2 space-y-2">
+            <Label htmlFor="confirm-input" className="text-sm font-medium">
+              To confirm, please type &quot;confirm&quot; below.
+            </Label>
+            <Input
+              id="confirm-input"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setConfirmationState({ isOpen: false, submissionId: null, delta: null });
+                setConfirmText("");
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmFinalVote}
+              disabled={confirmText.toLowerCase() !== "confirm"}
+            >
+              Confirm Final Vote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
