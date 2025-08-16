@@ -376,9 +376,12 @@ export function MusicPlayer() {
         } else {
           audioElement.pause();
         }
-      } catch (error) {
-        console.error("Error during playback:", error);
-        actions.setIsPlaying(false);
+      } catch (error: any) {
+        // FIX #2: Ignore AbortError, which is expected when skipping tracks.
+        if (error.name !== "AbortError") {
+          console.error("Error during playback:", error);
+          actions.setIsPlaying(false);
+        }
       }
     };
     handlePlayback();
