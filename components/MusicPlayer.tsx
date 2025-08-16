@@ -259,28 +259,39 @@ export function MusicPlayer() {
         setIsWaveformLoading(false);
       }
     } else if (currentTrack.songFileUrl) {
-      // Added null check here
       fetch(currentTrack.songFileUrl)
         .then((response) => response.arrayBuffer())
         .then((buffer) => {
-          const options = {
-            audio_context: audioContextRef.current!,
-            array_buffer: buffer,
-            scale: 512,
-          };
-          WaveformData.createFromAudio(options, (err, waveform) => {
-            if (err) {
-              console.error("Error creating waveform:", err);
-              setIsWaveformLoading(false);
-            } else {
-              setWaveformData(waveform);
-              setIsWaveformLoading(false);
-              storeWaveform({
-                submissionId: currentTrack._id as Id<"submissions">,
-                waveformJson: JSON.stringify(waveform.toJSON()),
-              });
-            }
-          });
+          try {
+            const options = {
+              audio_context: audioContextRef.current!,
+              array_buffer: buffer,
+              scale: 512,
+            };
+            WaveformData.createFromAudio(options, (err, waveform) => {
+              if (err) {
+                console.error("Error creating waveform:", err);
+                setIsWaveformLoading(false);
+              } else {
+                setWaveformData(waveform);
+                setIsWaveformLoading(false);
+                storeWaveform({
+                  submissionId: currentTrack._id as Id<"submissions">,
+                  waveformJson: JSON.stringify(waveform.toJSON()),
+                });
+              }
+            });
+          } catch (error) {
+            console.error(
+              "A critical error occurred during waveform generation:",
+              error,
+            );
+            toast.error(
+              "Could not generate waveform for this audio file. It may be corrupted.",
+            );
+            setIsWaveformLoading(false);
+            setWaveformData(null);
+          }
         })
         .catch((error) => {
           setIsWaveformLoading(false);
