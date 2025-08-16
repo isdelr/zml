@@ -1,4 +1,3 @@
-// components/MusicPlayer.tsx
 "use client";
 
 import { useRef, useEffect, useState, useMemo } from "react";
@@ -64,6 +63,7 @@ export function MusicPlayer() {
   const [waveformData, setWaveformData] = useState<WaveformData | null>(null);
   const [isWaveformLoading, setIsWaveformLoading] = useState(false);
   const [lastVolume, setLastVolume] = useState(volume);
+  const [refreshedUrls, setRefreshedUrls] = useState<Record<string, string>>({});
 
   const leagueData = useQuery(
     api.leagues.get,
@@ -362,12 +362,12 @@ export function MusicPlayer() {
 
     lastOpenedTrackId.current = null;
 
+    const effectiveSongUrl =
+      refreshedUrls[currentTrack._id] || currentTrack.songFileUrl;
+
     const handlePlayback = async () => {
-      if (
-        currentTrack.songFileUrl &&
-        audioElement.src !== currentTrack.songFileUrl
-      ) {
-        audioElement.src = currentTrack.songFileUrl;
+      if (effectiveSongUrl && audioElement.src !== effectiveSongUrl) {
+        audioElement.src = effectiveSongUrl;
         setProgress(0);
       }
       try {
@@ -376,7 +376,7 @@ export function MusicPlayer() {
         } else {
           audioElement.pause();
         }
-      } catch (error: unknown) {
+      } catch (error: any) {
         if (error.name !== "AbortError") {
           console.error("Error during playback:", error);
           actions.setIsPlaying(false);
@@ -384,7 +384,7 @@ export function MusicPlayer() {
       }
     };
     handlePlayback();
-  }, [currentTrack, isPlaying, actions, isExternalLink, volume]);
+  }, [currentTrack, isPlaying, actions, isExternalLink, volume, refreshedUrls]);
 
   const handleTimeUpdate = () => {
     const audioElement = audioRef.current;
@@ -467,6 +467,9 @@ export function MusicPlayer() {
 
         if (newUrl) {
           const currentTime = audioElement.currentTime;
+
+          setRefreshedUrls(prev => ({...prev, [currentTrack._id]: newUrl}));
+
           audioElement.src = newUrl;
           audioElement.load();
 
