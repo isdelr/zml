@@ -12,6 +12,7 @@ import type * as aggregates from "../aggregates.js";
 import type * as auth from "../auth.js";
 import type * as bookmarks from "../bookmarks.js";
 import type * as counters from "../counters.js";
+import type * as crons from "../crons.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as leagues from "../leagues.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   bookmarks: typeof bookmarks;
   counters: typeof counters;
+  crons: typeof crons;
   files: typeof files;
   http: typeof http;
   leagues: typeof leagues;

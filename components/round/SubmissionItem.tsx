@@ -178,7 +178,7 @@ export function SubmissionItem({
             <div className="relative flex-shrink-0 cursor-pointer" onClick={onPlaySong}>
               <Image src={song.albumArtUrl} alt={song.songTitle} width={48} height={48} className="rounded" />
               {otherListeners && otherListeners.length > 0 && (
-                <div className="absolute bottom-0 right-0 origin-bottom-right scale-75">
+                <div className="absolute bottom-0 right-0 origin-bottom-right scale-90">
                   <AvatarStack users={otherListeners} />
                 </div>
               )}
@@ -216,7 +216,7 @@ export function SubmissionItem({
             <div className="relative flex-shrink-0">
               <Image src={song.albumArtUrl} alt={song.songTitle} width={40} height={40} className="rounded" />
               {otherListeners && otherListeners.length > 0 && (
-                <div className="absolute bottom-[-4px] right-[-4px] origin-bottom-right scale-50">
+                <div className="absolute bottom-[-4px] right-[-4px] origin-bottom-right scale-65">
                   <AvatarStack users={otherListeners} />
                 </div>
               )}
