@@ -1,3 +1,5 @@
+// File: components/Waveform.tsx
+
 "use client";
 
 import React, { useRef, useEffect, MouseEvent, useState } from "react";
@@ -39,14 +41,14 @@ const formatTime = (seconds: number) => {
 };
 
 export function Waveform({
-  waveform,
-  progress,
-  duration,
-  onSeek,
-  className,
-  comments,
-  savedProgress,
-}: WaveformProps) {
+                           waveform,
+                           progress,
+                           duration,
+                           onSeek,
+                           className,
+                           comments,
+                           savedProgress,
+                         }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredCommentId, setHoveredCommentId] = useState<Id<"comments"> | null>(null);
@@ -68,13 +70,20 @@ export function Waveform({
     const height = canvas.clientHeight;
     ctx.clearRect(0, 0, width, height);
 
+    // Safety guards against edge cases that could cause out-of-bounds reads
     const channel = waveform.channel(0);
+    const channelLength = Math.max(0, waveform.length || 0);
+    if (channelLength === 0) {
+      // Nothing to draw
+      return;
+    }
+
     const middleY = height / 2;
 
     const barWidth = 2;
     const barGap = 1;
     const totalBarWidth = barWidth + barGap;
-    const numBars = Math.floor(width / totalBarWidth);
+    const numBars = Math.max(1, Math.floor(width / totalBarWidth)); // ensure at least 1 bar
 
     const progressInBars = duration > 0 ? (progress / duration) * numBars : 0;
     const savedProgressInBars =
@@ -90,14 +99,35 @@ export function Waveform({
     ctx.lineWidth = barWidth;
     ctx.lineCap = "round";
 
+    // Map a bar index [0..numBars-1] to a valid sample index [0..channelLength-1]
+    // This mapping guarantees we never exceed the data bounds.
+    const sampleIndexForBar = (barIndex: number) => {
+      if (numBars === 1) return 0; // single bar -> first sample
+      const rawIndex =
+        (barIndex * (channelLength - 1)) / (numBars - 1); // exact mapping
+      const idx = Math.floor(rawIndex);
+      // Clamp defensively to avoid any out-of-bounds access in waveform-data
+      return Math.min(Math.max(idx, 0), channelLength - 1);
+    };
+
     const drawBars = (limit: number, color: string) => {
       ctx.strokeStyle = color;
       for (let i = 0; i < limit; i++) {
         const x = barGap + i * totalBarWidth + barWidth / 2;
 
-        const sampleIndex = Math.floor((i / numBars) * waveform.length);
-        const maxSample = channel.max_sample(sampleIndex);
-        const minSample = channel.min_sample(sampleIndex);
+        const sampleIndex = sampleIndexForBar(i);
+
+        // Guard against any unexpected library behavior with try/catch,
+        // but this should not be hit thanks to the clamping above.
+        let maxSample = 0;
+        let minSample = 0;
+        try {
+          maxSample = channel.max_sample(sampleIndex);
+          minSample = channel.min_sample(sampleIndex);
+        } catch {
+          // If something went wrong, skip this bar instead of crashing
+          continue;
+        }
 
         const topHalfHeight = (maxSample / 127) * middleY;
         const bottomHalfHeight = (Math.abs(minSample) / 128) * middleY;
@@ -118,12 +148,12 @@ export function Waveform({
     // 2. Draw saved progress with transparent primary
     if (savedProgressInBars > 0) {
       ctx.globalAlpha = 0.3;
-      drawBars(savedProgressInBars, primaryColor);
+      drawBars(Math.min(numBars, Math.floor(savedProgressInBars)), primaryColor);
       ctx.globalAlpha = 1.0;
     }
 
     // 3. Draw played progress with solid primary
-    drawBars(progressInBars, primaryColor);
+    drawBars(Math.min(numBars, Math.floor(progressInBars)), primaryColor);
   }, [waveform, progress, duration, savedProgress]);
 
   const handleSeek = (e: MouseEvent<HTMLCanvasElement | HTMLDivElement>) => {
@@ -159,11 +189,11 @@ export function Waveform({
 
   const handleCommentMouseEnter = (commentId: Id<"comments">) => {
     setHoveredCommentId(commentId);
-  }
+  };
 
   const handleCommentMouseLeave = () => {
     setHoveredCommentId(null);
-  }
+  };
 
   return (
     <div
@@ -176,7 +206,7 @@ export function Waveform({
       <canvas ref={canvasRef} className="h-full w-full" />
       <div className="absolute inset-0">
         {comments.map((comment) => (
-          <Popover key={comment.id} open={hoveredCommentId === comment.id} >
+          <Popover key={comment.id} open={hoveredCommentId === comment.id}>
             <PopoverTrigger
               onMouseEnter={() => handleCommentMouseEnter(comment.id)}
               onMouseLeave={handleCommentMouseLeave}
@@ -188,7 +218,7 @@ export function Waveform({
                   left: `${duration > 0 ? (comment.time / duration) * 100 : 0}%`,
                   transform: "translateX(-50%)",
                 }}
-                 onClick={(e) => {
+                onClick={(e) => {
                   e.stopPropagation();
                   onSeek(comment.time);
                 }}
