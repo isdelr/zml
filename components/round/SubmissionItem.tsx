@@ -240,11 +240,13 @@ export function SubmissionItem({
             )}
           </div>
           <div className="flex items-center justify-center w-44 gap-1">
-            {isLinkSubmission ? (
+            {roundStatus === 'voting' ? (
+              <VoteButtonGroup />
+            ) : isLinkSubmission ? (
               <a href={song.songLink!} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
                 <Button variant="ghost" size="icon" className="size-8">{song.submissionType === 'spotify' ? <FaSpotify className="size-5 text-green-500"/> : <FaYoutube className="size-5 text-red-500"/>}</Button>
               </a>
-            ) : roundStatus === 'voting' ? <VoteButtonGroup /> : null}
+            ) : null}
             <Button variant="ghost" size="icon" className="size-8" onClick={(e) => { e.stopPropagation(); onBookmark(); }}><Bookmark className={cn("size-5", song.isBookmarked && "fill-primary text-primary")} /></Button>
             <Button variant="ghost" size="icon" className="size-8" onClick={(e) => { e.stopPropagation(); onToggleComments(); }}><MessageSquare className={cn("size-5", isCommentsVisible && "fill-accent")} /></Button>
           </div>
