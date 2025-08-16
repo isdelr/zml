@@ -28,6 +28,7 @@ import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import { Song } from "@/types";
+import { AvatarStack } from "../AvatarStack";
 
 // A new component for the animated equalizer
 const EqualizerIcon = () => (
@@ -57,6 +58,8 @@ interface SubmissionItemProps {
   onPlaySong: () => void;
   listenProgress: Doc<"listenProgress"> | undefined;
   isReadyToVoteOverall: boolean;
+  listeners: { name?: string | null; image?: string | null; _id: Id<"users"> }[];
+  currentUser: Doc<"users"> | null | undefined;
 }
 
 export function SubmissionItem({
@@ -76,10 +79,14 @@ export function SubmissionItem({
                                  onPlaySong,
                                  listenProgress,
                                  isReadyToVoteOverall,
-                                 onToggleComments, // Added missing prop to destructuring
+                                 onToggleComments,
+                                 listeners,
+                                 currentUser,
                                }: SubmissionItemProps) {
   const { listenProgress: localListenProgress } = useMusicPlayerStore();
   const isLinkSubmission = song.submissionType === 'spotify' || song.submissionType === 'youtube';
+
+  const otherListeners = listeners.filter(listener => listener._id !== currentUser?._id);
 
   const isListenRequirementMetForThisSong = useMemo(() => {
     if (!league.enforceListenPercentage || song.submissionType !== "file" || userIsSubmitter) return true;
@@ -170,6 +177,11 @@ export function SubmissionItem({
           <div className="flex items-center gap-3">
             <div className="relative flex-shrink-0 cursor-pointer" onClick={onPlaySong}>
               <Image src={song.albumArtUrl} alt={song.songTitle} width={48} height={48} className="rounded" />
+              {otherListeners && otherListeners.length > 0 && (
+                <div className="absolute bottom-0 right-0 origin-bottom-right scale-75">
+                  <AvatarStack users={otherListeners} />
+                </div>
+              )}
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100">
                 {isThisSongPlaying ? <Pause className="size-6" /> : <Play className="size-6" />}
               </div>
@@ -201,7 +213,14 @@ export function SubmissionItem({
             </div>
           </div>
           <div className="flex items-center gap-4 min-w-0 cursor-pointer" onClick={onPlaySong}>
-            <Image src={song.albumArtUrl} alt={song.songTitle} width={40} height={40} className="rounded flex-shrink-0" />
+            <div className="relative flex-shrink-0">
+              <Image src={song.albumArtUrl} alt={song.songTitle} width={40} height={40} className="rounded" />
+              {otherListeners && otherListeners.length > 0 && (
+                <div className="absolute bottom-[-4px] right-[-4px] origin-bottom-right scale-50">
+                  <AvatarStack users={otherListeners} />
+                </div>
+              )}
+            </div>
             <div className="truncate">
               <p className={cn("truncate font-semibold", isThisSongCurrent && "text-primary")}>{song.songTitle}</p>
               <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
