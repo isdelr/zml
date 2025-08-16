@@ -1,5 +1,3 @@
-// File: convex/votes.ts
-
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -83,6 +81,12 @@ export const getForUserInRound = query({
 export const getVotersForRound = query({
   args: { roundId: v.id("rounds") },
   handler: async (ctx, args) => {
+    const round = await ctx.db.get(args.roundId);
+    if (!round) return [];
+
+    const league = await ctx.db.get(round.leagueId);
+    if (!league) return [];
+
     const votes = await ctx.db
       .query("votes")
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
@@ -91,9 +95,30 @@ export const getVotersForRound = query({
     if (votes.length === 0) {
       return [];
     }
-    const userIds = [...new Set(votes.map((vote) => vote.userId))];
 
-    const users = await Promise.all(userIds.map(async (userId) => ctx.db.get(userId)));
+    // Sum positive and negative vote magnitudes per voter
+    const sums = new Map<string, { up: number; down: number }>();
+    for (const vte of votes) {
+      const key = vte.userId.toString();
+      const entry = sums.get(key) ?? { up: 0, down: 0 };
+      if (vte.vote > 0) entry.up += vte.vote;
+      else if (vte.vote < 0) entry.down += Math.abs(vte.vote);
+      sums.set(key, entry);
+    }
+
+    // Only users who have fully used their budgets appear
+    const finalizedUserIds: Id<"users">[] = [];
+    for (const [userIdStr, { up, down }] of sums.entries()) {
+      if (up === league.maxPositiveVotes && down === league.maxNegativeVotes) {
+        finalizedUserIds.push(userIdStr as unknown as Id<"users">);
+      }
+    }
+
+    if (finalizedUserIds.length === 0) {
+      return [];
+    }
+
+    const users = await Promise.all(finalizedUserIds.map((id) => ctx.db.get(id)));
     return users
       .filter((u): u is Doc<"users"> => u !== null)
       .map((user) => ({

@@ -1,4 +1,3 @@
-// File: convex/rounds.ts
 import { v } from "convex/values";
 import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -119,11 +118,39 @@ export const getForLeague = query({
           }
         }
 
-        if (round.status === "voting" || round.status === 'finished') {
-          const votes = await ctx.db.query("votes").withIndex("by_round_and_user", q => q.eq("roundId", round._id)).collect();
-          const voterIds = [...new Set(votes.map(v => v.userId))];
-          voterIds.forEach(id => allUserIds.add(id));
-          const voterDocs = await Promise.all(voterIds.map(id => ctx.db.get(id)));
+        if (round.status === "voting" || round.status === "finished") {
+          const votes = await ctx.db
+            .query("votes")
+            .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+            .collect();
+
+          // Only include voters who have used their entire vote pool
+          const  finalizedVoterIds: Id<"users">[] = [];
+          if (league) {
+            const sums = new Map<string, { up: number; down: number }>();
+            for (const vte of votes) {
+              const key = vte.userId.toString();
+              const entry = sums.get(key) ?? { up: 0, down: 0 };
+              if (vte.vote > 0) entry.up += vte.vote;
+              else if (vte.vote < 0) entry.down += Math.abs(vte.vote);
+              sums.set(key, entry);
+            }
+            for (const [userIdStr, { up, down }] of sums.entries()) {
+              if (
+                up === league.maxPositiveVotes &&
+                down === league.maxNegativeVotes
+              ) {
+                finalizedVoterIds.push(userIdStr as unknown as Id<"users">);
+              }
+            }
+          }
+
+          // Track these in the global set (not strictly required, but consistent with prior logic)
+          finalizedVoterIds.forEach((id) => allUserIds.add(id));
+
+          const voterDocs = await Promise.all(
+            finalizedVoterIds.map((id) => ctx.db.get(id)),
+          );
           voters = voterDocs.filter((u): u is Doc<"users"> => u !== null);
         }
 
