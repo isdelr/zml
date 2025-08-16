@@ -43,7 +43,6 @@ export const get = query({
   },
 });
 
-
 export const getRoundMetadata = query({
   args: { roundId: v.id("rounds") },
   returns: v.union(
@@ -133,7 +132,7 @@ export const getForLeague = query({
             .collect();
 
           // Only include voters who have used their entire vote pool
-          const  finalizedVoterIds: Id<"users">[] = [];
+          const finalizedVoterIds: Id<"users">[] = [];
           if (league) {
             const sums = new Map<string, { up: number; down: number }>();
             for (const vte of votes) {
@@ -162,10 +161,16 @@ export const getForLeague = query({
           voters = voterDocs.filter((u): u is Doc<"users"> => u !== null);
         }
 
-        const userDocs = await Promise.all(Array.from(allUserIds).map(id => ctx.db.get(id)));
-        const userMap = new Map(userDocs.filter(Boolean).map(u => [u!._id, u]));
+        const userDocs = await Promise.all(
+          Array.from(allUserIds).map((id) => ctx.db.get(id)),
+        );
+        const userMap = new Map(
+          userDocs.filter(Boolean).map((u) => [u!._id, u]),
+        );
 
-        const submitters = submissions.map(s => userMap.get(s.userId)).filter(Boolean);
+        const submitters = submissions
+          .map((s) => userMap.get(s.userId))
+          .filter(Boolean);
 
         // Add the art URL generation here
         const artUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
@@ -175,10 +180,18 @@ export const getForLeague = query({
           art: artUrl, // Add this line
           leagueName: league?.name ?? "Unknown League",
           submissionCount: submissions.length,
-          leagueMemberCount: (await ctx.db.query("memberships").withIndex("by_league", q => q.eq("leagueId", round.leagueId)).collect()).length,
+          leagueMemberCount: (
+            await ctx.db
+              .query("memberships")
+              .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
+              .collect()
+          ).length,
           voterCount: voters.length,
-          submitters: submitters.map(u => ({ name: u!.name, image: u!.image })),
-          voters: voters.map(u => ({ name: u!.name, image: u!.image })),
+          submitters: submitters.map((u) => ({
+            name: u!.name,
+            image: u!.image,
+          })),
+          voters: voters.map((u) => ({ name: u!.name, image: u!.image })),
           winner: winnerInfo,
         };
       }),
@@ -348,7 +361,9 @@ export const adjustRoundTime = mutation({
     if (round.status === "submissions") {
       const newSubmissionDeadline = round.submissionDeadline + timeAdjustment;
       if (newSubmissionDeadline < now) {
-        throw new Error("Cannot set submission deadline to a time in the past.");
+        throw new Error(
+          "Cannot set submission deadline to a time in the past.",
+        );
       }
       await ctx.db.patch(round._id, {
         submissionDeadline: newSubmissionDeadline,
@@ -596,9 +611,11 @@ export const transitionDueRounds = internalAction({
 export const getDueForVoting = internalQuery({
   args: { now: v.number() },
   handler: async (ctx, { now }) => {
+    // NOTE: We can't use the by_league_and_status index without a leagueId prefix.
+    // Filter by status instead, then by deadline.
     return await ctx.db
       .query("rounds")
-      .withIndex("by_league_and_status", (q) => q.eq("status", "submissions"))
+      .filter((q) => q.eq(q.field("status"), "submissions"))
       .filter((q) => q.lte(q.field("submissionDeadline"), now))
       .collect();
   },
@@ -608,9 +625,11 @@ export const getDueForVoting = internalQuery({
 export const getDueForFinishing = internalQuery({
   args: { now: v.number() },
   handler: async (ctx, { now }) => {
+    // NOTE: We can't use the by_league_and_status index without a leagueId prefix.
+    // Filter by status instead, then by deadline.
     return await ctx.db
       .query("rounds")
-      .withIndex("by_league_and_status", (q) => q.eq("status", "voting"))
+      .filter((q) => q.eq(q.field("status"), "voting"))
       .filter((q) => q.lte(q.field("votingDeadline"), now))
       .collect();
   },
@@ -666,13 +685,9 @@ export const transitionRoundToFinished = internalMutation({
     await ctx.db.patch(roundId, { status: "finished" });
 
     // Schedule background jobs to calculate results and update league stats.
-    await ctx.scheduler.runAfter(
-      0,
-      internal.leagues.calculateAndStoreResults,
-      {
-        roundId,
-      },
-    );
+    await ctx.scheduler.runAfter(0, internal.leagues.calculateAndStoreResults, {
+      roundId,
+    });
     await ctx.scheduler.runAfter(0, internal.leagues.updateLeagueStats, {
       leagueId: round.leagueId,
     });
