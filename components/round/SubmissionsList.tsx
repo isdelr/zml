@@ -26,9 +26,9 @@ interface SubmissionsListProps {
   onVoteClick: (submissionId: Id<"submissions">, delta: 1 | -1) => void;
   isReadyToVoteOverall: boolean;
   listenProgressMap: Record<string, Doc<"listenProgress">>;
-  // --- NEW PROPS ---
   activeCommentsSubmissionId: Id<"submissions"> | null;
   onToggleComments: (submissionId: Id<"submissions"> | null) => void;
+  listenersBySubmission: Record<string, any[]> | undefined;
 }
 
 export function SubmissionsList({
@@ -45,9 +45,9 @@ export function SubmissionsList({
                                   onVoteClick,
                                   listenProgressMap,
                                   isReadyToVoteOverall,
-                                  // --- DESTRUCTURE NEW PROPS ---
                                   activeCommentsSubmissionId,
                                   onToggleComments,
+                                  listenersBySubmission,
                                 }: SubmissionsListProps) {
   const toggleBookmark = useMutation(
     api.bookmarks.toggleBookmark,
@@ -152,8 +152,8 @@ export function SubmissionsList({
         const isThisSongPlaying = isPlaying && currentTrack?._id === song._id;
         const isThisSongCurrent = currentTrack?._id === song._id;
         const userIsSubmitter = song.userId === currentUser?._id;
-        // --- UPDATED LOGIC FOR isCommentsVisible ---
         const isCommentsVisible = activeCommentsSubmissionId === song._id;
+        const listeners = listenersBySubmission ? listenersBySubmission[song._id] : [];
 
         const userVoteOnThisSong = userVotes.find((v) => v.submissionId === song._id);
         const currentVoteValue = userVoteOnThisSong ? userVoteOnThisSong.vote : 0;
@@ -178,6 +178,8 @@ export function SubmissionsList({
             onPlaySong={() => onPlaySong(song, index)}
             listenProgress={listenProgressMap[song._id]}
             isReadyToVoteOverall={isReadyToVoteOverall}
+            listeners={listeners ?? []}
+            currentUser={currentUser}
           />
         );
       })}
