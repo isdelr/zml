@@ -28,7 +28,7 @@ interface SubmissionsListProps {
   listenProgressMap: Record<string, Doc<"listenProgress">>;
   activeCommentsSubmissionId: Id<"submissions"> | null;
   onToggleComments: (submissionId: Id<"submissions"> | null) => void;
-  listenersBySubmission: Record<string, any[]> | undefined;
+  listenersBySubmission: Record<string, unknown[]> | undefined;
 }
 
 export function SubmissionsList({
