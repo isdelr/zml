@@ -266,7 +266,10 @@ export function MusicPlayer() {
             const options = {
               audio_context: audioContextRef.current!,
               array_buffer: buffer,
-              scale: 512,
+              // --- CHANGE: Increased scale for compression ---
+              // A larger scale reduces the number of data points, making the JSON smaller.
+              // 1024 is a good balance between size and visual quality.
+              scale: 1024,
             };
             WaveformData.createFromAudio(options, (err, waveform) => {
               if (err) {
