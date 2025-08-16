@@ -182,11 +182,45 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       return [...submissions].sort((a, b) => b.points - a.points);
     }
 
-    // For active rounds, group by type and shuffle each group.
+    // For active rounds, create a deterministic shuffle based on the round's ID
+    // to ensure everyone gets the same playlist order.
+
+    /**
+     * Creates a numeric seed from a string.
+     */
+    const createSeed = (str: string) => {
+      let seed = 0;
+      for (let i = 0; i < str.length; i++) {
+        const charCode = str.charCodeAt(i);
+        seed = (seed << 5) - seed + charCode;
+        seed |= 0; // Convert to 32bit integer
+      }
+      return seed;
+    };
+
+    /**
+     * A simple pseudo-random number generator (PRNG) based on Mulberry32.
+     */
+    const seededRandom = (seed: number) => {
+      return function () {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    };
+
+    // Use the round's unique ID as the seed for the random number generator.
+    const seed = createSeed(round._id);
+    const random = seededRandom(seed);
+
+    /**
+     * Shuffles an array in place using the Fisher-Yates algorithm with our seeded RNG.
+     */
     const shuffleArray = <T,>(array: T[]): T[] => {
       const newArray = [...array];
       for (let i = newArray.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = Math.floor(random() * (i + 1));
         [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
       }
       return newArray;
@@ -195,11 +229,19 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     const fileSubmissions = submissions.filter(s => s.submissionType === 'file');
     const linkSubmissions = submissions.filter(s => s.submissionType === 'spotify' || s.submissionType === 'youtube');
 
+    // IMPORTANT: Sort submissions before shuffling. The order of items from the database
+    // is not guaranteed. Sorting first ensures that the input to the shuffle function
+    // is always the same for all users, guaranteeing a consistent output.
+    const sortById = (a: { _id: Id<"submissions"> }, b: { _id: Id<"submissions"> }) => a._id.localeCompare(b._id);
+    fileSubmissions.sort(sortById);
+    linkSubmissions.sort(sortById);
+
     const shuffledFiles = shuffleArray(fileSubmissions);
     const shuffledLinks = shuffleArray(linkSubmissions);
 
     return [...shuffledFiles, ...shuffledLinks];
-  }, [submissions, round.status]);
+  }, [submissions, round.status, round._id]);
+
 
   const activeSubmissionForPanel = useMemo(() => {
     if (!activeCommentsSubmissionId || !sortedSubmissions) {
