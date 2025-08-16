@@ -1,6 +1,3 @@
-// File: components/RoundDetail.tsx
-
-// components/RoundDetail.tsx
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
@@ -60,6 +57,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   const [activeCommentsSubmissionId, setActiveCommentsSubmissionId] = useState<Id<"submissions"> | null>(null);
 
   const currentUser = useQuery(api.users.getCurrentUser);
+  const listenersBySubmission = useQuery(api.presence.listForRound, { roundId: round._id });
   const listenProgressData = useQuery(api.listenProgress.getForRound, { roundId: round._id });
   const promotePresubs = useMutation(api.submissions.promotePresubmissionsForRound);
   const promotedRef = useRef<string | null>(null);
@@ -379,6 +377,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             isReadyToVoteOverall={isReadyToVoteOverall}
             activeCommentsSubmissionId={activeCommentsSubmissionId}
             onToggleComments={setActiveCommentsSubmissionId}
+            listenersBySubmission={listenersBySubmission}
           />
           {round.status === "finished" && (
             <div ref={summaryTriggerRef}>

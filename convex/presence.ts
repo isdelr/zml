@@ -22,12 +22,16 @@ export const update = mutation({
     if (!user) return;
 
     if (listeningTo) {
-      // If the user is listening to a song, set their presence
+      // Fetch submission to get roundId
+      const submission = await ctx.db.get(listeningTo);
+      const roundId = submission?.roundId;
+
       await ctx.db.patch(userId, {
         presence: {
           location: listeningTo,
+          roundId: roundId, // Store the roundId
           updated: Date.now(),
-          data: {}, // You could add more data here if needed
+          data: {},
         },
       });
     } else {
@@ -48,7 +52,7 @@ export const list = query({
       .query("users")
       .withIndex("by_presence", (q) => q.eq("presence.location", location))
       .collect();
-      
+
     // Return only the necessary data for the AvatarStack
     return users.map((user) => ({
       _id: user._id,
@@ -56,4 +60,31 @@ export const list = query({
       image: user.image,
     }));
   },
+});
+
+export const listForRound = query({
+  args: { roundId: v.id("rounds") },
+  handler: async (ctx, { roundId }) => {
+    const listeners = await ctx.db
+      .query("users")
+      .withIndex("by_presence_round", q => q.eq("presence.roundId", roundId))
+      .collect();
+
+    const listenersBySubmission: Record<string, { _id: Id<"users">, name?: string, image?: string }[]> = {};
+
+    for (const listener of listeners) {
+      if (listener.presence && listener.presence.location) {
+        const location = listener.presence.location as string;
+        if (!listenersBySubmission[location]) {
+          listenersBySubmission[location] = [];
+        }
+        listenersBySubmission[location]!.push({
+          _id: listener._id,
+          name: listener.name,
+          image: listener.image,
+        });
+      }
+    }
+    return listenersBySubmission;
+  }
 });

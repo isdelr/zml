@@ -33,6 +33,7 @@ export default defineSchema({
     presence: v.optional(
       v.object({
         location: v.union(v.null(), v.id("submissions")),
+        roundId: v.optional(v.id("rounds")),
         updated: v.number(),
         data: v.any(),
       }),
@@ -40,7 +41,8 @@ export default defineSchema({
   })
     .index("email", ["email"])
     .index("phone", ["phone"])
-    .index("by_presence", ["presence.location"]),
+    .index("by_presence", ["presence.location"])
+    .index("by_presence_round", ["presence.roundId"]),
   numbers: defineTable({
     value: v.number(),
   }),
