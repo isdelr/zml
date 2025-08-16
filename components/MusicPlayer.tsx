@@ -376,8 +376,7 @@ export function MusicPlayer() {
         } else {
           audioElement.pause();
         }
-      } catch (error: any) {
-        // FIX #2: Ignore AbortError, which is expected when skipping tracks.
+      } catch (error: unknown) {
         if (error.name !== "AbortError") {
           console.error("Error during playback:", error);
           actions.setIsPlaying(false);
