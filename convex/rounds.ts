@@ -1,5 +1,13 @@
 import { v } from "convex/values";
-import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
+import {
+  mutation,
+  query,
+  MutationCtx,
+  QueryCtx,
+  internalMutation,
+  internalAction,
+  internalQuery,
+} from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { R2 } from "@convex-dev/r2";
@@ -532,5 +540,152 @@ export const getVoteSummary = query({
     );
 
     return summary;
+  },
+});
+
+/**
+ * =================================================================
+ * AUTOMATIC ROUND STATE TRANSITIONS (CRON JOB HANDLERS)
+ * =================================================================
+ */
+
+// This internal action is triggered by a cron job every minute.
+// It finds rounds whose deadlines have passed and triggers their state transition.
+export const transitionDueRounds = internalAction({
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    // Find rounds that are past their submission deadline
+    const dueForVoting = await ctx.runQuery(internal.rounds.getDueForVoting, {
+      now,
+    });
+    for (const round of dueForVoting) {
+      try {
+        await ctx.runMutation(internal.rounds.transitionRoundToVoting, {
+          roundId: round._id,
+        });
+      } catch (error) {
+        console.error(
+          `Failed to transition round ${round._id} to voting:`,
+          error,
+        );
+      }
+    }
+
+    // Find rounds that are past their voting deadline
+    const dueForFinishing = await ctx.runQuery(
+      internal.rounds.getDueForFinishing,
+      { now },
+    );
+    for (const round of dueForFinishing) {
+      try {
+        await ctx.runMutation(internal.rounds.transitionRoundToFinished, {
+          roundId: round._id,
+        });
+      } catch (error) {
+        console.error(
+          `Failed to transition round ${round._id} to finished:`,
+          error,
+        );
+      }
+    }
+  },
+});
+
+// Helper query to get rounds ready to move from 'submissions' to 'voting'
+export const getDueForVoting = internalQuery({
+  args: { now: v.number() },
+  handler: async (ctx, { now }) => {
+    return await ctx.db
+      .query("rounds")
+      .withIndex("by_league_and_status", (q) => q.eq("status", "submissions"))
+      .filter((q) => q.lte(q.field("submissionDeadline"), now))
+      .collect();
+  },
+});
+
+// Helper query to get rounds ready to move from 'voting' to 'finished'
+export const getDueForFinishing = internalQuery({
+  args: { now: v.number() },
+  handler: async (ctx, { now }) => {
+    return await ctx.db
+      .query("rounds")
+      .withIndex("by_league_and_status", (q) => q.eq("status", "voting"))
+      .filter((q) => q.lte(q.field("votingDeadline"), now))
+      .collect();
+  },
+});
+
+// Internal mutation to transition a single round to the 'voting' state.
+export const transitionRoundToVoting = internalMutation({
+  args: { roundId: v.id("rounds") },
+  handler: async (ctx, { roundId }) => {
+    const round = await ctx.db.get(roundId);
+
+    // Idempotency check: only transition if it's currently in the submission phase.
+    if (!round || round.status !== "submissions") {
+      return;
+    }
+
+    // Safety check: ensure deadline has actually passed.
+    if (round.submissionDeadline > Date.now()) {
+      return;
+    }
+
+    await ctx.db.patch(roundId, { status: "voting" });
+
+    // Send notifications to league members that voting has started.
+    const league = await ctx.db.get(round.leagueId);
+    if (league) {
+      await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+        leagueId: league._id,
+        type: "round_voting",
+        message: `Voting has begun for the round "${round.title}" in "${league.name}"!`,
+        link: `/leagues/${league._id}/round/${round._id}`,
+      });
+    }
+  },
+});
+
+// Internal mutation to transition a single round to the 'finished' state.
+export const transitionRoundToFinished = internalMutation({
+  args: { roundId: v.id("rounds") },
+  handler: async (ctx, { roundId }) => {
+    const round = await ctx.db.get(roundId);
+
+    // Idempotency check: only transition if it's currently in the voting phase.
+    if (!round || round.status !== "voting") {
+      return;
+    }
+
+    // Safety check: ensure deadline has actually passed.
+    if (round.votingDeadline > Date.now()) {
+      return;
+    }
+
+    await ctx.db.patch(roundId, { status: "finished" });
+
+    // Schedule background jobs to calculate results and update league stats.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.leagues.calculateAndStoreResults,
+      {
+        roundId,
+      },
+    );
+    await ctx.scheduler.runAfter(0, internal.leagues.updateLeagueStats, {
+      leagueId: round.leagueId,
+    });
+
+    // Send notifications to league members that the round has concluded.
+    const league = await ctx.db.get(round.leagueId);
+    if (league) {
+      await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+        leagueId: league._id,
+        type: "round_finished",
+        message: `The round "${round.title}" in "${league.name}" has finished! Check out the results.`,
+        link: `/leagues/${league._id}/round/${round._id}`,
+      });
+    }
   },
 });
