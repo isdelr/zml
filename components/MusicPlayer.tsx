@@ -376,7 +376,7 @@ export function MusicPlayer() {
         } else {
           audioElement.pause();
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error.name !== "AbortError") {
           console.error("Error during playback:", error);
           actions.setIsPlaying(false);
