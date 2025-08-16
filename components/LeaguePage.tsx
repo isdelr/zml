@@ -1,4 +1,4 @@
-// components/LeaguePage.tsx
+// File: components/LeaguePage.tsx
 
 "use client";
 
@@ -89,7 +89,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
       ? { leagueId: leagueId as Id<"leagues">, searchText: searchTerm }
       : "skip",
   );
-  
+
   const currentUser = useQuery(api.users.getCurrentUser);
   const { actions: playerActions } = useMusicPlayerStore();
 
@@ -130,10 +130,47 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   };
 
   useEffect(() => {
-    if (status === "CanLoadMore" || status === "Exhausted") {
-      if (rounds && rounds.length > 0 && !selectedRoundId) {
-        const latestRound = rounds[rounds?.length - 1];
-        router.replace(`/leagues/${leagueId}/round/${latestRound._id}`);
+    // This effect runs when the page loads without a specific round selected.
+    // It automatically selects the most relevant active round.
+    if (
+      (status === "CanLoadMore" || status === "Exhausted") &&
+      rounds &&
+      rounds.length > 0 &&
+      !selectedRoundId
+    ) {
+      let roundToSelect: (typeof rounds)[0] | null = null;
+
+      // 1. Find the most recent (newest) round in its VOTING phase.
+      const votingRounds = rounds.filter((r) => r.status === "voting");
+      if (votingRounds.length > 0) {
+        // Sort by creation time descending to find the newest
+        votingRounds.sort((a, b) => b._creationTime - a._creationTime);
+        roundToSelect = votingRounds[0];
+      }
+
+      // 2. If no voting round, find the most recent (newest) round in its SUBMISSION phase.
+      if (!roundToSelect) {
+        const submissionRounds = rounds.filter(
+          (r) => r.status === "submissions",
+        );
+        if (submissionRounds.length > 0) {
+          // Sort by creation time descending to find the newest
+          submissionRounds.sort((a, b) => b._creationTime - a._creationTime);
+          roundToSelect = submissionRounds[0];
+        }
+      }
+
+      // 3. Fallback: If no active rounds, select the most recent round overall.
+      if (!roundToSelect) {
+        // Create a mutable copy before sorting
+        const allRoundsSorted = [...rounds].sort(
+          (a, b) => b._creationTime - a._creationTime,
+        );
+        roundToSelect = allRoundsSorted[0];
+      }
+
+      if (roundToSelect) {
+        router.replace(`/leagues/${leagueId}/round/${roundToSelect._id}`);
       }
     }
   }, [status, rounds, selectedRoundId, leagueId, router]);
