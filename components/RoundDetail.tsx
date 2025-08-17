@@ -455,7 +455,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                   left to listen to, before you can vote. Unlistened file
                   submissions are marked with a
                 </span>
-                <Headphones className="inline-block size-6" />
+                <Headphones className="inline-block size-4" />
               </div>
             </AlertDescription>
           </Alert>
