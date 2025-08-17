@@ -410,7 +410,6 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         />
       )}
 
-
       {round.status === "voting" &&
         userVoteStatus &&
         !userVoteStatus.hasVoted &&
@@ -442,16 +441,22 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         league.enforceListenPercentage &&
         songsLeftToListen.length > 0 && (
           <Alert className="mb-8 border-blue-500/50 bg-blue-500/10 text-blue-400">
-            <Headphones className="size-4" />
-            <AlertTitle className="font-bold">Listening Requirement</AlertTitle>
+            <AlertTitle className="font-bold text-xl mb-2">
+              Listening Requirement
+            </AlertTitle>
             <AlertDescription className="text-blue-400/80">
-              You have{" "}
-              <strong>
-                {songsLeftToListen.length} song
-                {songsLeftToListen.length > 1 ? "s" : ""} left to listen to
-              </strong>{" "}
-              before you can vote. Unlistened file submissions are marked with a{" "}
-              <Headphones className="inline-block size-6" />
+              <div className="flex gap-2">
+                <span>
+                  You have:{" "}
+                  <span className="font-bold">{songsLeftToListen.length} </span>
+                  <span className="font-bold">
+                    {songsLeftToListen.length > 1 ? "songs" : "song"}
+                  </span>{" "}
+                  left to listen to, before you can vote. Unlistened file
+                  submissions are marked with a
+                </span>
+                <Headphones className="inline-block size-3" />
+              </div>
             </AlertDescription>
           </Alert>
         )}
