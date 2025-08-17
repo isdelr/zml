@@ -444,8 +444,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             <AlertTitle className="font-bold text-xl mb-2">
               Listening Requirement
             </AlertTitle>
-            <AlertDescription className="text-blue-800/80">
-              <div className="flex gap-2">
+            <AlertDescription className="text-blue-800/80 dark:text-blue-400/80">
+              <div className="flex gap-2 items-center">
                 <span>
                   You have:{" "}
                   <span className="font-bold">{songsLeftToListen.length} </span>
@@ -455,7 +455,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
                   left to listen to, before you can vote. Unlistened file
                   submissions are marked with a
                 </span>
-                <Headphones className="inline-block size-3" />
+                <Headphones className="inline-block size-6" />
               </div>
             </AlertDescription>
           </Alert>
