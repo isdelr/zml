@@ -1,109 +1,162 @@
+// File: convex/listenProgress.ts
+
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { Doc } from "./_generated/dataModel";
+
 /**
- * Fetches the listening progress for the current user for all submissions in a given round.
+ * Return all listen progress docs for the current user within a round.
+ * Optimized to perform a single indexed scan for the user's progress and
+ * then filter to the submissions in the round, instead of N lookups.
  */
 export const getForRound = query({
   args: { roundId: v.id("rounds") },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Doc<"listenProgress">[]> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
+    // Fetch submissions in this round (we only need their IDs)
     const submissions = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
-
     if (submissions.length === 0) return [];
 
-    const submissionIds = submissions.map((s) => s._id);
+    const submissionIdSet = new Set(submissions.map((s) => s._id.toString()));
 
-    // Fetch all progress documents for the user and the round's submissions in parallel.
-    const progressDocs = await Promise.all(
-      submissionIds.map((submissionId) =>
-        ctx.db
-          .query("listenProgress")
-          .withIndex("by_user_and_submission", (q) =>
-            q.eq("userId", userId).eq("submissionId", submissionId),
-          )
-          .first(),
-      ),
+    // Scan all of the user's listen progress (indexed by userId),
+    // and filter down to just the submissions in this round.
+    const allMyProgress = await ctx.db
+      .query("listenProgress")
+      .withIndex("by_user_and_submission", (q) => q.eq("userId", userId))
+      .collect();
+
+    return allMyProgress.filter((p) =>
+      submissionIdSet.has(p.submissionId.toString()),
     );
-
-    // Filter out nulls for submissions the user hasn't started listening to yet.
-    return progressDocs.filter((doc): doc is NonNullable<typeof doc> => doc !== null);
   },
 });
 
 /**
  * Updates a user's listening progress for a specific submission.
- * This is designed to be called periodically from the client.
+ * - Robust input validation and clamping
+ * - Server-side guards against tampering (disallow large jumps)
+ * - Only updates when there's meaningful change
+ * - Ignores non-file submissions and disabled listen rules
  */
 export const updateProgress = mutation({
   args: {
     submissionId: v.id("submissions"),
     progressSeconds: v.number(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<void> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return;
 
-    const submission = await ctx.db.get(args.submissionId);
-    if (!submission || submission.duration === undefined || submission.duration === null) return;
+    // Validate inbound value early
+    if (!Number.isFinite(args.progressSeconds)) return;
 
-    const league = await ctx.db.get(submission.leagueId);
+    const submission = await ctx.db.get(args.submissionId);
     if (
-      !league ||
-      !league.enforceListenPercentage ||
-      league.listenPercentage === undefined ||
-      league.listenTimeLimitMinutes === undefined
+      !submission ||
+      submission.duration === undefined ||
+      submission.duration === null
     ) {
-      // If the league doesn't enforce listening, no need to track.
       return;
     }
 
-    const existingProgress = await ctx.db
+    // Only track file-based submissions server-side
+    if (submission.submissionType !== "file") {
+      return;
+    }
+
+    const league = await ctx.db.get(submission.leagueId);
+    if (!league || !league.enforceListenPercentage) {
+      // If listening is not enforced, we don't need to track.
+      return;
+    }
+
+    // Handle legacy or partially configured leagues gracefully.
+    // Default to "percentage only" if time limit is missing.
+    const listenPercentage =
+      league.listenPercentage !== undefined ? league.listenPercentage : 100;
+    const timeLimitSeconds =
+      league.listenTimeLimitMinutes !== undefined
+        ? Math.max(0, league.listenTimeLimitMinutes * 60)
+        : Infinity;
+
+    const requiredPercentage = Math.max(0, Math.min(100, listenPercentage)) / 100;
+    const requiredListenTime = Math.min(
+      submission.duration * requiredPercentage,
+      timeLimitSeconds,
+    );
+
+    // Normalize and clamp reported progress to [0, duration] and to integer seconds
+    const reported = Math.max(
+      0,
+      Math.min(submission.duration, Math.floor(args.progressSeconds)),
+    );
+
+    const existing = await ctx.db
       .query("listenProgress")
       .withIndex("by_user_and_submission", (q) =>
         q.eq("userId", userId).eq("submissionId", args.submissionId),
       )
       .first();
 
-    // If the requirement has already been met, we don't need any more updates.
-    if (existingProgress?.isCompleted) {
+    // If we've already marked completion, do nothing.
+    if (existing?.isCompleted) return;
+
+    // Small optimization: if existing progress is already ahead of the report,
+    // there's nothing to do (Math.max below would keep the old value anyway).
+    if (existing && reported <= existing.progressSeconds) {
+      // If not completed yet, check whether existing progress already meets requirement.
+      if (existing.progressSeconds >= requiredListenTime) {
+        await ctx.db.patch(existing._id, { isCompleted: true });
+      }
       return;
     }
 
-    const requiredPercentage = league.listenPercentage / 100;
-    const timeLimitSeconds = league.listenTimeLimitMinutes * 60;
-    const requiredListenTime = Math.min(
-      submission.duration * requiredPercentage,
-      timeLimitSeconds,
+    // Anti-tampering: Disallow unnaturally large jumps forward between updates.
+    // Use a bounded allowance that scales gently with track length.
+    // - Minimum allowance: 15s (network hiccups, tab throttling)
+    // - Maximum allowance: 60s (prevent huge leaps)
+    // - Also consider up to 10% of track length for very short tracks.
+    const allowedJumpSec = Math.min(
+      60,
+      Math.max(15, Math.floor(submission.duration * 0.1)),
     );
 
-    const isCompleted = args.progressSeconds >= requiredListenTime;
-
-    if (existingProgress) {
-      // SECURITY: To prevent users from cheating by skipping ahead, we only accept updates
-      // that are reasonably close to their last recorded progress. A 15-second buffer
-      // allows for network latency and minor seeking without allowing huge jumps.
-      if (args.progressSeconds > existingProgress.progressSeconds + 15) {
-        return; // User likely skipped ahead; ignore this update.
+    if (existing) {
+      const delta = reported - existing.progressSeconds;
+      if (delta > allowedJumpSec) {
+        // Likely a manual seek far ahead — ignore this update.
+        return;
       }
-      
-      await ctx.db.patch(existingProgress._id, {
-        // Always store the highest progress reached to handle cases where the user seeks backward.
-        progressSeconds: Math.max(args.progressSeconds, existingProgress.progressSeconds),
-        isCompleted: existingProgress.isCompleted || isCompleted,
-      });
+
+      const newProgress = existing.progressSeconds + delta; // equals 'reported'
+      const completed = newProgress >= requiredListenTime;
+
+      // Only write if something actually changed.
+      if (newProgress !== existing.progressSeconds || completed !== existing.isCompleted) {
+        await ctx.db.patch(existing._id, {
+          progressSeconds: newProgress,
+          isCompleted: completed,
+        });
+      }
     } else {
-      // This is the first progress update for this song.
+      // First record: accept as-is (already clamped), but still apply anti-tamper
+      // for extremely large initial reports (e.g., direct jump near the end).
+      // For first update, allow up to allowedJumpSec; otherwise, start at reported if small.
+      const initialProgress =
+        reported > allowedJumpSec ? 0 : reported;
+
       await ctx.db.insert("listenProgress", {
         userId,
         submissionId: args.submissionId,
-        progressSeconds: args.progressSeconds,
-        isCompleted,
+        progressSeconds: initialProgress,
+        isCompleted: initialProgress >= requiredListenTime,
       });
     }
   },
