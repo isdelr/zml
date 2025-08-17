@@ -56,7 +56,6 @@ interface RoundDetailProps {
   isOwner: boolean;
 }
 
-
 export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   const {
     actions: playerActions,
@@ -67,7 +66,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
   const [isVoteSummaryVisible, setIsVoteSummaryVisible] = useState(false);
   const summaryTriggerRef = useRef<HTMLDivElement | null>(null);
-  const [activeCommentsSubmissionId, setActiveCommentsSubmissionId] = useState<Id<"submissions"> | null>(null);
+  const [activeCommentsSubmissionId, setActiveCommentsSubmissionId] =
+    useState<Id<"submissions"> | null>(null);
   // State for the confirmation dialog
   const [confirmationState, setConfirmationState] = useState<{
     isOpen: boolean;
@@ -76,13 +76,20 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   }>({ isOpen: false, submissionId: null, delta: null });
   const [confirmText, setConfirmText] = useState("");
 
-
   const currentUser = useQuery(api.users.getCurrentUser);
-  const listenersBySubmission = useQuery(api.presence.listForRound, { roundId: round._id });
-  const listenProgressData = useQuery(api.listenProgress.getForRound, { roundId: round._id });
-  const promotePresubs = useMutation(api.submissions.promotePresubmissionsForRound);
+  const listenersBySubmission = useQuery(api.presence.listForRound, {
+    roundId: round._id,
+  });
+  const listenProgressData = useQuery(api.listenProgress.getForRound, {
+    roundId: round._id,
+  });
+  const promotePresubs = useMutation(
+    api.submissions.promotePresubmissionsForRound,
+  );
   const promotedRef = useRef<string | null>(null);
-  const submissions = useQuery(api.submissions.getForRound, { roundId: round._id });
+  const submissions = useQuery(api.submissions.getForRound, {
+    roundId: round._id,
+  });
   const castVote = useMutation(api.votes.castVote).withOptimisticUpdate(
     (
       localStore,
@@ -144,7 +151,9 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       );
     },
   );
-  const userVoteStatus = useQuery(api.votes.getForUserInRound, { roundId: round._id });
+  const userVoteStatus = useQuery(api.votes.getForUserInRound, {
+    roundId: round._id,
+  });
   const voters = useQuery(api.votes.getVotersForRound, { roundId: round._id });
   const votes = useQuery(api.votes.getForRound, { roundId: round._id });
 
@@ -187,18 +196,38 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   }, [listenProgressData]);
 
   const songsLeftToListen = useMemo(() => {
-    if (!league.enforceListenPercentage || !submissions || !currentUser) return [];
-    const requiredSubs = submissions.filter((s) => s.submissionType === "file" && s.userId !== currentUser._id);
+    if (!league.enforceListenPercentage || !submissions || !currentUser)
+      return [];
+    const requiredSubs = submissions.filter(
+      (s) => s.submissionType === "file" && s.userId !== currentUser._id,
+    );
     if (requiredSubs.length === 0) return [];
-    return requiredSubs.filter((sub) => listenProgressMap[sub._id]?.isCompleted !== true);
-  }, [league.enforceListenPercentage, submissions, currentUser, listenProgressMap]);
+    return requiredSubs.filter(
+      (sub) => listenProgressMap[sub._id]?.isCompleted !== true,
+    );
+  }, [
+    league.enforceListenPercentage,
+    submissions,
+    currentUser,
+    listenProgressMap,
+  ]);
 
   const isReadyToVoteOverall = useMemo(() => {
-    if (!league.enforceListenPercentage || !submissions || !currentUser) return true;
-    const requiredSubs = submissions.filter((s) => s.submissionType === "file" && s.userId !== currentUser._id);
+    if (!league.enforceListenPercentage || !submissions || !currentUser)
+      return true;
+    const requiredSubs = submissions.filter(
+      (s) => s.submissionType === "file" && s.userId !== currentUser._id,
+    );
     if (requiredSubs.length === 0) return true;
-    return requiredSubs.every((sub) => listenProgressMap[sub._id]?.isCompleted === true);
-  }, [league.enforceListenPercentage, submissions, currentUser, listenProgressMap]);
+    return requiredSubs.every(
+      (sub) => listenProgressMap[sub._id]?.isCompleted === true,
+    );
+  }, [
+    league.enforceListenPercentage,
+    submissions,
+    currentUser,
+    listenProgressMap,
+  ]);
 
   const sortedSubmissions = useMemo(() => {
     if (!submissions) return undefined;
@@ -219,7 +248,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
     const seededRandom = (seed: number) => {
       return function () {
-        let t = seed += 0x6D2B79F5;
+        let t = (seed += 0x6d2b79f5);
         t = Math.imul(t ^ (t >>> 15), t | 1);
         t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -238,10 +267,17 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       return newArray;
     };
 
-    const fileSubmissions = submissions.filter(s => s.submissionType === 'file');
-    const linkSubmissions = submissions.filter(s => s.submissionType === 'spotify' || s.submissionType === 'youtube');
+    const fileSubmissions = submissions.filter(
+      (s) => s.submissionType === "file",
+    );
+    const linkSubmissions = submissions.filter(
+      (s) => s.submissionType === "spotify" || s.submissionType === "youtube",
+    );
 
-    const sortById = (a: { _id: Id<"submissions"> }, b: { _id: Id<"submissions"> }) => a._id.localeCompare(b._id);
+    const sortById = (
+      a: { _id: Id<"submissions"> },
+      b: { _id: Id<"submissions"> },
+    ) => a._id.localeCompare(b._id);
     fileSubmissions.sort(sortById);
     linkSubmissions.sort(sortById);
 
@@ -251,12 +287,14 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     return [...shuffledFiles, ...shuffledLinks];
   }, [submissions, round.status, round._id]);
 
-
   const activeSubmissionForPanel = useMemo(() => {
     if (!activeCommentsSubmissionId || !sortedSubmissions) {
       return null;
     }
-    return sortedSubmissions.find(s => s._id === activeCommentsSubmissionId) ?? null;
+    return (
+      sortedSubmissions.find((s) => s._id === activeCommentsSubmissionId) ??
+      null
+    );
   }, [activeCommentsSubmissionId, sortedSubmissions]);
 
   const handleConfirmFinalVote = () => {
@@ -306,7 +344,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   };
 
   const handlePlaySong = (song: Song, index: number) => {
-    const isThisSongCurrent = currentTrackIndex !== null && queue[currentTrackIndex]?._id === song._id;
+    const isThisSongCurrent =
+      currentTrackIndex !== null && queue[currentTrackIndex]?._id === song._id;
     if (isThisSongCurrent) {
       playerActions.togglePlayPause();
     } else {
@@ -315,7 +354,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   };
 
   const handlePlaySongFromPanel = (song: Song) => {
-    const indexInQueue = sortedSubmissions?.findIndex(s => s._id === song._id) ?? -1;
+    const indexInQueue =
+      sortedSubmissions?.findIndex((s) => s._id === song._id) ?? -1;
     if (indexInQueue !== -1) {
       handlePlaySong(song, indexInQueue);
     } else {
@@ -328,9 +368,23 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   const positiveVotesRemaining = league.maxPositiveVotes - upvotesUsed;
   const negativeVotesRemaining = league.maxNegativeVotes - downvotesUsed;
   const isVoteFinal = userVoteStatus?.hasVoted ?? false;
-  const totalDurationSeconds = useMemo(() => submissions?.reduce((total, sub) => total + (sub.duration || 0), 0) ?? 0, [submissions]);
-  const mySubmissions = useMemo(() => submissions?.filter((s) => s.userId === currentUser?._id), [submissions, currentUser]);
-  const submittedUsers = useMemo(() => submissions?.map((sub) => ({ name: sub.submittedBy, image: sub.submittedByImage })) ?? [], [submissions]);
+  const totalDurationSeconds = useMemo(
+    () =>
+      submissions?.reduce((total, sub) => total + (sub.duration || 0), 0) ?? 0,
+    [submissions],
+  );
+  const mySubmissions = useMemo(
+    () => submissions?.filter((s) => s.userId === currentUser?._id),
+    [submissions, currentUser],
+  );
+  const submittedUsers = useMemo(
+    () =>
+      submissions?.map((sub) => ({
+        name: sub.submittedBy,
+        image: sub.submittedByImage,
+      })) ?? [],
+    [submissions],
+  );
 
   const formatDuration = (totalSeconds: number) => {
     if (!totalSeconds || totalSeconds <= 0) return null;
@@ -348,32 +402,34 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
   return (
     <section>
-      {isOwner && (<RoundAdminControls round={round} submissions={submissions} votes={votes} />)}
-
-      {round.status === "voting" && league.enforceListenPercentage && songsLeftToListen.length > 0 && (
-        <Alert className="mb-8 border-blue-500/50 bg-blue-500/10 text-blue-400">
-          <Headphones className="size-4" />
-          <AlertTitle className="font-bold">Listening Requirement</AlertTitle>
-          <AlertDescription className="text-blue-400/80">
-            You have <strong>{songsLeftToListen.length} song{songsLeftToListen.length > 1 ? 's' : ''} left to listen to</strong> before you can vote. Unlistened file submissions are marked with a <Headphones className="inline-block size-3" /> icon.
-          </AlertDescription>
-        </Alert>
+      {isOwner && (
+        <RoundAdminControls
+          round={round}
+          submissions={submissions}
+          votes={votes}
+        />
       )}
 
-      {round.status === "voting" && userVoteStatus && !userVoteStatus.hasVoted && !userVoteStatus.canVote && (
-        <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10 text-yellow-400">
-          <Ban className="size-4" />
-          <AlertTitle className="font-bold">Voting Restricted</AlertTitle>
-          <AlertDescription className="text-yellow-400/80">
-            You must submit a song to a round to be eligible to vote.
-          </AlertDescription>
-        </Alert>
-      )}
+
+      {round.status === "voting" &&
+        userVoteStatus &&
+        !userVoteStatus.hasVoted &&
+        !userVoteStatus.canVote && (
+          <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10 text-yellow-400">
+            <Ban className="size-4" />
+            <AlertTitle className="font-bold">Voting Restricted</AlertTitle>
+            <AlertDescription className="text-yellow-400/80">
+              You must submit a song to a round to be eligible to vote.
+            </AlertDescription>
+          </Alert>
+        )}
 
       <RoundHeader
         round={round}
         submissions={sortedSubmissions}
-        onPlayAll={(songs, startIndex) => playerActions.playRound(songs, startIndex)}
+        onPlayAll={(songs, startIndex) =>
+          playerActions.playRound(songs, startIndex)
+        }
         positiveVotesRemaining={positiveVotesRemaining}
         negativeVotesRemaining={negativeVotesRemaining}
         hasVoted={isVoteFinal}
@@ -382,18 +438,46 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         totalDuration={formatDuration(totalDurationSeconds)}
       />
 
+      {round.status === "voting" &&
+        league.enforceListenPercentage &&
+        songsLeftToListen.length > 0 && (
+          <Alert className="mb-8 border-blue-500/50 bg-blue-500/10 text-blue-400">
+            <Headphones className="size-4" />
+            <AlertTitle className="font-bold">Listening Requirement</AlertTitle>
+            <AlertDescription className="text-blue-400/80">
+              You have{" "}
+              <strong>
+                {songsLeftToListen.length} song
+                {songsLeftToListen.length > 1 ? "s" : ""} left to listen to
+              </strong>{" "}
+              before you can vote. Unlistened file submissions are marked with a{" "}
+              <Headphones className="inline-block size-6" />
+            </AlertDescription>
+          </Alert>
+        )}
+
       <div className="mt-8">
-        <SubmissionForm round={round as Doc<"rounds">} roundStatus={round.status} currentUser={currentUser} mySubmissions={mySubmissions} />
+        <SubmissionForm
+          round={round as Doc<"rounds">}
+          roundStatus={round.status}
+          currentUser={currentUser}
+          mySubmissions={mySubmissions}
+        />
         {round.status === "submissions" && (
           <div className="mt-8 rounded-lg border bg-card p-6 text-center">
             <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
             {submittedUsers.length > 0 ? (
               <div className="mt-4 flex flex-col items-center justify-center gap-2">
                 <AvatarStack users={submittedUsers} />
-                <p className="text-sm text-muted-foreground">{submittedUsers.length} submission{submittedUsers.length > 1 ? "s" : ""}</p>
+                <p className="text-sm text-muted-foreground">
+                  {submittedUsers.length} submission
+                  {submittedUsers.length > 1 ? "s" : ""}
+                </p>
               </div>
             ) : (
-              <p className="mt-2 text-sm text-muted-foreground">No one has submitted yet. Be the first!</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                No one has submitted yet. Be the first!
+              </p>
             )}
           </div>
         )}
@@ -407,7 +491,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
               <div className="mt-4 flex flex-col items-center justify-center gap-2">
                 <AvatarStack users={voters} />
                 <p className="text-sm text-muted-foreground">
-                  {voters.length} member{voters.length !== 1 ? "s" : ""} have cast their votes.
+                  {voters.length} member{voters.length !== 1 ? "s" : ""} have
+                  cast their votes.
                 </p>
               </div>
             </div>
@@ -445,7 +530,9 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       <SubmissionCommentsPanel
         submission={activeSubmissionForPanel}
         roundStatus={round.status}
-        onOpenChange={(isOpen) => !isOpen && setActiveCommentsSubmissionId(null)}
+        onOpenChange={(isOpen) =>
+          !isOpen && setActiveCommentsSubmissionId(null)
+        }
         onPlaySong={handlePlaySongFromPanel}
       />
 
@@ -453,7 +540,11 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
         open={confirmationState.isOpen}
         onOpenChange={(isOpen) => {
           if (!isOpen) {
-            setConfirmationState({ isOpen: false, submissionId: null, delta: null });
+            setConfirmationState({
+              isOpen: false,
+              submissionId: null,
+              delta: null,
+            });
             setConfirmText("");
           }
         }}
@@ -462,9 +553,9 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Final Vote Confirmation</AlertDialogTitle>
             <AlertDialogDescription>
-              This is your last vote for this round. Once you cast this vote, all
-              your votes will be locked and cannot be changed. Are you sure you
-              want to proceed?
+              This is your last vote for this round. Once you cast this vote,
+              all your votes will be locked and cannot be changed. Are you sure
+              you want to proceed?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-2 space-y-2">
@@ -481,7 +572,11 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => {
-                setConfirmationState({ isOpen: false, submissionId: null, delta: null });
+                setConfirmationState({
+                  isOpen: false,
+                  submissionId: null,
+                  delta: null,
+                });
                 setConfirmText("");
               }}
             >

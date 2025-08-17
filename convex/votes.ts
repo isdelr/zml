@@ -1,3 +1,6 @@
+// File: convex/votes.ts
+"use client";
+
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -169,7 +172,9 @@ export const castVote = mutation({
         .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
         .collect();
 
-      const requiredSubs = allSubs.filter((s) => s.userId !== userId && s.submissionType === "file");
+      const requiredSubs = allSubs.filter(
+        (s) => s.submissionType === "file" && s.userId !== userId,
+      );
 
       if (requiredSubs.length > 0) {
         const progressDocs = await Promise.all(
@@ -183,7 +188,9 @@ export const castVote = mutation({
           ),
         );
 
-        const allCompleted = progressDocs.every((p) => p !== null && p.isCompleted);
+        const allCompleted = progressDocs.every(
+          (p) => p !== null && p.isCompleted,
+        );
         if (!allCompleted) {
           throw new Error(
             "You must listen to the required portion of all file submissions before voting.",
@@ -194,20 +201,32 @@ export const castVote = mutation({
 
     const allUserVotesInRound = await ctx.db
       .query("votes")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId))
+      .withIndex("by_round_and_user", (q) =>
+        q.eq("roundId", round._id).eq("userId", userId),
+      )
       .collect();
 
-    const upUsedSoFar = allUserVotesInRound.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
+    const upUsedSoFar = allUserVotesInRound.reduce(
+      (sum, v) => sum + Math.max(0, v.vote),
+      0,
+    );
     const downUsedSoFar = allUserVotesInRound.reduce(
       (sum, v) => sum + Math.abs(Math.min(0, v.vote)),
       0,
     );
-    if (upUsedSoFar === league.maxPositiveVotes && downUsedSoFar === league.maxNegativeVotes) {
+    if (
+      upUsedSoFar === league.maxPositiveVotes &&
+      downUsedSoFar === league.maxNegativeVotes
+    ) {
       throw new Error("Your votes are final and cannot be changed.");
     }
 
-    const existingVote = allUserVotesInRound.find((v) => v.submissionId === args.submissionId);
-    const otherVotes = allUserVotesInRound.filter((v) => v.submissionId !== args.submissionId);
+    const existingVote = allUserVotesInRound.find(
+      (v) => v.submissionId === args.submissionId,
+    );
+    const otherVotes = allUserVotesInRound.filter(
+      (v) => v.submissionId !== args.submissionId,
+    );
 
     const current = existingVote?.vote ?? 0;
     const newVote = current + args.delta;
@@ -215,18 +234,25 @@ export const castVote = mutation({
     if (league.limitVotesPerSubmission) {
       if (args.delta === 1) {
         if (newVote > (league.maxPositiveVotesPerSubmission ?? 1)) {
-          throw new Error("You have reached the maximum number of upvotes for this song.");
+          throw new Error(
+            "You have reached the maximum number of upvotes for this song.",
+          );
         }
       }
       if (args.delta === -1) {
         if (Math.abs(newVote) > (league.maxNegativeVotesPerSubmission ?? 0)) {
-          throw new Error("You have reached the maximum number of downvotes for this song.");
+          throw new Error(
+            "You have reached the maximum number of downvotes for this song.",
+          );
         }
       }
     }
 
     const otherPos = otherVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
-    const otherNeg = otherVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
+    const otherNeg = otherVotes.reduce(
+      (sum, v) => sum + Math.abs(Math.min(0, v.vote)),
+      0,
+    );
 
     const newPosUsed = otherPos + Math.max(0, newVote);
     const newNegUsed = otherNeg + Math.abs(Math.min(0, newVote));
@@ -257,14 +283,20 @@ export const castVote = mutation({
 
     const finalVotes = await ctx.db
       .query("votes")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId))
+      .withIndex("by_round_and_user", (q) =>
+        q.eq("roundId", round._id).eq("userId", userId),
+      )
       .collect();
 
     const finalUp = finalVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
-    const finalDown = finalVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
+    const finalDown = finalVotes.reduce(
+      (sum, v) => sum + Math.abs(Math.min(0, v.vote)),
+      0,
+    );
 
     const currentUserFinishedVoting =
-      finalUp === league.maxPositiveVotes && finalDown === league.maxNegativeVotes;
+      finalUp === league.maxPositiveVotes &&
+      finalDown === league.maxNegativeVotes;
 
     if (currentUserFinishedVoting) {
       const allVotesInRound = await ctx.db
@@ -277,12 +309,19 @@ export const castVote = mutation({
         .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
         .collect();
 
-      const submitterIds = [...new Set(allSubmissionsInRound.map((s) => s.userId))];
+      const submitterIds = [
+        ...new Set(allSubmissionsInRound.map((s) => s.userId)),
+      ];
 
       let allSubmittersHaveVoted = true;
       for (const submitterId of submitterIds) {
-        const submitterVotes = allVotesInRound.filter((v) => v.userId === submitterId);
-        const submitterUp = submitterVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
+        const submitterVotes = allVotesInRound.filter(
+          (v) => v.userId === submitterId,
+        );
+        const submitterUp = submitterVotes.reduce(
+          (sum, v) => sum + Math.max(0, v.vote),
+          0,
+        );
         const submitterDown = submitterVotes.reduce(
           (sum, v) => sum + Math.abs(Math.min(0, v.vote)),
           0,
@@ -299,22 +338,36 @@ export const castVote = mutation({
       if (allSubmittersHaveVoted) {
         await ctx.db.patch(round._id, { status: "finished" });
 
-        await ctx.scheduler.runAfter(0, internal.leagues.calculateAndStoreResults, {
-          roundId: round._id,
-        });
+        await ctx.scheduler.runAfter(
+          0,
+          internal.leagues.calculateAndStoreResults,
+          {
+            roundId: round._id,
+          },
+        );
 
-        await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
-          leagueId: league._id,
-          type: "round_finished",
-          message: `The round "${round.title}" in "${league.name}" has finished automatically! Check out the results.`,
-          link: `/leagues/${league._id}/round/${round._id}`,
-          triggeringUserId: userId,
-        });
+        await ctx.scheduler.runAfter(
+          0,
+          internal.notifications.createForLeague,
+          {
+            leagueId: league._id,
+            type: "round_finished",
+            message: `The round "${round.title}" in "${league.name}" has finished automatically! Check out the results.`,
+            link: `/leagues/${league._id}/round/${round._id}`,
+            triggeringUserId: userId,
+          },
+        );
 
-        return { message: "Your vote was the last one! The round is now finished.", isFinal: true };
+        return {
+          message: "Your vote was the last one! The round is now finished.",
+          isFinal: true,
+        };
       }
 
-      return { message: "All votes used. Your participation is recorded!", isFinal: true };
+      return {
+        message: "All votes used. Your participation is recorded!",
+        isFinal: true,
+      };
     }
 
     return { message: "Vote saved.", isFinal: false };
