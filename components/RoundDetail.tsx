@@ -112,7 +112,8 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       );
       if (idx > -1) {
         const currentVal = newVoteStatus.votes[idx].vote;
-        const nextVal = currentVal + delta;
+        // Clamp to [-1, 1] to mirror server rules
+        const nextVal = Math.max(-1, Math.min(1, currentVal + delta));
         if (nextVal === 0) {
           newVoteStatus.votes.splice(idx, 1);
         } else {
@@ -324,15 +325,42 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
     const upvotesUsed = userVoteStatus?.upvotesUsed ?? 0;
     const downvotesUsed = userVoteStatus?.downvotesUsed ?? 0;
-    const totalVotesUsed = upvotesUsed + downvotesUsed;
-    const totalVotesAllowed = league.maxPositiveVotes + league.maxNegativeVotes;
 
-    if (totalVotesUsed === totalVotesAllowed - 1) {
-      setConfirmationState({ isOpen: true, submissionId, delta });
+    // Current vote on this submission (0 if none)
+    const currentVote =
+      userVoteStatus?.votes.find((v) => v.submissionId === submissionId)
+        ?.vote ?? 0;
+
+    // Apply the click, clamp to [-1, 1], and derive the actual delta to send
+    const nextVote = Math.max(-1, Math.min(1, currentVote + delta));
+    const deltaToSend = (nextVote - currentVote) as -1 | 0 | 1;
+
+    // No-op (e.g., clicking the same direction again)
+    if (deltaToSend === 0) return;
+
+    // Predict post-click usage
+    const nextUpvotesUsed =
+      upvotesUsed - Math.max(0, currentVote) + Math.max(0, nextVote);
+    const nextDownvotesUsed =
+      downvotesUsed -
+      Math.abs(Math.min(0, currentVote)) +
+      Math.abs(Math.min(0, nextVote));
+
+    // Only prompt if this click would actually make votes final
+    const willBeFinal =
+      nextUpvotesUsed === league.maxPositiveVotes &&
+      nextDownvotesUsed === league.maxNegativeVotes;
+
+    if (willBeFinal) {
+      setConfirmationState({
+        isOpen: true,
+        submissionId,
+        delta: deltaToSend as 1 | -1,
+      });
       return;
     }
 
-    castVote({ submissionId, delta })
+    castVote({ submissionId, delta: deltaToSend as 1 | -1 })
       .then((result) => {
         if (result.isFinal) {
           toast.success(result.message);
