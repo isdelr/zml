@@ -444,7 +444,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
             <AlertTitle className="font-bold text-xl mb-2">
               Listening Requirement
             </AlertTitle>
-            <AlertDescription className="text-blue-400/80">
+            <AlertDescription className="text-blue-800/80">
               <div className="flex gap-2">
                 <span>
                   You have:{" "}
