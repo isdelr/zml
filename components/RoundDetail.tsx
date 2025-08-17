@@ -11,7 +11,7 @@ import { AvatarStack } from "./AvatarStack";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { SubmissionCommentsPanel } from "./round/SubmissionCommentsPanel";
-import { Ban } from "lucide-react";
+import { Ban, Headphones } from "lucide-react";
 // New imports for the confirmation dialog
 import {
   AlertDialog,
@@ -186,6 +186,13 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
     return map;
   }, [listenProgressData]);
 
+  const songsLeftToListen = useMemo(() => {
+    if (!league.enforceListenPercentage || !submissions || !currentUser) return [];
+    const requiredSubs = submissions.filter((s) => s.submissionType === "file" && s.userId !== currentUser._id);
+    if (requiredSubs.length === 0) return [];
+    return requiredSubs.filter((sub) => listenProgressMap[sub._id]?.isCompleted !== true);
+  }, [league.enforceListenPercentage, submissions, currentUser, listenProgressMap]);
+
   const isReadyToVoteOverall = useMemo(() => {
     if (!league.enforceListenPercentage || !submissions || !currentUser) return true;
     const requiredSubs = submissions.filter((s) => s.submissionType === "file" && s.userId !== currentUser._id);
@@ -342,6 +349,16 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
   return (
     <section>
       {isOwner && (<RoundAdminControls round={round} submissions={submissions} votes={votes} />)}
+
+      {round.status === "voting" && league.enforceListenPercentage && songsLeftToListen.length > 0 && (
+        <Alert className="mb-8 border-blue-500/50 bg-blue-500/10 text-blue-400">
+          <Headphones className="size-4" />
+          <AlertTitle className="font-bold">Listening Requirement</AlertTitle>
+          <AlertDescription className="text-blue-400/80">
+            You have <strong>{songsLeftToListen.length} song{songsLeftToListen.length > 1 ? 's' : ''} left to listen to</strong> before you can vote. Unlistened file submissions are marked with a <Headphones className="inline-block size-3" /> icon.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {round.status === "voting" && userVoteStatus && !userVoteStatus.hasVoted && !userVoteStatus.canVote && (
         <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10 text-yellow-400">

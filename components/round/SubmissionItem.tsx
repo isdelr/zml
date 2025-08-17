@@ -1,5 +1,3 @@
-// File: components/round/SubmissionItem.tsx
-
 "use client";
 
 import { cn } from "@/lib/utils";
@@ -11,6 +9,7 @@ import {
   Play,
   Pause,
   Ban,
+  Headphones,
 } from "lucide-react";
 import { FaSpotify, FaYoutube } from "react-icons/fa";
 import Image from "next/image";
@@ -93,6 +92,11 @@ export function SubmissionItem({
     return listenProgress?.isCompleted || localListenProgress[song._id as Id<"submissions">];
   }, [league, localListenProgress, listenProgress, song._id, song.submissionType, userIsSubmitter]);
 
+  const showListenRequirementIndicator = useMemo(() => {
+    return roundStatus === 'voting' && league.enforceListenPercentage && song.submissionType === 'file' && !userIsSubmitter && !isListenRequirementMetForThisSong;
+  }, [roundStatus, league.enforceListenPercentage, song.submissionType, userIsSubmitter, isListenRequirementMetForThisSong]);
+
+
   const upvoteDisabledReason = useMemo(() => {
     if (roundStatus !== "voting") return "Voting is not currently open.";
     if (userIsSubmitter) return "You cannot vote on your own submission.";
@@ -171,7 +175,7 @@ export function SubmissionItem({
 
   return (
     <div className="border-b border-border last:border-b-0">
-      <div className={cn("p-3 transition-colors", isThisSongCurrent ? "bg-accent" : "hover:bg-accent/50", isCommentsVisible && "bg-accent/50")}>
+      <div className={cn("p-3 transition-colors", isThisSongCurrent ? "bg-accent" : "hover:bg-accent/50", isCommentsVisible && "bg-accent/50", showListenRequirementIndicator && "border-l-2 border-primary/70")}>
         {/* Mobile Layout */}
         <div className="md:hidden">
           <div className="flex items-center gap-3">
@@ -187,7 +191,21 @@ export function SubmissionItem({
               </div>
             </div>
             <div className="min-w-0 flex-1 cursor-pointer" onClick={onPlaySong}>
-              <p className={cn("truncate font-semibold", isThisSongCurrent && "text-primary")}>{song.songTitle}</p>
+              <p className={cn("truncate font-semibold", isThisSongCurrent && "text-primary")}>
+                {song.songTitle}
+                {showListenRequirementIndicator && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Headphones className="ml-1.5 inline-block size-4 text-primary" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>You still need to listen to this song to vote.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </p>
               <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
             </div>
             {isThisSongPlaying ? <EqualizerIcon /> : roundStatus === 'finished' ? <div className={cn("text-right text-sm font-bold", pointsColor)}>{song.points} pts</div> : null}
@@ -222,7 +240,21 @@ export function SubmissionItem({
               )}
             </div>
             <div className="truncate">
-              <p className={cn("truncate font-semibold", isThisSongCurrent && "text-primary")}>{song.songTitle}</p>
+              <p className={cn("truncate font-semibold flex items-center", isThisSongCurrent && "text-primary")}>
+                {song.songTitle}
+                {showListenRequirementIndicator && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Headphones className="ml-1.5 inline-block size-4 text-primary" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>You still need to listen to this song to vote.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </p>
               <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
             </div>
           </div>
