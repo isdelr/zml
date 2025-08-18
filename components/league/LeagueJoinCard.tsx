@@ -1,7 +1,12 @@
 "use client";
-
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { AvatarStack } from "@/components/AvatarStack";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,8 +20,8 @@ import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 
 interface LeagueJoinCardProps {
-  leagueData: unknown;
-  rounds: unknown[] | undefined;
+  leagueData: any;
+  rounds: any[] | undefined;
 }
 
 export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
@@ -44,15 +49,11 @@ export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
         toast.success(`Successfully joined ${leagueData.name}!`, {
           id: toastId,
         });
+        router.push(`/leagues/${String(result)}`);
       }
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error(error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to join league.",
-        {
-          id: toastId,
-        },
-      );
+      toast.error(error?.message || "Failed to join league.", { id: toastId });
     }
   };
 
@@ -67,9 +68,7 @@ export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>{leagueData.memberCount} members</span>
-              {leagueData.members && (
-                <AvatarStack users={leagueData.members} />
-              )}
+              {leagueData.members && <AvatarStack users={leagueData.members} />}
             </div>
             <div className="flex items-center gap-2">
               <span>Created by</span>
@@ -81,7 +80,7 @@ export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
                 <AvatarFallback>
                   <div
                     dangerouslySetInnerHTML={{
-                      __html: toSvg(leagueData.creatorId, 24),
+                      __html: toSvg(String(leagueData.creatorId), 24),
                     }}
                   />
                 </AvatarFallback>
@@ -101,7 +100,7 @@ export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
                 </p>
               )}
               {rounds &&
-                rounds.map((round) => (
+                rounds.map((round: any) => (
                   <Card key={round._id} className="p-3">
                     <p className="font-medium">{round.title}</p>
                     <p className="text-sm text-muted-foreground line-clamp-2">

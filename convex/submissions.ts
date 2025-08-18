@@ -25,7 +25,6 @@ export const getSongMetadataFromLink = action({
           const id = raw.slice("spotify:track:".length);
           return /^[A-Za-z0-9]{22}$/.test(id) ? id : null;
         }
-
         const url = new URL(raw);
         if (url.hostname.includes("open.spotify.com")) {
           const segments = url.pathname.split("/").filter(Boolean);
@@ -45,43 +44,35 @@ export const getSongMetadataFromLink = action({
       const clientId = process.env.SPOTIFY_CLIENT_ID;
       const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
       if (!clientId || !clientSecret) {
-        throw new Error(
-          "Spotify credentials are not configured on the server.",
-        );
+        throw new Error("Spotify credentials are not configured on the server.");
       }
-
       const trackId = extractSpotifyTrackId(args.link);
       if (!trackId) {
         throw new Error("Could not extract a Spotify track ID from the link.");
       }
-
       let track;
       try {
         const credentials = btoa(`${clientId}:${clientSecret}`);
-        const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
-          method: 'POST',
+        const tokenResponse = await fetch("https://accounts.spotify.com/api/token", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': `Basic ${credentials}`
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `Basic ${credentials}`,
           },
-          body: 'grant_type=client_credentials'
+          body: "grant_type=client_credentials",
         });
 
         if (!tokenResponse.ok) {
           throw new Error(`Failed to authenticate with Spotify: ${tokenResponse.status}`);
         }
-
         const tokenData = await tokenResponse.json();
         const accessToken = tokenData.access_token;
-
         if (!accessToken) {
-          throw new Error('Failed to obtain Spotify access token');
+          throw new Error("Failed to obtain Spotify access token");
         }
 
         const trackResponse = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
 
         if (!trackResponse.ok) {
@@ -93,15 +84,12 @@ export const getSongMetadataFromLink = action({
             throw new Error(`Spotify API error: ${trackResponse.status}`);
           }
         }
-
         track = await trackResponse.json();
-      } catch (err: any) {
+      } catch (err) {
         console.error("Spotify API error:", err);
         let errorMessage = "Failed to fetch track metadata from Spotify.";
-        if (err && typeof err === 'object') {
-          if (err.message && typeof err.message === 'string') {
-            errorMessage = err.message;
-          }
+        if (err && typeof err === "object" && err.message && typeof err.message === "string") {
+          errorMessage = err.message;
         }
         throw new Error(errorMessage);
       }
@@ -112,20 +100,12 @@ export const getSongMetadataFromLink = action({
 
       return {
         songTitle: track.name,
-        artist: Array.isArray(track.artists) && track.artists.length > 0
-          ? track.artists
-            .filter((artist: any) => artist && artist.name)
-            .map((a: any) => a.name)
-            .join(", ")
-          : "Unknown Artist",
+        artist: Array.isArray(track.artists) && track.artists.length > 0 ? track.artists.filter((a: any) => a && a.name).map((a: any) => a.name).join(", ") : "Unknown Artist",
         albumArtUrl: track.album?.images?.[0]?.url ?? null,
         duration: Math.round((track.duration_ms ?? 0) / 1000),
         submissionType: "spotify" as const,
       };
-    } else if (
-      args.link.includes("youtube") ||
-      args.link.includes("youtu.be")
-    ) {
+    } else if (args.link.includes("youtube") || args.link.includes("youtu.be")) {
       const videoId = getYouTubeVideoId(args.link);
       if (!videoId) {
         throw new Error("Invalid YouTube link provided.");
@@ -141,7 +121,6 @@ export const getSongMetadataFromLink = action({
         throw new Error("Failed to fetch video data from YouTube API.");
       }
       const data = await response.json();
-
       if (!data.items || data.items.length === 0) {
         throw new Error("Could not find YouTube video with that link.");
       }
@@ -162,27 +141,20 @@ export const getSongMetadataFromLink = action({
       return {
         songTitle: snippet.title,
         artist: snippet.channelTitle,
-        albumArtUrl: snippet.thumbnails.high.url,
+        albumArtUrl: snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url || null,
         submissionType: "youtube" as const,
-        duration: contentDetails.duration
-          ? parseISO8601Duration(contentDetails.duration)
-          : 0,
+        duration: contentDetails.duration ? parseISO8601Duration(contentDetails.duration) : 0,
       };
     }
-    throw new Error(
-      "Invalid link provided. Please use a Spotify or YouTube link.",
-    );
+
+    throw new Error("Invalid link provided. Please use a Spotify or YouTube link.");
   },
 });
 
 export const submitSong = mutation({
   args: {
     roundId: v.id("rounds"),
-    submissionType: v.union(
-      v.literal("file"),
-      v.literal("spotify"),
-      v.literal("youtube"),
-    ),
+    submissionType: v.union(v.literal("file"), v.literal("spotify"), v.literal("youtube")),
     songTitle: v.string(),
     artist: v.string(),
     comment: v.optional(v.string()),
@@ -198,33 +170,21 @@ export const submitSong = mutation({
 
     const round = await ctx.db.get(args.roundId);
     if (!round) throw new Error("Round not found.");
-    if (round.status !== "submissions")
-      throw new Error("Submissions are not open.");
+    if (round.status !== "submissions") throw new Error("Submissions are not open.");
 
     const submissionsPerUser = round.submissionsPerUser ?? 1;
     const existingSubmissions = await ctx.db
       .query("submissions")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", args.roundId).eq("userId", userId),
-      )
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId))
       .collect();
 
     if (existingSubmissions.length >= submissionsPerUser) {
-      throw new Error(
-        `You have already submitted the maximum of ${submissionsPerUser} song(s).`,
-      );
+      throw new Error(`You have already submitted the maximum of ${submissionsPerUser} song(s).`);
     }
 
-    const existingPre = await ctx.db
-      .query("presubmissions")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", args.roundId).eq("userId", userId),
-      )
-      .first();
+    const existingPre = await ctx.db.query("presubmissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).first();
     if (existingPre) {
-      throw new Error(
-        "You already have a presubmission queued. You can wait for it to auto-submit or remove it first.",
-      );
+      throw new Error("You already have a presubmission queued. You can wait for it to auto-submit or remove it first.");
     }
 
     const baseSubmissionData = {
@@ -238,7 +198,7 @@ export const submitSong = mutation({
       searchText: `${args.songTitle} ${args.artist}`,
     };
 
-    let submissionId;
+    let submissionId: Id<"submissions">;
     if (args.submissionType === "file") {
       if (!args.albumArtKey || !args.songFileKey) {
         throw new Error("File keys are required for manual submission.");
@@ -251,9 +211,7 @@ export const submitSong = mutation({
       });
     } else {
       if (!args.songLink || !args.albumArtUrlValue) {
-        throw new Error(
-          "Link and album art URL are required for link submission.",
-        );
+        throw new Error("Link and album art URL are required for link submission.");
       }
       submissionId = await ctx.db.insert("submissions", {
         ...baseSubmissionData,
@@ -262,8 +220,8 @@ export const submitSong = mutation({
         albumArtUrlValue: args.albumArtUrlValue,
       });
     }
-    await submissionCounter.inc(ctx, args.roundId);
 
+    await submissionCounter.inc(ctx, args.roundId);
     const submissionDoc = await ctx.db.get(submissionId);
     await submissionsByUser.insert(ctx, submissionDoc!);
   },
@@ -272,11 +230,7 @@ export const submitSong = mutation({
 export const presubmitSong = mutation({
   args: {
     roundId: v.id("rounds"),
-    submissionType: v.union(
-      v.literal("file"),
-      v.literal("spotify"),
-      v.literal("youtube"),
-    ),
+    submissionType: v.union(v.literal("file"), v.literal("spotify"), v.literal("youtube")),
     songTitle: v.string(),
     artist: v.string(),
     comment: v.optional(v.string()),
@@ -294,25 +248,14 @@ export const presubmitSong = mutation({
     if (!round) throw new Error("Round not found.");
 
     const submissionsPerUser = round.submissionsPerUser ?? 1;
-
     const existingSubmissions = await ctx.db
       .query("submissions")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", args.roundId).eq("userId", userId),
-      )
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId))
       .collect();
-
-    const existingPre = await ctx.db
-      .query("presubmissions")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", args.roundId).eq("userId", userId),
-      )
-      .collect();
+    const existingPre = await ctx.db.query("presubmissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).collect();
 
     if (existingSubmissions.length + existingPre.length >= submissionsPerUser) {
-      throw new Error(
-        `You have already submitted or presubmitted the maximum of ${submissionsPerUser} song(s).`,
-      );
+      throw new Error(`You have already submitted or presubmitted the maximum of ${submissionsPerUser} song(s).`);
     }
 
     const baseData = {
@@ -339,9 +282,7 @@ export const presubmitSong = mutation({
       });
     } else {
       if (!args.songLink || !args.albumArtUrlValue) {
-        throw new Error(
-          "Link and album art URL are required for link presubmission.",
-        );
+        throw new Error("Link and album art URL are required for link presubmission.");
       }
       await ctx.db.insert("presubmissions", {
         ...baseData,
@@ -361,20 +302,13 @@ export const promotePresubmissionsForRound = mutation({
     if (round.status !== "submissions") {
       return;
     }
-
-    const queued = await ctx.db
-      .query("presubmissions")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-      .collect();
-
+    const queued = await ctx.db.query("presubmissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId)).collect();
     if (queued.length === 0) return;
 
     for (const pre of queued) {
       const existing = await ctx.db
         .query("submissions")
-        .withIndex("by_round_and_user", (q) =>
-          q.eq("roundId", pre.roundId).eq("userId", pre.userId),
-        )
+        .withIndex("by_round_and_user", (q) => q.eq("roundId", pre.roundId).eq("userId", pre.userId))
         .first();
       if (existing) {
         await ctx.db.delete(pre._id);
@@ -400,7 +334,6 @@ export const promotePresubmissionsForRound = mutation({
       await submissionCounter.inc(ctx, pre.roundId);
       const doc = await ctx.db.get(submissionId);
       await submissionsByUser.insert(ctx, doc!);
-
       await ctx.db.delete(pre._id);
     }
   },
@@ -411,36 +344,28 @@ export const getMyPresubmissionForRound = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
-
-    const presubmissions = await ctx.db
-      .query("presubmissions")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", args.roundId).eq("userId", userId),
-      )
-      .collect();
-
+    const presubmissions = await ctx.db.query("presubmissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).collect();
     if (presubmissions.length === 0) return [];
-
-    return Promise.all(presubmissions.map(async (pre) => {
-      let albumArtUrl: string | null = null;
-      let songFileUrl: string | null = null;
-
-      if (pre.submissionType === "file") {
-        [albumArtUrl, songFileUrl] = await Promise.all([
-          pre.albumArtKey ? r2.getUrl(pre.albumArtKey) : Promise.resolve(null),
-          pre.songFileKey ? r2.getUrl(pre.songFileKey) : Promise.resolve(null),
-        ]);
-      } else {
-        albumArtUrl = pre.albumArtUrlValue ?? null;
-        songFileUrl = pre.songLink ?? null;
-      }
-
-      return {
-        ...pre,
-        albumArtUrl,
-        songFileUrl,
-      };
-    }));
+    return Promise.all(
+      presubmissions.map(async (pre) => {
+        let albumArtUrl: string | null = null;
+        let songFileUrl: string | null = null;
+        if (pre.submissionType === "file") {
+          [albumArtUrl, songFileUrl] = await Promise.all([
+            pre.albumArtKey ? r2.getUrl(pre.albumArtKey) : Promise.resolve(null),
+            pre.songFileKey ? r2.getUrl(pre.songFileKey) : Promise.resolve(null),
+          ]);
+        } else {
+          albumArtUrl = pre.albumArtUrlValue ?? null;
+          songFileUrl = pre.songLink ?? null;
+        }
+        return {
+          ...pre,
+          albumArtUrl,
+          songFileUrl,
+        };
+      }),
+    );
   },
 });
 
@@ -449,11 +374,7 @@ export const editSong = mutation({
     submissionId: v.id("submissions"),
     songTitle: v.string(),
     artist: v.string(),
-    submissionType: v.union(
-      v.literal("file"),
-      v.literal("spotify"),
-      v.literal("youtube"),
-    ),
+    submissionType: v.union(v.literal("file"), v.literal("spotify"), v.literal("youtube")),
     comment: v.optional(v.string()),
     albumArtKey: v.optional(v.union(v.string(), v.null())),
     songFileKey: v.optional(v.union(v.string(), v.null())),
@@ -464,27 +385,26 @@ export const editSong = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated.");
+
     const submission = await ctx.db.get(args.submissionId);
     if (!submission) throw new Error("Submission not found.");
     if (submission.userId !== userId) {
       throw new Error("You can only edit your own submissions.");
     }
+
     const round = await ctx.db.get(submission.roundId);
     if (!round) throw new Error("Round not found.");
     if (round.status !== "submissions") {
-      throw new Error(
-        "You can only edit submissions during the submission phase.",
-      );
+      throw new Error("You can only edit submissions during the submission phase.");
     }
 
     const oldDoc = submission;
     const { submissionId, ...rest } = args;
-
     const updates: Partial<Doc<"submissions">> = {};
 
     for (const [key, value] of Object.entries(rest)) {
       if (value !== undefined) {
-        (updates as any)[key] = value;
+        (updates)[key] = value;
       }
     }
 
@@ -519,55 +439,29 @@ export const getForRound = query({
     const userId = await getAuthUserId(ctx);
     const round = await ctx.db.get(args.roundId);
     if (!round) return [];
-
     const league = await ctx.db.get(round.leagueId);
     if (!league) return [];
 
-    const submissions = await ctx.db
-      .query("submissions")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-      .collect();
-
+    const submissions = await ctx.db.query("submissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId)).collect();
     if (submissions.length === 0) return [];
 
     const userIds = submissions.map((s) => s.userId);
     const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
-    const userMap = new Map(
-      users
-        .filter((u): u is Doc<"users"> => u !== null)
-        .map((u) => [u._id.toString(), u]),
-    );
+    const userMap = new Map(users.filter((u): u is Doc<"users"> => u !== null).map((u) => [u._id.toString(), u]));
 
-    const allVotesForRound = await ctx.db
-      .query("votes")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-      .collect();
-
+    const allVotesForRound = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId)).collect();
     const pointsBySubmission = new Map<string, number>();
     for (const vote of allVotesForRound) {
       const submissionId = vote.submissionId.toString();
-      pointsBySubmission.set(
-        submissionId,
-        (pointsBySubmission.get(submissionId) ?? 0) + vote.vote,
-      );
+      pointsBySubmission.set(submissionId, (pointsBySubmission.get(submissionId) ?? 0) + vote.vote);
     }
 
-    const userBookmarks = userId
-      ? await ctx.db
-        .query("bookmarks")
-        .withIndex("by_user_and_submission", (q) => q.eq("userId", userId))
-        .collect()
-      : [];
-    const bookmarkedSubmissionIds = new Set(
-      userBookmarks.map((b) => b.submissionId),
-    );
+    const userBookmarks = userId ? await ctx.db.query("bookmarks").withIndex("by_user_and_submission", (q) => q.eq("userId", userId)).collect() : [];
+    const bookmarkedSubmissionIds = new Set(userBookmarks.map((b) => b.submissionId));
 
     const roundResultsMap = new Map<string, Doc<"roundResults">>();
     if (round.status === "finished") {
-      const results = await ctx.db
-        .query("roundResults")
-        .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
-        .collect();
+      const results = await ctx.db.query("roundResults").withIndex("by_round", (q) => q.eq("roundId", args.roundId)).collect();
       for (const result of results) {
         roundResultsMap.set(result.submissionId.toString(), result);
       }
@@ -579,17 +473,12 @@ export const getForRound = query({
         const isAnonymous = round.status === "voting";
 
         const [albumArtUrl, songFileUrl] = await Promise.all([
-          submission.albumArtKey
-            ? r2.getUrl(submission.albumArtKey)
-            : Promise.resolve(submission.albumArtUrlValue ?? null),
-          submission.songFileKey
-            ? r2.getUrl(submission.songFileKey)
-            : Promise.resolve(submission.songLink ?? null),
+          submission.albumArtKey ? r2.getUrl(submission.albumArtKey) : Promise.resolve(submission.albumArtUrlValue ?? null),
+          submission.songFileKey ? r2.getUrl(submission.songFileKey) : Promise.resolve(submission.songLink ?? null),
         ]);
 
         let points = 0;
         let isPenalized = false;
-
         if (round.status === "finished") {
           const resultDoc = roundResultsMap.get(submission._id.toString());
           if (resultDoc) {
@@ -600,10 +489,10 @@ export const getForRound = query({
 
         return {
           ...submission,
-          submittedBy: isAnonymous ? "Anonymous" : (user?.name ?? "Anonymous"),
-          submittedByImage: isAnonymous ? null : (user?.image ?? null),
-          albumArtUrl: albumArtUrl,
-          songFileUrl: songFileUrl,
+          submittedBy: isAnonymous ? "Anonymous" : user?.name ?? "Anonymous",
+          submittedByImage: isAnonymous ? null : user?.image ?? null,
+          albumArtUrl,
+          songFileUrl,
           points,
           isPenalized,
           isBookmarked: bookmarkedSubmissionIds.has(submission._id),
@@ -621,11 +510,7 @@ export const getMySubmissions = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    const userSubmissions = await ctx.db
-      .query("submissions")
-      .withIndex("by_user_and_league", (q) => q.eq("userId", userId))
-      .order("desc")
-      .collect();
+    const userSubmissions = await ctx.db.query("submissions").withIndex("by_user_and_league", (q) => q.eq("userId", userId)).order("desc").collect();
 
     const submissionsWithDetails = await Promise.all(
       userSubmissions.map(async (submission) => {
@@ -636,61 +521,29 @@ export const getMySubmissions = query({
 
         let albumArtUrl: string | null = null;
         let songFileUrl: string | null = null;
-
         if (submission.submissionType === "file") {
           [albumArtUrl, songFileUrl] = await Promise.all([
-            submission.albumArtKey
-              ? r2.getUrl(submission.albumArtKey)
-              : Promise.resolve(null),
-            submission.songFileKey
-              ? r2.getUrl(submission.songFileKey)
-              : Promise.resolve(null),
+            submission.albumArtKey ? r2.getUrl(submission.albumArtKey) : Promise.resolve(null),
+            submission.songFileKey ? r2.getUrl(submission.songFileKey) : Promise.resolve(null),
           ]);
         } else {
           albumArtUrl = submission.albumArtUrlValue ?? null;
           songFileUrl = submission.songLink ?? null;
         }
 
-        let result: {
-          type: string;
-          points: number;
-          penaltyApplied?: boolean;
-        };
-
+        let result: { type: string; points: number; penaltyApplied?: boolean };
         if (round.status === "finished") {
-          const roundResult = await ctx.db
-            .query("roundResults")
-            .withIndex("by_submission", (q) =>
-              q.eq("submissionId", submission._id),
-            )
-            .first();
-
+          const roundResult = await ctx.db.query("roundResults").withIndex("by_submission", (q) => q.eq("submissionId", submission._id)).first();
           if (roundResult) {
             const penaltyApplied = roundResult.penaltyApplied ?? false;
             if (roundResult.isWinner) {
-              result = {
-                type: "winner",
-                points: roundResult.points,
-                penaltyApplied,
-              };
+              result = { type: "winner", points: roundResult.points, penaltyApplied };
             } else if (roundResult.points > 0) {
-              result = {
-                type: "positive",
-                points: roundResult.points,
-                penaltyApplied,
-              };
+              result = { type: "positive", points: roundResult.points, penaltyApplied };
             } else if (roundResult.points < 0) {
-              result = {
-                type: "negative",
-                points: roundResult.points,
-                penaltyApplied,
-              };
+              result = { type: "negative", points: roundResult.points, penaltyApplied };
             } else {
-              result = {
-                type: "neutral",
-                points: roundResult.points,
-                penaltyApplied,
-              };
+              result = { type: "neutral", points: roundResult.points, penaltyApplied };
             }
           } else {
             result = { type: "pending", points: 0, penaltyApplied: false };
@@ -711,6 +564,7 @@ export const getMySubmissions = query({
         };
       }),
     );
+
     return submissionsWithDetails.filter((s) => s !== null);
   },
 });
@@ -729,16 +583,13 @@ export const addComment = mutation({
     if (!user) {
       throw new Error("User not found.");
     }
-
     if (args.text.trim().length === 0) {
       throw new Error("Comment cannot be empty.");
     }
-
     const submission = await ctx.db.get(args.submissionId);
     if (!submission) {
       throw new Error("Submission not found.");
     }
-
     const round = await ctx.db.get(submission.roundId);
     if (!round) {
       throw new Error("Round not found.");
@@ -762,34 +613,9 @@ export const addComment = mutation({
   },
 });
 
-export const getCommentsForSubmission = query({
-  args: { submissionId: v.id("submissions") },
-  handler: async (ctx, args) => {
-    const comments = await ctx.db
-      .query("comments")
-      .withIndex("by_submission", (q) =>
-        q.eq("submissionId", args.submissionId),
-      )
-      .order("asc")
-      .collect();
-
-    return Promise.all(
-      comments.map(async (comment) => {
-        const user = await ctx.db.get(comment.userId);
-        return {
-          ...comment,
-          authorName: user?.name ?? "Anonymous",
-          authorImage: user?.image ?? null,
-        };
-      }),
-    );
-  },
-});
-
 export const storeWaveform = mutation({
   args: {
     submissionId: v.id("submissions"),
-
     waveformJson: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -800,11 +626,9 @@ export const storeWaveform = mutation({
     if (!submission) {
       throw new Error("Submission not found");
     }
-
     if (submission.waveform) {
       return;
     }
-
     await ctx.db.patch(args.submissionId, { waveform: args.waveformJson });
   },
 });
@@ -827,24 +651,13 @@ export const getSubmissionById = internalQuery({
 export const getPresignedSongUrl = action({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args): Promise<string | null> => {
-    const submission: Doc<"submissions"> | null = await ctx.runQuery(
-      internal.submissions.getSubmissionById,
-      {
-        submissionId: args.submissionId,
-      },
-    );
-
-    if (
-      !submission ||
-      submission.submissionType !== "file" ||
-      !submission.songFileKey
-    ) {
-      console.error(
-        "Could not generate URL: Submission is not a file or key is missing.",
-      );
+    const submission: Doc<"submissions"> | null = await ctx.runQuery(internal.submissions.getSubmissionById, {
+      submissionId: args.submissionId,
+    });
+    if (!submission || submission.submissionType !== "file" || !submission.songFileKey) {
+      console.error("Could not generate URL: Submission is not a file or key is missing.");
       return null;
     }
-
     return await r2.getUrl(submission.songFileKey);
   },
 });
@@ -857,16 +670,8 @@ export const checkForPotentialDuplicates = mutation({
     currentSubmissionId: v.optional(v.id("submissions")),
   },
   handler: async (ctx, args) => {
-    const submissions = await ctx.db
-      .query("submissions")
-      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .collect();
-
-    const presubmissions = await ctx.db
-      .query("presubmissions")
-      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .collect();
-
+    const submissions = await ctx.db.query("submissions").withIndex("by_league", (q) => q.eq("leagueId", args.leagueId)).collect();
+    const presubmissions = await ctx.db.query("presubmissions").withIndex("by_league", (q) => q.eq("leagueId", args.leagueId)).collect();
     const allPotentialSubmissions = [...submissions, ...presubmissions];
 
     if (allPotentialSubmissions.length === 0) {
@@ -879,38 +684,26 @@ export const checkForPotentialDuplicates = mutation({
     let songExists: { title: string; artist: string; roundTitle: string } | null = null;
     let artistExists: { title: string; artist: string; roundTitle: string } | null = null;
 
-    const roundIds = [...new Set(allPotentialSubmissions.map(s => s.roundId))];
-    const rounds = await Promise.all(roundIds.map(id => ctx.db.get(id)));
-    const roundMap = new Map(rounds.filter(Boolean).map(r => [r!._id.toString(), r!.title]));
+    const roundIds = [...new Set(allPotentialSubmissions.map((s) => s.roundId))];
+    const rounds = await Promise.all(roundIds.map((id) => ctx.db.get(id)));
+    const roundMap = new Map(rounds.filter(Boolean).map((r) => [r!._id.toString(), r!.title]));
 
     for (const submission of allPotentialSubmissions) {
       if (args.currentSubmissionId && submission._id === args.currentSubmissionId) {
         continue;
       }
-
       const dbTitle = submission.songTitle.trim().toLowerCase().replace(/\(.*\)|\[.*\]/g, "").trim();
       const dbArtist = submission.artist.trim().toLowerCase();
       const roundTitle = roundMap.get(submission.roundId.toString()) ?? "a previous round";
 
       if (!songExists && (dbTitle.includes(normalizedTitle) || normalizedTitle.includes(dbTitle))) {
-        songExists = {
-          title: submission.songTitle,
-          artist: submission.artist,
-          roundTitle,
-        };
+        songExists = { title: submission.songTitle, artist: submission.artist, roundTitle };
       }
-
       if (!artistExists && dbArtist === normalizedArtist) {
-        artistExists = {
-          title: submission.songTitle,
-          artist: submission.artist,
-          roundTitle,
-        };
+        artistExists = { title: submission.songTitle, artist: submission.artist, roundTitle };
       }
-
       if (songExists && artistExists) break;
     }
-
     return { songExists, artistExists };
   },
 });

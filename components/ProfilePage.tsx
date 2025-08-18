@@ -1,5 +1,4 @@
 "use client";
-
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -21,10 +20,10 @@ import { Button } from "./ui/button";
 import { toSvg } from "jdenticon";
 
 const StatCard = ({
-  icon,
-  title,
-  value,
-}: {
+                    icon,
+                    title,
+                    value,
+                  }: {
   icon: React.ReactNode;
   title: string;
   value: number | string;
@@ -79,7 +78,6 @@ export function ProfilePage({ userId }: { userId: string }) {
 
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-8">
-      {/* User Header */}
       <header className="mb-8 flex flex-col items-center gap-4 text-center md:flex-row md:gap-6 md:text-left">
         <Avatar className="size-24 border-4 border-primary">
           <AvatarImage src={image ?? undefined} alt={name ?? "User"} />
@@ -89,44 +87,24 @@ export function ProfilePage({ userId }: { userId: string }) {
         </Avatar>
         <div>
           <h1 className="text-3xl font-bold md:text-4xl">{name}</h1>
-          <p className="text-muted-foreground">
-            Member for {formatDistanceToNow(new Date(creationTime))}
-          </p>
+          <p className="text-muted-foreground">Member for {formatDistanceToNow(new Date(creationTime))}</p>
         </div>
       </header>
 
-      {/* Stats Grid */}
       <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          icon={<Shield className="size-4 text-muted-foreground" />}
-          title="Leagues Joined"
-          value={stats.leaguesJoined}
-        />
-        <StatCard
-          icon={<Trophy className="size-4 text-muted-foreground" />}
-          title="Total Wins"
-          value={stats.totalWins}
-        />
-        <StatCard
-          icon={<Music className="size-4 text-muted-foreground" />}
-          title="Total Submissions"
-          value={stats.totalSubmissions}
-        />
+        <StatCard icon={<Shield className="size-4 text-muted-foreground" />} title="Leagues Joined" value={stats.leaguesJoined} />
+        <StatCard icon={<Trophy className="size-4 text-muted-foreground" />} title="Total Wins" value={stats.totalWins} />
+        <StatCard icon={<Music className="size-4 text-muted-foreground" />} title="Total Submissions" value={stats.totalSubmissions} />
       </section>
 
-      {/* Leagues Table */}
       <Card>
         <CardHeader>
           <CardTitle>League History</CardTitle>
         </CardHeader>
-
         <CardContent className="p-0 md:p-6">
-          {/* Hide table on mobile, show cards instead */}
           <div className="md:hidden">
             {leagues.length === 0 ? (
-              <p className="p-4 text-center text-muted-foreground">
-                No active leagues.
-              </p>
+              <p className="p-4 text-center text-muted-foreground">No active leagues.</p>
             ) : (
               <div className="space-y-4 p-4">
                 {leagues.map((league) => (
@@ -134,8 +112,7 @@ export function ProfilePage({ userId }: { userId: string }) {
                     <CardTitle className="mb-2">{league.name}</CardTitle>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <p>
-                        <strong>Rank:</strong>{" "}
-                        {league.userRank ? `#${league.userRank}` : "N/A"}
+                        <strong>Rank:</strong> {league.userRank ? `#${league.userRank}` : "N/A"}
                       </p>
                       <p>
                         <strong>Wins:</strong> {league.wins}
@@ -147,11 +124,7 @@ export function ProfilePage({ userId }: { userId: string }) {
                         <strong>Submissions:</strong> {league.submissionCount}
                       </p>
                     </div>
-                    <Link
-                      href={`/leagues/${league._id}`}
-                      passHref
-                      className="mt-4 block"
-                    >
+                    <Link href={`/leagues/${league._id}`} passHref className="mt-4 block">
                       <Button variant="outline" className="w-full">
                         View League
                       </Button>
@@ -161,7 +134,7 @@ export function ProfilePage({ userId }: { userId: string }) {
               </div>
             )}
           </div>
-          {/* Desktop Table */}
+
           <Table>
             <TableHeader className="hidden md:table-header-group">
               <TableRow>
@@ -173,7 +146,6 @@ export function ProfilePage({ userId }: { userId: string }) {
                 <TableHead />
               </TableRow>
             </TableHeader>
-
             <TableBody className="hidden md:table-row-group">
               {leagues.length === 0 ? (
                 <TableRow>
@@ -185,18 +157,10 @@ export function ProfilePage({ userId }: { userId: string }) {
                 leagues.map((league) => (
                   <TableRow key={league._id}>
                     <TableCell className="font-medium">{league.name}</TableCell>
-
-                    <TableCell className="text-center">
-                      {league.userRank ? `#${league.userRank}` : "N/A"}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {league.userScore ?? "N/A"}
-                    </TableCell>
+                    <TableCell className="text-center">{league.userRank ? `#${league.userRank}` : "N/A"}</TableCell>
+                    <TableCell className="text-center">{league.userScore ?? "N/A"}</TableCell>
                     <TableCell className="text-center">{league.wins}</TableCell>
-
-                    <TableCell className="text-center">
-                      {league.submissionCount}
-                    </TableCell>
+                    <TableCell className="text-center">{league.submissionCount}</TableCell>
                     <TableCell className="text-right">
                       <Link href={`/leagues/${league._id}`} passHref>
                         <Button variant="outline">View League</Button>

@@ -5,17 +5,17 @@ import { Id } from "@/convex/_generated/dataModel";
 import { ConvexHttpClient } from "convex/browser";
 import type { Metadata } from "next";
 
- 
-const ProfilePage = dynamicImport(() => import("@/components/ProfilePage").then(mod => ({ default: mod.ProfilePage })));
+const ProfilePage = dynamicImport(() =>
+  import("@/components/ProfilePage").then((mod) => ({ default: mod.ProfilePage })),
+);
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-export async function generateMetadata(
-  props: {
-    params: Promise<{ userId: string }>;
-  }
-): Promise<Metadata> {
-  const params = await props.params;
+export async function generateMetadata({
+                                         params,
+                                       }: {
+  params: { userId: string };
+}): Promise<Metadata> {
   const profile = await convex.query(api.users.getProfile, {
     userId: params.userId as Id<"users">,
   });
@@ -33,15 +33,13 @@ export async function generateMetadata(
 }
 
 export default async function Profile({
-  params,
-}: {
-  params: Promise<{ userId: string }>;
+                                        params,
+                                      }: {
+  params: { userId: string };
 }) {
-  const { userId } = await params;
-
   return (
     <PageLayout>
-      <ProfilePage userId={userId} />
+      <ProfilePage userId={params.userId} />
     </PageLayout>
   );
 }

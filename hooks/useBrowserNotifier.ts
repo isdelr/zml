@@ -1,10 +1,8 @@
 // hooks/useBrowserNotifier.ts
-
 import { useState, useEffect, useCallback } from "react";
 import { subscribeUser } from "@/app/actions";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-
 
 const DONT_ASK_AGAIN_KEY = "notification-permission-dont-ask";
 const PROMPT_DISMISSED_KEY = "notification-permission-prompt-dismissed";
@@ -22,9 +20,8 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 export function useBrowserNotifier() {
-      const currentUser = useQuery(api.users.getCurrentUser);
-  const [permission, setPermission] =
-    useState<NotificationPermission>("default");
+  const currentUser = useQuery(api.users.getCurrentUser);
+  const [permission, setPermission] = useState<NotificationPermission>("default");
   const [isPromptVisible, setIsPromptVisible] = useState(false);
 
   useEffect(() => {
@@ -33,9 +30,6 @@ export function useBrowserNotifier() {
     }
   }, []);
 
-  // --- START OF NEW CODE BLOCK ---
-  // This new useEffect is the core of the solution. It runs when permission
-  // is granted and handles the entire push subscription process.
   useEffect(() => {
     const createSubscription = async () => {
       if (
@@ -46,38 +40,28 @@ export function useBrowserNotifier() {
         try {
           const registration = await navigator.serviceWorker.ready;
           let subscription = await registration.pushManager.getSubscription();
-
           if (!subscription) {
-            console.log("No existing subscription, creating new one...");
-            const applicationServerKey = urlBase64ToUint8Array(
-              process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-            );
+            const applicationServerKey = urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!);
             subscription = await registration.pushManager.subscribe({
               userVisibleOnly: true,
               applicationServerKey,
             });
-          } else {
-            console.log("Found existing subscription.");
           }
+
           const subscriptionJSON = subscription.toJSON();
 
-          // Perform a robust check to ensure all necessary parts exist.
           if (
             !currentUser?._id ||
             !subscriptionJSON.endpoint ||
             !subscriptionJSON.keys?.p256dh ||
             !subscriptionJSON.keys?.auth
           ) {
-            console.error(
-              "Subscription is missing one or more required properties.",
-            );
-            return; // Exit if the subscription is invalid
+            console.error("Subscription is missing one or more required properties.");
+            return;
           }
 
-          // THE FIX: Create a new, explicitly typed object that is guaranteed
-          // to match the type expected by the `subscribeUser` action.
           const subscriptionToSend = {
-            userId: currentUser?._id, // Ensure this is the correct user ID
+            userId: currentUser._id,
             endpoint: subscriptionJSON.endpoint,
             keys: {
               p256dh: subscriptionJSON.keys.p256dh,
@@ -85,17 +69,14 @@ export function useBrowserNotifier() {
             },
           };
 
-          // Now, TypeScript knows `subscriptionToSend` is perfectly shaped.
           await subscribeUser(subscriptionToSend);
         } catch (error) {
           console.error("Error subscribing to push notifications:", error);
         }
       }
     };
-
-    createSubscription();
+    void createSubscription();
   }, [permission, currentUser?._id]);
-  // --- END OF NEW CODE BLOCK ---
 
   useEffect(() => {
     if (permission === "default") {
@@ -104,18 +85,13 @@ export function useBrowserNotifier() {
         setIsPromptVisible(false);
         return;
       }
-
       const dismissedTimestamp = localStorage.getItem(PROMPT_DISMISSED_KEY);
       if (dismissedTimestamp) {
-        if (
-          Date.now() - parseInt(dismissedTimestamp, 10) <
-          PROMPT_DISMISSED_TIMEOUT
-        ) {
+        if (Date.now() - parseInt(dismissedTimestamp, 10) < PROMPT_DISMISSED_TIMEOUT) {
           setIsPromptVisible(false);
           return;
         }
       }
-
       setIsPromptVisible(true);
     } else {
       setIsPromptVisible(false);
@@ -127,12 +103,9 @@ export function useBrowserNotifier() {
       console.error("This browser does not support desktop notification");
       return;
     }
-
     const currentPermission = await Notification.requestPermission();
-    // This now just updates the state. The new useEffect will handle the subscription.
     setPermission(currentPermission);
     setIsPromptVisible(false);
-
     if (currentPermission !== "granted") {
       localStorage.setItem(PROMPT_DISMISSED_KEY, Date.now().toString());
     } else {
@@ -144,10 +117,7 @@ export function useBrowserNotifier() {
   const showNotification = useCallback(
     (title: string, options?: NotificationOptions) => {
       if (permission === "granted") {
-        new Notification(title, {
-          icon: "/icons/favicon.ico",
-          ...options,
-        });
+        new Notification(title, { icon: "/icons/favicon.ico", ...options });
       }
     },
     [permission],

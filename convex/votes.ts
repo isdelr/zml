@@ -1,6 +1,4 @@
-// File: convex/votes.ts
-"use client";
-
+// convex/votes.ts
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -10,10 +8,7 @@ import { internal } from "./_generated/api";
 export const getForRound = query({
   args: { roundId: v.id("rounds") },
   handler: async (ctx, args) => {
-    const votes = await ctx.db
-      .query("votes")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-      .collect();
+    const votes = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId)).collect();
     return votes;
   },
 });
@@ -23,61 +18,25 @@ export const getForUserInRound = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      return {
-        hasVoted: false,
-        canVote: false,
-        votes: [],
-        upvotesUsed: 0,
-        downvotesUsed: 0,
-      };
+      return { hasVoted: false, canVote: false, votes: [], upvotesUsed: 0, downvotesUsed: 0 };
     }
-
     const round = await ctx.db.get(args.roundId);
     if (!round) {
-      return {
-        hasVoted: false,
-        canVote: false,
-        votes: [],
-        upvotesUsed: 0,
-        downvotesUsed: 0,
-      };
+      return { hasVoted: false, canVote: false, votes: [], upvotesUsed: 0, downvotesUsed: 0 };
     }
-
     const league = await ctx.db.get(round.leagueId);
     if (!league) {
       throw new Error("Could not find league for this round");
     }
-
-    const userSubmission = await ctx.db
-      .query("submissions")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", args.roundId).eq("userId", userId),
-      )
-      .first();
-
+    const userSubmission = await ctx.db.query("submissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).first();
     const canVote = !!userSubmission;
 
-    const userVotes = await ctx.db
-      .query("votes")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", args.roundId).eq("userId", userId),
-      )
-      .collect();
-
+    const userVotes = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).collect();
     const upvotesUsed = userVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
     const downvotesUsed = userVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
+    const hasVoted = upvotesUsed === league.maxPositiveVotes && downvotesUsed === league.maxNegativeVotes;
 
-    const hasVoted =
-      upvotesUsed === league.maxPositiveVotes &&
-      downvotesUsed === league.maxNegativeVotes;
-
-    return {
-      hasVoted,
-      canVote,
-      votes: userVotes,
-      upvotesUsed,
-      downvotesUsed,
-    };
+    return { hasVoted, canVote, votes: userVotes, upvotesUsed, downvotesUsed };
   },
 });
 
@@ -86,20 +45,14 @@ export const getVotersForRound = query({
   handler: async (ctx, args) => {
     const round = await ctx.db.get(args.roundId);
     if (!round) return [];
-
     const league = await ctx.db.get(round.leagueId);
     if (!league) return [];
 
-    const votes = await ctx.db
-      .query("votes")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-      .collect();
-
+    const votes = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId)).collect();
     if (votes.length === 0) {
       return [];
     }
 
-    // Sum positive and negative vote magnitudes per voter
     const sums = new Map<string, { up: number; down: number }>();
     for (const vte of votes) {
       const key = vte.userId.toString();
@@ -109,26 +62,17 @@ export const getVotersForRound = query({
       sums.set(key, entry);
     }
 
-    // Only users who have fully used their budgets appear
     const finalizedUserIds: Id<"users">[] = [];
     for (const [userIdStr, { up, down }] of sums.entries()) {
       if (up === league.maxPositiveVotes && down === league.maxNegativeVotes) {
         finalizedUserIds.push(userIdStr as unknown as Id<"users">);
       }
     }
-
     if (finalizedUserIds.length === 0) {
       return [];
     }
-
     const users = await Promise.all(finalizedUserIds.map((id) => ctx.db.get(id)));
-    return users
-      .filter((u): u is Doc<"users"> => u !== null)
-      .map((user) => ({
-        _id: user._id,
-        name: user.name,
-        image: user.image,
-      }));
+    return users.filter((u): u is Doc<"users"> => u !== null).map((user) => ({ _id: user._id, name: user.name, image: user.image }));
   },
 });
 
@@ -155,105 +99,52 @@ export const castVote = mutation({
     const league = await ctx.db.get(submission.leagueId);
     if (!league) throw new Error("League not found.");
 
-    const userSubmission = await ctx.db
-      .query("submissions")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", round._id).eq("userId", userId),
-      )
-      .first();
-
+    const userSubmission = await ctx.db.query("submissions").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId)).first();
     if (!userSubmission) {
       throw new Error("You must submit a song in this round to be able to vote.");
     }
 
     if (league.enforceListenPercentage) {
-      const allSubs = await ctx.db
-        .query("submissions")
-        .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
-        .collect();
-
-      const requiredSubs = allSubs.filter(
-        (s) => s.submissionType === "file" && s.userId !== userId,
-      );
-
+      const allSubs = await ctx.db.query("submissions").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id)).collect();
+      const requiredSubs = allSubs.filter((s) => s.submissionType === "file" && s.userId !== userId);
       if (requiredSubs.length > 0) {
         const progressDocs = await Promise.all(
-          requiredSubs.map((s) =>
-            ctx.db
-              .query("listenProgress")
-              .withIndex("by_user_and_submission", (q) =>
-                q.eq("userId", userId).eq("submissionId", s._id),
-              )
-              .first(),
-          ),
+          requiredSubs.map((s) => ctx.db.query("listenProgress").withIndex("by_user_and_submission", (q) => q.eq("userId", userId).eq("submissionId", s._id)).first()),
         );
-
-        const allCompleted = progressDocs.every(
-          (p) => p !== null && p.isCompleted,
-        );
+        const allCompleted = progressDocs.every((p) => p !== null && p.isCompleted);
         if (!allCompleted) {
-          throw new Error(
-            "You must listen to the required portion of all file submissions before voting.",
-          );
+          throw new Error("You must listen to the required portion of all file submissions before voting.");
         }
       }
     }
 
-    const allUserVotesInRound = await ctx.db
-      .query("votes")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", round._id).eq("userId", userId),
-      )
-      .collect();
-
-    const upUsedSoFar = allUserVotesInRound.reduce(
-      (sum, v) => sum + Math.max(0, v.vote),
-      0,
-    );
-    const downUsedSoFar = allUserVotesInRound.reduce(
-      (sum, v) => sum + Math.abs(Math.min(0, v.vote)),
-      0,
-    );
-    if (
-      upUsedSoFar === league.maxPositiveVotes &&
-      downUsedSoFar === league.maxNegativeVotes
-    ) {
+    const allUserVotesInRound = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId)).collect();
+    const upUsedSoFar = allUserVotesInRound.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
+    const downUsedSoFar = allUserVotesInRound.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
+    if (upUsedSoFar === league.maxPositiveVotes && downUsedSoFar === league.maxNegativeVotes) {
       throw new Error("Your votes are final and cannot be changed.");
     }
 
-    const existingVote = allUserVotesInRound.find(
-      (v) => v.submissionId === args.submissionId,
-    );
-    const otherVotes = allUserVotesInRound.filter(
-      (v) => v.submissionId !== args.submissionId,
-    );
-
+    const existingVote = allUserVotesInRound.find((v) => v.submissionId === args.submissionId);
+    const otherVotes = allUserVotesInRound.filter((v) => v.submissionId !== args.submissionId);
     const current = existingVote?.vote ?? 0;
     const newVote = current + args.delta;
 
     if (league.limitVotesPerSubmission) {
       if (args.delta === 1) {
         if (newVote > (league.maxPositiveVotesPerSubmission ?? 1)) {
-          throw new Error(
-            "You have reached the maximum number of upvotes for this song.",
-          );
+          throw new Error("You have reached the maximum number of upvotes for this song.");
         }
       }
       if (args.delta === -1) {
         if (Math.abs(newVote) > (league.maxNegativeVotesPerSubmission ?? 0)) {
-          throw new Error(
-            "You have reached the maximum number of downvotes for this song.",
-          );
+          throw new Error("You have reached the maximum number of downvotes for this song.");
         }
       }
     }
 
     const otherPos = otherVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
-    const otherNeg = otherVotes.reduce(
-      (sum, v) => sum + Math.abs(Math.min(0, v.vote)),
-      0,
-    );
-
+    const otherNeg = otherVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
     const newPosUsed = otherPos + Math.max(0, newVote);
     const newNegUsed = otherNeg + Math.abs(Math.min(0, newVote));
 
@@ -281,55 +172,22 @@ export const castVote = mutation({
       }
     }
 
-    const finalVotes = await ctx.db
-      .query("votes")
-      .withIndex("by_round_and_user", (q) =>
-        q.eq("roundId", round._id).eq("userId", userId),
-      )
-      .collect();
-
+    const finalVotes = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId)).collect();
     const finalUp = finalVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
-    const finalDown = finalVotes.reduce(
-      (sum, v) => sum + Math.abs(Math.min(0, v.vote)),
-      0,
-    );
-
-    const currentUserFinishedVoting =
-      finalUp === league.maxPositiveVotes &&
-      finalDown === league.maxNegativeVotes;
+    const finalDown = finalVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
+    const currentUserFinishedVoting = finalUp === league.maxPositiveVotes && finalDown === league.maxNegativeVotes;
 
     if (currentUserFinishedVoting) {
-      const allVotesInRound = await ctx.db
-        .query("votes")
-        .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
-        .collect();
-
-      const allSubmissionsInRound = await ctx.db
-        .query("submissions")
-        .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
-        .collect();
-
-      const submitterIds = [
-        ...new Set(allSubmissionsInRound.map((s) => s.userId)),
-      ];
+      const allVotesInRound = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id)).collect();
+      const allSubmissionsInRound = await ctx.db.query("submissions").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id)).collect();
+      const submitterIds = [...new Set(allSubmissionsInRound.map((s) => s.userId))];
 
       let allSubmittersHaveVoted = true;
       for (const submitterId of submitterIds) {
-        const submitterVotes = allVotesInRound.filter(
-          (v) => v.userId === submitterId,
-        );
-        const submitterUp = submitterVotes.reduce(
-          (sum, v) => sum + Math.max(0, v.vote),
-          0,
-        );
-        const submitterDown = submitterVotes.reduce(
-          (sum, v) => sum + Math.abs(Math.min(0, v.vote)),
-          0,
-        );
-        if (
-          submitterUp < league.maxPositiveVotes ||
-          submitterDown < league.maxNegativeVotes
-        ) {
+        const submitterVotes = allVotesInRound.filter((v) => v.userId === submitterId);
+        const submitterUp = submitterVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
+        const submitterDown = submitterVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
+        if (submitterUp < league.maxPositiveVotes || submitterDown < league.maxNegativeVotes) {
           allSubmittersHaveVoted = false;
           break;
         }
@@ -337,37 +195,17 @@ export const castVote = mutation({
 
       if (allSubmittersHaveVoted) {
         await ctx.db.patch(round._id, { status: "finished" });
-
-        await ctx.scheduler.runAfter(
-          0,
-          internal.leagues.calculateAndStoreResults,
-          {
-            roundId: round._id,
-          },
-        );
-
-        await ctx.scheduler.runAfter(
-          0,
-          internal.notifications.createForLeague,
-          {
-            leagueId: league._id,
-            type: "round_finished",
-            message: `The round "${round.title}" in "${league.name}" has finished automatically! Check out the results.`,
-            link: `/leagues/${league._id}/round/${round._id}`,
-            triggeringUserId: userId,
-          },
-        );
-
-        return {
-          message: "Your vote was the last one! The round is now finished.",
-          isFinal: true,
-        };
+        await ctx.scheduler.runAfter(0, internal.leagues.calculateAndStoreResults, { roundId: round._id });
+        await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+          leagueId: league._id,
+          type: "round_finished",
+          message: `The round "${round.title}" in "${league.name}" has finished automatically! Check out the results.`,
+          link: `/leagues/${league._id}/round/${round._id}`,
+          triggeringUserId: userId,
+        });
+        return { message: "Your vote was the last one! The round is now finished.", isFinal: true };
       }
-
-      return {
-        message: "All votes used. Your participation is recorded!",
-        isFinal: true,
-      };
+      return { message: "All votes used. Your participation is recorded!", isFinal: true };
     }
 
     return { message: "Vote saved.", isFinal: false };

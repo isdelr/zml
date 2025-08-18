@@ -1,23 +1,12 @@
 import { v } from "convex/values";
-import {
-  internalMutation,
-  internalAction,
-  query,
-  mutation,
-  internalQuery,
-  ActionCtx,
-} from "./_generated/server";
+import { internalMutation, internalAction, query, mutation, internalQuery, ActionCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { unreadNotifications } from "./aggregates";
 import { paginationOptsValidator } from "convex/server";
 
-type NotificationType =
-  | "new_comment"
-  | "round_submission"
-  | "round_voting"
-  | "round_finished";
+type NotificationType = "new_comment" | "round_submission" | "round_voting" | "round_finished";
 
 type CreateNotificationArgs = {
   userId: Id<"users">;
@@ -36,12 +25,7 @@ type CreateNotificationArgs = {
 export const create = internalMutation({
   args: {
     userId: v.id("users"),
-    type: v.union(
-      v.literal("new_comment"),
-      v.literal("round_submission"),
-      v.literal("round_voting"),
-      v.literal("round_finished"),
-    ),
+    type: v.union(v.literal("new_comment"), v.literal("round_submission"), v.literal("round_voting"), v.literal("round_finished")),
     message: v.string(),
     link: v.string(),
     triggeringUserId: v.optional(v.id("users")),
@@ -63,6 +47,7 @@ export const create = internalMutation({
       console.error(`[Notifications] User ${args.userId} not found`);
       return null;
     }
+
     const recentNotifications = await ctx.db
       .query("notifications")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
@@ -77,6 +62,7 @@ export const create = internalMutation({
     if (recentNotifications) {
       return null;
     }
+
     const notificationId = await ctx.db.insert("notifications", {
       userId: args.userId,
       type: args.type,
@@ -86,16 +72,16 @@ export const create = internalMutation({
       triggeringUserId: args.triggeringUserId,
       metadata: args.metadata,
     });
+
     const newDoc = await ctx.db.get(notificationId);
     if (newDoc) {
       await unreadNotifications.insert(ctx, newDoc);
     }
+
     await ctx.scheduler.runAfter(0, internal.webPushActions.send, {
       userId: args.userId,
       payload: {
-        title:
-          args.pushNotificationOverride?.title ||
-          getNotificationTitle(args.type),
+        title: args.pushNotificationOverride?.title || getNotificationTitle(args.type),
         body: args.pushNotificationOverride?.body || args.message,
         icon: args.pushNotificationOverride?.icon,
         data: {
@@ -103,6 +89,7 @@ export const create = internalMutation({
         },
       },
     });
+
     return notificationId;
   },
 });
@@ -126,12 +113,7 @@ export const createMany = internalMutation({
     notifications: v.array(
       v.object({
         userId: v.id("users"),
-        type: v.union(
-          v.literal("new_comment"),
-          v.literal("round_submission"),
-          v.literal("round_voting"),
-          v.literal("round_finished"),
-        ),
+        type: v.union(v.literal("new_comment"), v.literal("round_submission"), v.literal("round_voting"), v.literal("round_finished")),
         message: v.string(),
         link: v.string(),
         triggeringUserId: v.optional(v.id("users")),
@@ -164,16 +146,11 @@ export const createMany = internalMutation({
       if (newDoc) {
         await unreadNotifications.insert(ctx, newDoc);
         createdIds.push(newDoc._id);
-
         await ctx.scheduler.runAfter(0, internal.webPushActions.send, {
           userId: notification.userId,
           payload: {
-            title:
-              notification.pushNotificationOverride?.title ||
-              getNotificationTitle(notification.type),
-            body:
-              notification.pushNotificationOverride?.body ||
-              notification.message,
+            title: notification.pushNotificationOverride?.title || getNotificationTitle(notification.type),
+            body: notification.pushNotificationOverride?.body || notification.message,
             icon: notification.pushNotificationOverride?.icon,
             data: {
               url: notification.link,
@@ -189,11 +166,7 @@ export const createMany = internalMutation({
 export const createForLeague = internalAction({
   args: {
     leagueId: v.id("leagues"),
-    type: v.union(
-      v.literal("round_submission"),
-      v.literal("round_voting"),
-      v.literal("round_finished"),
-    ),
+    type: v.union(v.literal("round_submission"), v.literal("round_voting"), v.literal("round_finished")),
     message: v.string(),
     link: v.string(),
     triggeringUserId: v.optional(v.id("users")),
@@ -206,14 +179,8 @@ export const createForLeague = internalAction({
       }),
     ),
   },
-  handler: async (
-    ctx: ActionCtx,
-    args,
-  ): Promise<Id<"notifications">[] | null> => {
-    const memberships: Doc<"memberships">[] = await ctx.runQuery(
-      internal.notifications.getLeagueMemberships,
-      { leagueId: args.leagueId },
-    );
+  handler: async (ctx: ActionCtx, args): Promise<Id<"notifications">[] | null> => {
+    const memberships: Doc<"memberships">[] = await ctx.runQuery(internal.notifications.getLeagueMemberships, { leagueId: args.leagueId });
     if (!memberships) return null;
 
     const notificationsToCreate: CreateManyArgs[] = memberships
@@ -228,12 +195,7 @@ export const createForLeague = internalAction({
       }));
 
     if (notificationsToCreate.length > 0) {
-      const createdIds = await ctx.runMutation(
-        internal.notifications.createMany,
-        {
-          notifications: notificationsToCreate,
-        },
-      );
+      const createdIds = await ctx.runMutation(internal.notifications.createMany, { notifications: notificationsToCreate });
       return createdIds;
     }
     return [];
@@ -243,10 +205,7 @@ export const createForLeague = internalAction({
 export const getLeagueMemberships = internalQuery({
   args: { leagueId: v.id("leagues") },
   handler: async (ctx, args) => {
-    return await ctx.db
-      .query("memberships")
-      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .collect();
+    return await ctx.db.query("memberships").withIndex("by_league", (q) => q.eq("leagueId", args.leagueId)).collect();
   },
 });
 
@@ -255,13 +214,8 @@ export const getForUser = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      return {
-        page: [],
-        isDone: true,
-        continueCursor: "",
-      };
+      return { page: [], isDone: true, continueCursor: "" };
     }
-
     const paginationResult = await ctx.db
       .query("notifications")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -281,10 +235,8 @@ export const getForUser = query({
         };
       }),
     );
-    return {
-      ...paginationResult,
-      page: enrichedNotifications,
-    };
+
+    return { ...paginationResult, page: enrichedNotifications };
   },
 });
 
@@ -294,9 +246,7 @@ export const getUnreadCount = query({
     if (!userId) {
       return 0;
     }
-    return await unreadNotifications.count(ctx, {
-      bounds: { prefix: [userId, false] },
-    });
+    return await unreadNotifications.count(ctx, { bounds: { prefix: [userId, false] } });
   },
 });
 
@@ -327,13 +277,7 @@ export const markAllAsRead = mutation({
     if (!userId) {
       throw new Error("Not authenticated.");
     }
-    const unread = await ctx.db
-      .query("notifications")
-      .withIndex("by_user_and_read", (q) =>
-        q.eq("userId", userId).eq("read", false),
-      )
-      .collect();
-
+    const unread = await ctx.db.query("notifications").withIndex("by_user_and_read", (q) => q.eq("userId", userId).eq("read", false)).collect();
     for (const notification of unread) {
       const oldDoc = notification;
       await ctx.db.patch(notification._id, { read: true });
@@ -344,20 +288,12 @@ export const markAllAsRead = mutation({
 });
 
 export const deleteOldNotifications = internalMutation({
-  args: {
-    olderThanDays: v.optional(v.number()),
-  },
+  args: { olderThanDays: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const olderThanMs = (args.olderThanDays || 90) * 24 * 60 * 60 * 1000;
     const cutoffTime = Date.now() - olderThanMs;
-
-    const oldNotifications = await ctx.db
-      .query("notifications")
-      .filter((q) => q.lt(q.field("_creationTime"), cutoffTime))
-      .collect();
-
+    const oldNotifications = await ctx.db.query("notifications").filter((q) => q.lt(q.field("_creationTime"), cutoffTime)).collect();
     for (const notification of oldNotifications) {
-      // FIX: Changed 'remove' to 'delete'
       await unreadNotifications.delete(ctx, notification);
       await ctx.db.delete(notification._id);
     }

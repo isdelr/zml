@@ -1,6 +1,4 @@
- 
 "use client";
-
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { useParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/convex/_generated/api";
@@ -23,40 +21,37 @@ import { toSvg } from "jdenticon";
 export default function InviteLeaguePage() {
   const params = useParams();
   const router = useRouter();
-  const pathname = usePathname();  
+  const pathname = usePathname();
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const { signIn } = useAuthActions();
-
   const hasAttemptedJoin = useRef(false);
 
   const inviteCode = params.inviteCode as string;
-
   const inviteInfo = useQuery(api.leagues.getInviteInfo, { inviteCode });
   const joinLeague = useMutation(api.leagues.joinWithInviteCode);
 
   const handleJoinLeague = async () => {
     if (!isAuthenticated) {
-       
       signIn("discord", { callbackUrl: pathname });
       return;
     }
-
     if (!inviteCode) return;
 
     const toastId = toast.loading("Joining league...");
     try {
       const result = await joinLeague({ inviteCode });
-
       if (result === "not_found") {
         toast.error("Invite link is invalid or has expired.", { id: toastId });
         router.push("/explore");
       } else if (result === "already_joined") {
         toast.info("You are already a member of this league.", { id: toastId });
-        router.push(`/leagues/${inviteInfo!._id}`);
+        if (inviteInfo) {
+          router.push(`/leagues/${inviteInfo._id}`);
+        } else {
+          router.push("/explore");
+        }
       } else {
-        toast.success(`Successfully joined ${inviteInfo?.name}!`, {
-          id: toastId,
-        });
+        toast.success(`Successfully joined ${inviteInfo?.name}!`, { id: toastId });
         router.push(`/leagues/${result}`);
       }
     } catch {
@@ -69,10 +64,9 @@ export default function InviteLeaguePage() {
   useEffect(() => {
     if (isAuthenticated && inviteInfo && !hasAttemptedJoin.current) {
       hasAttemptedJoin.current = true;
-      handleJoinLeague();
+      void handleJoinLeague();
     }
-     
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, inviteInfo]);
 
   if (isAuthLoading || inviteInfo === undefined) {
@@ -96,9 +90,7 @@ export default function InviteLeaguePage() {
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">
-              You&apos;ve been invited to join
-            </CardTitle>
+            <CardTitle className="text-2xl">You&apos;ve been invited to join</CardTitle>
             <CardDescription className="text-xl font-bold text-foreground">
               {inviteInfo.name}
             </CardDescription>
@@ -109,9 +101,7 @@ export default function InviteLeaguePage() {
             </p>
             <div className="flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
-                {inviteInfo.members && (
-                  <AvatarStack users={inviteInfo.members} />
-                )}
+                {inviteInfo.members && <AvatarStack users={inviteInfo.members} />}
                 <span>{inviteInfo.memberCount} members</span>
               </div>
               <div className="flex items-center gap-2">

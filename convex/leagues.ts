@@ -1,5 +1,5 @@
 // convex/leagues.ts
-  import { v } from "convex/values";
+import { v } from "convex/values";
 import {
   mutation,
   query,
@@ -18,25 +18,22 @@ import { membershipsByUser } from "./aggregates";
 const r2 = new R2(components.r2);
 
 const hoursToMs = (hours: number) => hours * 60 * 60 * 1000;
+
 const generateInviteCode = () => {
-  const characters =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let result = "";
   for (let i = 0; i < 8; i++) {
     result += characters.charAt(Math.floor(Math.random() * characters.length));
   }
   return result;
 };
-const checkLeagueOwnership = async (
-  ctx: MutationCtx,
-  leagueId: Id<"leagues">,
-) => {
+
+const checkLeagueOwnership = async (ctx: MutationCtx, leagueId: Id<"leagues">) => {
   const userId = await getAuthUserId(ctx);
   if (!userId) throw new Error("Authentication required.");
   const league = await ctx.db.get(leagueId);
   if (!league) throw new Error("League not found.");
-  if (league.creatorId !== userId)
-    throw new Error("You are not the owner of this league.");
+  if (league.creatorId !== userId) throw new Error("You are not the owner of this league.");
   return league;
 };
 
@@ -82,7 +79,7 @@ export const create = mutation({
       throw new Error("Upvotes must be between 1 and 10.");
     }
 
-    let inviteCode;
+    let inviteCode: string | undefined;
     let isUnique = false;
     while (!isUnique) {
       inviteCode = generateInviteCode();
@@ -94,6 +91,7 @@ export const create = mutation({
         isUnique = true;
       }
     }
+
     const leagueId = await ctx.db.insert("leagues", {
       name: args.name,
       description: args.description,
@@ -119,7 +117,6 @@ export const create = mutation({
     });
     const membershipDoc = await ctx.db.get(membershipId);
     await membershipsByUser.insert(ctx, membershipDoc!);
-
     await memberCounter.inc(ctx, leagueId);
 
     await ctx.db.insert("leagueStandings", {
@@ -131,10 +128,8 @@ export const create = mutation({
 
     let submissionTime = Date.now();
     for (const round of args.rounds) {
-      const submissionDeadlineTimestamp =
-        submissionTime + hoursToMs(args.submissionDeadline);
-      const votingDeadlineTimestamp =
-        submissionDeadlineTimestamp + hoursToMs(args.votingDeadline);
+      const submissionDeadlineTimestamp = submissionTime + hoursToMs(args.submissionDeadline);
+      const votingDeadlineTimestamp = submissionDeadlineTimestamp + hoursToMs(args.votingDeadline);
       const roundId = await ctx.db.insert("rounds", {
         leagueId: leagueId,
         title: round.title,
@@ -157,6 +152,7 @@ export const create = mutation({
 
       submissionTime = votingDeadlineTimestamp;
     }
+
     return leagueId;
   },
 });
@@ -168,6 +164,7 @@ export const getPublicLeagues = query({
       .withIndex("by_public", (q) => q.eq("isPublic", true))
       .order("desc")
       .collect();
+
     const leaguesWithDetails = await Promise.all(
       publicLeagues.map(async (league) => {
         const memberCount = await memberCounter.count(ctx, league._id);
@@ -177,9 +174,8 @@ export const getPublicLeagues = query({
           .collect();
         const genres = [...new Set(rounds.flatMap((r) => r.genres))];
         const firstRoundWithImage = rounds.find((r) => r.imageKey);
-        const art = firstRoundWithImage?.imageKey
-          ? await r2.getUrl(firstRoundWithImage.imageKey)
-          : null;
+        const art = firstRoundWithImage?.imageKey ? await r2.getUrl(firstRoundWithImage.imageKey) : null;
+
         return {
           ...league,
           memberCount,
@@ -188,6 +184,7 @@ export const getPublicLeagues = query({
         };
       }),
     );
+
     return leaguesWithDetails;
   },
 });
@@ -199,17 +196,10 @@ export const getLeaguesForUser = query({
     if (!userId) {
       return [];
     }
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const memberships = await ctx.db.query("memberships").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
     const leagueIds = memberships.map((m) => m.leagueId);
-    const leagues = await Promise.all(
-      leagueIds.map((leagueId) => ctx.db.get(leagueId)),
-    );
-    return leagues.filter(
-      (league): league is Doc<"leagues"> => league !== null,
-    );
+    const leagues = await Promise.all(leagueIds.map((leagueId) => ctx.db.get(leagueId)));
+    return leagues.filter((league): league is Doc<"leagues"> => league !== null);
   },
 });
 
@@ -252,7 +242,6 @@ export const get = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     const league = await ctx.db.get(args.id);
-
     if (!league) {
       return null;
     }
@@ -261,21 +250,20 @@ export const get = query({
       userId &&
       (await ctx.db
         .query("memberships")
-        .withIndex("by_league_and_user", (q) =>
-          q.eq("leagueId", league._id).eq("userId", userId),
-        )
+        .withIndex("by_league_and_user", (q) => q.eq("leagueId", league._id).eq("userId", userId))
         .first());
+
     if (!league.isPublic && !membership) {
       return null;
     }
+
     const creator = await ctx.db.get(league.creatorId);
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_league", (q) => q.eq("leagueId", league._id))
-      .collect();
+
+    const memberships = await ctx.db.query("memberships").withIndex("by_league", (q) => q.eq("leagueId", league._id)).collect();
     const memberIds = memberships.map((m) => m.userId);
     const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
     const memberCount = await memberCounter.count(ctx, league._id);
+
     const members = memberDocs
       .filter((u): u is Doc<"users"> => u !== null)
       .map((u) => ({
@@ -283,15 +271,17 @@ export const get = query({
         name: u.name,
         image: u.image,
       }));
+
     const isOwner = userId === league.creatorId;
     const isMember = !!membership;
+
     return {
       ...league,
       creatorName: creator?.name ?? "Unknown",
       creatorImage: creator?.image,
       memberCount: memberCount,
-      isOwner: isOwner,
-      isMember: isMember,
+      isOwner,
+      isMember,
       inviteCode: isOwner ? league.inviteCode : undefined,
       members,
     };
@@ -318,18 +308,12 @@ export const getInviteInfo = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const league = await ctx.db
-      .query("leagues")
-      .withIndex("by_invite_code", (q) => q.eq("inviteCode", args.inviteCode))
-      .first();
+    const league = await ctx.db.query("leagues").withIndex("by_invite_code", (q) => q.eq("inviteCode", args.inviteCode)).first();
     if (!league) {
       return null;
     }
     const creator = await ctx.db.get(league.creatorId);
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_league", (q) => q.eq("leagueId", league._id))
-      .collect();
+    const memberships = await ctx.db.query("memberships").withIndex("by_league", (q) => q.eq("leagueId", league._id)).collect();
     const memberIds = memberships.map((m) => m.userId);
     const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
     const members = memberDocs
@@ -359,22 +343,20 @@ export const joinWithInviteCode = mutation({
     if (!userId) {
       throw new Error("You must be logged in to join a league.");
     }
-    const league = await ctx.db
-      .query("leagues")
-      .withIndex("by_invite_code", (q) => q.eq("inviteCode", args.inviteCode))
-      .first();
+
+    const league = await ctx.db.query("leagues").withIndex("by_invite_code", (q) => q.eq("inviteCode", args.inviteCode)).first();
     if (!league) {
       return "not_found";
     }
+
     const existingMembership = await ctx.db
       .query("memberships")
-      .withIndex("by_league_and_user", (q) =>
-        q.eq("leagueId", league._id).eq("userId", userId),
-      )
+      .withIndex("by_league_and_user", (q) => q.eq("leagueId", league._id).eq("userId", userId))
       .first();
     if (existingMembership) {
       return "already_joined";
     }
+
     const membershipId = await ctx.db.insert("memberships", {
       userId,
       leagueId: league._id,
@@ -384,7 +366,6 @@ export const joinWithInviteCode = mutation({
     await membershipsByUser.insert(ctx, membershipDoc!);
 
     await memberCounter.inc(ctx, league._id);
-
     await ctx.db.insert("leagueStandings", {
       leagueId: league._id,
       userId,
@@ -409,19 +390,16 @@ export const joinPublicLeague = mutation({
       return "not_found";
     }
     if (!league.isPublic) {
-      throw new Error(
-        "This is a private league. You can only join with an invite link.",
-      );
+      throw new Error("This is a private league. You can only join with an invite link.");
     }
     const existingMembership = await ctx.db
       .query("memberships")
-      .withIndex("by_league_and_user", (q) =>
-        q.eq("leagueId", league._id).eq("userId", userId),
-      )
+      .withIndex("by_league_and_user", (q) => q.eq("leagueId", league._id).eq("userId", userId))
       .first();
     if (existingMembership) {
       return "already_joined";
     }
+
     const membershipId = await ctx.db.insert("memberships", {
       userId,
       leagueId: league._id,
@@ -429,8 +407,8 @@ export const joinPublicLeague = mutation({
     });
     const membershipDoc = await ctx.db.get(membershipId);
     await membershipsByUser.insert(ctx, membershipDoc!);
-    await memberCounter.inc(ctx, league._id);
 
+    await memberCounter.inc(ctx, league._id);
     await ctx.db.insert("leagueStandings", {
       leagueId: league._id,
       userId,
@@ -459,8 +437,8 @@ export const updateLeague = mutation({
   handler: async (ctx, args) => {
     await checkLeagueOwnership(ctx, args.leagueId);
     const { leagueId, ...updates } = args;
+    const maxHours = 30 * 24;
 
-    const maxHours = 30 * 24; // 30 days
     if (updates.submissionDeadline !== undefined && (updates.submissionDeadline < 1 || updates.submissionDeadline > maxHours)) {
       throw new Error(`Submission period must be between 1 and ${maxHours} hours.`);
     }
@@ -476,19 +454,16 @@ export const updateLeague = mutation({
 export const manageInviteCode = mutation({
   args: {
     leagueId: v.id("leagues"),
-    action: v.union(
-      v.literal("regenerate"),
-      v.literal("disable"),
-      v.literal("enable"),
-    ),
+    action: v.union(v.literal("regenerate"), v.literal("disable"), v.literal("enable")),
   },
   handler: async (ctx, args) => {
     await checkLeagueOwnership(ctx, args.leagueId);
+
     if (args.action === "disable") {
       await ctx.db.patch(args.leagueId, { inviteCode: null });
       return { newCode: null };
     } else {
-      let inviteCode;
+      let inviteCode: string | undefined;
       let isUnique = false;
       while (!isUnique) {
         inviteCode = generateInviteCode();
@@ -511,30 +486,26 @@ export const kickMember = mutation({
     if (args.memberIdToKick === league.creatorId) {
       throw new Error("The league owner cannot be kicked.");
     }
+
     const membership = await ctx.db
       .query("memberships")
-      .withIndex("by_league_and_user", (q) =>
-        q.eq("leagueId", args.leagueId).eq("userId", args.memberIdToKick),
-      )
+      .withIndex("by_league_and_user", (q) => q.eq("leagueId", args.leagueId).eq("userId", args.memberIdToKick))
       .first();
     if (!membership) {
       throw new Error("This user is not a member of the league.");
     }
+
     await ctx.db.delete(membership._id);
     await membershipsByUser.delete(ctx, membership);
-
     await memberCounter.dec(ctx, args.leagueId);
 
     const standing = await ctx.db
       .query("leagueStandings")
-      .withIndex("by_league_and_user", (q) =>
-        q.eq("leagueId", args.leagueId).eq("userId", args.memberIdToKick),
-      )
+      .withIndex("by_league_and_user", (q) => q.eq("leagueId", args.leagueId).eq("userId", args.memberIdToKick))
       .first();
     if (standing) {
       await ctx.db.delete(standing._id);
     }
-
     return "Member kicked successfully.";
   },
 });
@@ -577,6 +548,7 @@ const userStatValidator = v.object({
   image: v.optional(v.string()),
   count: v.number(),
 });
+
 const topSongValidator = v.object({
   songTitle: v.string(),
   artist: v.string(),
@@ -597,16 +569,10 @@ export const getLeagueMetadata = query({
   ),
   handler: async (ctx, args) => {
     const league = await ctx.db.get(args.id);
-
     if (!league) {
       return null;
     }
-
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_league", (q) => q.eq("leagueId", league._id))
-      .collect();
-
+    const memberships = await ctx.db.query("memberships").withIndex("by_league", (q) => q.eq("leagueId", league._id)).collect();
     return {
       name: league.name,
       description: league.description,
@@ -621,14 +587,10 @@ export const updateLeagueStats = internalAction({
     const statsData = await ctx.runQuery(internal.leagues.getStatsData, {
       leagueId: args.leagueId,
     });
-
     if (!statsData) {
-      console.log(
-        `No finished rounds for league ${args.leagueId}, skipping stats update.`,
-      );
+      console.log(`No finished rounds for league ${args.leagueId}, skipping stats update.`);
       return;
     }
-
     await ctx.runMutation(internal.leagues.storeLeagueStats, {
       leagueId: args.leagueId,
       stats: statsData,
@@ -641,125 +603,62 @@ export const getStatsData = internalQuery({
   handler: async (ctx, args) => {
     const finishedRounds = await ctx.db
       .query("rounds")
-      .withIndex("by_league_and_status", (q) =>
-        q.eq("leagueId", args.leagueId).eq("status", "finished"),
-      )
+      .withIndex("by_league_and_status", (q) => q.eq("leagueId", args.leagueId).eq("status", "finished"))
       .collect();
-
     if (finishedRounds.length === 0) return null;
 
     const roundIds = finishedRounds.map((r) => r._id);
     const results = (
       await Promise.all(
-        roundIds.map((roundId) =>
-          ctx.db
-            .query("roundResults")
-            .withIndex("by_round", (q) => q.eq("roundId", roundId))
-            .collect(),
-        ),
+        roundIds.map((roundId) => ctx.db.query("roundResults").withIndex("by_round", (q) => q.eq("roundId", roundId)).collect()),
       )
     ).flat();
 
     const votes = (
       await Promise.all(
-        roundIds.map((roundId) =>
-          ctx.db
-            .query("votes")
-            .withIndex("by_round_and_user", (q) => q.eq("roundId", roundId))
-            .collect(),
-        ),
+        roundIds.map((roundId) => ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", roundId)).collect()),
       )
     ).flat();
 
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .collect();
-
+    const memberships = await ctx.db.query("memberships").withIndex("by_league", (q) => q.eq("leagueId", args.leagueId)).collect();
     const memberIds = memberships.map((m) => m.userId);
     const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
     const members = memberDocs.filter((u): u is Doc<"users"> => u !== null);
-    const memberMap = new Map(
-      members.map((m) => [m._id.toString(), { name: m.name, image: m.image }]),
-    );
+    const memberMap = new Map(members.map((m) => [m._id.toString(), { name: m.name, image: m.image }]));
 
-    const standings = await ctx.db
-      .query("leagueStandings")
-      .withIndex("by_league_and_user", (q) => q.eq("leagueId", args.leagueId))
-      .collect();
+    const standings = await ctx.db.query("leagueStandings").withIndex("by_league_and_user", (q) => q.eq("leagueId", args.leagueId)).collect();
 
     const mostWins = standings.sort((a, b) => b.totalWins - a.totalWins);
-    const overlord =
-      mostWins.length > 0
-        ? { userId: mostWins[0].userId, count: mostWins[0].totalWins }
-        : null;
+    const overlord = mostWins.length > 0 ? { userId: mostWins[0].userId.toString(), count: mostWins[0].totalWins } : null;
 
-    // Sum vote magnitudes (supports stacked votes)
     const userUpvotes = new Map<string, number>();
     const userDownvotes = new Map<string, number>();
-    const submissionSubmitterMap = new Map(
-      results.map((r) => [r.submissionId.toString(), r.userId]),
-    );
+
+    const submissionSubmitterMap = new Map(results.map((r) => [r.submissionId.toString(), r.userId]));
+
     votes.forEach((vote) => {
-      const submitterId = submissionSubmitterMap.get(
-        vote.submissionId.toString(),
-      );
+      const submitterId = submissionSubmitterMap.get(vote.submissionId.toString());
       if (!submitterId) return;
-      if (vote.vote > 0)
-        userUpvotes.set(
-          submitterId.toString(),
-          (userUpvotes.get(submitterId.toString()) ?? 0) + vote.vote, // add positive magnitude
-        );
-      if (vote.vote < 0)
-        userDownvotes.set(
-          submitterId.toString(),
-          (userDownvotes.get(submitterId.toString()) ?? 0) +
-          Math.abs(vote.vote), // add negative magnitude
-        );
+      if (vote.vote > 0) userUpvotes.set(submitterId.toString(), (userUpvotes.get(submitterId.toString()) ?? 0) + vote.vote);
+      if (vote.vote < 0) userDownvotes.set(submitterId.toString(), (userDownvotes.get(submitterId.toString()) ?? 0) + Math.abs(vote.vote));
     });
 
     const mostUpvotes = [...userUpvotes.entries()].sort((a, b) => b[1] - a[1]);
-    const peopleChampion =
-      mostUpvotes.length > 0
-        ? { userId: mostUpvotes[0][0], count: mostUpvotes[0][1] }
-        : null;
-    const mostDownvotes = [...userDownvotes.entries()].sort(
-      (a, b) => b[1] - a[1],
-    );
-    const mostControversial =
-      mostDownvotes.length > 0
-        ? { userId: mostDownvotes[0][0], count: mostDownvotes[0][1] }
-        : null;
+    const peopleChampion = mostUpvotes.length > 0 ? { userId: mostUpvotes[0][0], count: mostUpvotes[0][1] } : null;
 
-    // Prolific voter: total units of votes cast (pos + neg magnitudes)
+    const mostDownvotes = [...userDownvotes.entries()].sort((a, b) => b[1] - a[1]);
+    const mostControversial = mostDownvotes.length > 0 ? { userId: mostDownvotes[0][0], count: mostDownvotes[0][1] } : null;
+
     const userVoteCount = new Map<string, number>();
-    votes.forEach((vote) =>
-      userVoteCount.set(
-        vote.userId.toString(),
-        (userVoteCount.get(vote.userId.toString()) ?? 0) + Math.abs(vote.vote),
-      ),
-    );
-    const mostVotesCast = [...userVoteCount.entries()].sort(
-      (a, b) => b[1] - a[1],
-    );
-    const prolificVoter =
-      mostVotesCast.length > 0
-        ? { userId: mostVotesCast[0][0], count: mostVotesCast[0][1] }
-        : null;
+    votes.forEach((vote) => userVoteCount.set(vote.userId.toString(), (userVoteCount.get(vote.userId.toString()) ?? 0) + Math.abs(vote.vote)));
+    const mostVotesCast = [...userVoteCount.entries()].sort((a, b) => b[1] - a[1]);
+    const prolificVoter = mostVotesCast.length > 0 ? { userId: mostVotesCast[0][0], count: mostVotesCast[0][1] } : null;
 
-    const topResult =
-      results.length > 0
-        ? results.sort((a, b) => b.points - a.points)[0]
-        : null;
+    const topResult = results.length > 0 ? results.sort((a, b) => b.points - a.points)[0] : null;
 
     const submissions = (
       await Promise.all(
-        roundIds.map((roundId) =>
-          ctx.db
-            .query("submissions")
-            .withIndex("by_round_and_user", (q) => q.eq("roundId", roundId))
-            .collect(),
-        ),
+        roundIds.map((roundId) => ctx.db.query("submissions").withIndex("by_round_and_user", (q) => q.eq("roundId", roundId)).collect()),
       )
     ).flat();
 
@@ -773,10 +672,7 @@ export const getStatsData = internalQuery({
         });
       }
     });
-    const genreBreakdown = Object.entries(genreCounts).map(([name, value]) => ({
-      name,
-      value,
-    }));
+    const genreBreakdown = Object.entries(genreCounts).map(([name, value]) => ({ name, value }));
 
     const formatUserStat = (stat: { userId: string; count: number } | null) => {
       if (!stat) return null;
@@ -795,7 +691,6 @@ export const getStatsData = internalQuery({
       } else {
         albumArtUrl = submission.albumArtUrlValue ?? null;
       }
-
       const submitter = memberMap.get(submission.userId.toString());
       return {
         songTitle: submission.songTitle,
@@ -825,33 +720,17 @@ export const calculateAndStoreResults = internalMutation({
       console.warn("Attempted to calculate results for a non-finished round.");
       return;
     }
-
     const league = await ctx.db.get(round.leagueId);
     if (!league) {
-      console.error(
-        `League not found for round ${args.roundId}, cannot calculate results`,
-      );
+      console.error(`League not found for round ${args.roundId}, cannot calculate results`);
       return;
     }
-
-    const submissions = await ctx.db
-      .query("submissions")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-      .collect();
-
+    const submissions = await ctx.db.query("submissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId)).collect();
     if (submissions.length === 0) {
       return;
     }
-
-    const votes = await ctx.db
-      .query("votes")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-      .collect();
-
-    const allVotersInRound = new Map<
-      Id<"users">,
-      { up: number; down: number }
-    >();
+    const votes = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId)).collect();
+    const allVotersInRound = new Map<Id<"users">, { up: number; down: number }>();
     votes.forEach((vote) => {
       if (!allVotersInRound.has(vote.userId)) {
         allVotersInRound.set(vote.userId, { up: 0, down: 0 });
@@ -860,24 +739,17 @@ export const calculateAndStoreResults = internalMutation({
       if (vote.vote > 0) counts.up += vote.vote;
       if (vote.vote < 0) counts.down += Math.abs(vote.vote);
     });
-
     const submitterIds = new Set(submissions.map((s) => s.userId));
     const nonCompleteVoters = new Set<Id<"users">>();
-
     submitterIds.forEach((submitterId) => {
       const voterInfo = allVotersInRound.get(submitterId);
-      if (
-        !voterInfo ||
-        voterInfo.up < league.maxPositiveVotes ||
-        voterInfo.down < league.maxNegativeVotes
-      ) {
+      if (!voterInfo || voterInfo.up < league.maxPositiveVotes || voterInfo.down < league.maxNegativeVotes) {
         nonCompleteVoters.add(submitterId);
       }
     });
 
     const submissionScores = new Map<Id<"submissions">, number>();
     const penaltyApplied = new Map<Id<"submissions">, boolean>();
-
     submissions.forEach((s) => {
       submissionScores.set(s._id, 0);
       penaltyApplied.set(s._id, false);
@@ -886,21 +758,14 @@ export const calculateAndStoreResults = internalMutation({
     votes.forEach((vote) => {
       const submission = submissions.find((s) => s._id === vote.submissionId);
       if (!submission) return;
-
       const submitterId = submission.userId;
       const submitterDidNotVoteCompletely = nonCompleteVoters.has(submitterId);
-
       let voteValue = vote.vote;
-
       if (submitterDidNotVoteCompletely && vote.vote > 0) {
         voteValue = 0;
         penaltyApplied.set(submission._id, true);
       }
-
-      submissionScores.set(
-        vote.submissionId,
-        (submissionScores.get(vote.submissionId) ?? 0) + voteValue,
-      );
+      submissionScores.set(vote.submissionId, (submissionScores.get(vote.submissionId) ?? 0) + voteValue);
     });
 
     const userScores = new Map<Id<"users">, number>();
@@ -930,7 +795,6 @@ export const calculateAndStoreResults = internalMutation({
       const points = submissionScores.get(sub._id) ?? 0;
       const isWinner = winningUserIds.includes(sub.userId);
       const wasPenalized = penaltyApplied.get(sub._id) ?? false;
-
       await ctx.db.insert("roundResults", {
         roundId: args.roundId,
         submissionId: sub._id,
@@ -945,11 +809,8 @@ export const calculateAndStoreResults = internalMutation({
       const isWinner = winningUserIds.includes(userId);
       const userStanding = await ctx.db
         .query("leagueStandings")
-        .withIndex("by_league_and_user", (q) =>
-          q.eq("leagueId", round.leagueId).eq("userId", userId),
-        )
+        .withIndex("by_league_and_user", (q) => q.eq("leagueId", round.leagueId).eq("userId", userId))
         .first();
-
       if (userStanding) {
         await ctx.db.patch(userStanding._id, {
           totalPoints: userStanding.totalPoints + totalPoints,
@@ -969,17 +830,11 @@ export const storeLeagueStats = internalMutation({
       mostControversial: v.union(v.null(), userStatValidator),
       prolificVoter: v.union(v.null(), userStatValidator),
       topSong: v.union(v.null(), topSongValidator),
-      genreBreakdown: v.array(
-        v.object({ name: v.string(), value: v.number() }),
-      ),
+      genreBreakdown: v.array(v.object({ name: v.string(), value: v.number() })),
     }),
   },
   handler: async (ctx, args) => {
-    const existingStats = await ctx.db
-      .query("leagueStats")
-      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .first();
-
+    const existingStats = await ctx.db.query("leagueStats").withIndex("by_league", (q) => q.eq("leagueId", args.leagueId)).first();
     if (existingStats) {
       await ctx.db.patch(existingStats._id, args.stats);
     } else {
@@ -1001,17 +856,11 @@ export const getLeagueStats = query({
       mostControversial: v.union(v.null(), userStatValidator),
       prolificVoter: v.union(v.null(), userStatValidator),
       topSong: v.union(v.null(), topSongValidator),
-      genreBreakdown: v.array(
-        v.object({ name: v.string(), value: v.number() }),
-      ),
+      genreBreakdown: v.array(v.object({ name: v.string(), value: v.number() })),
     }),
   ),
   handler: async (ctx, args) => {
-    const stats = await ctx.db
-      .query("leagueStats")
-      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .first();
-
+    const stats = await ctx.db.query("leagueStats").withIndex("by_league", (q) => q.eq("leagueId", args.leagueId)).first();
     return stats;
   },
 });
@@ -1020,7 +869,7 @@ export const searchInLeague = query({
   args: {
     leagueId: v.id("leagues"),
     searchText: v.string(),
-    limit: v.optional(v.number()), // per category
+    limit: v.optional(v.number()),
   },
   returns: v.object({
     rounds: v.array(
@@ -1036,11 +885,7 @@ export const searchInLeague = query({
         artist: v.string(),
         albumArtUrl: v.union(v.string(), v.null()),
         songFileUrl: v.union(v.string(), v.null()),
-        submissionType: v.union(
-          v.literal("file"),
-          v.literal("spotify"),
-          v.literal("youtube"),
-        ),
+        submissionType: v.union(v.literal("file"), v.literal("spotify"), v.literal("youtube")),
         songLink: v.union(v.string(), v.null()),
         leagueId: v.id("leagues"),
         leagueName: v.optional(v.string()),
@@ -1055,15 +900,12 @@ export const searchInLeague = query({
     if (!league) {
       return { rounds: [], songs: [] };
     }
-
     if (!league.isPublic) {
       const membership =
         userId &&
         (await ctx.db
           .query("memberships")
-          .withIndex("by_league_and_user", (q) =>
-            q.eq("leagueId", league._id).eq("userId", userId!),
-          )
+          .withIndex("by_league_and_user", (q) => q.eq("leagueId", league._id).eq("userId", userId!))
           .first());
       if (!membership) {
         return { rounds: [], songs: [] };
@@ -1073,11 +915,7 @@ export const searchInLeague = query({
     const perCategoryLimit = Math.max(1, Math.min(args.limit ?? 5, 25));
     const needle = args.searchText.trim().toLowerCase();
 
-    const allRoundsInLeague = await ctx.db
-      .query("rounds")
-      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .collect();
-
+    const allRoundsInLeague = await ctx.db.query("rounds").withIndex("by_league", (q) => q.eq("leagueId", args.leagueId)).collect();
     const matchedRounds = allRoundsInLeague
       .filter((r) => {
         const t = r.title.toLowerCase();
@@ -1085,17 +923,9 @@ export const searchInLeague = query({
         return t.includes(needle) || d.includes(needle);
       })
       .slice(0, perCategoryLimit)
-      .map((r) => ({
-        _id: r._id,
-        title: r.title,
-      }));
+      .map((r) => ({ _id: r._id, title: r.title }));
 
-    const matchedSubs = await ctx.db
-      .query("submissions")
-      .withSearchIndex("by_text", (q) =>
-        q.search("searchText", args.searchText).eq("leagueId", args.leagueId),
-      )
-      .take(perCategoryLimit);
+    const matchedSubs = await ctx.db.query("submissions").withSearchIndex("by_text", (q) => q.search("searchText", args.searchText).eq("leagueId", args.leagueId)).take(perCategoryLimit);
 
     const roundIds = [...new Set(matchedSubs.map((s) => s.roundId))];
     const roundDocs = await Promise.all(roundIds.map((rid) => ctx.db.get(rid)));
@@ -1109,7 +939,6 @@ export const searchInLeague = query({
         const round = roundMap.get(sub.roundId.toString());
         let albumArtUrl: string | null = null;
         let songFileUrl: string | null = null;
-
         if (sub.submissionType === "file") {
           [albumArtUrl, songFileUrl] = await Promise.all([
             sub.albumArtKey ? r2.getUrl(sub.albumArtKey) : Promise.resolve(null),
@@ -1119,7 +948,6 @@ export const searchInLeague = query({
           albumArtUrl = sub.albumArtUrlValue ?? null;
           songFileUrl = sub.songLink ?? null;
         }
-
         return {
           _id: sub._id,
           songTitle: sub.songTitle,
@@ -1136,9 +964,6 @@ export const searchInLeague = query({
       }),
     );
 
-    return {
-      rounds: matchedRounds,
-      songs,
-    };
+    return { rounds: matchedRounds, songs };
   },
 });
