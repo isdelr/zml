@@ -88,7 +88,7 @@ export const getSongMetadataFromLink = action({
       } catch (err) {
         console.error("Spotify API error:", err);
         let errorMessage = "Failed to fetch track metadata from Spotify.";
-        if (err && typeof err === "object" && err.message && typeof err.message === "string") {
+        if (err instanceof Error && err.message) {
           errorMessage = err.message;
         }
         throw new Error(errorMessage);
