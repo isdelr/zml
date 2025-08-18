@@ -1,208 +1,205 @@
-// public/sw.js
-const CACHE_NAME = "zml-cache-v1";
+/* eslint-disable no-restricted-globals */
+// A careful, auth-safe PWA service worker for ZML
+
+const VERSION = "v4";
+const STATIC_CACHE = `zml-static-${VERSION}`;
+const HTML_CACHE = `zml-html-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
+
+// Static assets we always want available offline
 const STATIC_ASSETS = [
   OFFLINE_URL,
-  // You can add other critical assets here if needed, like a logo
-  // '/icons/icon-192x192.png', 
+  "/icons/web-app-manifest-192x192.png",
+  "/icons/web-app-manifest-512x512.png",
+  "/icons/favicon.ico",
 ];
 
-// Add installation event for debugging
-self.addEventListener('install', function() {
-  console.log('[SW] Service Worker installing');
-  self.skipWaiting(); // Force the waiting service worker to become the active service worker
-});
-
-// Enhanced push event handler with better error handling and debugging
-self.addEventListener('push', function (event) {
-  console.log('[SW] Push event received');
-  
-  if (!event.data) {
-    console.log('[SW] No data in push event');
-    return;
-  }
-
-  try {
-    const data = event.data.json();
-    console.log('[SW] Push data:', data);
-    
-    const options = {
-      body: data.body,
-      icon: data.icon || '/icons/web-app-manifest-192x192.png',
-      badge: data.badge || '/icons/web-app-manifest-192x192.png',
-      vibrate: [100, 50, 100],
-      requireInteraction: true, // Keep notification visible until user interacts
-      tag: 'zml-notification', // Prevent duplicate notifications
-      // Store the URL from the payload into the notification's data
-      data: {
-        url: data.data?.url || "/",
-      },
-      // Add action buttons for better engagement
-      actions: [
-        {
-          action: 'open',
-          title: 'Open',
-          icon: '/icons/web-app-manifest-192x192.png'
-        },
-        {
-          action: 'close',
-          title: 'Close'
-        }
-      ]
-    };
-    
-    console.log('[SW] Showing notification with options:', options);
-    
-    const notificationPromise = self.registration.showNotification(data.title, options)
-      .then(() => {
-        console.log('[SW] Notification shown successfully');
-      })
-      .catch(error => {
-        console.error('[SW] Error showing notification:', error);
-      });
-    
-    event.waitUntil(notificationPromise);
-  } catch (error) {
-    console.error('[SW] Error parsing push data:', error);
-  }
-});
-
-// Enhanced notification click handler
-self.addEventListener('notificationclick', function (event) {
-  console.log('[SW] Notification click received, action:', event.action);
-  event.notification.close();
-
-  if (event.action === 'close') {
-    return; // Just close the notification
-  }
-
-  // Get the URL from the notification's data property
-  const urlToOpen = event.notification.data?.url || '/';
-  const fullUrl = new URL(urlToOpen, self.location.origin).href;
-  
-  console.log('[SW] Opening URL:', fullUrl);
-
-  const promiseChain = self.clients
-    .matchAll({
-      type: "window",
-      includeUncontrolled: true,
-    })
-    .then((clientList) => {
-      console.log('[SW] Found clients:', clientList.length);
-      
-      // Try to find an existing client with the same URL
-      let client = clientList.find(c => c.url === fullUrl);
-      
-      if (client) {
-        console.log('[SW] Focusing existing client');
-        return client.focus();
-      }
-      
-      // Try to find any client from the same origin and navigate it
-      client = clientList.find(c => new URL(c.url).origin === self.location.origin);
-      
-      if (client) {
-        console.log('[SW] Navigating existing client to new URL');
-        return client.navigate(fullUrl).then(() => client.focus());
-      }
-      
-      console.log('[SW] Opening new window');
-      return self.clients.openWindow(fullUrl);
-    })
-    .catch(error => {
-      console.error('[SW] Error handling notification click:', error);
-    });
-
-  event.waitUntil(promiseChain);
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(STATIC_CACHE)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (event) => {
-  console.log('[SW] Service Worker activating');
-  
   event.waitUntil(
     (async () => {
-      // Enable navigation preloading if it's supported
       if ("navigationPreload" in self.registration) {
-        await self.registration.navigationPreload.enable();
+        try {
+          await self.registration.navigationPreload.enable();
+        } catch {}
       }
-      
-      // Clean up old caches
-      const cacheNames = await caches.keys();
+      const keys = await caches.keys();
       await Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+        keys
+          .filter((k) => ![STATIC_CACHE, HTML_CACHE].includes(k))
+          .map((k) => caches.delete(k))
       );
-      
-      // Take control of all pages immediately
       await self.clients.claim();
-      console.log('[SW] Service Worker activated and claimed clients');
     })()
   );
 });
 
-// Stale-while-revalidate for Convex API calls
-const handleApiRequest = async (event) => {
-  const cache = await caches.open(CACHE_NAME);
-  const cachedResponse = await cache.match(event.request);
-
-  const networkResponsePromise = fetch(event.request).then((networkResponse) => {
-    // If the fetch is successful, clone it, cache it, and return it.
-    if (networkResponse.ok) {
-      cache.put(event.request, networkResponse.clone());
-    }
-    return networkResponse;
-  });
-
-  // Return the cached response immediately if available, otherwise wait for the network.
-  return cachedResponse || networkResponsePromise;
-};
-
-// Cache-first for static assets
-const handleStaticAssetRequest = async (event) => {
-  const cache = await caches.open(CACHE_NAME);
-  const cachedResponse = await cache.match(event.request);
-  if (cachedResponse) {
-    return cachedResponse;
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
   }
-  return fetch(event.request);
+});
+
+const isHTMLNavigation = (request) =>
+  request.mode === "navigate" ||
+  (request.method === "GET" &&
+    request.headers.get("accept") &&
+    request.headers.get("accept").includes("text/html"));
+
+const isAuthOrApi = (url) => {
+  // Never cache auth or API endpoints (prevents stale auth states)
+  if (url.origin.includes("convex.cloud")) return true;
+  if (url.pathname.startsWith("/api/")) return true;
+  return false;
 };
+
+const isStaticAsset = (url) =>
+  url.pathname.startsWith("/icons/") ||
+  url.pathname.endsWith(".png") ||
+  url.pathname.endsWith(".jpg") ||
+  url.pathname.endsWith(".jpeg") ||
+  url.pathname.endsWith(".svg") ||
+  url.pathname.endsWith(".ico") ||
+  url.pathname.endsWith(".css") ||
+  url.pathname.endsWith(".js") ||
+  url.pathname.endsWith(".woff") ||
+  url.pathname.endsWith(".woff2");
+
+async function handleHTMLNavigation(event) {
+  const cache = await caches.open(HTML_CACHE);
+
+  try {
+    const preload = await event.preloadResponse;
+    if (preload) {
+      cache.put(event.request, preload.clone());
+      return preload;
+    }
+
+    const network = await fetch(event.request, { credentials: "include" });
+    if (network && network.ok) {
+      cache.put(event.request, network.clone());
+    }
+    return network;
+  } catch {
+    const cached = await cache.match(event.request);
+    if (cached) return cached;
+    const offline = await caches.match(OFFLINE_URL);
+    return (
+      offline ||
+      new Response("Offline", { status: 503, statusText: "Offline" })
+    );
+  }
+}
+
+async function handleStaticAsset(event) {
+  const cached = await caches.match(event.request);
+  if (cached) return cached;
+  try {
+    const res = await fetch(event.request);
+    if (res && res.ok) {
+      const cache = await caches.open(STATIC_CACHE);
+      cache.put(event.request, res.clone());
+    }
+    return res;
+  } catch {
+    return cached || Response.error();
+  }
+}
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Handle Convex API calls with stale-while-revalidate
-  if (url.origin.includes("convex.cloud")) {
-    event.respondWith(handleApiRequest(event));
-    return;
-  }
-  
-  // Handle static assets with cache-first
-  if (STATIC_ASSETS.some(asset => url.pathname.endsWith(asset))) {
-    event.respondWith(handleStaticAssetRequest(event));
+  if (event.request.method !== "GET") {
     return;
   }
 
-  // Handle navigation requests
-  if (event.request.mode === "navigate") {
-    event.respondWith(
-      (async () => {
-        try {
-          const preloadResponse = await event.preloadResponse;
-          if (preloadResponse) {
-            return preloadResponse;
-          }
+  if (isAuthOrApi(url)) {
+    return;
+  }
 
-          const networkResponse = await fetch(event.request);
-          return networkResponse;
-        } catch (error) {
-          console.log("[SW] Fetch failed; returning offline page.", error);
+  if (isHTMLNavigation(event.request)) {
+    event.respondWith(handleHTMLNavigation(event));
+    return;
+  }
 
-          const cache = await caches.open(CACHE_NAME);
-          const cachedResponse = await cache.match(OFFLINE_URL);
-          return cachedResponse;
+  if (isStaticAsset(url)) {
+    event.respondWith(handleStaticAsset(event));
+    return;
+  }
+
+  event.respondWith(
+    (async () => {
+      const cache = await caches.open(STATIC_CACHE);
+      try {
+        const res = await fetch(event.request);
+        if (res && res.ok) {
+          cache.put(event.request, res.clone());
         }
-      })()
-    );
+        return res;
+      } catch {
+        const cached = await cache.match(event.request);
+        return cached || Response.error();
+      }
+    })()
+  );
+});
+
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  try {
+    const data = event.data.json();
+    const options = {
+      body: data.body,
+      icon: data.icon || "/icons/web-app-manifest-192x192.png",
+      badge: data.badge || "/icons/web-app-manifest-192x192.png",
+      vibrate: [100, 50, 100],
+      requireInteraction: true,
+      tag: "zml-notification",
+      data: {
+        url: data.data?.url || "/",
+      },
+      actions: [
+        { action: "open", title: "Open", icon: "/icons/web-app-manifest-192x192.png" },
+        { action: "close", title: "Close" },
+      ],
+    };
+    event.waitUntil(self.registration.showNotification(data.title, options));
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("[SW] Push parse error:", e);
   }
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  if (event.action === "close") return;
+  const urlToOpen = event.notification.data?.url || "/";
+  const fullUrl = new URL(urlToOpen, self.location.origin).href;
+
+  event.waitUntil(
+    (async () => {
+      const clientsArr = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      let client = clientsArr.find((c) => c.url === fullUrl);
+      if (client) return client.focus();
+      client = clientsArr.find(
+        (c) => new URL(c.url).origin === self.location.origin
+      );
+      if (client) {
+        await client.navigate(fullUrl);
+        return client.focus();
+      }
+      return self.clients.openWindow(fullUrl);
+    })()
+  );
 });

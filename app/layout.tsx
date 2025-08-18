@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { NotificationProvider } from "@/components/providers/NotificationProvider";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { RoutePrefetcher } from "@/components/RoutePrefetcher";
+import { AuthSessionRefresher } from "@/components/providers/AuthSessionRefresher";
 
 const ConvexClientProvider = dynamic(
   () => import("@/components/ConvexClientProvider"),
@@ -44,6 +45,12 @@ export const metadata: Metadata = {
     "The ultimate platform to challenge your friends' musical tastes. Create leagues, set themed rounds, and vote for the best tracks.",
   icons: {
     icon: "/icons/favicon.ico",
+    apple: "/icons/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "ZML",
   },
 };
 
@@ -75,11 +82,16 @@ export default function RootLayout({
         enableSystem
         disableTransitionOnChange
       >
+        {/* Register SW for all users (prod), manage skipWaiting and updates */}
+        <ServiceWorkerRegistrar />
         <ConvexClientProvider>
+          {/* Keep the auth cookie/session warm in PWAs and refresh on focus */}
+          <AuthSessionRefresher />
+
           {/* Prefetch key routes early for snappier nav */}
           <RoutePrefetcher />
+
           <NotificationProvider>
-            <ServiceWorkerRegistrar />
             {children}
             <Toaster />
             <MusicPlayer />
