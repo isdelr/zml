@@ -64,10 +64,8 @@ const checkLeagueOwnership = async (
 ) => {
   const userId = await getAuthUserId(ctx);
   if (!userId) throw new Error("Authentication required.");
-
   const league = await ctx.db.get(leagueId);
   if (!league) throw new Error("League not found.");
-
   if (league.creatorId !== userId)
     throw new Error("You are not the owner of this league.");
   return league;
@@ -111,7 +109,9 @@ export const create = mutation({
       );
     }
     if (args.votingDeadline < 1 || args.votingDeadline > maxHours) {
-      throw new Error(`Voting period must be between 1 and ${maxHours} hours.`);
+      throw new Error(
+        `Voting period must be between 1 and ${maxHours} hours.`,
+      );
     }
     if (args.maxPositiveVotes < 1 || args.maxPositiveVotes > 10) {
       throw new Error("Upvotes must be between 1 and 10.");
@@ -219,7 +219,6 @@ export const getPublicLeagues = query({
           .query("rounds")
           .withIndex("by_league", (q) => q.eq("leagueId", league._id))
           .collect();
-
         const genres = [...new Set(rounds.flatMap((r) => r.genres))];
         const firstRoundWithImage = rounds.find((r) => r.imageKey);
         const art = firstRoundWithImage?.imageKey
@@ -250,12 +249,10 @@ export const getLeaguesForUser = query({
       .query("memberships")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-
     const leagueIds = memberships.map((m) => m.leagueId);
     const leagues = await Promise.all(
       leagueIds.map((leagueId) => ctx.db.get(leagueId)),
     );
-
     return leagues.filter(
       (league): league is Doc<"leagues"> => league !== null,
     );
@@ -323,11 +320,10 @@ export const get = query({
       .query("memberships")
       .withIndex("by_league", (q) => q.eq("leagueId", league._id))
       .collect();
-
     const memberIds = memberships.map((m) => m.userId);
     const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
-
     const memberCount = await memberCounter.count(ctx, league._id);
+
     const members = memberDocs
       .filter((u): u is Doc<"users"> => u !== null)
       .map((u) => ({
@@ -379,17 +375,13 @@ export const getInviteInfo = query({
     if (!league) {
       return null;
     }
-
     const creator = await ctx.db.get(league.creatorId);
-
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_league", (q) => q.eq("leagueId", league._id))
       .collect();
-
     const memberIds = memberships.map((m) => m.userId);
     const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
-
     const members = memberDocs
       .filter((u): u is Doc<"users"> => u !== null)
       .map((u) => ({
@@ -418,23 +410,19 @@ export const joinWithInviteCode = mutation({
     if (!userId) {
       throw new Error("You must be logged in to join a league.");
     }
-
     const league = await ctx.db
       .query("leagues")
       .withIndex("by_invite_code", (q) => q.eq("inviteCode", args.inviteCode))
       .first();
-
     if (!league) {
       return "not_found";
     }
-
     const existingMembership = await ctx.db
       .query("memberships")
       .withIndex("by_league_and_user", (q) =>
         q.eq("leagueId", league._id).eq("userId", userId),
       )
       .first();
-
     if (existingMembership) {
       return "already_joined";
     }
@@ -467,7 +455,6 @@ export const joinPublicLeague = mutation({
     if (!userId) {
       throw new Error("You must be logged in to join a league.");
     }
-
     const league = await ctx.db.get(args.leagueId);
     if (!league) {
       return "not_found";
@@ -477,14 +464,12 @@ export const joinPublicLeague = mutation({
         "This is a private league. You can only join with an invite link.",
       );
     }
-
     const existingMembership = await ctx.db
       .query("memberships")
       .withIndex("by_league_and_user", (q) =>
         q.eq("leagueId", league._id).eq("userId", userId),
       )
       .first();
-
     if (existingMembership) {
       return "already_joined";
     }
@@ -525,7 +510,6 @@ export const updateLeague = mutation({
   },
   handler: async (ctx, args) => {
     await checkLeagueOwnership(ctx, args.leagueId);
-
     const { leagueId, ...updates } = args;
 
     const maxHours = 30 * 24;
@@ -541,7 +525,9 @@ export const updateLeague = mutation({
       updates.votingDeadline !== undefined &&
       (updates.votingDeadline < 1 || updates.votingDeadline > maxHours)
     ) {
-      throw new Error(`Voting period must be between 1 and ${maxHours} hours.`);
+      throw new Error(
+        `Voting period must be between 1 and ${maxHours} hours.`,
+      );
     }
 
     await ctx.db.patch(leagueId, updates);
@@ -560,7 +546,6 @@ export const manageInviteCode = mutation({
   },
   handler: async (ctx, args) => {
     await checkLeagueOwnership(ctx, args.leagueId);
-
     if (args.action === "disable") {
       await ctx.db.patch(args.leagueId, { inviteCode: null });
       return { newCode: null };
@@ -586,22 +571,18 @@ export const kickMember = mutation({
   args: { leagueId: v.id("leagues"), memberIdToKick: v.id("users") },
   handler: async (ctx, args) => {
     const league = await checkLeagueOwnership(ctx, args.leagueId);
-
     if (args.memberIdToKick === league.creatorId) {
       throw new Error("The league owner cannot be kicked.");
     }
-
     const membership = await ctx.db
       .query("memberships")
       .withIndex("by_league_and_user", (q) =>
         q.eq("leagueId", args.leagueId).eq("userId", args.memberIdToKick),
       )
       .first();
-
     if (!membership) {
       throw new Error("This user is not a member of the league.");
     }
-
     await ctx.db.delete(membership._id);
     await membershipsByUser.delete(ctx, membership);
     await memberCounter.dec(ctx, args.leagueId);
@@ -613,7 +594,6 @@ export const kickMember = mutation({
         q.eq("leagueId", args.leagueId).eq("userId", args.memberIdToKick),
       )
       .first();
-
     if (standing) {
       await ctx.db.delete(standing._id);
     }
@@ -684,7 +664,6 @@ export const getLeagueMetadata = query({
     if (!league) {
       return null;
     }
-
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_league", (q) => q.eq("leagueId", league._id))
@@ -704,14 +683,12 @@ export const updateLeagueStats = internalAction({
     const statsData = await ctx.runQuery(internal.leagues.getStatsData, {
       leagueId: args.leagueId,
     });
-
     if (!statsData) {
       console.log(
         `No finished rounds for league ${args.leagueId}, skipping stats update.`,
       );
       return;
     }
-
     await ctx.runMutation(internal.leagues.storeLeagueStats, {
       leagueId: args.leagueId,
       stats: statsData,
@@ -761,7 +738,6 @@ export const getStatsData = internalQuery({
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .collect();
     const memberIds = memberships.map((m) => m.userId);
-
     const memberDocs = (
       await Promise.all(memberIds.map((id) => ctx.db.get(id)))
     ).filter(Boolean);
@@ -783,9 +759,9 @@ export const getStatsData = internalQuery({
     const overlord =
       mostWins.length > 0
         ? {
-          userId: mostWins[0].userId.toString(),
-          count: mostWins[0].totalWins,
-        }
+            userId: mostWins[0].userId.toString(),
+            count: mostWins[0].totalWins,
+          }
         : null;
 
     // Build a map from submissionId => submitter userId for vote aggregation
@@ -796,7 +772,6 @@ export const getStatsData = internalQuery({
     const userUpvotes = new Map<string, number>();
     const userDownvotes = new Map<string, number>();
     const userDownvotesCast = new Map<string, number>(); // NEW: downvotes cast by voter
-
     const posBySubmission = new Map<string, number>(); // NEW: upvotes per submission
     const negBySubmission = new Map<string, number>(); // NEW: downvotes per submission
 
@@ -833,7 +808,7 @@ export const getStatsData = internalQuery({
         negBySubmission.set(
           v.submissionId.toString(),
           (negBySubmission.get(v.submissionId.toString()) ?? 0) +
-          Math.abs(v.vote),
+            Math.abs(v.vote),
         );
     });
 
@@ -915,12 +890,10 @@ export const getStatsData = internalQuery({
         submissions.find((s) => s._id.toString() === subId)!._id,
       );
       if (!submission) return null;
-
       let albumArtUrl: string | null = null;
       if (submission.submissionType === "file" && submission.albumArtKey)
         albumArtUrl = await r2.getUrl(submission.albumArtKey);
       else albumArtUrl = submission.albumArtUrlValue ?? null;
-
       const submitter = memberMap.get(submission.userId.toString());
       return {
         songTitle: submission.songTitle,
@@ -973,11 +946,13 @@ export const getStatsData = internalQuery({
         submittedRoundsByUser.set(key, new Set());
       submittedRoundsByUser.get(key)!.add(s.roundId.toString());
     });
+
     const attArr = [...submittedRoundsByUser.entries()].map(([uid, set]) => ({
       uid,
       count: set.size,
     }));
     attArr.sort((a, b) => b.count - a.count);
+
     const attendanceStar = attArr.length
       ? { userId: attArr[0].uid, count: attArr[0].count, totalRounds }
       : null;
@@ -989,6 +964,7 @@ export const getStatsData = internalQuery({
       if (!resultsByUser.has(key)) resultsByUser.set(key, []);
       resultsByUser.get(key)!.push(r.points);
     });
+
     const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
     const stdev = (arr: number[]) => {
       const m = avg(arr);
@@ -996,6 +972,7 @@ export const getStatsData = internalQuery({
         arr.reduce((s, x) => s + (x - m) * (x - m), 0) / arr.length,
       );
     };
+
     const perUserAverages: { uid: string; average: number; rounds: number }[] =
       [];
     const perUserStdevs: {
@@ -1004,6 +981,7 @@ export const getStatsData = internalQuery({
       average: number;
       rounds: number;
     }[] = [];
+
     for (const [uid, arr] of resultsByUser.entries()) {
       if (arr.length === 0) continue;
       const average = avg(arr);
@@ -1011,6 +989,7 @@ export const getStatsData = internalQuery({
       perUserAverages.push({ uid, average, rounds: arr.length });
       perUserStdevs.push({ uid, dev, average, rounds: arr.length });
     }
+
     perUserAverages.sort((a, b) => b.average - a.average);
     perUserStdevs.sort((a, b) => a.dev - b.dev);
 
@@ -1042,6 +1021,7 @@ export const getStatsData = internalQuery({
         submissions: subs.length,
       };
     }
+
     function roundPointsDiff(roundId: Id<"rounds">) {
       const rr = results
         .filter((r) => r.roundId === roundId)
@@ -1050,9 +1030,10 @@ export const getStatsData = internalQuery({
       if (rr.length < 2) return 0;
       return rr[0] - rr[1];
     }
-    let worstRound: any = null,
-      closestRound: any = null,
-      blowoutRound: any = null;
+
+    let worstRound = null,
+      closestRound = null,
+      blowoutRound = null;
     for (const r of finishedRounds) {
       const up = roundUpvoteStats(r._id);
       const diff = roundPointsDiff(r._id);
@@ -1094,12 +1075,10 @@ export const getStatsData = internalQuery({
       const submission = await ctx.db.get(topResult.submissionId);
       if (!submission) return null;
       const submitter = memberMap.get(submission.userId.toString());
-
       let albumArtUrl: string | null = null;
       if (submission.submissionType === "file" && submission.albumArtKey)
         albumArtUrl = await r2.getUrl(submission.albumArtKey);
       else albumArtUrl = submission.albumArtUrlValue ?? null;
-
       return {
         songTitle: submission.songTitle,
         artist: submission.artist,
@@ -1111,15 +1090,16 @@ export const getStatsData = internalQuery({
 
     const mostUpvotedSong = mostUpvotedSongEntry
       ? await formatSongAwardFromSubmissionId(
-        mostUpvotedSongEntry[0],
-        mostUpvotedSongEntry[1],
-      )
+          mostUpvotedSongEntry[0],
+          mostUpvotedSongEntry[1],
+        )
       : null;
+
     const mostDownvotedSong = mostDownvotedSongEntry
       ? await formatSongAwardFromSubmissionId(
-        mostDownvotedSongEntry[0],
-        mostDownvotedSongEntry[1],
-      )
+          mostDownvotedSongEntry[0],
+          mostDownvotedSongEntry[1],
+        )
       : null;
 
     const fanFavoriteSong = favorite
@@ -1137,27 +1117,27 @@ export const getStatsData = internalQuery({
       fanFavoriteSong,
       attendanceStar: attendanceStar
         ? {
-          ...(memberMap.get(attendanceStar.userId) ?? {}),
-          count: attendanceStar.count,
-          meta: { totalRounds },
-        }
+            ...(memberMap.get(attendanceStar.userId) ?? {}),
+            count: attendanceStar.count,
+            meta: { totalRounds },
+          }
         : null,
       goldenEars: golden
         ? {
-          ...(memberMap.get(golden.uid) ?? {}),
-          count: Math.round(golden.average * 10) / 10,
-          meta: { rounds: golden.rounds },
-        }
+            ...(memberMap.get(golden.uid) ?? {}),
+            count: Math.round(golden.average * 10) / 10,
+            meta: { rounds: golden.rounds },
+          }
         : null,
       consistencyKing: consist
         ? {
-          ...(memberMap.get(consist.uid) ?? {}),
-          count: Math.round(consist.dev * 10) / 10,
-          meta: {
-            rounds: consist.rounds,
-            average: Math.round(consist.average * 10) / 10,
-          },
-        }
+            ...(memberMap.get(consist.uid) ?? {}),
+            count: Math.round(consist.dev * 10) / 10,
+            meta: {
+              rounds: consist.rounds,
+              average: Math.round(consist.average * 10) / 10,
+            },
+          }
         : null,
       biggestDownvoter: downvoter
         ? { ...(memberMap.get(downvoter[0]) ?? {}), count: downvoter[1] }
@@ -1198,7 +1178,6 @@ export const storeLeagueStats = internalMutation({
       .query("leagueStats")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .first();
-
     if (existing) {
       await ctx.db.patch(existing._id, {
         ...args.stats,
@@ -1328,7 +1307,6 @@ export const searchInLeague = query({
 
     const roundIds = [...new Set(matchedSubs.map((s) => s.roundId))];
     const roundDocs = await Promise.all(roundIds.map((rid) => ctx.db.get(rid)));
-
     const roundMap = new Map<string, Doc<"rounds">>();
     roundDocs.forEach((rd) => {
       if (rd) roundMap.set(rd._id.toString(), rd);
@@ -1337,7 +1315,6 @@ export const searchInLeague = query({
     const songs = await Promise.all(
       matchedSubs.map(async (sub) => {
         const round = roundMap.get(sub.roundId.toString());
-
         let albumArtUrl: string | null = null;
         let songFileUrl: string | null = null;
         if (sub.submissionType === "file") {
@@ -1353,7 +1330,6 @@ export const searchInLeague = query({
           albumArtUrl = sub.albumArtUrlValue ?? null;
           songFileUrl = sub.songLink ?? null;
         }
-
         return {
           _id: sub._id,
           songTitle: sub.songTitle,
@@ -1381,7 +1357,6 @@ export const calculateAndStoreResults = internalMutation({
   handler: async (ctx, { roundId }) => {
     const round = await ctx.db.get(roundId);
     if (!round) return;
-
     const league = await ctx.db.get(round.leagueId);
     if (!league) return;
 
@@ -1390,7 +1365,6 @@ export const calculateAndStoreResults = internalMutation({
       .query("submissions")
       .withIndex("by_round_and_user", (q) => q.eq("roundId", roundId))
       .collect();
-
     if (submissions.length === 0) {
       // Nothing to do
       return;
@@ -1410,6 +1384,7 @@ export const calculateAndStoreResults = internalMutation({
       else if (vte.vote < 0) entry.down += Math.abs(vte.vote);
       budgetByUser.set(key, entry);
     }
+
     const finalizedVoters = new Set<string>();
     for (const [userId, { up, down }] of budgetByUser.entries()) {
       if (up === league.maxPositiveVotes && down === league.maxNegativeVotes) {
@@ -1436,7 +1411,10 @@ export const calculateAndStoreResults = internalMutation({
     const previousWinsByUser = new Map<string, number>();
     for (const res of previousResults) {
       const u = res.userId.toString();
-      previousPointsByUser.set(u, (previousPointsByUser.get(u) ?? 0) + res.points);
+      previousPointsByUser.set(
+        u,
+        (previousPointsByUser.get(u) ?? 0) + res.points,
+      );
       if (res.isWinner) {
         previousWinsByUser.set(u, (previousWinsByUser.get(u) ?? 0) + 1);
       }
@@ -1453,13 +1431,11 @@ export const calculateAndStoreResults = internalMutation({
       string,
       { points: number; penaltyApplied: boolean }
     >();
-
     for (const sub of submissions) {
       const sid = sub._id.toString();
       const subVotes = votesBySubmission.get(sid) ?? [];
       const submitterFinalized = finalizedVoters.has(sub.userId.toString());
       let pts = 0;
-
       if (!submitterFinalized) {
         // Annul positive votes, keep negatives
         for (const vte of subVotes) {
@@ -1471,7 +1447,6 @@ export const calculateAndStoreResults = internalMutation({
           pts += vte.vote;
         }
       }
-
       perSubmission.set(sid, {
         points: pts,
         penaltyApplied: !submitterFinalized,
@@ -1482,7 +1457,6 @@ export const calculateAndStoreResults = internalMutation({
     let winningSubId: string | null = null;
     let bestPoints = -Infinity;
     let bestCreation = Number.MAX_SAFE_INTEGER;
-
     for (const sub of submissions) {
       const sid = sub._id.toString();
       const { points } = perSubmission.get(sid)!;
@@ -1532,15 +1506,12 @@ export const calculateAndStoreResults = internalMutation({
 
     for (const userIdStr of allUsers) {
       const uid = userIdStr as unknown as Id<"users">;
-
       const deltaPoints =
         (newPointsByUser.get(userIdStr) ?? 0) -
         (previousPointsByUser.get(userIdStr) ?? 0);
-
       const deltaWins =
         (newWinsByUser.get(userIdStr) ?? 0) -
         (previousWinsByUser.get(userIdStr) ?? 0);
-
       if (deltaPoints === 0 && deltaWins === 0) continue;
 
       let standing = await ctx.db
@@ -1559,7 +1530,6 @@ export const calculateAndStoreResults = internalMutation({
         });
         standing = await ctx.db.get(id);
       }
-
       if (!standing) continue;
 
       await ctx.db.patch(standing._id, {
