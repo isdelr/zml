@@ -1,5 +1,4 @@
 "use client";
-
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -58,32 +57,28 @@ export function MySubmissionsPage({ preloadedSubmissions }: MySubmissionsPagePro
   const filteredSubmissions = useMemo(() => {
     if (!mySubmissions) return [];
     if (!searchTerm) return mySubmissions;
-
     return mySubmissions.filter(
       (submission) =>
         submission &&
-        (submission.songTitle
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
+        (submission.songTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
           submission.artist.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          submission.roundTitle
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase())),
+          submission.roundTitle.toLowerCase().includes(searchTerm.toLowerCase())),
     );
   }, [mySubmissions, searchTerm]);
 
   const groupedSubmissions = useMemo(() => {
-    return filteredSubmissions.reduce<
-      Record<string, NonNullable<(typeof filteredSubmissions)[number]>[]>
-    >((acc, submission) => {
-      if (!submission) return acc;
-      const league = submission.leagueName;
-      if (!acc[league]) {
-        acc[league] = [];
-      }
-      acc[league].push(submission);
-      return acc;
-    }, {});
+    return filteredSubmissions.reduce<Record<string, NonNullable<(typeof filteredSubmissions)[number]>[]>>(
+      (acc, submission) => {
+        if (!submission) return acc;
+        const league = submission.leagueName;
+        if (!acc[league]) {
+          acc[league] = [];
+        }
+        acc[league].push(submission);
+        return acc;
+      },
+      {},
+    );
   }, [filteredSubmissions]);
 
   return (
@@ -94,7 +89,6 @@ export function MySubmissionsPage({ preloadedSubmissions }: MySubmissionsPagePro
       )}
     >
       <div className="p-4 md:p-8">
-        {/* Header */}
         <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <h1 className="text-4xl font-bold">My Submissions</h1>
           <div className="relative w-full flex-1 md:max-w-sm">
@@ -122,141 +116,125 @@ export function MySubmissionsPage({ preloadedSubmissions }: MySubmissionsPagePro
           </div>
         ) : (
           <div className="space-y-10">
-            {Object.entries(groupedSubmissions).map(
-              ([leagueName, submissions]) => (
-                <section key={leagueName}>
-                  <h2 className="mb-4 text-xl font-bold">
-                    <Link
-                      href={`/leagues/${submissions[0].leagueId}`}
-                      className="hover:underline"
-                    >
-                      {leagueName}
-                    </Link>
-                  </h2>
-                  <div className="overflow-hidden rounded-md border">
-                    <div className="hidden grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground md:grid">
-                      <span className="w-4 text-center">#</span>
-                      <span>Track</span>
-                      <span>Round</span>
-                      <span className="text-center">Result</span>
-                      <span className="w-24"></span>
-                    </div>
-                    <div>
-                      {submissions.map((submission, index) => (
-                        <div
-                          key={submission._id}
-                          className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b p-3 transition-colors last:border-b-0 hover:bg-accent md:grid-cols-[auto_4fr_3fr_2fr_auto] md:gap-4"
-                        >
-                          <span className="hidden w-4 text-center text-muted-foreground md:block">
-                            {index + 1}
-                          </span>
-                          <div className="flex items-center gap-4">
-                            <Image
-                              src={submission.albumArtUrl!}
-                              alt={submission.songTitle}
-                              width={40}
-                              height={40}
-                              className="aspect-square rounded object-cover"
-                            />
-                            <div>
-                              <p className="font-semibold text-foreground">
-                                {submission.songTitle}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {submission.artist}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="hidden text-sm md:block md:text-base">
-                            <p className="font-medium">
-                              {submission.roundTitle}
+            {Object.entries(groupedSubmissions).map(([leagueName, submissions]) => (
+              <section key={leagueName}>
+                <h2 className="mb-4 text-xl font-bold">
+                  <Link href={`/leagues/${submissions[0].leagueId}`} className="hover:underline">
+                    {leagueName}
+                  </Link>
+                </h2>
+                <div className="overflow-hidden rounded-md border">
+                  <div className="hidden grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground md:grid">
+                    <span className="w-4 text-center">#</span>
+                    <span>Track</span>
+                    <span>Round</span>
+                    <span className="text-center">Result</span>
+                    <span className="w-24"></span>
+                  </div>
+                  <div>
+                    {submissions.map((submission, index) => (
+                      <div
+                        key={submission._id}
+                        className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b p-3 transition-colors last:border-b-0 hover:bg-accent md:grid-cols-[auto_4fr_3fr_2fr_auto] md:gap-4"
+                      >
+<span className="hidden w-4 text-center text-muted-foreground md:block">
+{index + 1}
+</span>
+                        <div className="flex items-center gap-4">
+                          <Image
+                            src={submission.albumArtUrl || "/icons/web-app-manifest-192x192.png"}
+                            alt={submission.songTitle}
+                            width={40}
+                            height={40}
+                            className="aspect-square rounded object-cover"
+                          />
+                          <div>
+                            <p className="font-semibold text-foreground">
+                              {submission.songTitle}
                             </p>
-                            <p className="text-muted-foreground capitalize">
-                              {submission.status.replace(/_/g, " ")}
-                            </p>
-                          </div>
-                          <div className="flex justify-center">
-                            {submission.result.type !== "pending" ? (
-                              <div
-                                className={cn(
-                                  "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
-                                  getResultColor(submission.result),
-                                )}
-                              >
-                                {getResultIcon(submission.result)}
-                                <span>
-                                  {submission.result.type === "winner"
-                                    ? "Winner"
-                                    : `${submission.result.points} pts`}
-                                </span>
-                              </div>
-                            ) : (
-                              <div
-                                className={cn(
-                                  "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
-                                  getResultColor(submission.result),
-                                )}
-                              >
-                                <Medal className="size-4" />
-                                <span>Pending</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex w-auto justify-end gap-1 md:w-24">
-                            {submission.submissionType === "file" ? (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="opacity-0 transition-opacity group-hover:opacity-100"
-                                onClick={() =>
-                                  playerActions.playSong(submission as Song)
-                                }
-                              >
-                                <Play className="size-4" />
-                              </Button>
-                            ) : (
-                              <a
-                                href={submission.songLink!}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="opacity-0 transition-opacity group-hover:opacity-100"
-                                >
-                                  {submission.submissionType === "spotify" && (
-                                    <FaSpotify className="size-4 text-green-500" />
-                                  )}
-                                  {submission.submissionType === "youtube" && (
-                                    <FaYoutube className="size-4 text-red-500" />
-                                  )}
-                                </Button>
-                              </a>
-                            )}
-                            <Link href={`/leagues/${submission.leagueId}`}>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="opacity-0 transition-opacity group-hover:opacity-100"
-                              >
-                                <ListMusic className="size-4" />
-                              </Button>
-                            </Link>
-                          </div>
-                          {/* Mobile-only round info */}
-                          <div className="col-span-1 -mt-2 pl-[56px] text-sm text-muted-foreground md:hidden">
-                            <p className="font-medium">
-                              {submission.roundTitle}
+                            <p className="text-sm text-muted-foreground">
+                              {submission.artist}
                             </p>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        <div className="hidden text-sm md:block md:text-base">
+                          <p className="font-medium">{submission.roundTitle}</p>
+                          <p className="text-muted-foreground capitalize">
+                            {submission.status.replace(/_/g, " ")}
+                          </p>
+                        </div>
+                        <div className="flex justify-center">
+                          {submission.result.type !== "pending" ? (
+                            <div
+                              className={cn(
+                                "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
+                                getResultColor(submission.result),
+                              )}
+                            >
+                              {getResultIcon(submission.result)}
+                              <span>
+{submission.result.type === "winner"
+  ? "Winner"
+  : `${submission.result.points} pts`}
+</span>
+                            </div>
+                          ) : (
+                            <div
+                              className={cn(
+                                "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
+                                getResultColor(submission.result),
+                              )}
+                            >
+                              <Medal className="size-4" />
+                              <span>Pending</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex w-auto justify-end gap-1 md:w-24">
+                          {submission.submissionType === "file" ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 transition-opacity group-hover:opacity-100"
+                              onClick={() => playerActions.playSong(submission as unknown as Song)}
+                            >
+                              <Play className="size-4" />
+                            </Button>
+                          ) : (
+                            <a href={submission.songLink!} target="_blank" rel="noopener noreferrer">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="opacity-0 transition-opacity group-hover:opacity-100"
+                              >
+                                {submission.submissionType === "spotify" && (
+                                  <FaSpotify className="size-4 text-green-500" />
+                                )}
+                                {submission.submissionType === "youtube" && (
+                                  <FaYoutube className="size-4 text-red-500" />
+                                )}
+                              </Button>
+                            </a>
+                          )}
+                          <Link href={`/leagues/${submission.leagueId}`}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 transition-opacity group-hover:opacity-100"
+                            >
+                              <ListMusic className="size-4" />
+                            </Button>
+                          </Link>
+                        </div>
+                        <div className="col-span-1 -mt-2 pl-[56px] text-sm text-muted-foreground md:hidden">
+                          <p className="font-medium">{submission.roundTitle}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </section>
-              ),
-            )}
+                </div>
+              </section>
+            ))}
           </div>
         )}
       </div>

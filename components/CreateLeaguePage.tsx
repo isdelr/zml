@@ -1,6 +1,4 @@
-// components/CreateLeaguePage.tsx
 "use client";
-
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
@@ -10,7 +8,6 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Loader2, PlusCircle, Trash2, X } from "lucide-react";
 import { genres } from "@/lib/genres";
-
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -42,91 +39,76 @@ const MAX_ROUND_IMAGE_SIZE_MB = 5;
 const MAX_ROUND_IMAGE_SIZE_BYTES = MAX_ROUND_IMAGE_SIZE_MB * 1024 * 1024;
 
 const formSchema = z
-  .object({
-    name: z.string().min(3, {
-      message: "League name must be at least 3 characters.",
+    .object({
+      name: z.string().min(3, {
+        message: "League name must be at least 3 characters.",
+      }),
+      description: z.string().min(10, {
+        message: "Description must be at least 10 characters.",
+      }),
+      isPublic: z.boolean().default(false),
+      submissionDeadline: z.coerce.number().min(1, "Must be at least 1 hour.").max(720, "Max duration is 30 days (720 hours)."),
+      votingDeadline: z.coerce.number().min(1, "Must be at least 1 hour.").max(720, "Max duration is 30 days (720 hours)."),
+      maxPositiveVotes: z.coerce.number().min(1, "Must be at least 1 vote."),
+      maxNegativeVotes: z.coerce.number().min(0, "Cannot be negative."),
+      limitVotesPerSubmission: z.boolean().default(false),
+      maxPositiveVotesPerSubmission: z.coerce.number().min(1, "Must be at least 1 vote.").optional(),
+      maxNegativeVotesPerSubmission: z.coerce.number().min(0, "Cannot be negative.").optional(),
+      enforceListenPercentage: z.boolean().default(false),
+      listenPercentage: z.coerce.number().min(1, "Must be between 1-100%").max(100, "Must be between 1-100%").optional(),
+      listenTimeLimitMinutes: z.coerce.number().min(1, "Must be at least 1 minute.").optional(),
+      rounds: z
+        .array(
+          z.object({
+            title: z.string().min(3, "Title must be at least 3 characters."),
+            description: z.string().min(10, "Description must be at least 10 characters."),
+            submissionsPerUser: z.coerce.number().min(1, "Must be at least 1.").max(5, "Max 5 submissions."),
+            genres: z.array(z.string()).optional(),
+            imageFile: z
+              .instanceof(File)
+              .optional()
+              .refine(
+                (file) => !file || file.size <= MAX_ROUND_IMAGE_SIZE_BYTES,
+                `Image must be less than ${MAX_ROUND_IMAGE_SIZE_MB}MB.`,
+          ),
     }),
-    description: z.string().min(10, {
-      message: "Description must be at least 10 characters.",
-    }),
-    isPublic: z.boolean().default(false),
-    submissionDeadline: z.coerce.number().min(1, "Must be at least 1 hour.").max(720, "Max duration is 30 days (720 hours)."),
-    votingDeadline: z.coerce.number().min(1, "Must be at least 1 hour.").max(720, "Max duration is 30 days (720 hours)."),
-    maxPositiveVotes: z.coerce.number().min(1, "Must be at least 1 vote."),
-    maxNegativeVotes: z.coerce.number().min(0, "Cannot be negative."),
-    limitVotesPerSubmission: z.boolean().default(false),
-    maxPositiveVotesPerSubmission: z.coerce
-      .number()
-      .min(1, "Must be at least 1 vote.")
-      .optional(),
-    maxNegativeVotesPerSubmission: z.coerce
-      .number()
-      .min(0, "Cannot be negative.")
-      .optional(),
-    enforceListenPercentage: z.boolean().default(false),
-    listenPercentage: z.coerce
-      .number()
-      .min(1, "Must be between 1-100%")
-      .max(100, "Must be between 1-100%")
-      .optional(),
-    listenTimeLimitMinutes: z.coerce
-      .number()
-      .min(1, "Must be at least 1 minute.")
-      .optional(),
-    rounds: z
-      .array(
-        z.object({
-          title: z.string().min(3, "Title must be at least 3 characters."),
-          description: z
-            .string()
-            .min(10, "Description must be at least 10 characters."),
-          submissionsPerUser: z.coerce.number().min(1, "Must be at least 1.").max(5, "Max 5 submissions."),
-          genres: z.array(z.string()).optional(),
-          imageFile: z
-            .instanceof(File)
-            .optional()
-            .refine(
-              (file) => !file || file.size <= MAX_ROUND_IMAGE_SIZE_BYTES,
-              `Image must be less than ${MAX_ROUND_IMAGE_SIZE_MB}MB.`,
-            ),
-        }),
-      )
-      .min(1, "You must add at least one round."),
-  })
-  .superRefine((data, ctx) => {
-    if (data.enforceListenPercentage) {
-      if (data.listenPercentage === undefined || isNaN(data.listenPercentage)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "A percentage is required.",
-          path: ["listenPercentage"],
-        });
-      }
-      if (data.listenTimeLimitMinutes === undefined || isNaN(data.listenTimeLimitMinutes)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "A time limit is required.",
-          path: ["listenTimeLimitMinutes"],
-        });
-      }
+  )
+.min(1, "You must add at least one round."),
+})
+.superRefine((data, ctx) => {
+  if (data.enforceListenPercentage) {
+    if (data.listenPercentage === undefined || isNaN(data.listenPercentage)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A percentage is required.",
+        path: ["listenPercentage"],
+      });
     }
-    if (data.limitVotesPerSubmission) {
-      if (data.maxPositiveVotesPerSubmission === undefined || isNaN(data.maxPositiveVotesPerSubmission)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "A max is required.",
-          path: ["maxPositiveVotesPerSubmission"],
-        });
-      }
-      if (data.maxNegativeVotesPerSubmission === undefined || isNaN(data.maxNegativeVotesPerSubmission)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "A max is required.",
-          path: ["maxNegativeVotesPerSubmission"],
-        });
-      }
+    if (data.listenTimeLimitMinutes === undefined || isNaN(data.listenTimeLimitMinutes)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A time limit is required.",
+        path: ["listenTimeLimitMinutes"],
+      });
     }
-  });
+  }
+  if (data.limitVotesPerSubmission) {
+    if (data.maxPositiveVotesPerSubmission === undefined || isNaN(data.maxPositiveVotesPerSubmission)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A max is required.",
+        path: ["maxPositiveVotesPerSubmission"],
+      });
+    }
+    if (data.maxNegativeVotesPerSubmission === undefined || isNaN(data.maxNegativeVotesPerSubmission)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A max is required.",
+        path: ["maxNegativeVotesPerSubmission"],
+      });
+    }
+  }
+});
 
 export function CreateLeaguePage() {
   const createLeague = useMutation(api.leagues.create);
@@ -182,12 +164,10 @@ export function CreateLeaguePage() {
           };
         }),
       );
-
       const leagueId = await createLeague({
         ...values,
         rounds: processedRounds,
       });
-
       toast.success("League and rounds created successfully!", { id: toastId });
       form.reset();
       router.push(`/leagues/${leagueId}`);
@@ -219,10 +199,7 @@ export function CreateLeaguePage() {
                     <FormItem>
                       <FormLabel>League Name</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="e.g., 90s Rock Anthems"
-                          {...field}
-                        />
+                        <Input placeholder="e.g., 90s Rock Anthems" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -235,10 +212,7 @@ export function CreateLeaguePage() {
                     <FormItem>
                       <FormLabel>League Description</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="A league for the best rock of the 90s."
-                          {...field}
-                        />
+                        <Textarea placeholder="A league for the best rock of the 90s." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -251,15 +225,10 @@ export function CreateLeaguePage() {
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                       <div className="space-y-0.5">
                         <FormLabel>Public League</FormLabel>
-                        <FormDescription>
-                          Allow anyone to discover and join this league.
-                        </FormDescription>
+                        <FormDescription>Allow anyone to discover and join this league.</FormDescription>
                       </div>
                       <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
                       </FormControl>
                     </FormItem>
                   )}
@@ -273,9 +242,7 @@ export function CreateLeaguePage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() =>
-                      append({ title: "", description: "", genres: [], submissionsPerUser: 1 })
-                    }
+                    onClick={() => append({ title: "", description: "", genres: [], submissionsPerUser: 1 })}
                   >
                     <PlusCircle className="mr-2 size-4" />
                     Add Round
@@ -283,10 +250,7 @@ export function CreateLeaguePage() {
                 </div>
 
                 {fields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="relative flex flex-col-reverse gap-6 rounded-lg border p-4 md:flex-row"
-                  >
+                  <div key={field.id} className="relative flex flex-col-reverse gap-6 rounded-lg border p-4 md:flex-row">
                     <div className="flex-1 space-y-4">
                       <h4 className="font-semibold">Round {index + 1}</h4>
                       <FormField
@@ -296,10 +260,7 @@ export function CreateLeaguePage() {
                           <FormItem>
                             <FormLabel>Title</FormLabel>
                             <FormControl>
-                              <Input
-                                placeholder="e.g., Guilty Pleasures"
-                                {...field}
-                              />
+                              <Input placeholder="e.g., Guilty Pleasures" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -312,10 +273,7 @@ export function CreateLeaguePage() {
                           <FormItem>
                             <FormLabel>Description</FormLabel>
                             <FormControl>
-                              <Textarea
-                                placeholder="Describe the theme of this round."
-                                {...field}
-                              />
+                              <Textarea placeholder="Describe the theme of this round." {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -340,25 +298,17 @@ export function CreateLeaguePage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Genres (Optional)</FormLabel>
-                            <FormDescription>
-                              Click on genres to select or unselect them.
-                            </FormDescription>
+                            <FormDescription>Click on genres to select or unselect them.</FormDescription>
                             <FormControl>
                               <div className="flex flex-wrap gap-2">
                                 {genres.map((genre) => (
                                   <Badge
                                     key={genre}
-                                    variant={
-                                      field.value?.includes(genre)
-                                        ? "default"
-                                        : "outline"
-                                    }
+                                    variant={field.value?.includes(genre) ? "default" : "outline"}
                                     onClick={() => {
                                       const newValue = field.value ?? [];
-                                      const newSelected = newValue.includes(
-                                        genre,
-                                      )
-                                        ? newValue.filter((g) => g !== genre)
+                                      const newSelected = newValue.includes(genre)
+                                        ? newValue.filter((g: string) => g !== genre)
                                         : [...newValue, genre];
                                       field.onChange(newSelected);
                                     }}
@@ -374,6 +324,7 @@ export function CreateLeaguePage() {
                         )}
                       />
                     </div>
+
                     <div className="w-full md:w-52">
                       <FormField
                         control={form.control}
@@ -396,10 +347,7 @@ export function CreateLeaguePage() {
                                   size="icon"
                                   className="absolute -right-2 -top-2 z-10 size-6 rounded-full"
                                   onClick={() => {
-                                    form.setValue(
-                                      `rounds.${index}.imageFile`,
-                                      undefined,
-                                    );
+                                    form.setValue(`rounds.${index}.imageFile`, undefined);
                                     setPreviews((p) => {
                                       const newPreviews = { ...p };
                                       URL.revokeObjectURL(p[index]);
@@ -417,8 +365,7 @@ export function CreateLeaguePage() {
                                   className="flex size-full items-center justify-center"
                                   dangerouslySetInnerHTML={{
                                     __html: toSvg(
-                                      form.getValues(`rounds.${index}.title`) ||
-                                      `round-${index}`,
+                                      form.getValues(`rounds.${index}.title`) || `round-${index}`,
                                       200,
                                     ),
                                   }}
@@ -426,9 +373,7 @@ export function CreateLeaguePage() {
                                 <FormControl>
                                   <label className="absolute inset-0 flex h-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md bg-black/50 text-white opacity-0 transition-opacity hover:opacity-100">
                                     <ImagePlus className="size-8" />
-                                    <span className="text-sm font-medium">
-                                      Upload Image
-                                    </span>
+                                    <span className="text-sm font-medium">Upload Image</span>
                                     <Input
                                       type="file"
                                       className="sr-only"
@@ -469,7 +414,7 @@ export function CreateLeaguePage() {
                 ))}
                 {form.formState.errors.rounds && (
                   <p className="text-sm font-medium text-destructive">
-                    {form.formState.errors.rounds.message}
+                    {(form.formState.errors.rounds).message}
                   </p>
                 )}
               </div>
@@ -484,11 +429,7 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Submission Period (Hours)</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            value={(field.value as number) || ""}
-                          />
+                          <Input type="number" {...field} value={(field.value as number) || ""} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -500,11 +441,7 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Voting Period (Hours)</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            value={(field.value as number) || ""}
-                          />
+                          <Input type="number" {...field} value={(field.value as number) || ""} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -516,11 +453,7 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Upvotes per Member</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            value={(field.value as number) || ""}
-                          />
+                          <Input type="number" {...field} value={(field.value as number) || ""} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -532,11 +465,7 @@ export function CreateLeaguePage() {
                       <FormItem>
                         <FormLabel>Downvotes per Member</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            value={(field.value as number) || ""}
-                          />
+                          <Input type="number" {...field} value={(field.value as number) || ""} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -556,10 +485,7 @@ export function CreateLeaguePage() {
                           </FormDescription>
                         </div>
                         <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -615,15 +541,11 @@ export function CreateLeaguePage() {
                         <div className="space-y-0.5">
                           <FormLabel>Enforce Listen Duration</FormLabel>
                           <FormDescription>
-                            Require participants to listen to a portion of each
-                            song before voting.
+                            Require participants to listen to a portion of each song before voting.
                           </FormDescription>
                         </div>
                         <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -672,13 +594,8 @@ export function CreateLeaguePage() {
               </div>
 
               <Separator />
-
               <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={form.formState.isSubmitting}
-                  size="lg"
-                >
+                <Button type="submit" disabled={form.formState.isSubmitting} size="lg">
                   {form.formState.isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 size-4 animate-spin" />
@@ -696,3 +613,4 @@ export function CreateLeaguePage() {
     </div>
   );
 }
+

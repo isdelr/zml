@@ -1,12 +1,6 @@
 "use client";
-
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Play, Pause, ListMusic } from "lucide-react";
@@ -25,12 +19,11 @@ export function MusicQueue({ isOpen, onOpenChange }: MusicQueueProps) {
   const handlePlaySong = (song: Song, index: number) => {
     const isThisSongCurrent = currentTrack?._id === song._id;
     if (isThisSongCurrent) {
-        actions.togglePlayPause();
+      actions.togglePlayPause();
     } else {
-         
-        actions.playRound(queue, index);
+      actions.playRound(queue, index);
     }
-  }
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -50,50 +43,32 @@ export function MusicQueue({ isOpen, onOpenChange }: MusicQueueProps) {
               {queue.map((song, index) => {
                 const isThisSongPlaying = isPlaying && currentTrackIndex === index;
                 const isThisSongCurrent = currentTrackIndex === index;
-
                 return (
                   <div
                     key={`${song._id}-${index}`}
-                    className={cn(
-                      "group flex items-center gap-4 rounded-md p-2 hover:bg-accent",
-                      isThisSongCurrent && "bg-accent"
-                    )}
+                    className={cn("group flex items-center gap-4 rounded-md p-2 hover:bg-accent", isThisSongCurrent && "bg-accent")}
                   >
                     <div className="relative flex-shrink-0">
-                      <Image
-                        src={song.albumArtUrl}
-                        alt={song.songTitle}
-                        width={48}
-                        height={48}
-                        className="rounded-md"
-                      />
-                       <Button
+                      <Image src={song.albumArtUrl} alt={song.songTitle} width={48} height={48} className="rounded-md" />
+                      <Button
                         variant="ghost"
                         size="icon"
                         className="absolute inset-0 flex h-full w-full items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100"
                         onClick={() => handlePlaySong(song, index)}
                       >
-                         {isThisSongPlaying ? (
-                            <Pause className="size-5 fill-white" />
-                         ) : (
-                            <Play className="size-5 fill-white" />
-                         )}
-                       </Button>
+                        {isThisSongPlaying ? <Pause className="size-5 fill-white" /> : <Play className="size-5 fill-white" />}
+                      </Button>
                     </div>
                     <div className="flex-1 truncate">
-                      <p className={cn("truncate font-semibold", isThisSongCurrent && "text-primary")}>
-                        {song.songTitle}
-                      </p>
-                      <p className="truncate text-sm text-muted-foreground">
-                        {song.artist}
-                      </p>
+                      <p className={cn("truncate font-semibold", isThisSongCurrent && "text-primary")}>{song.songTitle}</p>
+                      <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
                     </div>
-                     {isThisSongPlaying && (
-                       <div className="flex items-center gap-1">
-                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary [animation-delay:-0.3s]"></span>
-                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary [animation-delay:-0.15s]"></span>
-                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary"></span>
-                       </div>
+                    {isThisSongPlaying && (
+                      <div className="flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary [animation-delay:-0.3s]"></span>
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary [animation-delay:-0.15s]"></span>
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary"></span>
+                      </div>
                     )}
                   </div>
                 );

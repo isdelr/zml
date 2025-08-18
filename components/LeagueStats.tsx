@@ -1,29 +1,13 @@
 "use client";
-
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import {
-  BarChart3,
-  Crown,
-  ThumbsDown,
-  ThumbsUp,
-  Trophy,
-} from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "./ui/card";
+import { BarChart3, Crown, ThumbsDown, ThumbsUp, Trophy } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import Image from "next/image";
-import {
-  ChartContainer,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
+import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import { toSvg } from "jdenticon";
 
@@ -32,14 +16,13 @@ interface LeagueStatsProps {
 }
 
 const UserStatDisplay = ({
-  user,
-  label,
-}: {
+                           user,
+                           label,
+                         }: {
   user: { name?: string | null; image?: string | null; count: number } | null | undefined;
   label: string;
 }) => {
-  if (!user)
-    return <p className="text-muted-foreground">Not enough data to determine.</p>;
+  if (!user) return <p className="text-muted-foreground">Not enough data to determine.</p>;
   return (
     <div className="flex items-center gap-4">
       <Avatar>
@@ -89,21 +72,12 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
     return (
       <div className="py-20 text-center">
         <h3 className="text-xl font-semibold">Stats Are Brewing!</h3>
-        <p className="mt-2 text-muted-foreground">
-          Complete more rounds to unlock the final league awards.
-        </p>
+        <p className="mt-2 text-muted-foreground">Complete more rounds to unlock the final league awards.</p>
       </div>
     );
   }
 
-  const {
-    overlord,
-    peopleChampion,
-    mostControversial,
-    topSong,
-    genreBreakdown,
-  } = stats;
-
+  const { overlord, peopleChampion, mostControversial, topSong, genreBreakdown } = stats;
   const COLORS = [
     "hsl(var(--chart-1))",
     "hsl(var(--chart-2))",
@@ -118,7 +92,7 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
       color: COLORS[index % COLORS.length],
     };
     return acc;
-  }, {} as Record<string, {label: string, color: string}>);
+  }, {} as Record<string, { label: string; color: string }>);
 
   return (
     <div className="space-y-8">
@@ -129,7 +103,7 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
             <CardTitle className="flex items-center gap-2">
               <Crown className="text-yellow-400" />
               El Sujeto
-           </CardTitle>
+            </CardTitle>
             <CardDescription>Most round wins</CardDescription>
           </CardHeader>
           <CardContent>
@@ -160,22 +134,19 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
             <UserStatDisplay user={mostControversial} label="downvotes" />
           </CardContent>
         </Card>
-
         <Card className="col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="text-blue-400" />
               Top Voted Song
             </CardTitle>
-            <CardDescription>
-              Highest scoring submission in the league
-            </CardDescription>
+            <CardDescription>Highest scoring submission in the league</CardDescription>
           </CardHeader>
           <CardContent>
             {topSong ? (
               <div className="flex items-center gap-4">
                 <Image
-                  src={topSong.albumArtUrl}
+                  src={topSong.albumArtUrl || "/icons/web-app-manifest-192x192.png"}
                   alt={topSong.songTitle}
                   width={80}
                   height={80}
@@ -185,9 +156,7 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
                   <p className="text-lg font-bold">{topSong.songTitle}</p>
                   <p className="text-muted-foreground">{topSong.artist}</p>
                   <p className="text-sm">Submitted by {topSong.submittedBy}</p>
-                  <p className="text-lg font-bold text-primary">
-                    {topSong.score} points
-                  </p>
+                  <p className="text-lg font-bold text-primary">{topSong.score} points</p>
                 </div>
               </div>
             ) : (
@@ -203,41 +172,23 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
             <BarChart3 />
             Genre Breakdown
           </CardTitle>
-          <CardDescription>
-            Distribution of genres from submitted rounds
-          </CardDescription>
+          <CardDescription>Distribution of genres from submitted rounds</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">
           {genreBreakdown && genreBreakdown.length > 0 ? (
-            <ChartContainer
-              config={chartConfig}
-              className="mx-auto aspect-square h-[300px]"
-            >
+            <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[300px]">
               <PieChart>
                 <Tooltip cursor={false} content={<ChartTooltipContent />} />
                 <Legend />
-                <Pie
-                  data={genreBreakdown}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  labelLine={false}
-                >
+                <Pie data={genreBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false}>
                   {genreBreakdown.map((entry) => (
-                    <Cell
-                      key={`cell-${entry.name}`}
-                      fill={chartConfig[entry.name].color}
-                    />
+                    <Cell key={`cell-${entry.name}`} fill={chartConfig[entry.name].color} />
                   ))}
                 </Pie>
               </PieChart>
             </ChartContainer>
           ) : (
-            <p className="py-10 text-muted-foreground">
-              No genre data available.
-            </p>
+            <p className="py-10 text-muted-foreground">No genre data available.</p>
           )}
         </CardContent>
       </Card>

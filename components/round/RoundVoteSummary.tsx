@@ -1,5 +1,4 @@
 "use client";
-
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -9,44 +8,44 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 import { toSvg } from "jdenticon";
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 
 interface RoundVoteSummaryProps {
   roundId: Id<"rounds">;
 }
 
 const VoteSummaryBySongSkeleton = () => (
-    <Card className="my-8">
-        <CardHeader>
-            <Skeleton className="h-7 w-48" />
-        </CardHeader>
-        <CardContent className="space-y-8">
-            {[...Array(2)].map((_, i) => (
-                <div key={i} className="space-y-4">
-                    <div className="flex items-start gap-4">
-                        <Skeleton className="size-20 flex-shrink-0 rounded-md" />
-                        <div className="space-y-2 flex-1">
-                            <Skeleton className="h-6 w-3/4" />
-                            <Skeleton className="h-5 w-1/2" />
-                            <Skeleton className="h-5 w-1/3 mt-2" />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pl-4">
-                        {[...Array(3)].map((_, j) => (
-                           <div key={j} className="flex items-center gap-2">
-                                <Skeleton className="size-8 rounded-full" />
-                                <div className="space-y-1 flex-1">
-                                    <Skeleton className="h-4 w-full" />
-                                </div>
-                                <Skeleton className="h-5 w-8" />
-                           </div>
-                        ))}
-                    </div>
-                </div>
-            ))}
-        </CardContent>
-    </Card>
+  <Card className="my-8">
+    <CardHeader>
+      <Skeleton className="h-7 w-48" />
+    </CardHeader>
+    <CardContent className="space-y-8">
+      {[...Array(2)].map((_, i) => (
+        <div key={i} className="space-y-4">
+      <div className="flex items-start gap-4">
+        <Skeleton className="size-20 flex-shrink-0 rounded-md" />
+        <div className="space-y-2 flex-1">
+          <Skeleton className="h-6 w-3/4" />
+          <Skeleton className="h-5 w-1/2" />
+          <Skeleton className="h-5 w-1/3 mt-2" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pl-4">
+        {[...Array(3)].map((_, j) => (
+          <div key={j} className="flex items-center gap-2">
+        <Skeleton className="size-8 rounded-full" />
+        <div className="space-y-1 flex-1">
+          <Skeleton className="h-4 w-full" />
+        </div>
+        <Skeleton className="h-5 w-8" />
+      </div>
+      ))}
+    </div>
+  </div>
+))}
+</CardContent>
+</Card>
 );
-
 
 export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
   const voteSummaryBySong = useQuery(api.rounds.getVoteSummary, { roundId });
@@ -54,7 +53,6 @@ export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
   if (voteSummaryBySong === undefined) {
     return <VoteSummaryBySongSkeleton />;
   }
-
 
   return (
     <Card className="my-8">
@@ -64,21 +62,21 @@ export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
       <CardContent className="space-y-8">
         {voteSummaryBySong.map((songSummary) => (
           <div key={songSummary.submissionId}>
-             <div className="flex items-start gap-4 mb-4">
-                {songSummary.albumArtUrl ? (
-                    <Image
-                        src={songSummary.albumArtUrl}
-                        alt={songSummary.songTitle}
-                        width={80}
-                        height={80}
-                        className="rounded-md object-cover flex-shrink-0"
-                    />
-                ) : (
-                    <div
-                        className="size-20 flex-shrink-0 rounded-md bg-muted"
-                        dangerouslySetInnerHTML={{ __html: toSvg(songSummary.submissionId, 80) }}
-                    />
-                )}
+            <div className="flex items-start gap-4 mb-4">
+              {songSummary.albumArtUrl ? (
+                <Image
+                  src={songSummary.albumArtUrl}
+                  alt={songSummary.songTitle}
+                  width={80}
+                  height={80}
+                  className="rounded-md object-cover flex-shrink-0"
+                />
+              ) : (
+                <div
+                  className="size-20 flex-shrink-0 rounded-md bg-muted"
+                  dangerouslySetInnerHTML={{ __html: toSvg(songSummary.submissionId, 80) }}
+                />
+              )}
               <div className="flex-1">
                 <p className="text-lg font-bold">{songSummary.songTitle}</p>
                 <p className="text-muted-foreground">{songSummary.artist}</p>
@@ -97,26 +95,43 @@ export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
 
             {songSummary.votes.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 pl-4 border-l-2 ml-10">
-                {songSummary.votes.map(voter => (
+                {songSummary.votes.map((voter) => (
                   <div key={voter.voterId} className="flex items-center gap-2">
                     <Avatar className="size-8">
                       <AvatarImage src={voter.voterImage ?? undefined} />
                       <AvatarFallback>
-                         <div dangerouslySetInnerHTML={{ __html: toSvg(voter.voterId, 32) }} />
+                        <div dangerouslySetInnerHTML={{ __html: toSvg(voter.voterId, 32) }} />
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 truncate">
-                        <p className="font-semibold truncate">{voter.voterName}</p>
+                      <p className="font-semibold truncate">{voter.voterName}</p>
                     </div>
-                    <div className={`flex items-center gap-1 font-bold ${voter.score > 0 ? 'text-green-500' : voter.score < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
-                        {voter.score > 0 ? <ThumbsUp className="size-4" /> : voter.score < 0 ? <ThumbsDown className="size-4" /> : <Minus className="size-4" />}
-                        <span>{voter.score > 0 ? `+${voter.score}` : voter.score}</span>
+                    <div
+                      className={cn(
+                        "flex items-center gap-1 font-bold",
+                        voter.score > 0
+                          ? "text-green-500"
+                          : voter.score < 0
+                            ? "text-red-500"
+                            : "text-muted-foreground",
+                      )}
+                    >
+                      {voter.score > 0 ? (
+                        <ThumbsUp className="size-4" />
+                      ) : voter.score < 0 ? (
+                        <ThumbsDown className="size-4" />
+                      ) : (
+                        <Minus className="size-4" />
+                      )}
+                      <span>{voter.score > 0 ? `+${voter.score}` : voter.score}</span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="pl-4 ml-10 border-l-2 text-sm italic text-muted-foreground">No votes were cast for this song.</p>
+              <p className="pl-4 ml-10 border-l-2 text-sm italic text-muted-foreground">
+                No votes were cast for this song.
+              </p>
             )}
           </div>
         ))}

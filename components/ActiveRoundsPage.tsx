@@ -1,5 +1,4 @@
 "use client";
-
 import { useMemo, useState } from "react";
 import { Clock, Play, Plus, Search, Send } from "lucide-react";
 import Image from "next/image";
@@ -35,7 +34,6 @@ export function ActiveRoundsPage({ preloadedActiveRounds }: ActiveRoundsPageProp
   const filteredRounds = useMemo(() => {
     if (!activeRounds) return [];
     if (!searchTerm) return activeRounds;
-
     return activeRounds.filter(
       (round) =>
         round.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,7 +44,6 @@ export function ActiveRoundsPage({ preloadedActiveRounds }: ActiveRoundsPageProp
   return (
     <div className="flex-1 overflow-y-auto bg-background text-foreground">
       <div className="p-4 md:p-8">
-        {/* Header */}
         <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <h1 className="text-4xl font-bold">Active Rounds</h1>
           <div className="relative w-full flex-1 md:max-w-sm">
@@ -67,7 +64,6 @@ export function ActiveRoundsPage({ preloadedActiveRounds }: ActiveRoundsPageProp
           </Link>
         </header>
 
-        {/* Rounds Grid */}
         {filteredRounds.length === 0 ? (
           <div className="rounded-lg border border-dashed py-20 text-center">
             <h2 className="text-xl font-semibold">
@@ -109,21 +105,21 @@ export function ActiveRoundsPage({ preloadedActiveRounds }: ActiveRoundsPageProp
                   <CardDescription>
                     In{" "}
                     <span className="font-semibold text-foreground">
-                      {round.leagueName}
-                    </span>
+{round.leagueName}
+</span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Clock className="size-4" />
                     <span>
-                      {formatStatus(round.status)} • Ends in{" "}
+{formatStatus(round.status)} • Ends in{" "}
                       {formatDistanceToNow(
                         round.status === "submissions"
                           ? round.submissionDeadline
                           : round.votingDeadline,
                       )}
-                    </span>
+</span>
                   </div>
                 </CardContent>
                 <CardFooter>

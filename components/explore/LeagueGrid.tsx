@@ -1,6 +1,12 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -22,13 +28,12 @@ export function LeagueGrid({ leagues, filteredLeagues }: LeagueGridProps) {
       <div className="rounded-lg border border-dashed py-20 text-center">
         <h2 className="text-xl font-semibold">No Leagues Found</h2>
         <p className="mt-2 text-muted-foreground">
-          No public leagues match your filter criteria. Try another filter
-          or create your own league!
+          No public leagues match your filter criteria. Try another filter or
+          create your own league!
         </p>
       </div>
     );
   }
-
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {filteredLeagues.map((league) => (

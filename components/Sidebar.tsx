@@ -1,6 +1,4 @@
- 
 "use client";
-
 import { cn } from "@/lib/utils";
 import {
   Bell,
@@ -48,9 +46,7 @@ export function Sidebar() {
   const myLeagues = useQuery(api.leagues.getLeaguesForUser);
   const unreadCount = useQuery(api.notifications.getUnreadCount);
   const clearQueue = useMusicPlayerStore((state) => state.actions.clearQueue);
-  const currentTrackIndex = useMusicPlayerStore(
-    (state) => state.currentTrackIndex,
-  );
+  const currentTrackIndex = useMusicPlayerStore((state) => state.currentTrackIndex);
   const { signOut } = useAuthActions();
   const pathname = usePathname();
 
@@ -74,19 +70,12 @@ export function Sidebar() {
                 currentUser && (
                   <div className="flex items-center gap-2">
                     <Avatar className="size-8">
-                      <AvatarImage
-                        src={currentUser.image}
-                        alt={currentUser.name}
-                      />
+                      <AvatarImage src={currentUser.image} alt={currentUser.name} />
                       <AvatarFallback
-                        dangerouslySetInnerHTML={{
-                          __html: toSvg(currentUser._id, 32),
-                        }}
+                        dangerouslySetInnerHTML={{ __html: toSvg(currentUser._id, 32) }}
                       />
                     </Avatar>
-                    <span className="truncate font-semibold text-foreground">
-                      {currentUser.name}
-                    </span>
+                    <span className="truncate font-semibold text-foreground">{currentUser.name}</span>
                     <ChevronDown className="size-4 mt-1.5" />
                   </div>
                 )
@@ -130,8 +119,8 @@ export function Sidebar() {
               <item.icon className="size-5" />
               {item.name === "Notifications" && unreadCount !== undefined && unreadCount > 0 && (
                 <span className="absolute -right-2 -top-2 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white">
-                  {unreadCount}
-                </span>
+{unreadCount}
+</span>
               )}
             </div>
             <span>{item.name}</span>
@@ -165,14 +154,10 @@ export function Sidebar() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             My Leagues
           </h2>
-          <Link
-            href="/leagues/create"
-            className="text-muted-foreground hover:text-foreground"
-          >
+          <Link href="/leagues/create" className="text-muted-foreground hover:text-foreground">
             <Plus className="size-4" />
           </Link>
         </div>
-
         <nav className="flex flex-col gap-4">
           {myLeagues === undefined ? (
             <>
@@ -185,9 +170,7 @@ export function Sidebar() {
               <Link
                 key={league._id}
                 href={`/leagues/${league._id}`}
-                className={cn(
-                  "flex items-center gap-3 text-sm font-semibold hover:text-foreground",
-                )}
+                className={cn("flex items-center gap-3 text-sm font-semibold hover:text-foreground")}
               >
                 <Trophy className="size-5" />
                 <span className="truncate">{league.name}</span>

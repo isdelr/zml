@@ -1,6 +1,4 @@
-// components/MobileMenuSheet.tsx
 "use client";
-
 import {
   Sheet,
   SheetContent,
@@ -36,7 +34,7 @@ export function MobileMenuSheet({ isOpen, onOpenChange }: MobileMenuSheetProps) 
   const handleLogout = async () => {
     clearQueue();
     await signOut();
-    onOpenChange(false); // Close sheet after logout
+    onOpenChange(false);
   };
 
   return (
@@ -51,46 +49,52 @@ export function MobileMenuSheet({ isOpen, onOpenChange }: MobileMenuSheetProps) 
               <Skeleton className="size-12 rounded-full" />
               <Skeleton className="h-6 w-32" />
             </div>
-          ) : (
-            isAuthenticated && currentUser ? (
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <Link href={`/profile/${currentUser._id}`} onClick={() => onOpenChange(false)}>
-                  <Avatar className="size-20 border-4 border-primary">
-                    <AvatarImage src={currentUser.image ?? undefined} alt={currentUser.name ?? "User"} />
-                    <AvatarFallback>
-                      <div dangerouslySetInnerHTML={{ __html: toSvg(currentUser._id, 80) }} />
-                    </AvatarFallback>
-                  </Avatar>
-                </Link>
-                <Link href={`/profile/${currentUser._id}`} onClick={() => onOpenChange(false)} className="text-xl font-bold hover:underline">
-                  {currentUser.name}
-                </Link>
-                <div className="w-full flex justify-around items-center pt-2">
-                    <div className="flex flex-col items-center">
-                        <Link href="/notifications" onClick={() => onOpenChange(false)} className="relative p-2 rounded-md hover:bg-accent">
-                            <Bell className="size-6 text-muted-foreground" />
-                            {unreadCount !== undefined && unreadCount > 0 && (
-                                <span className="absolute -right-0 -top-0 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white">
-                                    {unreadCount}
-                                </span>
-                            )}
-                        </Link>
-                        <span className="text-xs text-muted-foreground">Notifications</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <ThemeSwitcher /> {/* ThemeSwitcher already has a trigger, so integrate it as is */}
-                        <span className="text-xs text-muted-foreground">Theme</span>
-                    </div>
+          ) : isAuthenticated && currentUser ? (
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <Link href={`/profile/${currentUser._id}`} onClick={() => onOpenChange(false)}>
+                <Avatar className="size-20 border-4 border-primary">
+                  <AvatarImage src={currentUser.image ?? undefined} alt={currentUser.name ?? "User"} />
+                  <AvatarFallback
+                    dangerouslySetInnerHTML={{ __html: toSvg(currentUser._id, 80) }}
+                  />
+                </Avatar>
+              </Link>
+              <Link
+                href={`/profile/${currentUser._id}`}
+                onClick={() => onOpenChange(false)}
+                className="text-xl font-bold hover:underline"
+              >
+                {currentUser.name}
+              </Link>
+              <div className="w-full flex justify-around items-center pt-2">
+                <div className="flex flex-col items-center">
+                  <Link
+                    href="/notifications"
+                    onClick={() => onOpenChange(false)}
+                    className="relative p-2 rounded-md hover:bg-accent"
+                  >
+                    <Bell className="size-6 text-muted-foreground" />
+                    {unreadCount !== undefined && unreadCount > 0 && (
+                      <span className="absolute -right-0 -top-0 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white">
+{unreadCount}
+</span>
+                    )}
+                  </Link>
+                  <span className="text-xs text-muted-foreground">Notifications</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <ThemeSwitcher />
+                  <span className="text-xs text-muted-foreground">Theme</span>
                 </div>
               </div>
-            ) : (
-              <div className="text-center text-muted-foreground">
-                <p>Sign in to access your profile and settings.</p>
-                <Button asChild className="mt-4">
-                  <Link href="/signin">Sign In</Link>
-                </Button>
-              </div>
-            )
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground">
+              <p>Sign in to access your profile and settings.</p>
+              <Button asChild className="mt-4">
+                <Link href="/signin">Sign In</Link>
+              </Button>
+            </div>
           )}
 
           {isAuthenticated && (
@@ -100,7 +104,11 @@ export function MobileMenuSheet({ isOpen, onOpenChange }: MobileMenuSheetProps) 
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     My Leagues
                   </h2>
-                  <Link href="/leagues/create" className="text-muted-foreground hover:text-foreground" onClick={() => onOpenChange(false)}>
+                  <Link
+                    href="/leagues/create"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => onOpenChange(false)}
+                  >
                     <Plus className="size-4" />
                   </Link>
                 </div>
@@ -111,28 +119,28 @@ export function MobileMenuSheet({ isOpen, onOpenChange }: MobileMenuSheetProps) 
                       <Skeleton className="h-5 w-full" />
                       <Skeleton className="h-5 w-full" />
                     </>
+                  ) : myLeagues.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No leagues yet. Create one!</p>
                   ) : (
-                    myLeagues.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No leagues yet. Create one!</p>
-                    ) : (
-                        myLeagues.map((league) => (
-                            <Link
-                                key={league._id}
-                                href={`/leagues/${league._id}`}
-                                className={cn(
-                                    "flex items-center gap-3 text-sm font-semibold hover:text-foreground",
-                                )}
-                                onClick={() => onOpenChange(false)}
-                            >
-                                <Trophy className="size-5" />
-                                <span className="truncate">{league.name}</span>
-                            </Link>
-                        ))
-                    )
+                    myLeagues.map((league) => (
+                      <Link
+                        key={league._id}
+                        href={`/leagues/${league._id}`}
+                        className={cn("flex items-center gap-3 text-sm font-semibold hover:text-foreground")}
+                        onClick={() => onOpenChange(false)}
+                      >
+                        <Trophy className="size-5" />
+                        <span className="truncate">{league.name}</span>
+                      </Link>
+                    ))
                   )}
                 </nav>
               </div>
-              <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-destructive hover:text-destructive">
+              <Button
+                onClick={handleLogout}
+                variant="ghost"
+                className="w-full justify-start text-destructive hover:text-destructive"
+              >
                 <LogOut className="mr-2 size-4" />
                 Log out
               </Button>

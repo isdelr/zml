@@ -1,5 +1,4 @@
 "use client";
-
 import { Doc } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
@@ -11,31 +10,26 @@ import { cn } from "@/lib/utils";
 const formatDistanceWithHours = (deadline: number) => {
   const now = Date.now();
   const diffMs = deadline - now;
-
   if (diffMs <= 0) {
     return "ending soon";
   }
-
   const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
   const days = Math.floor(totalHours / 24);
   const hours = totalHours % 24;
-
-  const parts = [];
+  const parts: string[] = [];
   if (days > 0) {
-    parts.push(`${days} day${days > 1 ? 's' : ''}`);
+    parts.push(`${days} day${days > 1 ? "s" : ""}`);
   }
   if (hours > 0) {
-    parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
+    parts.push(`${hours} hour${hours > 1 ? "s" : ""}`);
   }
-
   if (parts.length === 0) {
     const minutes = Math.floor(diffMs / (1000 * 60));
     if (minutes > 0) {
-      return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+      return `${minutes} minute${minutes > 1 ? "s" : ""}`;
     }
     return "less than a minute";
   }
-
   return parts.join(" and ");
 };
 
@@ -45,7 +39,7 @@ interface RoundHeaderProps {
   onPlayAll: (submissions: Song[], startIndex: number) => void;
   positiveVotesRemaining: number;
   negativeVotesRemaining: number;
-  hasVoted: boolean; // This now means "isFinal"
+  hasVoted: boolean;
   upvotesUsed: number;
   downvotesUsed: number;
   totalDuration: string | null;
@@ -78,13 +72,12 @@ export function RoundHeader({
           dangerouslySetInnerHTML={{ __html: toSvg(round._id, 256) }}
         />
       )}
+
       <div className="flex flex-1 flex-col justify-between gap-6">
         <div className="flex flex-col justify-end gap-2">
           <div>
             <p className="text-sm font-bold uppercase">
-              {round.status === "submissions"
-                ? "Submissions Open"
-                : "Viewing Round"}
+              {round.status === "submissions" ? "Submissions Open" : "Viewing Round"}
             </p>
             <h1 className="text-4xl font-bold text-foreground md:text-5xl">
               {round.title}
@@ -93,7 +86,7 @@ export function RoundHeader({
               {round.status.charAt(0).toUpperCase() + round.status.slice(1)} •{" "}
               {round.status === "submissions"
                 ? `Submissions close in ${formatDistanceWithHours(round.submissionDeadline)}`
-                : round.status === 'voting'
+                : round.status === "voting"
                   ? `Voting ends in ${formatDistanceWithHours(round.votingDeadline)}`
                   : "Finished"}
             </p>
@@ -109,19 +102,18 @@ export function RoundHeader({
               {round.description}
             </p>
           </div>
-          {round.status !== "submissions" &&
-            submissions &&
-            submissions.length > 0 && (
-              <Button
-                onClick={() => onPlayAll(submissions as Song[], 0)}
-                size="lg"
-                className="mt-4 w-full bg-primary text-primary-foreground md:w-fit"
-              >
-                <Play className="mr-2 size-5" />
-                Play All
-              </Button>
-            )}
+          {round.status !== "submissions" && submissions && (submissions).length > 0 && (
+            <Button
+              onClick={() => onPlayAll(submissions as Song[], 0)}
+              size="lg"
+              className="mt-4 w-full bg-primary text-primary-foreground md:w-fit"
+            >
+              <Play className="mr-2 size-5" />
+              Play All
+            </Button>
+          )}
         </div>
+
         {round.status === "voting" && (
           <div
             className={cn(

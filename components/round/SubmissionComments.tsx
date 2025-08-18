@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -20,9 +19,7 @@ interface SubmissionCommentsProps {
   roundStatus: "voting" | "finished" | "submissions";
 }
 
-export function SubmissionComments({
-  submissionId,
-}: SubmissionCommentsProps) {
+export function SubmissionComments({ submissionId }: SubmissionCommentsProps) {
   const [commentText, setCommentText] = useState("");
   const { isAuthenticated } = useConvexAuth();
   const playerActions = useMusicPlayerStore((state) => state.actions);
@@ -34,40 +31,35 @@ export function SubmissionComments({
 
   const addComment = useMutation(api.submissions.addComment).withOptimisticUpdate(
     (localStore, { submissionId, text }) => {
-      // We need currentUser data to create an optimistic comment.
-      // This is a great example of where `useQuery` inside a component shines.
       if (!currentUser) return;
-
-      const existingComments = localStore.getQuery(api.submissions.getCommentsForSubmission, { submissionId });
+      const existingComments = localStore.getQuery(api.submissions.getCommentsForSubmission, {
+        submissionId,
+      });
       if (existingComments === undefined) return;
 
-      const optimisticComment: Doc<"comments"> & { authorName: string, authorImage: string | null } = {
-        _id: `optimistic_${Date.now()}` as Id<"comments">,
+      const optimisticComment = {
+        _id: (`optimistic_${Date.now()}` as unknown) as Id<"comments">,
         _creationTime: Date.now(),
         submissionId,
         userId: currentUser._id,
         text,
         authorName: currentUser.name ?? "You",
         authorImage: currentUser.image ?? null,
-      };
+      } as Doc<"comments"> & { authorName: string; authorImage: string | null };
 
       const newComments = [...existingComments, optimisticComment];
-
       localStore.setQuery(api.submissions.getCommentsForSubmission, { submissionId }, newComments);
-    }
+    },
   );
 
   const handleAddComment = () => {
     if (!commentText.trim()) return;
-
     const textToSubmit = commentText;
-    setCommentText(""); // Optimistically clear the input
-
-    addComment({ submissionId, text: textToSubmit })
-      .catch((err) => {
-        toast.error(err.data?.message || "Failed to post comment.");
-        setCommentText(textToSubmit); // Revert input on error
-      });
+    setCommentText("");
+    addComment({ submissionId, text: textToSubmit }).catch((err) => {
+      toast.error((err).data?.message || "Failed to post comment.");
+      setCommentText(textToSubmit);
+    });
   };
 
   const parseTimeToSeconds = (timeStr: string): number => {
@@ -85,7 +77,6 @@ export function SubmissionComments({
   const renderCommentText = (text: string) => {
     const timestampRegex = /@(\d{1,2}:\d{2})/g;
     const parts = text.split(timestampRegex);
-
     return (
       <p className="whitespace-pre-wrap text-sm text-foreground break-words">
         {parts.map((part, index) => {
@@ -109,7 +100,6 @@ export function SubmissionComments({
     );
   };
 
-
   return (
     <div className="space-y-6">
       {isAuthenticated && (
@@ -117,7 +107,11 @@ export function SubmissionComments({
           <Avatar className="mt-1 size-8 flex-shrink-0">
             <AvatarImage src={currentUser?.image ?? undefined} />
             <AvatarFallback>
-              <div dangerouslySetInnerHTML={{ __html: toSvg(currentUser?._id ?? "anon", 32) }} />
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: toSvg(currentUser?._id ?? "anon", 32),
+                }}
+              />
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0 space-y-2">
@@ -134,17 +128,18 @@ export function SubmissionComments({
               }}
             />
             <div className="flex justify-end">
-              <Button onClick={handleAddComment} disabled={!commentText.trim()} size="sm">Post</Button>
+              <Button onClick={handleAddComment} disabled={!commentText.trim()} size="sm">
+                Post
+              </Button>
             </div>
           </div>
         </div>
       )}
+
       <div className="space-y-4">
         {comments === undefined && <Skeleton className="h-16 w-full" />}
         {comments && comments.length === 0 && (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            Be the first to comment.
-          </p>
+          <p className="py-4 text-center text-sm text-muted-foreground">Be the first to comment.</p>
         )}
         {comments?.map((comment) => (
           <div key={comment._id} className="flex items-start gap-3">
@@ -158,8 +153,8 @@ export function SubmissionComments({
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-semibold">{comment.authorName}</span>
                 <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(comment._creationTime, { addSuffix: true })}
-                </span>
+{formatDistanceToNow(comment._creationTime, { addSuffix: true })}
+</span>
               </div>
               {renderCommentText(comment.text)}
             </div>
