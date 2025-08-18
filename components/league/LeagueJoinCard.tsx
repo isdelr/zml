@@ -20,8 +20,8 @@ import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 
 interface LeagueJoinCardProps {
-  leagueData: any;
-  rounds: any[] | undefined;
+  leagueData: Id<"leagues">;
+  rounds: Id<"rounds">;
 }
 
 export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
@@ -51,7 +51,7 @@ export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
         });
         router.push(`/leagues/${String(result)}`);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
       toast.error(error?.message || "Failed to join league.", { id: toastId });
     }
@@ -100,7 +100,7 @@ export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
                 </p>
               )}
               {rounds &&
-                rounds.map((round: any) => (
+                rounds.map((round) => (
                   <Card key={round._id} className="p-3">
                     <p className="font-medium">{round.title}</p>
                     <p className="text-sm text-muted-foreground line-clamp-2">
