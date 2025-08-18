@@ -141,7 +141,8 @@ export default defineSchema({
     duration: v.optional(v.number()),
     searchText: v.string(),
     _note: v.optional(v.string()),
-  }).index("by_round_and_user", ["roundId", "userId"])
+  })
+    .index("by_round_and_user", ["roundId", "userId"])
     .index("by_league", ["leagueId"]),
 
   votes: defineTable({
@@ -164,19 +165,35 @@ export default defineSchema({
     leagueId: v.id("leagues"),
     overlord: v.union(
       v.null(),
-      v.object({ name: v.optional(v.string()), image: v.optional(v.string()), count: v.number() }),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(),
+      }),
     ),
     peopleChampion: v.union(
       v.null(),
-      v.object({ name: v.optional(v.string()), image: v.optional(v.string()), count: v.number() }),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(),
+      }),
     ),
     mostControversial: v.union(
       v.null(),
-      v.object({ name: v.optional(v.string()), image: v.optional(v.string()), count: v.number() }),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(),
+      }),
     ),
     prolificVoter: v.union(
       v.null(),
-      v.object({ name: v.optional(v.string()), image: v.optional(v.string()), count: v.number() }),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(),
+      }),
     ),
     topSong: v.union(
       v.null(),
@@ -299,4 +316,47 @@ export default defineSchema({
     progressSeconds: v.number(),
     isCompleted: v.boolean(),
   }).index("by_user_and_submission", ["userId", "submissionId"]),
+
+  comments: defineTable({
+    submissionId: v.id("submissions"),
+    userId: v.id("users"),
+    text: v.string(),
+  }).index("by_submission", ["submissionId"]),
+
+  notifications: defineTable({
+    userId: v.id("users"),
+    type: v.union(
+      v.literal("new_comment"),
+      v.literal("round_submission"),
+      v.literal("round_voting"),
+      v.literal("round_finished"),
+    ),
+    message: v.string(),
+    link: v.string(),
+    read: v.boolean(),
+    triggeringUserId: v.optional(v.id("users")),
+    metadata: v.optional(v.any()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_read", ["userId", "read"]),
+
+  roundResults: defineTable({
+    roundId: v.id("rounds"),
+    submissionId: v.id("submissions"),
+    userId: v.id("users"),
+    points: v.number(),
+    isWinner: v.boolean(),
+    penaltyApplied: v.optional(v.boolean()),
+  })
+    .index("by_round", ["roundId"])
+    .index("by_submission", ["submissionId"]),
+
+  leagueStandings: defineTable({
+    leagueId: v.id("leagues"),
+    userId: v.id("users"),
+    totalPoints: v.number(),
+    totalWins: v.number(),
+  })
+    .index("by_league_and_user", ["leagueId", "userId"])
+    .index("by_league_and_points", ["leagueId", "totalPoints"]),
 });
