@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { NotificationProvider } from "@/components/providers/NotificationProvider";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
+import { RoutePrefetcher } from "@/components/RoutePrefetcher";
 
 const ConvexClientProvider = dynamic(
   () => import("@/components/ConvexClientProvider"),
@@ -29,7 +30,6 @@ const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
-
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
@@ -55,37 +55,39 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({
-  children,
-}: Readonly<{
+                                     children,
+                                   }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <ConvexAuthNextjsServerProvider>
       <html lang="en" suppressHydrationWarning>
-        <body
-          className={cn(
-            geistSans.variable,
-            geistMono.variable,
-            "antialiased overflow-x-hidden",
-          )}
-        >
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <ConvexClientProvider>
-              <NotificationProvider>
-                <ServiceWorkerRegistrar />
-                {children}
-                <Toaster />
-                <MusicPlayer />
-                <BottomNavbar />
-              </NotificationProvider>
-            </ConvexClientProvider>
-          </ThemeProvider>
-        </body>
+      <body
+        className={cn(
+          geistSans.variable,
+          geistMono.variable,
+          "antialiased overflow-x-hidden",
+        )}
+      >
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="dark"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <ConvexClientProvider>
+          {/* Prefetch key routes early for snappier nav */}
+          <RoutePrefetcher />
+          <NotificationProvider>
+            <ServiceWorkerRegistrar />
+            {children}
+            <Toaster />
+            <MusicPlayer />
+            <BottomNavbar />
+          </NotificationProvider>
+        </ConvexClientProvider>
+      </ThemeProvider>
+      </body>
       </html>
     </ConvexAuthNextjsServerProvider>
   );
