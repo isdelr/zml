@@ -156,83 +156,27 @@ export default defineSchema({
   bookmarks: defineTable({
     userId: v.id("users"),
     submissionId: v.id("submissions"),
-  }).index("by_user_and_submission", ["userId", "submissionId"]),
-
-  comments: defineTable({
-    submissionId: v.id("submissions"),
-    userId: v.id("users"),
-    text: v.string(),
-  }).index("by_submission", ["submissionId"]),
-
-  notifications: defineTable({
-    userId: v.id("users"),
-    type: v.union(
-      v.literal("new_comment"),
-      v.literal("round_submission"),
-      v.literal("round_voting"),
-      v.literal("round_finished"),
-    ),
-    message: v.string(),
-    link: v.string(),
-    read: v.boolean(),
-    triggeringUserId: v.optional(v.id("users")),
-    metadata: v.optional(v.any()),
   })
-    .index("by_user", ["userId"])
-    .index("by_user_and_read", ["userId", "read"]),
+    .index("by_user_and_submission", ["userId", "submissionId"])
+    .index("by_submission", ["submissionId"]), // NEW
 
-  roundResults: defineTable({
-    roundId: v.id("rounds"),
-    submissionId: v.id("submissions"),
-    userId: v.id("users"),
-    points: v.number(),
-    isWinner: v.boolean(),
-    penaltyApplied: v.optional(v.boolean()),
-  })
-    .index("by_round", ["roundId"])
-    .index("by_submission", ["submissionId"]),
-
-  leagueStandings: defineTable({
-    leagueId: v.id("leagues"),
-    userId: v.id("users"),
-    totalPoints: v.number(),
-    totalWins: v.number(),
-  })
-    .index("by_league_and_user", ["leagueId", "userId"])
-    .index("by_league_and_points", ["leagueId", "totalPoints"]),
   leagueStats: defineTable({
     leagueId: v.id("leagues"),
     overlord: v.union(
       v.null(),
-      v.object({
-        name: v.optional(v.string()),
-        image: v.optional(v.string()),
-        count: v.number(),
-      }),
+      v.object({ name: v.optional(v.string()), image: v.optional(v.string()), count: v.number() }),
     ),
     peopleChampion: v.union(
       v.null(),
-      v.object({
-        name: v.optional(v.string()),
-        image: v.optional(v.string()),
-        count: v.number(),
-      }),
+      v.object({ name: v.optional(v.string()), image: v.optional(v.string()), count: v.number() }),
     ),
     mostControversial: v.union(
       v.null(),
-      v.object({
-        name: v.optional(v.string()),
-        image: v.optional(v.string()),
-        count: v.number(),
-      }),
+      v.object({ name: v.optional(v.string()), image: v.optional(v.string()), count: v.number() }),
     ),
     prolificVoter: v.union(
       v.null(),
-      v.object({
-        name: v.optional(v.string()),
-        image: v.optional(v.string()),
-        count: v.number(),
-      }),
+      v.object({ name: v.optional(v.string()), image: v.optional(v.string()), count: v.number() }),
     ),
     topSong: v.union(
       v.null(),
@@ -244,6 +188,108 @@ export default defineSchema({
         submittedBy: v.string(),
       }),
     ),
+    // NEW song-level awards
+    mostUpvotedSong: v.union(
+      v.null(),
+      v.object({
+        songTitle: v.string(),
+        artist: v.string(),
+        albumArtUrl: v.union(v.string(), v.null()),
+        submittedBy: v.string(),
+        count: v.number(), // total upvotes
+      }),
+    ),
+    mostDownvotedSong: v.union(
+      v.null(),
+      v.object({
+        songTitle: v.string(),
+        artist: v.string(),
+        albumArtUrl: v.union(v.string(), v.null()),
+        submittedBy: v.string(),
+        count: v.number(), // total downvotes
+      }),
+    ),
+    fanFavoriteSong: v.union(
+      v.null(),
+      v.object({
+        songTitle: v.string(),
+        artist: v.string(),
+        albumArtUrl: v.union(v.string(), v.null()),
+        submittedBy: v.string(),
+        count: v.number(), // bookmarks
+      }),
+    ),
+
+    attendanceStar: v.union(
+      v.null(),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(),
+        meta: v.optional(v.object({ totalRounds: v.number() })),
+      }),
+    ),
+    goldenEars: v.union(
+      v.null(),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(), // avg points per submission
+        meta: v.optional(v.object({ rounds: v.number() })),
+      }),
+    ),
+    consistencyKing: v.union(
+      v.null(),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(), // stdev
+        meta: v.optional(v.object({ rounds: v.number(), average: v.number() })),
+      }),
+    ),
+    biggestDownvoter: v.union(
+      v.null(),
+      v.object({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        count: v.number(), // downvotes cast
+      }),
+    ),
+
+    worstRound: v.union(
+      v.null(),
+      v.object({
+        roundId: v.id("rounds"),
+        title: v.string(),
+        imageUrl: v.union(v.string(), v.null()),
+        metric: v.number(),
+        submissions: v.number(),
+        totalUpvotes: v.number(),
+      }),
+    ),
+    closestRound: v.union(
+      v.null(),
+      v.object({
+        roundId: v.id("rounds"),
+        title: v.string(),
+        imageUrl: v.union(v.string(), v.null()),
+        metric: v.number(), // smallest top-2 points diff
+        submissions: v.number(),
+        totalUpvotes: v.number(),
+      }),
+    ),
+    blowoutRound: v.union(
+      v.null(),
+      v.object({
+        roundId: v.id("rounds"),
+        title: v.string(),
+        imageUrl: v.union(v.string(), v.null()),
+        metric: v.number(), // largest top-2 points diff
+        submissions: v.number(),
+        totalUpvotes: v.number(),
+      }),
+    ),
+    // Existing chart
     genreBreakdown: v.array(v.object({ name: v.string(), value: v.number() })),
   }).index("by_league", ["leagueId"]),
 

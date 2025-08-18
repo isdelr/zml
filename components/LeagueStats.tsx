@@ -1,48 +1,361 @@
 "use client";
+
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { BarChart3, Crown, ThumbsDown, ThumbsUp, Trophy } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
-import { Skeleton } from "./ui/skeleton";
+import {
+  Bookmark,
+  Crown,
+  Flame,
+  Gauge,
+  Medal,
+  Shield,
+  Star,
+  ThumbsDown,
+  ThumbsUp,
+  Trophy,
+  Zap,
+  Target,
+  Scale,
+  ListMusic,
+} from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Skeleton } from "./ui/skeleton";
 import Image from "next/image";
-import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
-import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import { toSvg } from "jdenticon";
+import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
+import { Pie, PieChart, Tooltip, Legend, Cell } from "recharts";
+import { cn } from "@/lib/utils";
 
-interface LeagueStatsProps {
-  leagueId: Id<"leagues">;
+// Simple number animation hook
+function useCountUp(target: number | null | undefined, duration = 800) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (target == null) return;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / duration);
+      setValue(Math.round(p * target));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
 }
 
-const UserStatDisplay = ({
-                           user,
-                           label,
-                         }: {
-  user: { name?: string | null; image?: string | null; count: number } | null | undefined;
-  label: string;
-}) => {
-  if (!user) return <p className="text-muted-foreground">Not enough data to determine.</p>;
+type UserMeta = { totalRounds?: number; rounds?: number; average?: number };
+type UserAward =
+  | { name?: string | null; image?: string | null; count: number; meta?: UserMeta }
+  | null
+  | undefined;
+
+function UserRow({
+                   icon,
+                   title,
+                   desc,
+                   user,
+                   valueLabel,
+                 }: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  user: UserAward;
+  valueLabel?: (u: NonNullable<UserAward>) => string;
+}) {
   return (
-    <div className="flex items-center gap-4">
-      <Avatar>
+    <Card className="overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-500">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {icon}
+          {title}
+        </CardTitle>
+        <CardDescription>{desc}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!user ? (
+          <p className="text-muted-foreground">Not enough data yet.</p>
+        ) : (
+          <div className="flex items-center gap-4">
+            <Avatar className="size-12">
+              <AvatarImage src={user.image ?? undefined} />
+              <AvatarFallback>
+                <div dangerouslySetInnerHTML={{ __html: toSvg(user.name ?? "anon", 48) }} />
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <p className="font-bold text-foreground">{user.name}</p>
+              <p className="text-sm text-muted-foreground">
+                {valueLabel ? valueLabel(user) : `${user.count}`}
+              </p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SongRow({
+                   icon,
+                   title,
+                   desc,
+                   song,
+                   valueSuffix,
+                 }: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  song:
+    | {
+    songTitle: string;
+    artist: string;
+    albumArtUrl: string | null;
+    submittedBy: string;
+    count?: number;
+    score?: number;
+  }
+    | null
+    | undefined;
+  valueSuffix?: string;
+}) {
+  return (
+    <Card className="overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-500">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {icon}
+          {title}
+        </CardTitle>
+        <CardDescription>{desc}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!song ? (
+          <p className="text-muted-foreground">Not enough data yet.</p>
+        ) : (
+          <div className="flex items-center gap-4">
+            <Image
+              src={song.albumArtUrl || "/icons/web-app-manifest-192x192.png"}
+              alt={song.songTitle}
+              width={64}
+              height={64}
+              className="rounded-md"
+            />
+            <div className="flex-1">
+              <p className="font-bold">{song.songTitle}</p>
+              <p className="text-sm text-muted-foreground">{song.artist}</p>
+              <p className="text-xs text-muted-foreground">Submitted by {song.submittedBy}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-extrabold">
+                {(song.count ?? song.score ?? 0)}
+                {valueSuffix}
+              </p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RoundRow({
+                    icon,
+                    title,
+                    desc,
+                    round,
+                    metricSuffix,
+                    metricFormatter,
+                  }: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  round:
+    | {
+    roundId: string;
+    title: string;
+    imageUrl: string | null;
+    metric: number;
+    submissions: number;
+    totalUpvotes: number;
+  }
+    | null
+    | undefined;
+  metricSuffix?: string;
+  metricFormatter?: (x: number) => string;
+}) {
+  return (
+    <Card className="overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-500">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {icon}
+          {title}
+        </CardTitle>
+        <CardDescription>{desc}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!round ? (
+          <p className="text-muted-foreground">Not enough data yet.</p>
+        ) : (
+          <div className="flex items-center gap-4">
+            <Image
+              src={round.imageUrl || "/icons/web-app-manifest-192x192.png"}
+              alt={round.title}
+              width={64}
+              height={64}
+              className="rounded-md"
+            />
+            <div className="flex-1">
+              <p className="font-bold">{round.title}</p>
+              <p className="text-sm text-muted-foreground">
+                {round.submissions} songs • {round.totalUpvotes} upvotes
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-extrabold">
+                {metricFormatter ? metricFormatter(round.metric) : round.metric}
+                {metricSuffix}
+              </p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PodiumBar({
+                     user,
+                     heightClass,
+                     points,
+                   }: {
+  user: { userId: string; name: string; image?: string };
+  heightClass: string;
+  points: number;
+}) {
+  const count = useCountUp(points);
+  return (
+    <div className="flex flex-col items-center justify-end gap-3">
+      <Avatar className="size-14 ring-4 ring-primary/30">
         <AvatarImage src={user.image ?? undefined} />
         <AvatarFallback>
-          <div dangerouslySetInnerHTML={{ __html: toSvg(user.name ?? "anonymous", 40) }} />
+          <div dangerouslySetInnerHTML={{ __html: toSvg(user.userId, 56) }} />
         </AvatarFallback>
       </Avatar>
-      <div>
-        <p className="font-bold">{user.name}</p>
-        <p className="text-sm text-muted-foreground">
-          {user.count} {label}
-        </p>
-      </div>
+      <div className={cn("w-full rounded-t-md bg-primary/15", heightClass)} />
+      <p className="font-bold text-center truncate w-full">{user.name}</p>
+      <p className="text-sm text-muted-foreground">{count} pts</p>
     </div>
   );
-};
+}
 
-export function LeagueStats({ leagueId }: LeagueStatsProps) {
+function Podium({
+                  standings,
+                }: {
+  standings:
+    | { userId: string; name: string; image?: string; totalPoints: number }[]
+    | undefined;
+}) {
+  if (!standings || standings.length === 0) return null;
+  const top3 = standings.slice(0, 3);
+  return (
+    <Card className="border-primary/30 bg-card/60 animate-in fade-in zoom-in-95 duration-500">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Trophy className="text-yellow-400" />
+          Final Podium
+        </CardTitle>
+        <CardDescription>Based on total points across finished rounds</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 items-end gap-4">
+          {top3.map((p, idx) => {
+            const colOrder = [0, 1, 2];
+            const height = idx === 1 ? "h-24" : idx === 0 ? "h-16" : "h-14";
+            return (
+              <div key={p.userId} className={cn("order-" + colOrder[idx])}>
+                <PodiumBar
+                  user={{ userId: p.userId, name: p.name, image: p.image }}
+                  heightClass={height}
+                  points={p.totalPoints}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
   const stats = useQuery(api.leagues.getLeagueStats, { leagueId });
+  const standings = useQuery(api.leagues.getLeagueStandings, { leagueId });
+
+  // Hooks must be called unconditionally (before any early return)
+  const [active, setActive] = useState(0);
+
+  const highlights = useMemo(() => {
+    if (!stats) return [];
+    return [
+      {
+        key: "overlord",
+        node: (
+          <UserRow
+            icon={<Crown className="text-yellow-400" />}
+            title="Overlord"
+            desc="Most round wins"
+            user={stats.overlord}
+            valueLabel={(u) => `${u.count} wins`}
+          />
+        ),
+      },
+      {
+        key: "peoples",
+        node: (
+          <UserRow
+            icon={<ThumbsUp className="text-green-400" />}
+            title="People's Champion"
+            desc="Most upvotes received"
+            user={stats.peopleChampion}
+            valueLabel={(u) => `${u.count} upvotes`}
+          />
+        ),
+      },
+      {
+        key: "controversial",
+        node: (
+          <UserRow
+            icon={<ThumbsDown className="text-red-400" />}
+            title="Lightning Rod"
+            desc="Most downvotes received"
+            user={stats.mostControversial}
+            valueLabel={(u) => `${u.count} downvotes`}
+          />
+        ),
+      },
+      {
+        key: "prolific",
+        node: (
+          <UserRow
+            icon={<Medal className="text-blue-400" />}
+            title="Prolific Voter"
+            desc="Most votes cast"
+            user={stats.prolificVoter}
+            valueLabel={(u) => `${u.count} votes`}
+          />
+        ),
+      },
+    ];
+  }, [stats]);
+
+  useEffect(() => {
+    if (highlights.length === 0) return;
+    const id = setInterval(() => setActive((i) => (i + 1) % highlights.length), 3500);
+    return () => clearInterval(id);
+  }, [highlights.length]);
 
   if (stats === undefined) {
     return (
@@ -53,13 +366,11 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
               <Skeleton className="h-6 w-1/2" />
               <Skeleton className="mt-2 h-4 w-3/4" />
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <Skeleton className="size-10 rounded-full" />
-                <div className="w-full space-y-2">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3 w-1/2" />
-                </div>
+            <CardContent className="flex items-center gap-4">
+              <Skeleton className="size-10 rounded-full" />
+              <div className="w-full space-y-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/2" />
               </div>
             </CardContent>
           </Card>
@@ -71,13 +382,12 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
   if (stats === null) {
     return (
       <div className="py-20 text-center">
-        <h3 className="text-xl font-semibold">Stats Are Brewing!</h3>
-        <p className="mt-2 text-muted-foreground">Complete more rounds to unlock the final league awards.</p>
+        <h3 className="text-xl font-semibold">Stats are brewing…</h3>
+        <p className="mt-2 text-muted-foreground">Finish a round to unlock the award ceremony.</p>
       </div>
     );
   }
 
-  const { overlord, peopleChampion, mostControversial, topSong, genreBreakdown } = stats;
   const COLORS = [
     "hsl(var(--chart-1))",
     "hsl(var(--chart-2))",
@@ -86,103 +396,149 @@ export function LeagueStats({ leagueId }: LeagueStatsProps) {
     "hsl(var(--chart-5))",
   ];
 
-  const chartConfig = genreBreakdown.reduce((acc, entry, index) => {
-    acc[entry.name] = {
-      label: entry.name,
-      color: COLORS[index % COLORS.length],
-    };
-    return acc;
-  }, {} as Record<string, { label: string; color: string }>);
-
   return (
     <div className="space-y-8">
-      <h2 className="text-3xl font-bold">League Awards</h2>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Crown className="text-yellow-400" />
-              El Sujeto
-            </CardTitle>
-            <CardDescription>Most round wins</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <UserStatDisplay user={overlord} label="wins" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ThumbsUp className="text-green-400" />
-              People&apos;s Champion
-            </CardTitle>
-            <CardDescription>Most upvotes received</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <UserStatDisplay user={peopleChampion} label="upvotes" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ThumbsDown className="text-red-400" />
-              Most Controversial
-            </CardTitle>
-            <CardDescription>Most downvotes received</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <UserStatDisplay user={mostControversial} label="downvotes" />
-          </CardContent>
-        </Card>
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="text-blue-400" />
-              Top Voted Song
-            </CardTitle>
-            <CardDescription>Highest scoring submission in the league</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {topSong ? (
-              <div className="flex items-center gap-4">
-                <Image
-                  src={topSong.albumArtUrl || "/icons/web-app-manifest-192x192.png"}
-                  alt={topSong.songTitle}
-                  width={80}
-                  height={80}
-                  className="rounded-md"
-                />
-                <div>
-                  <p className="text-lg font-bold">{topSong.songTitle}</p>
-                  <p className="text-muted-foreground">{topSong.artist}</p>
-                  <p className="text-sm">Submitted by {topSong.submittedBy}</p>
-                  <p className="text-lg font-bold text-primary">{topSong.score} points</p>
-                </div>
+      <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
+        <div className="space-y-6">
+          {/* Highlights carousel */}
+          <div className="relative">
+            <div className="overflow-hidden rounded-xl border">
+              <div className="p-4 md:p-6 min-h-[172px]">
+                {highlights[active]?.node ?? (
+                  <div className="text-muted-foreground">No highlights yet.</div>
+                )}
               </div>
-            ) : (
-              <p className="text-muted-foreground">Not enough data</p>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+            <div className="absolute right-3 bottom-3 flex gap-2">
+              {highlights.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActive(i)}
+                  className={cn("size-2 rounded-full", i === active ? "bg-primary" : "bg-muted")}
+                  aria-label={"go-to-highlight-" + i}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Podium */}
+          <Podium standings={standings} />
+        </div>
+
+        {/* Top voted song wide card */}
+        <SongRow
+          icon={<Trophy className="text-blue-400" />}
+          title="Top Voted Song"
+          desc="Highest scoring submission in the league"
+          song={stats.topSong ? { ...stats.topSong, count: stats.topSong.score } : null}
+        />
       </div>
 
-      <Card>
+      {/* Big award grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <SongRow
+          icon={<ThumbsUp className="text-green-400" />}
+          title="Most Upvoted Song"
+          desc="Highest total upvotes"
+          song={stats.mostUpvotedSong}
+          valueSuffix=""
+        />
+        <SongRow
+          icon={<ThumbsDown className="text-red-400" />}
+          title="Most Downvoted Song"
+          desc="Highest total downvotes"
+          song={stats.mostDownvotedSong}
+          valueSuffix=""
+        />
+        <SongRow
+          icon={<Bookmark className="text-primary" />}
+          title="Fan Favorite"
+          desc="Most bookmarked"
+          song={stats.fanFavoriteSong}
+          valueSuffix=""
+        />
+        <UserRow
+          icon={<Shield className="text-emerald-400" />}
+          title="Attendance Star"
+          desc="Most rounds with a submission"
+          user={stats.attendanceStar}
+          valueLabel={(u) => `${u.count}/${u.meta?.totalRounds ?? "?"} rounds`}
+        />
+        <UserRow
+          icon={<Star className="text-amber-400" />}
+          title="Golden Ears"
+          desc="Highest average points per submission"
+          user={stats.goldenEars}
+          valueLabel={(u) => `${u.count} avg (${u.meta?.rounds ?? 0} rounds)`}
+        />
+        <UserRow
+          icon={<Target className="text-purple-400" />}
+          title="Consistency King"
+          desc="Lowest score variability (σ)"
+          user={stats.consistencyKing}
+          valueLabel={(u) => `σ ${u.count} (avg ${u.meta?.average ?? "?"})`}
+        />
+        <UserRow
+          icon={<Flame className="text-red-500" />}
+          title="Biggest Downvoter"
+          desc="Most downvotes cast"
+          user={stats.biggestDownvoter}
+          valueLabel={(u) => `${u.count} downvotes`}
+        />
+        <RoundRow
+          icon={<Gauge className="text-primary" />}
+          title="Worst Round"
+          desc="Most top-heavy upvotes (top-2 share)"
+          round={stats.worstRound}
+          metricFormatter={(x) => `${Math.round(x * 100)}%`}
+        />
+        <RoundRow
+          icon={<Scale className="text-emerald-400" />}
+          title="Closest Round"
+          desc="Smallest gap between 1st and 2nd"
+          round={stats.closestRound}
+          metricSuffix=" pts"
+        />
+        <RoundRow
+          icon={<Zap className="text-yellow-400" />}
+          title="Blowout Round"
+          desc="Largest gap between 1st and 2nd"
+          round={stats.blowoutRound}
+          metricSuffix=" pts"
+        />
+      </div>
+
+      {/* Genre breakdown */}
+      <Card className="animate-in fade-in">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <BarChart3 />
+            <ListMusic />
             Genre Breakdown
           </CardTitle>
-          <CardDescription>Distribution of genres from submitted rounds</CardDescription>
+          <CardDescription>Distribution of genres across submitted rounds</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">
-          {genreBreakdown && genreBreakdown.length > 0 ? (
-            <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[300px]">
+          {stats.genreBreakdown && stats.genreBreakdown.length > 0 ? (
+            <ChartContainer
+              config={Object.fromEntries(
+                stats.genreBreakdown.map((g, i) => [g.name, { label: g.name, color: COLORS[i % COLORS.length] }]),
+              )}
+              className="mx-auto aspect-square h-[300px]"
+            >
               <PieChart>
                 <Tooltip cursor={false} content={<ChartTooltipContent />} />
                 <Legend />
-                <Pie data={genreBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false}>
-                  {genreBreakdown.map((entry) => (
-                    <Cell key={`cell-${entry.name}`} fill={chartConfig[entry.name].color} />
+                <Pie
+                  data={stats.genreBreakdown}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  labelLine={false}
+                >
+                  {stats.genreBreakdown.map((entry, i) => (
+                    <Cell key={entry.name} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
               </PieChart>
