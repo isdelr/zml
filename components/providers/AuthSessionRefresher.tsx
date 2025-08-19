@@ -11,7 +11,7 @@ export function AuthSessionRefresher() {
   useEffect(() => {
     const ping = async () => {
       try {
-        // A tiny session endpoint that reads auth and responds (see route below).
+        // A tiny session endpoint that reads auth and responds.
         await fetch("/api/auth/session", {
           method: "GET",
           credentials: "include",
@@ -27,9 +27,10 @@ export function AuthSessionRefresher() {
     }
 
     if (!isLoading && isAuthenticated) {
+      const FIVE_MIN = 5 * 60 * 1000;
       intervalRef.current = window.setInterval(() => {
         void ping();
-      }, 5 * 60 * 1000);
+      }, FIVE_MIN);
     }
 
     const onVisibilityChange = () => {

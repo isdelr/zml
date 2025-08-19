@@ -1,7 +1,6 @@
 import Discord, { DiscordProfile } from "@auth/core/providers/discord";
 import { convexAuth } from "@convex-dev/auth/server";
 import type { TokenSet } from "@auth/core/types";
-// 1. Import the specific 'AccessDenied' error class
 import { AccessDenied } from "@auth/core/errors";
 
 const CustomDiscord = Discord({
@@ -10,6 +9,8 @@ const CustomDiscord = Discord({
   authorization: {
     params: {
       scope: "identify email guilds",
+      // Prevent Discord from re-prompting consent when already authorized
+      prompt: "none",
     },
   },
   async profile(profile: DiscordProfile, tokens: TokenSet) {
@@ -25,7 +26,6 @@ const CustomDiscord = Discord({
         },
       }
     );
-
     if (!guildsResponse.ok) {
       throw new Error("Failed to fetch user's Discord guilds.");
     }
@@ -35,18 +35,13 @@ const CustomDiscord = Discord({
     if (!requiredServerId) {
       throw new Error("Server configuration error.");
     }
-
     const isMember = guilds.some((guild) => guild.id === requiredServerId);
-
     if (!isMember) {
-      // 2. Throw an instance of the actual 'AccessDenied' class.
-      // The library will catch this and redirect with ?error=AccessDenied
       throw new AccessDenied(
         "You must be a member of the required Discord server to sign in."
       );
     }
 
-    // Default profile creation logic...
     if (profile.avatar === null) {
       const defaultAvatarNumber =
         profile.discriminator === "0"
