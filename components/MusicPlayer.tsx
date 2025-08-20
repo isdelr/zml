@@ -456,10 +456,9 @@ export function MusicPlayer() {
       return;
     }
 
-    if (
-      audioElement.networkState === audioElement.NETWORK_NO_SOURCE &&
-      audioElement.error
-    ) {
+    // This error code (4) often corresponds to MEDIA_ERR_SRC_NOT_SUPPORTED,
+    // which can happen for expired URLs.
+    if (audioElement.error && audioElement.error.code === 4) {
       console.error("Audio playback error:", audioElement.error);
       toast.info("Link expired. Refreshing song...", { duration: 3000 });
 
@@ -469,30 +468,15 @@ export function MusicPlayer() {
         });
 
         if (newUrl) {
-          const currentTime = audioElement.currentTime;
-
+          // Update our local state with the new URL to break the loop
           setRefreshedUrls(prev => ({...prev, [currentTrack._id]: newUrl}));
 
-          audioElement.src = newUrl;
-          audioElement.load();
+          // The playback useEffect will now pick up this new URL and retry
+          // We don't need to manually set src here, let the effect handle it
 
-          const playWhenReady = () => {
-            audioElement.currentTime = currentTime;
-            if (isPlaying) {
-              audioElement
-                .play()
-                .catch((e) =>
-                  console.error("Error re-playing after refresh:", e),
-                );
-            }
-          };
-
-          audioElement.addEventListener("canplay", playWhenReady, {
-            once: true,
-          });
         } else {
-          toast.error("Could not refresh the song's link.");
-          actions.setIsPlaying(false);
+          toast.error("Could not refresh the song's link. Skipping to next.");
+          actions.playNext(); // Skip to next song if refresh fails
         }
       } catch (error) {
         console.error("Failed to execute getPresignedSongUrl:", error);

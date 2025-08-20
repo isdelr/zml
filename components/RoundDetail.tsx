@@ -112,8 +112,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       );
       if (idx > -1) {
         const currentVal = newVoteStatus.votes[idx].vote;
-        // Clamp to [-1, 1] to mirror server rules
-        const nextVal = Math.max(-1, Math.min(1, currentVal + delta));
+        const nextVal = currentVal + delta;
         if (nextVal === 0) {
           newVoteStatus.votes.splice(idx, 1);
         } else {
@@ -331,11 +330,18 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
       userVoteStatus?.votes.find((v) => v.submissionId === submissionId)
         ?.vote ?? 0;
 
-    // Apply the click, clamp to [-1, 1], and derive the actual delta to send
-    const nextVote = Math.max(-1, Math.min(1, currentVote + delta));
+    // Apply the click, clamp to league rules, and derive the actual delta to send
+    let nextVote = currentVote + delta;
+    if (league.limitVotesPerSubmission) {
+      if (nextVote > (league.maxPositiveVotesPerSubmission ?? Infinity)) {
+        nextVote = league.maxPositiveVotesPerSubmission ?? nextVote;
+      }
+      if (nextVote < -(league.maxNegativeVotesPerSubmission ?? Infinity)) {
+        nextVote = -(league.maxNegativeVotesPerSubmission ?? nextVote);
+      }
+    }
     const deltaToSend = (nextVote - currentVote) as -1 | 0 | 1;
 
-    // No-op (e.g., clicking the same direction again)
     if (deltaToSend === 0) return;
 
     // Predict post-click usage
