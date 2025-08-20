@@ -1,3 +1,4 @@
+// File: convex/submissions.ts
 // convex/submissions.ts
 import { v } from "convex/values";
 import { mutation, query, action, internalQuery } from "./_generated/server";
@@ -46,10 +47,12 @@ export const getSongMetadataFromLink = action({
       if (!clientId || !clientSecret) {
         throw new Error("Spotify credentials are not configured on the server.");
       }
+
       const trackId = extractSpotifyTrackId(args.link);
       if (!trackId) {
         throw new Error("Could not extract a Spotify track ID from the link.");
       }
+
       let track;
       try {
         const credentials = btoa(`${clientId}:${clientSecret}`);
@@ -61,7 +64,6 @@ export const getSongMetadataFromLink = action({
           },
           body: "grant_type=client_credentials",
         });
-
         if (!tokenResponse.ok) {
           throw new Error(`Failed to authenticate with Spotify: ${tokenResponse.status}`);
         }
@@ -73,8 +75,7 @@ export const getSongMetadataFromLink = action({
 
         const trackResponse = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
           headers: { Authorization: `Bearer ${accessToken}` },
-        });
-
+      });
         if (!trackResponse.ok) {
           if (trackResponse.status === 404) {
             throw new Error("Could not find this track on Spotify. Please check the link.");
@@ -110,6 +111,7 @@ export const getSongMetadataFromLink = action({
       if (!videoId) {
         throw new Error("Invalid YouTube link provided.");
       }
+
       const apiKey = process.env.YOUTUBE_API_KEY;
       if (!apiKey) {
         throw new Error("YouTube API key is not set in environment variables.");
@@ -173,6 +175,7 @@ export const submitSong = mutation({
     if (round.status !== "submissions") throw new Error("Submissions are not open.");
 
     const submissionsPerUser = round.submissionsPerUser ?? 1;
+
     const existingSubmissions = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId))
@@ -199,6 +202,7 @@ export const submitSong = mutation({
     };
 
     let submissionId: Id<"submissions">;
+
     if (args.submissionType === "file") {
       if (!args.albumArtKey || !args.songFileKey) {
         throw new Error("File keys are required for manual submission.");
@@ -248,10 +252,12 @@ export const presubmitSong = mutation({
     if (!round) throw new Error("Round not found.");
 
     const submissionsPerUser = round.submissionsPerUser ?? 1;
+
     const existingSubmissions = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId))
       .collect();
+
     const existingPre = await ctx.db.query("presubmissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).collect();
 
     if (existingSubmissions.length + existingPre.length >= submissionsPerUser) {
@@ -302,6 +308,7 @@ export const promotePresubmissionsForRound = mutation({
     if (round.status !== "submissions") {
       return;
     }
+
     const queued = await ctx.db.query("presubmissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId)).collect();
     if (queued.length === 0) return;
 
@@ -310,6 +317,7 @@ export const promotePresubmissionsForRound = mutation({
         .query("submissions")
         .withIndex("by_round_and_user", (q) => q.eq("roundId", pre.roundId).eq("userId", pre.userId))
         .first();
+
       if (existing) {
         await ctx.db.delete(pre._id);
         continue;
@@ -330,10 +338,10 @@ export const promotePresubmissionsForRound = mutation({
         songLink: pre.songLink,
         albumArtUrlValue: pre.albumArtUrlValue,
       });
-
       await submissionCounter.inc(ctx, pre.roundId);
       const doc = await ctx.db.get(submissionId);
       await submissionsByUser.insert(ctx, doc!);
+
       await ctx.db.delete(pre._id);
     }
   },
@@ -344,8 +352,10 @@ export const getMyPresubmissionForRound = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
+
     const presubmissions = await ctx.db.query("presubmissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).collect();
     if (presubmissions.length === 0) return [];
+
     return Promise.all(
       presubmissions.map(async (pre) => {
         let albumArtUrl: string | null = null;
@@ -400,11 +410,11 @@ export const editSong = mutation({
 
     const oldDoc = submission;
     const { submissionId, ...rest } = args;
-    const updates: Partial<Doc<"submissions">> = {};
 
+    const updates: Partial<Doc<"submissions">> = {};
     for (const [key, value] of Object.entries(rest)) {
       if (value !== undefined) {
-        (updates)[key] = value;
+        (updates as any)[key as keyof Doc<"submissions">] = value as any;
       }
     }
 
@@ -428,7 +438,6 @@ export const editSong = mutation({
     await ctx.db.patch(submissionId, updates);
     const newDoc = await ctx.db.get(submissionId);
     await submissionsByUser.replace(ctx, oldDoc, newDoc!);
-
     return "Submission updated successfully.";
   },
 });
@@ -439,6 +448,7 @@ export const getForRound = query({
     const userId = await getAuthUserId(ctx);
     const round = await ctx.db.get(args.roundId);
     if (!round) return [];
+
     const league = await ctx.db.get(round.leagueId);
     if (!league) return [];
 
@@ -510,12 +520,14 @@ export const getMySubmissions = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
+
     const userSubmissions = await ctx.db.query("submissions").withIndex("by_user_and_league", (q) => q.eq("userId", userId)).order("desc").collect();
 
     const submissionsWithDetails = await Promise.all(
       userSubmissions.map(async (submission) => {
         const round = await ctx.db.get(submission.roundId);
         if (!round) return null;
+
         const league = await ctx.db.get(round.leagueId);
         if (!league) return null;
 
@@ -579,17 +591,21 @@ export const addComment = mutation({
     if (!userId) {
       throw new Error("You must be logged in to comment.");
     }
+
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error("User not found.");
     }
+
     if (args.text.trim().length === 0) {
       throw new Error("Comment cannot be empty.");
     }
+
     const submission = await ctx.db.get(args.submissionId);
     if (!submission) {
       throw new Error("Submission not found.");
     }
+
     const round = await ctx.db.get(submission.roundId);
     if (!round) {
       throw new Error("Round not found.");
@@ -692,6 +708,7 @@ export const checkForPotentialDuplicates = mutation({
       if (args.currentSubmissionId && submission._id === args.currentSubmissionId) {
         continue;
       }
+
       const dbTitle = submission.songTitle.trim().toLowerCase().replace(/\(.*\)|\[.*\]/g, "").trim();
       const dbArtist = submission.artist.trim().toLowerCase();
       const roundTitle = roundMap.get(submission.roundId.toString()) ?? "a previous round";
@@ -702,8 +719,10 @@ export const checkForPotentialDuplicates = mutation({
       if (!artistExists && dbArtist === normalizedArtist) {
         artistExists = { title: submission.songTitle, artist: submission.artist, roundTitle };
       }
+
       if (songExists && artistExists) break;
     }
+
     return { songExists, artistExists };
   },
 });

@@ -1,3 +1,4 @@
+// File: convex/leagues.ts
 import { v } from "convex/values";
 import {
   mutation,
@@ -35,17 +36,26 @@ const roundAwardValidator = v.object({
   totalUpvotes: v.number(),
 });
 
-const userAdvStatValidator = v.object({
+// Fine-grained stat validators to match schema precisely
+const attendanceStatValidator = v.object({
   name: v.optional(v.string()),
   image: v.optional(v.string()),
   count: v.number(),
-  meta: v.optional(
-    v.object({
-      rounds: v.number(),
-      average: v.number(),
-      totalRounds: v.optional(v.number()),
-    }),
-  ),
+  meta: v.optional(v.object({ totalRounds: v.number() })),
+});
+
+const goldenEarsStatValidator = v.object({
+  name: v.optional(v.string()),
+  image: v.optional(v.string()),
+  count: v.number(),
+  meta: v.optional(v.object({ rounds: v.number() })),
+});
+
+const consistencyStatValidator = v.object({
+  name: v.optional(v.string()),
+  image: v.optional(v.string()),
+  count: v.number(),
+  meta: v.optional(v.object({ rounds: v.number(), average: v.number() })),
 });
 
 const generateInviteCode = () => {
@@ -245,14 +255,17 @@ export const getLeaguesForUser = query({
     if (!userId) {
       return [];
     }
+
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
+
     const leagueIds = memberships.map((m) => m.leagueId);
     const leagues = await Promise.all(
       leagueIds.map((leagueId) => ctx.db.get(leagueId)),
     );
+
     return leagues.filter(
       (league): league is Doc<"leagues"> => league !== null,
     );
@@ -297,6 +310,7 @@ export const get = query({
   ),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
+
     const league = await ctx.db.get(args.id);
     if (!league) {
       return null;
@@ -316,12 +330,15 @@ export const get = query({
     }
 
     const creator = await ctx.db.get(league.creatorId);
+
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_league", (q) => q.eq("leagueId", league._id))
       .collect();
+
     const memberIds = memberships.map((m) => m.userId);
     const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
+
     const memberCount = await memberCounter.count(ctx, league._id);
 
     const members = memberDocs
@@ -372,22 +389,27 @@ export const getInviteInfo = query({
       .query("leagues")
       .withIndex("by_invite_code", (q) => q.eq("inviteCode", args.inviteCode))
       .first();
+
     if (!league) {
       return null;
     }
+
     const creator = await ctx.db.get(league.creatorId);
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_league", (q) => q.eq("leagueId", league._id))
       .collect();
+
     const memberIds = memberships.map((m) => m.userId);
     const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
+
     const members = memberDocs
       .filter((u): u is Doc<"users"> => u !== null)
       .map((u) => ({
         name: u.name,
         image: u.image,
       }));
+
     const memberCount = await memberCounter.count(ctx, league._id);
 
     return {
@@ -410,19 +432,23 @@ export const joinWithInviteCode = mutation({
     if (!userId) {
       throw new Error("You must be logged in to join a league.");
     }
+
     const league = await ctx.db
       .query("leagues")
       .withIndex("by_invite_code", (q) => q.eq("inviteCode", args.inviteCode))
       .first();
+
     if (!league) {
       return "not_found";
     }
+
     const existingMembership = await ctx.db
       .query("memberships")
       .withIndex("by_league_and_user", (q) =>
         q.eq("leagueId", league._id).eq("userId", userId),
       )
       .first();
+
     if (existingMembership) {
       return "already_joined";
     }
@@ -455,21 +481,25 @@ export const joinPublicLeague = mutation({
     if (!userId) {
       throw new Error("You must be logged in to join a league.");
     }
+
     const league = await ctx.db.get(args.leagueId);
     if (!league) {
       return "not_found";
     }
+
     if (!league.isPublic) {
       throw new Error(
         "This is a private league. You can only join with an invite link.",
       );
     }
+
     const existingMembership = await ctx.db
       .query("memberships")
       .withIndex("by_league_and_user", (q) =>
         q.eq("leagueId", league._id).eq("userId", userId),
       )
       .first();
+
     if (existingMembership) {
       return "already_joined";
     }
@@ -546,6 +576,7 @@ export const manageInviteCode = mutation({
   },
   handler: async (ctx, args) => {
     await checkLeagueOwnership(ctx, args.leagueId);
+
     if (args.action === "disable") {
       await ctx.db.patch(args.leagueId, { inviteCode: null });
       return { newCode: null };
@@ -574,6 +605,7 @@ export const kickMember = mutation({
     if (args.memberIdToKick === league.creatorId) {
       throw new Error("The league owner cannot be kicked.");
     }
+
     const membership = await ctx.db
       .query("memberships")
       .withIndex("by_league_and_user", (q) =>
@@ -583,6 +615,7 @@ export const kickMember = mutation({
     if (!membership) {
       throw new Error("This user is not a member of the league.");
     }
+
     await ctx.db.delete(membership._id);
     await membershipsByUser.delete(ctx, membership);
     await memberCounter.dec(ctx, args.leagueId);
@@ -668,7 +701,6 @@ export const getLeagueMetadata = query({
       .query("memberships")
       .withIndex("by_league", (q) => q.eq("leagueId", league._id))
       .collect();
-
     return {
       name: league.name,
       description: league.description,
@@ -683,12 +715,14 @@ export const updateLeagueStats = internalAction({
     const statsData = await ctx.runQuery(internal.leagues.getStatsData, {
       leagueId: args.leagueId,
     });
+
     if (!statsData) {
       console.log(
         `No finished rounds for league ${args.leagueId}, skipping stats update.`,
       );
       return;
     }
+
     await ctx.runMutation(internal.leagues.storeLeagueStats, {
       leagueId: args.leagueId,
       stats: statsData,
@@ -706,7 +740,6 @@ export const getStatsData = internalQuery({
         q.eq("leagueId", args.leagueId).eq("status", "finished"),
       )
       .collect();
-
     if (finishedRounds.length === 0) return null;
 
     const roundIds = finishedRounds.map((r) => r._id);
@@ -759,9 +792,9 @@ export const getStatsData = internalQuery({
     const overlord =
       mostWins.length > 0
         ? {
-            userId: mostWins[0].userId.toString(),
-            count: mostWins[0].totalWins,
-          }
+          userId: mostWins[0].userId.toString(),
+          count: mostWins[0].totalWins,
+        }
         : null;
 
     // Build a map from submissionId => submitter userId for vote aggregation
@@ -786,7 +819,8 @@ export const getStatsData = internalQuery({
         if (v.vote < 0)
           userDownvotes.set(
             submitterId.toString(),
-            (userDownvotes.get(submitterId.toString()) ?? 0) + Math.abs(v.vote),
+            (userDownvotes.get(submitterId.toString()) ?? 0) +
+            Math.abs(v.vote),
           );
       }
 
@@ -794,7 +828,8 @@ export const getStatsData = internalQuery({
       if (v.vote < 0) {
         userDownvotesCast.set(
           v.userId.toString(),
-          (userDownvotesCast.get(v.userId.toString()) ?? 0) + Math.abs(v.vote),
+          (userDownvotesCast.get(v.userId.toString()) ?? 0) +
+          Math.abs(v.vote),
         );
       }
 
@@ -808,7 +843,7 @@ export const getStatsData = internalQuery({
         negBySubmission.set(
           v.submissionId.toString(),
           (negBySubmission.get(v.submissionId.toString()) ?? 0) +
-            Math.abs(v.vote),
+          Math.abs(v.vote),
         );
     });
 
@@ -833,6 +868,7 @@ export const getStatsData = internalQuery({
         (userVoteCount.get(v.userId.toString()) ?? 0) + Math.abs(v.vote),
       ),
     );
+
     const mostVotesCast = [...userVoteCount.entries()].sort(
       (a, b) => b[1] - a[1],
     );
@@ -869,6 +905,7 @@ export const getStatsData = internalQuery({
           (g) => (genreCounts[g] = (genreCounts[g] ?? 0) + 1),
         );
     });
+
     const genreBreakdown = Object.entries(genreCounts).map(([name, value]) => ({
       name,
       value,
@@ -946,13 +983,11 @@ export const getStatsData = internalQuery({
         submittedRoundsByUser.set(key, new Set());
       submittedRoundsByUser.get(key)!.add(s.roundId.toString());
     });
-
     const attArr = [...submittedRoundsByUser.entries()].map(([uid, set]) => ({
       uid,
       count: set.size,
     }));
     attArr.sort((a, b) => b.count - a.count);
-
     const attendanceStar = attArr.length
       ? { userId: attArr[0].uid, count: attArr[0].count, totalRounds }
       : null;
@@ -964,7 +999,6 @@ export const getStatsData = internalQuery({
       if (!resultsByUser.has(key)) resultsByUser.set(key, []);
       resultsByUser.get(key)!.push(r.points);
     });
-
     const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
     const stdev = (arr: number[]) => {
       const m = avg(arr);
@@ -1034,6 +1068,7 @@ export const getStatsData = internalQuery({
     let worstRound = null,
       closestRound = null,
       blowoutRound = null;
+
     for (const r of finishedRounds) {
       const up = roundUpvoteStats(r._id);
       const diff = roundPointsDiff(r._id);
@@ -1090,16 +1125,16 @@ export const getStatsData = internalQuery({
 
     const mostUpvotedSong = mostUpvotedSongEntry
       ? await formatSongAwardFromSubmissionId(
-          mostUpvotedSongEntry[0],
-          mostUpvotedSongEntry[1],
-        )
+        mostUpvotedSongEntry[0],
+        mostUpvotedSongEntry[1],
+      )
       : null;
 
     const mostDownvotedSong = mostDownvotedSongEntry
       ? await formatSongAwardFromSubmissionId(
-          mostDownvotedSongEntry[0],
-          mostDownvotedSongEntry[1],
-        )
+        mostDownvotedSongEntry[0],
+        mostDownvotedSongEntry[1],
+      )
       : null;
 
     const fanFavoriteSong = favorite
@@ -1117,27 +1152,27 @@ export const getStatsData = internalQuery({
       fanFavoriteSong,
       attendanceStar: attendanceStar
         ? {
-            ...(memberMap.get(attendanceStar.userId) ?? {}),
-            count: attendanceStar.count,
-            meta: { totalRounds },
-          }
+          ...(memberMap.get(attendanceStar.userId) ?? {}),
+          count: attendanceStar.count,
+          meta: { totalRounds },
+        }
         : null,
       goldenEars: golden
         ? {
-            ...(memberMap.get(golden.uid) ?? {}),
-            count: Math.round(golden.average * 10) / 10,
-            meta: { rounds: golden.rounds },
-          }
+          ...(memberMap.get(golden.uid) ?? {}),
+          count: Math.round(golden.average * 10) / 10,
+          meta: { rounds: golden.rounds },
+        }
         : null,
       consistencyKing: consist
         ? {
-            ...(memberMap.get(consist.uid) ?? {}),
-            count: Math.round(consist.dev * 10) / 10,
-            meta: {
-              rounds: consist.rounds,
-              average: Math.round(consist.average * 10) / 10,
-            },
-          }
+          ...(memberMap.get(consist.uid) ?? {}),
+          count: Math.round(consist.dev * 10) / 10,
+          meta: {
+            rounds: consist.rounds,
+            average: Math.round(consist.average * 10) / 10,
+          },
+        }
         : null,
       biggestDownvoter: downvoter
         ? { ...(memberMap.get(downvoter[0]) ?? {}), count: downvoter[1] }
@@ -1163,9 +1198,9 @@ export const storeLeagueStats = internalMutation({
       mostUpvotedSong: v.union(v.null(), songAwardValidator),
       mostDownvotedSong: v.union(v.null(), songAwardValidator),
       fanFavoriteSong: v.union(v.null(), songAwardValidator),
-      attendanceStar: v.union(v.null(), userAdvStatValidator),
-      goldenEars: v.union(v.null(), userAdvStatValidator),
-      consistencyKing: v.union(v.null(), userAdvStatValidator),
+      attendanceStar: v.union(v.null(), attendanceStatValidator),
+      goldenEars: v.union(v.null(), goldenEarsStatValidator),
+      consistencyKing: v.union(v.null(), consistencyStatValidator),
       biggestDownvoter: v.union(v.null(), userStatValidator),
       worstRound: v.union(v.null(), roundAwardValidator),
       closestRound: v.union(v.null(), roundAwardValidator),
@@ -1178,6 +1213,7 @@ export const storeLeagueStats = internalMutation({
       .query("leagueStats")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .first();
+
     if (existing) {
       await ctx.db.patch(existing._id, {
         ...args.stats,
@@ -1205,9 +1241,9 @@ export const getLeagueStats = query({
       mostUpvotedSong: v.union(v.null(), songAwardValidator),
       mostDownvotedSong: v.union(v.null(), songAwardValidator),
       fanFavoriteSong: v.union(v.null(), songAwardValidator),
-      attendanceStar: v.union(v.null(), userAdvStatValidator),
-      goldenEars: v.union(v.null(), userAdvStatValidator),
-      consistencyKing: v.union(v.null(), userAdvStatValidator),
+      attendanceStar: v.union(v.null(), attendanceStatValidator),
+      goldenEars: v.union(v.null(), goldenEarsStatValidator),
+      consistencyKing: v.union(v.null(), consistencyStatValidator),
       biggestDownvoter: v.union(v.null(), userStatValidator),
       worstRound: v.union(v.null(), roundAwardValidator),
       closestRound: v.union(v.null(), roundAwardValidator),
@@ -1218,11 +1254,31 @@ export const getLeagueStats = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const stats = await ctx.db
+    const statsDoc = await ctx.db
       .query("leagueStats")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .first();
-    return stats;
+    if (!statsDoc) return null;
+
+    // Return exactly the shape specified in `returns` (exclude _id, _creationTime, leagueId)
+    return {
+      overlord: statsDoc.overlord ?? null,
+      peopleChampion: statsDoc.peopleChampion ?? null,
+      mostControversial: statsDoc.mostControversial ?? null,
+      prolificVoter: statsDoc.prolificVoter ?? null,
+      topSong: statsDoc.topSong ?? null,
+      mostUpvotedSong: statsDoc.mostUpvotedSong ?? null,
+      mostDownvotedSong: statsDoc.mostDownvotedSong ?? null,
+      fanFavoriteSong: statsDoc.fanFavoriteSong ?? null,
+      attendanceStar: statsDoc.attendanceStar ?? null,
+      goldenEars: statsDoc.goldenEars ?? null,
+      consistencyKing: statsDoc.consistencyKing ?? null,
+      biggestDownvoter: statsDoc.biggestDownvoter ?? null,
+      worstRound: statsDoc.worstRound ?? null,
+      closestRound: statsDoc.closestRound ?? null,
+      blowoutRound: statsDoc.blowoutRound ?? null,
+      genreBreakdown: statsDoc.genreBreakdown ?? [],
+    };
   },
 });
 
@@ -1261,6 +1317,7 @@ export const searchInLeague = query({
   }),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
+
     const league = await ctx.db.get(args.leagueId);
     if (!league) {
       return { rounds: [], songs: [] };
@@ -1357,6 +1414,7 @@ export const calculateAndStoreResults = internalMutation({
   handler: async (ctx, { roundId }) => {
     const round = await ctx.db.get(roundId);
     if (!round) return;
+
     const league = await ctx.db.get(round.leagueId);
     if (!league) return;
 
@@ -1435,6 +1493,7 @@ export const calculateAndStoreResults = internalMutation({
       const sid = sub._id.toString();
       const subVotes = votesBySubmission.get(sid) ?? [];
       const submitterFinalized = finalizedVoters.has(sub.userId.toString());
+
       let pts = 0;
       if (!submitterFinalized) {
         // Annul positive votes, keep negatives
@@ -1506,12 +1565,14 @@ export const calculateAndStoreResults = internalMutation({
 
     for (const userIdStr of allUsers) {
       const uid = userIdStr as unknown as Id<"users">;
+
       const deltaPoints =
         (newPointsByUser.get(userIdStr) ?? 0) -
         (previousPointsByUser.get(userIdStr) ?? 0);
       const deltaWins =
         (newWinsByUser.get(userIdStr) ?? 0) -
         (previousWinsByUser.get(userIdStr) ?? 0);
+
       if (deltaPoints === 0 && deltaWins === 0) continue;
 
       let standing = await ctx.db
@@ -1520,7 +1581,6 @@ export const calculateAndStoreResults = internalMutation({
           q.eq("leagueId", league._id).eq("userId", uid),
         )
         .first();
-
       if (!standing) {
         const id = await ctx.db.insert("leagueStandings", {
           leagueId: league._id,
