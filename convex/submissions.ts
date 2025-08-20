@@ -629,6 +629,30 @@ export const addComment = mutation({
   },
 });
 
+export const getCommentsForSubmission = query({
+  args: { submissionId: v.id("submissions") },
+  handler: async (ctx, args) => {
+    const comments = await ctx.db
+      .query("comments")
+      .withIndex("by_submission", (q) =>
+        q.eq("submissionId", args.submissionId),
+      )
+      .order("asc")
+      .collect();
+
+    return Promise.all(
+      comments.map(async (comment) => {
+        const user = await ctx.db.get(comment.userId);
+        return {
+          ...comment,
+          authorName: user?.name ?? "Anonymous",
+          authorImage: user?.image ?? null,
+        };
+      }),
+    );
+  },
+});
+
 export const storeWaveform = mutation({
   args: {
     submissionId: v.id("submissions"),
