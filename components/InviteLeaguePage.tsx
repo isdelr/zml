@@ -32,7 +32,7 @@ export default function InviteLeaguePage() {
 
   const handleJoinLeague = async () => {
     if (!isAuthenticated) {
-      signIn("discord", { callbackUrl: pathname });
+      signIn("discord", { redirectTo: pathname });
       return;
     }
     if (!inviteCode) return;

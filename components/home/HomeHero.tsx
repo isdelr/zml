@@ -30,7 +30,7 @@ export function HomeHero() {
             <Button
               size="lg"
               onClick={() =>
-                signIn("discord", { callbackUrl: "/leagues/create" })
+                signIn("discord", { redirectTo: "/leagues/create" })
               }
             >
               Create Your League
@@ -38,7 +38,7 @@ export function HomeHero() {
             <Button
               size="lg"
               variant="outline"
-              onClick={() => signIn("discord", { callbackUrl: "/explore" })}
+              onClick={() => signIn("discord", { redirectTo: "/explore" })}
             >
               Explore Leagues
             </Button>

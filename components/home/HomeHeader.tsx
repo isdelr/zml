@@ -24,7 +24,7 @@ export function HomeHeader() {
           ) : (
             <Button
               variant="ghost"
-              onClick={() => signIn("discord", { callbackUrl: "/explore" })}
+              onClick={() => signIn("discord", { redirectTo: "/explore" })}
             >
               Sign In
             </Button>
