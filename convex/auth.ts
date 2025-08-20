@@ -1,3 +1,5 @@
+//auth.ts
+
 import Discord, { DiscordProfile } from "@auth/core/providers/discord";
 import { convexAuth } from "@convex-dev/auth/server";
 import type { TokenSet } from "@auth/core/types";
@@ -9,7 +11,6 @@ const CustomDiscord = Discord({
   authorization: {
     params: {
       scope: "identify email guilds",
-      // Prevent Discord from re-prompting consent when already authorized
       prompt: "none",
     },
   },
