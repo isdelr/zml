@@ -4,8 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="generated api">
-      <change beforePath="$PROJECT_DIR$/middleware.ts" beforeDir="false" afterPath="$PROJECT_DIR$/middleware.ts" afterDir="false" />
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="middleware allows">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -66,6 +66,7 @@
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_interpreter_path": "/Users/rosvelt/.local/share/nvm/v24.6.0/bin/node",
     "nodejs_package_manager_path": "npm",
+    "prettierjs.PrettierConfiguration.Package": "/Users/rosvelt/Documents/projects/zml/node_modules/prettier",
     "settings.editor.selected.configurable": "vcs.Git",
     "to.speed.mode.migration.done": "true",
     "ts.external.directory.path": "/Users/rosvelt/Documents/projects/zml/node_modules/typescript/lib",
@@ -107,7 +108,7 @@
       <workItem from="1755893118050" duration="276000" />
       <workItem from="1755893409701" duration="3476000" />
       <workItem from="1755897219480" duration="13608000" />
-      <workItem from="1755911366333" duration="375000" />
+      <workItem from="1755911366333" duration="1196000" />
     </task>
     <task id="LOCAL-00001" summary="Submission overhaul">
       <option name="closed" value="true" />
@@ -261,7 +262,15 @@
       <option name="project" value="LOCAL" />
       <updated>1755911682121</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="middleware allows">
+      <option name="closed" value="true" />
+      <created>1755911876948</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1755911876948</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -295,6 +304,7 @@
     <MESSAGE value="dockerfile fixes" />
     <MESSAGE value="update deps" />
     <MESSAGE value="generated api" />
-    <option name="LAST_COMMIT_MESSAGE" value="generated api" />
+    <MESSAGE value="middleware allows" />
+    <option name="LAST_COMMIT_MESSAGE" value="middleware allows" />
   </component>
 </project>
