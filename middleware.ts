@@ -11,7 +11,7 @@ const publicRoutes = createRouteMatcher([
   "/api/auth/session",      // API route for session management
   // "/manifest.js",           // PWA manifest file
   "/robots.txt",             // SEO robots file
-  // "/sw.js",                 // Service Worker for PWA
+  "/sw.js",                 // Service Worker for PWA
   "/icons/(.*)",            // PWA icons
 ]);
 
