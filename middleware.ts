@@ -10,9 +10,8 @@ const publicRoutes = createRouteMatcher([
   "/invite/(.*)",           // Invite links (e.g., /invite/some-code)
   "/api/auth/session",      // API route for session management
   // "/manifest.js",           // PWA manifest file
-  // "/robots.txt",             // SEO robots file
+  "/robots.txt",             // SEO robots file
   // "/sw.js",                 // Service Worker for PWA
-  // "/workbox-.*",            // Workbox files for PWA
   "/icons/(.*)",            // PWA icons
 ]);
 
