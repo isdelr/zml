@@ -5,11 +5,20 @@ import {
 import { NextResponse } from "next/server";
 
 const publicRoutes = createRouteMatcher([
-  "/",
-  "/signin",
+  "/",                      // Landing/Home page
+  "/signin",                // Sign-in page
+  "/invite/(.*)",           // Invite links (e.g., /invite/some-code)
+  "/api/auth/session",      // API route for session management
+  "/manifest.ts",           // PWA manifest file
+  "/robots.ts",             // SEO robots file
+  "/sw.js",                 // Service Worker for PWA
+  "/workbox-.*",            // Workbox files for PWA
+  "/icons/(.*)",            // PWA icons
 ]);
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+
+
   if (publicRoutes(request)) {
     return;
   }
@@ -24,11 +33,10 @@ export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   }
 });
 
-// Configure which paths the middleware applies to
 export const config = {
   matcher: [
-    "/((?!.*\\..*|_next).*)", // Match all paths except files with extensions and _next
-    "/",                      // Match the root path
-    "/(api|trpc)(.*)",        // Match API routes
+    "/((?!.*\\..*|_next).*)", // Match all paths except files and _next
+    "/",
+    "/(api|trpc)(.*)",
   ],
 };
