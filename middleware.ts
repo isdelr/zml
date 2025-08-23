@@ -8,12 +8,12 @@ const publicRoutes = createRouteMatcher([
   "/",                      // Landing/Home page
   "/signin",                // Sign-in page
   "/invite/(.*)",           // Invite links (e.g., /invite/some-code)
-  // "/api/auth/session",      // API route for session management
+  "/api/auth/session",      // API route for session management
   // "/manifest.js",           // PWA manifest file
   // "/robots.txt",             // SEO robots file
   // "/sw.js",                 // Service Worker for PWA
   // "/workbox-.*",            // Workbox files for PWA
-  // "/icons/(.*)",            // PWA icons
+  "/icons/(.*)",            // PWA icons
 ]);
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
