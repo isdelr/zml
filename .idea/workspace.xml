@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="dockerfile fixes" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="TypeScript File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="HARD" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;isdelr&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/isdelr/zml.git&quot;,
+    &quot;accountId&quot;: &quot;47764666-e725-4140-a348-361face7763c&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="31eSmWqLIDN4fXNkcLVpGC0hbGl" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "JavaScript Debug.start_push.executor": "Debug",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "disable.download.node.interpreter.editor.notification": "true",
+    "git-widget-placeholder": "master",
+    "javascript.nodejs.core.library.configured.version": "24.6.0",
+    "javascript.nodejs.core.library.typings.version": "24.3.0",
+    "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "/Users/rosvelt/.local/share/nvm/v24.6.0/bin/node",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_interpreter_path": "/Users/rosvelt/.local/share/nvm/v24.6.0/bin/node",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "vcs.Git",
+    "to.speed.mode.migration.done": "true",
+    "ts.external.directory.path": "/Users/rosvelt/Documents/projects/zml/node_modules/typescript/lib",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RunManager">
+    <configuration name="start_push" type="JavascriptDebugType" temporary="true" nameIsGenerated="true" uri="http://127.0.0.1:3210/api/deploy2/start_push">
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="JavaScript Debug.start_push" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-e03c56caf84a-JavaScript-WS-252.23892.411" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="" />
+      <created>1755883204933</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1755883204933</updated>
+      <workItem from="1755883206298" duration="1791000" />
+      <workItem from="1755888022725" duration="39000" />
+      <workItem from="1755888069870" duration="4966000" />
+      <workItem from="1755893118050" duration="276000" />
+      <workItem from="1755893409701" duration="3476000" />
+      <workItem from="1755897219480" duration="13608000" />
+      <workItem from="1755911366333" duration="55000" />
+    </task>
+    <task id="LOCAL-00001" summary="Submission overhaul">
+      <option name="closed" value="true" />
+      <created>1755890324208</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1755890324208</updated>
+    </task>
+    <task id="LOCAL-00002" summary="package lock update">
+      <option name="closed" value="true" />
+      <created>1755890694542</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1755890694543</updated>
+    </task>
+    <task id="LOCAL-00003" summary="added dockerfile">
+      <option name="closed" value="true" />
+      <created>1755891476973</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1755891476973</updated>
+    </task>
+    <task id="LOCAL-00004" summary="dependency changes">
+      <option name="closed" value="true" />
+      <created>1755892430863</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1755892430863</updated>
+    </task>
+    <task id="LOCAL-00005" summary="dependency changes">
+      <option name="closed" value="true" />
+      <created>1755897927914</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1755897927914</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Docker updates">
+      <option name="closed" value="true" />
+      <created>1755902740285</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1755902740285</updated>
+    </task>
+    <task id="LOCAL-00007" summary="deleted unused const">
+      <option name="closed" value="true" />
+      <created>1755902836375</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1755902836375</updated>
+    </task>
+    <task id="LOCAL-00008" summary="added removed use node">
+      <option name="closed" value="true" />
+      <created>1755903000491</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1755903000491</updated>
+    </task>
+    <task id="LOCAL-00009" summary="fixed import">
+      <option name="closed" value="true" />
+      <created>1755903429820</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1755903429820</updated>
+    </task>
+    <task id="LOCAL-00010" summary="new implementation for yt downloader">
+      <option name="closed" value="true" />
+      <created>1755905003715</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1755905003715</updated>
+    </task>
+    <task id="LOCAL-00011" summary="dockerfile correction">
+      <option name="closed" value="true" />
+      <created>1755905114401</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1755905114401</updated>
+    </task>
+    <task id="LOCAL-00012" summary="song download overhaul">
+      <option name="closed" value="true" />
+      <created>1755906746895</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1755906746895</updated>
+    </task>
+    <task id="LOCAL-00013" summary="song download overhaul">
+      <option name="closed" value="true" />
+      <created>1755907994125</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1755907994125</updated>
+    </task>
+    <task id="LOCAL-00014" summary="middleware allow">
+      <option name="closed" value="true" />
+      <created>1755908421129</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1755908421129</updated>
+    </task>
+    <task id="LOCAL-00015" summary="middleware allow">
+      <option name="closed" value="true" />
+      <created>1755908962883</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1755908962883</updated>
+    </task>
+    <task id="LOCAL-00016" summary="rename api route">
+      <option name="closed" value="true" />
+      <created>1755909164509</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1755909164509</updated>
+    </task>
+    <task id="LOCAL-00017" summary="dockerfile fixes">
+      <option name="closed" value="true" />
+      <created>1755910604502</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1755910604502</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Submission overhaul" />
+    <MESSAGE value="package lock update" />
+    <MESSAGE value="added dockerfile" />
+    <MESSAGE value="dependency changes" />
+    <MESSAGE value="Docker updates" />
+    <MESSAGE value="deleted unused const" />
+    <MESSAGE value="added removed use node" />
+    <MESSAGE value="fixed import" />
+    <MESSAGE value="new implementation for yt downloader" />
+    <MESSAGE value="dockerfile correction" />
+    <MESSAGE value="song download overhaul" />
+    <MESSAGE value="middleware allow" />
+    <MESSAGE value="rename api route" />
+    <MESSAGE value="dockerfile fixes" />
+    <option name="LAST_COMMIT_MESSAGE" value="dockerfile fixes" />
+  </component>
+</project>
