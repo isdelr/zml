@@ -83,6 +83,23 @@ export function MusicPlayer() {
     return roundListenProgress.find(p => p && p.submissionId === currentTrack._id);
   }, [currentTrack, roundListenProgress]);
 
+  // Track how far the user has actually listened contiguously (client-side)
+  const listenedUntilRef = useRef(0);
+  // Flag to avoid counting a seek as listened time in the next timeupdate tick
+  const manualSeekRef = useRef(false);
+
+  // Initialize/reset contiguous listened time when track changes or server progress is loaded
+  useEffect(() => {
+    if (!currentTrack) {
+      listenedUntilRef.current = 0;
+      manualSeekRef.current = false;
+      return;
+    }
+    const base = currentTrackListenProgress?.progressSeconds ?? 0;
+    listenedUntilRef.current = base;
+    manualSeekRef.current = false;
+  }, [currentTrack, currentTrackListenProgress]);
+
   const getPresignedSongUrl = useAction(api.submissions.getPresignedSongUrl);
   const updateDbProgress = useMutation(api.listenProgress.updateProgress);
 
@@ -171,13 +188,36 @@ export function MusicPlayer() {
 
   useEffect(() => {
     if (seekTo !== null && audioRef.current) {
-      audioRef.current.currentTime = seekTo;
+      const audioElement = audioRef.current;
+
+      const enforcementActive = !!(
+        leagueData?.enforceListenPercentage &&
+        currentTrack &&
+        currentTrack.submissionType === "file"
+      );
+
+      const serverMet = currentTrackListenProgress?.isCompleted === true;
+      const localMet = currentTrack ? !!listenProgress[currentTrack._id] : false;
+      const alreadyMet = serverMet || localMet;
+
+      let target = seekTo;
+      if (enforcementActive && !alreadyMet) {
+        const TOLERANCE = 1.5;
+        const lastAllowed = (listenedUntilRef.current ?? 0) + TOLERANCE;
+        if (seekTo > lastAllowed) {
+          target = Math.min(lastAllowed, duration || lastAllowed);
+        }
+      }
+
+      manualSeekRef.current = true;
+      audioElement.currentTime = Math.max(0, Math.min(target, audioElement.duration || target));
+
       if (!isPlaying) {
         actions.setIsPlaying(true);
       }
       actions.resetSeek();
     }
-  }, [seekTo, isPlaying, actions]);
+  }, [seekTo, isPlaying, actions, leagueData, currentTrack, currentTrackListenProgress, listenProgress, duration]);
 
   const commentsData = useQuery(
     api.submissions.getCommentsForSubmission,
@@ -395,20 +435,30 @@ export function MusicPlayer() {
       setProgress(audioElement.currentTime);
       setDuration(audioElement.duration);
 
-      // Logic to track listening progress
+      // Logic to track listening progress and contiguous listened time
       if (leagueData?.enforceListenPercentage && currentTrack) {
-        const alreadyMet = listenProgress[currentTrack._id];
+        const serverMet = currentTrackListenProgress?.isCompleted === true;
+        const localMet = listenProgress[currentTrack._id];
+        const alreadyMet = serverMet || localMet;
+
+        // Update contiguous listened time only on natural playback (not immediately after a seek)
+        if (!manualSeekRef.current && isPlaying && !isExternalLink) {
+          if (audioElement.currentTime > listenedUntilRef.current) {
+            listenedUntilRef.current = audioElement.currentTime;
+          }
+        }
+        // Reset the manual seek flag after handling a tick
+        if (manualSeekRef.current) manualSeekRef.current = false;
+
         if (!alreadyMet) {
           const requiredPercentage = (leagueData.listenPercentage ?? 100) / 100;
-          const timeLimitSeconds =
-            (leagueData.listenTimeLimitMinutes ?? 999) * 60;
-
+          const timeLimitSeconds = (leagueData.listenTimeLimitMinutes ?? 999) * 60;
           const requiredListenTime = Math.min(
             audioElement.duration * requiredPercentage,
             timeLimitSeconds,
           );
 
-          if (audioElement.currentTime >= requiredListenTime) {
+          if (listenedUntilRef.current >= requiredListenTime) {
             actions.setListenProgress(currentTrack._id, true);
           }
         }
@@ -426,11 +476,36 @@ export function MusicPlayer() {
   };
 
   const handleSeek = (value: number | number[]) => {
-    const seekTime = Array.isArray(value) ? value[0] : value;
-    if (audioRef.current) {
-      audioRef.current.currentTime = seekTime;
-      setProgress(seekTime);
+    const requested = Array.isArray(value) ? value[0] : value;
+    const audioElement = audioRef.current;
+    if (!audioElement) return;
+
+    const enforcementActive = !!(
+      leagueData?.enforceListenPercentage &&
+      currentTrack &&
+      currentTrack.submissionType === "file"
+    );
+
+    const serverMet = currentTrackListenProgress?.isCompleted === true;
+    const localMet = currentTrack ? !!listenProgress[currentTrack._id] : false;
+    const alreadyMet = serverMet || localMet;
+
+    let target = requested;
+    if (enforcementActive && !alreadyMet) {
+      const TOLERANCE = 1.5; // seconds of grace to account for UI jitter
+      const lastAllowed = (listenedUntilRef.current ?? 0) + TOLERANCE;
+      // Allow backward seeks freely; clamp forward seeks to lastAllowed
+      if (requested > lastAllowed) {
+        target = Math.min(lastAllowed, duration || lastAllowed);
+      }
     }
+
+    // Mark that the next timeupdate should not count as natural listening
+    manualSeekRef.current = true;
+
+    // Apply seek
+    audioElement.currentTime = Math.max(0, Math.min(target, audioElement.duration || target));
+    setProgress(audioElement.currentTime);
   };
 
   const handleVolumeChange = (newVolume: number) => {

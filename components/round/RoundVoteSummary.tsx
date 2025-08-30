@@ -9,6 +9,7 @@ import { ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 import { toSvg } from "jdenticon";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 
 interface RoundVoteSummaryProps {
   roundId: Id<"rounds">;
@@ -49,6 +50,17 @@ const VoteSummaryBySongSkeleton = () => (
 
 export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
   const voteSummaryBySong = useQuery(api.rounds.getVoteSummary, { roundId });
+  const sortedSummaries = useMemo(() => {
+    if (!voteSummaryBySong) return [] as typeof voteSummaryBySong extends undefined ? never[] : NonNullable<typeof voteSummaryBySong>;
+    return [...voteSummaryBySong].sort((a, b) => {
+      const totalA = a.votes.reduce((sum, v) => sum + (typeof v.score === "number" ? v.score : 0), 0);
+      const totalB = b.votes.reduce((sum, v) => sum + (typeof v.score === "number" ? v.score : 0), 0);
+      if (totalB !== totalA) return totalB - totalA; // Descending by total score
+      const titleCmp = a.songTitle.localeCompare(b.songTitle);
+      if (titleCmp !== 0) return titleCmp;
+      return String(a.submissionId).localeCompare(String(b.submissionId));
+    });
+  }, [voteSummaryBySong]);
 
   if (voteSummaryBySong === undefined) {
     return <VoteSummaryBySongSkeleton />;
@@ -60,7 +72,7 @@ export function RoundVoteSummary({ roundId }: RoundVoteSummaryProps) {
         <CardTitle className="text-2xl">Vote Summary</CardTitle>
       </CardHeader>
       <CardContent className="space-y-8">
-        {voteSummaryBySong.map((songSummary) => (
+        {sortedSummaries.map((songSummary) => (
           <div key={songSummary.submissionId}>
             <div className="flex items-start gap-4 mb-4">
               {songSummary.albumArtUrl ? (
