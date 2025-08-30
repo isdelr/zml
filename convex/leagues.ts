@@ -364,6 +364,42 @@ export const getLeaguesForUser = query({
   },
 });
 
+// New query: same as getLeaguesForUser but supports filtering ended leagues
+export const getLeaguesForUserFiltered = query({
+  args: { includeEnded: v.optional(v.boolean()) },
+  handler: async (ctx, args): Promise<Array<Doc<"leagues">>> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return [];
+    }
+
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const leagueIds = memberships.map((m) => m.leagueId);
+    const leagues = (await Promise.all(
+      leagueIds.map((leagueId) => ctx.db.get(leagueId)),
+    )).filter((l): l is Doc<"leagues"> => l !== null);
+
+    const includeEnded = args.includeEnded ?? false;
+    if (includeEnded) return leagues;
+
+    // Filter to only active leagues (those with at least one non-finished round)
+    const activeLeagues: Doc<"leagues">[] = [];
+    for (const league of leagues) {
+      const rounds = await ctx.db
+        .query("rounds")
+        .withIndex("by_league", (q) => q.eq("leagueId", league._id))
+        .collect();
+      const hasActiveRound = rounds.some((r) => r.status !== "finished");
+      if (hasActiveRound) activeLeagues.push(league);
+    }
+    return activeLeagues;
+  },
+});
+
 export const get = query({
   args: { id: v.id("leagues") },
   returns: v.union(
@@ -1474,8 +1510,14 @@ export const searchInLeague = query({
       if (rd) roundMap.set(rd._id.toString(), rd);
     });
 
+    // Only include songs from rounds that are in voting or finished phases
+    const filteredSubs = matchedSubs.filter((sub) => {
+      const round = roundMap.get(sub.roundId.toString());
+      return !!round && (round.status === "voting" || round.status === "finished");
+    });
+
     const songs = await Promise.all(
-      matchedSubs.map(async (sub) => {
+      filteredSubs.map(async (sub) => {
         const round = roundMap.get(sub.roundId.toString());
         let albumArtUrl: string | null = null;
         let songFileUrl: string | null = null;
@@ -1702,5 +1744,58 @@ export const calculateAndStoreResults = internalMutation({
         totalWins: standing.totalWins + deltaWins,
       });
     }
+  },
+});
+
+export const leaveLeague = mutation({
+  args: { leagueId: v.id("leagues") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("You must be logged in to leave a league.");
+    }
+
+    const league = await ctx.db.get(args.leagueId);
+    if (!league) {
+      throw new Error("League not found.");
+    }
+
+    if (league.creatorId === userId) {
+      throw new Error("The league owner cannot leave their own league.");
+    }
+
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_league_and_user", (q) =>
+        q.eq("leagueId", args.leagueId).eq("userId", userId),
+      )
+      .first();
+
+    if (!membership) {
+      throw new Error("You are not a member of this league.");
+    }
+
+    await ctx.db.delete(membership._id);
+    await membershipsByUser.delete(ctx, membership);
+    await memberCounter.dec(ctx, args.leagueId);
+
+    // Also remove from standings if present
+    const standing = await ctx.db
+      .query("leagueStandings")
+      .withIndex("by_league_and_user", (q) =>
+        q.eq("leagueId", args.leagueId).eq("userId", userId),
+      )
+      .first();
+    if (standing) {
+      await ctx.db.delete(standing._id);
+    }
+
+    // If the user was a manager, remove them from managers list
+    if (league.managers && league.managers.includes(userId)) {
+      const newManagers = league.managers.filter((m) => m !== userId);
+      await ctx.db.patch(league._id, { managers: newManagers });
+    }
+
+    return "Left league successfully.";
   },
 });

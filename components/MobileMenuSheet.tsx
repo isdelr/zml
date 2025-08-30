@@ -17,6 +17,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Skeleton } from "./ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface MobileMenuSheetProps {
   isOpen: boolean;
@@ -26,7 +27,11 @@ interface MobileMenuSheetProps {
 export function MobileMenuSheet({ isOpen, onOpenChange }: MobileMenuSheetProps) {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const currentUser = useQuery(api.users.getCurrentUser);
-  const myLeagues = useQuery(api.leagues.getLeaguesForUser);
+  const [showAllLeagues, setShowAllLeagues] = useState(false);
+  // Using `any` here until Convex generated types are updated to include getLeaguesForUserFiltered
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getLeaguesForUserFiltered: any = (api as any).leagues.getLeaguesForUserFiltered;
+  const myLeagues = useQuery(getLeaguesForUserFiltered, { includeEnded: showAllLeagues });
   const unreadCount = useQuery(api.notifications.getUnreadCount);
   const { signOut } = useAuthActions();
   const clearQueue = useMusicPlayerStore((state) => state.actions.clearQueue);
@@ -100,17 +105,28 @@ export function MobileMenuSheet({ isOpen, onOpenChange }: MobileMenuSheetProps) 
           {isAuthenticated && (
             <>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     My Leagues
                   </h2>
-                  <Link
-                    href="/leagues/create"
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={() => onOpenChange(false)}
-                  >
-                    <Plus className="size-4" />
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllLeagues((v) => !v)}
+                      className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                      aria-pressed={showAllLeagues}
+                      title={showAllLeagues ? "Show active leagues only" : "View all leagues"}
+                    >
+                      {showAllLeagues ? "Active only" : "View all"}
+                    </button>
+                    <Link
+                      href="/leagues/create"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => onOpenChange(false)}
+                    >
+                      <Plus className="size-4" />
+                    </Link>
+                  </div>
                 </div>
                 <nav className="flex flex-col gap-4">
                   {myLeagues === undefined ? (

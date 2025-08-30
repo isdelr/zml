@@ -141,18 +141,39 @@ export const getForLeague = query({
 
         const userDocs = await Promise.all(Array.from(allUserIds).map((id) => ctx.db.get(id)));
         const userMap = new Map(userDocs.filter(Boolean).map((u) => [u!._id, u! as Doc<"users">]));
-        const submitters = submissions.map((s) => userMap.get(s.userId)).filter(Boolean) as Doc<"users">[];
+
+        // Compute per-user submission counts
+        const perUserCounts = new Map<Id<"users">, number>();
+        for (const s of submissions) {
+          const cnt = perUserCounts.get(s.userId) ?? 0;
+          perUserCounts.set(s.userId, cnt + 1);
+        }
+        const requiredPerUser = (round as any).submissionsPerUser ?? 1;
+        const completedUserIds = Array.from(perUserCounts.entries())
+          .filter(([, count]) => count >= requiredPerUser)
+          .map(([uid]) => uid);
+        const completedSubmitters = completedUserIds
+          .map((uid) => userMap.get(uid))
+          .filter(Boolean) as Doc<"users">[];
 
         const artUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
+
+        // Member count for denominator in voting and to compute expected tracks
+        const leagueMemberCount = (await ctx.db
+          .query("memberships")
+          .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
+          .collect()).length;
+        const expectedTrackCount = leagueMemberCount * requiredPerUser;
 
         return {
           ...round,
           art: artUrl,
           leagueName: league?.name ?? "Unknown League",
-          submissionCount: submissions.length,
-          leagueMemberCount: (await ctx.db.query("memberships").withIndex("by_league", (q) => q.eq("leagueId", round.leagueId)).collect()).length,
+          submissionCount: submissions.length, // total submitted tracks
+          expectedTrackCount,
+          leagueMemberCount,
           voterCount: voters.length,
-          submitters: submitters.map((u) => ({ name: u.name, image: u.image })),
+          submitters: completedSubmitters.map((u) => ({ name: u.name, image: u.image })),
           voters: voters.map((u) => ({ name: u.name, image: u.image })),
           winner: winnerInfo,
         };
@@ -299,6 +320,58 @@ export const adjustRoundTime = mutation({
     } else {
       throw new Error("Cannot adjust time for a finished round.");
     }
+  },
+});
+
+export const rollbackRoundToSubmissions = mutation({
+  args: {
+    roundId: v.id("rounds"),
+  },
+  handler: async (ctx, args) => {
+    // Load round and league
+    const round = await ctx.db.get(args.roundId);
+    if (!round) throw new Error("Round not found");
+    const league = await ctx.db.get(round.leagueId);
+    if (!league) throw new Error("League not found");
+
+    // Permission: allow league owner, league managers, or global admins
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated.");
+    const user = await ctx.db.get(userId);
+    const isManager = (league.managers && league.managers.includes(userId)) || false;
+    const isOwner = league.creatorId === userId;
+    const isGlobalAdmin = !!user?.isGlobalAdmin;
+    if (!(isOwner || isManager || isGlobalAdmin)) {
+      throw new Error("You do not have permission to manage this league.");
+    }
+
+    // Only allow rollback from voting -> submissions
+    if (round.status !== "voting") {
+      throw new Error("Can only rollback a round that is currently in the voting phase.");
+    }
+
+    // Reopen submissions for 24 hours from now, and shift voting deadline accordingly
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const newSubmissionDeadline = now + oneDayMs;
+    const newVotingDeadline = newSubmissionDeadline + league.votingDeadline * 60 * 60 * 1000;
+
+    await ctx.db.patch(round._id, {
+      status: "submissions",
+      submissionDeadline: newSubmissionDeadline,
+      votingDeadline: newVotingDeadline,
+    });
+
+    // Notify league members that submissions have been reopened
+    await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+      leagueId: league._id,
+      type: "round_submission",
+      message: `The round "${round.title}" has been reopened for submissions for 24 hours in "${league.name}"!`,
+      link: `/leagues/${league._id}/round/${round._id}`,
+      triggeringUserId: userId,
+    });
+
+    return { success: true };
   },
 });
 

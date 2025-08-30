@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Search, Users, Copy, Settings } from "lucide-react";
+import { Search, Users, Copy, Settings, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -13,6 +13,9 @@ import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toSvg } from "jdenticon";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 
 interface LeagueHeaderProps {
   leagueData: unknown;
@@ -36,11 +39,26 @@ export function LeagueHeader({
   handleRoundSelect,
   playerActions,
 }: LeagueHeaderProps) {
+  const leaveLeague = useMutation((api).leagues.leaveLeague);
+
   const handleCopyInvite = () => {
     if (!leagueData?.inviteCode) return;
     const inviteUrl = `${window.location.origin}/invite/${leagueData.inviteCode}`;
     navigator.clipboard.writeText(inviteUrl);
     toast.success("Invite link copied to clipboard!");
+  };
+
+  const handleLeaveLeague = () => {
+    if (!leagueData?._id) return;
+    if (!window.confirm("Are you sure you want to leave this league?")) return;
+    toast.promise(
+      leaveLeague({ leagueId: leagueData._id as Id<"leagues"> }),
+      {
+        loading: "Leaving league...",
+        success: "You left the league.",
+        error: (err) => err?.data?.message || "Failed to leave league.",
+      },
+    );
   };
 
   return (
@@ -98,6 +116,17 @@ export function LeagueHeader({
           <Button variant="outline" size="icon" onClick={onSettingsOpen}>
             <Settings className="size-4" />
             <span className="sr-only">League Settings</span>
+          </Button>
+        )}
+        {leagueData?.isMember && !leagueData?.isOwner && (
+          <Button
+            variant="destructive"
+            onClick={handleLeaveLeague}
+            className="flex items-center gap-2"
+            title="Leave League"
+          >
+            <LogOut className="size-4" />
+            Leave League
           </Button>
         )}
       </div>

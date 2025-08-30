@@ -16,10 +16,11 @@ import { Edit } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 import { EditSubmissionForm } from "@/components/EditSubmissionForm";
-import { Doc } from "@/convex/_generated/dataModel";
+import { Doc, Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { FaSpotify, FaYoutube } from "react-icons/fa";
+import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 
 type SubmissionWithUrls = Doc<"submissions"> & { albumArtUrl: string | null; songFileUrl: string | null; };
 
@@ -38,6 +39,7 @@ export function SubmissionForm({
                                }: SubmissionFormProps) {
   const [editingSubmission, setEditingSubmission] = useState<SubmissionWithUrls | null>(null);
   const myPresubmissions = useQuery(api.submissions.getMyPresubmissionForRound, { roundId: round._id });
+  const { actions: playerActions } = useMusicPlayerStore();
 
   if (currentUser === undefined || mySubmissions === undefined || myPresubmissions === undefined) {
     return <Skeleton className="h-64 w-full" />;
@@ -45,6 +47,28 @@ export function SubmissionForm({
 
   const submissionsPerUser = round.submissionsPerUser ?? 1;
   const canSubmitMore = mySubmissions.length + (myPresubmissions?.length ?? 0) < submissionsPerUser;
+
+  const canPlay = (s: { submissionType: string; songFileUrl: string | null; songLink?: string | null; }) => {
+    if (s.submissionType === "file") return !!s.songFileUrl;
+    return !!s.songLink;
+  };
+
+  const handleListen = (submission: SubmissionWithUrls) => {
+    if (!canPlay(submission)) return;
+    const song = {
+      _id: submission._id,
+      songTitle: submission.songTitle,
+      artist: submission.artist,
+      albumArtUrl: submission.albumArtUrl,
+      songFileUrl: submission.submissionType === "file" ? submission.songFileUrl : null,
+      submissionType: submission.submissionType,
+      songLink: submission.submissionType !== "file" ? (submission).songLink ?? null : null,
+      leagueId: submission.leagueId,
+      roundId: submission.roundId as Id<"rounds">,
+      comment: submission.comment ?? null,
+    };
+    playerActions.playSong(song);
+  };
 
   const PresubmissionItem = ({ pre }: { pre: NonNullable<typeof myPresubmissions>[0] }) => (
     <Card>
@@ -109,12 +133,19 @@ export function SubmissionForm({
                   </p>
                 </div>
               </div>
-              {roundStatus === "submissions" && (
-                <Button variant="outline" onClick={() => setEditingSubmission(submission)}>
-                  <Edit className="mr-2 size-4" />
-                  Edit
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {roundStatus === "submissions" && (
+                  <Button variant="outline" onClick={() => setEditingSubmission(submission)}>
+                    <Edit className="mr-2 size-4" />
+                    Edit
+                  </Button>
+                )}
+                {roundStatus === "submissions" && (
+                  <Button variant="secondary" onClick={() => handleListen(submission)} disabled={!canPlay(submission)}>
+                    Listen
+                  </Button>
+                )}
+              </div>
             </div>
             {submission.comment && (
               <blockquote className="mt-4 border-l-2 pl-3 text-sm italic text-muted-foreground">

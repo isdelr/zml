@@ -29,6 +29,7 @@ import {
 } from "./ui/dropdown-menu";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { toSvg } from "jdenticon";
+import { useState } from "react";
 
 const mainNav = [
   { name: "Explore Leagues", icon: Compass, href: "/explore" },
@@ -43,7 +44,11 @@ const collectionNav = [
 
 export function Sidebar() {
   const currentUser = useQuery(api.users.getCurrentUser);
-  const myLeagues = useQuery(api.leagues.getLeaguesForUser);
+  const [showAllLeagues, setShowAllLeagues] = useState(false);
+  // Using `any` here until Convex generated types are updated to include getLeaguesForUserFiltered
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getLeaguesForUserFiltered: any = (api as any).leagues.getLeaguesForUserFiltered;
+  const myLeagues = useQuery(getLeaguesForUserFiltered, { includeEnded: showAllLeagues });
   const unreadCount = useQuery(api.notifications.getUnreadCount);
   const clearQueue = useMusicPlayerStore((state) => state.actions.clearQueue);
   const currentTrackIndex = useMusicPlayerStore((state) => state.currentTrackIndex);
@@ -162,17 +167,28 @@ export function Sidebar() {
       </div>
 
       <div className="mt-auto flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             My Leagues
           </h2>
-          <Link
-            href="/leagues/create"
-            onMouseEnter={() => router.prefetch("/leagues/create")}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Plus className="size-4" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAllLeagues((v) => !v)}
+              className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+              aria-pressed={showAllLeagues}
+              title={showAllLeagues ? "Show active leagues only" : "View all leagues"}
+            >
+              {showAllLeagues ? "Active only" : "View all"}
+            </button>
+            <Link
+              href="/leagues/create"
+              onMouseEnter={() => router.prefetch("/leagues/create")}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Plus className="size-4" />
+            </Link>
+          </div>
         </div>
         <nav className="flex flex-col gap-4">
           {myLeagues === undefined ? (

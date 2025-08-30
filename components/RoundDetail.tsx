@@ -411,14 +411,22 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
     () => submissions?.filter((s) => s.userId === currentUser?._id),
     [submissions, currentUser],
   );
-  const submittedUsers = useMemo(
-    () =>
-      submissions?.map((sub) => ({
-        name: sub.submittedBy,
-        image: sub.submittedByImage,
-      })) ?? [],
-    [submissions],
-  );
+  const submittedUsers = useMemo(() => {
+    if (!submissions) return [] as { name: string | null; image: string | null }[];
+    const required = (round).submissionsPerUser ?? 1;
+    const counts = new Map<string, { name: string | null; image: string | null; count: number }>();
+    for (const sub of submissions) {
+      const key = (sub.userId as unknown as string) ?? sub.submittedBy ?? Math.random().toString();
+      const existing = counts.get(key) ?? { name: sub.submittedBy, image: sub.submittedByImage, count: 0 };
+      existing.count += 1;
+      existing.name = sub.submittedBy; // latest name/image
+      existing.image = sub.submittedByImage;
+      counts.set(key, existing);
+    }
+    return Array.from(counts.values())
+      .filter((e) => e.count >= required)
+      .map(({ name, image }) => ({ name, image }));
+  }, [submissions, round]);
 
   const formatDuration = (totalSeconds: number) => {
     if (!totalSeconds || totalSeconds <= 0) return null;

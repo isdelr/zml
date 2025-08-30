@@ -48,10 +48,16 @@ export function RoundAdminControls({
                                    }: RoundAdminControlsProps) {
   const manageRoundState = useMutation(api.rounds.manageRoundState);
   const adjustRoundTime = useMutation(api.rounds.adjustRoundTime);
+  const rollbackRoundToSubmissions = useMutation(
+    api.rounds.rollbackRoundToSubmissions,
+  );
   const [isEditRoundOpen, setIsEditRoundOpen] = useState(false);
 
   const handleAction = async (
-    mutation: typeof manageRoundState | typeof adjustRoundTime,
+    mutation:
+      | typeof manageRoundState
+      | typeof adjustRoundTime
+      | typeof rollbackRoundToSubmissions,
     args: Record<string, unknown>,
     successMsg: string,
   ) => {
@@ -109,46 +115,78 @@ export function RoundAdminControls({
           </AlertDialog>
         )}
         {round.status === "voting" && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                disabled={!canEndVoting}
-                title={
-                  !canEndVoting
-                    ? "Requires at least 1 submission and 1 vote."
-                    : ""
-                }
-              >
-                End Round Now
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Are you sure you want to end this round?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will finalize the voting, calculate the results, and
-                  finish the round. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
+          <>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
                   disabled={!canEndVoting}
-                  onClick={() =>
-                    handleAction(
-                      manageRoundState,
-                      { roundId: round._id, action: "endVoting" },
-                      "Round has been finished!",
-                    )
+                  title={
+                    !canEndVoting
+                      ? "Requires at least 1 submission and 1 vote."
+                      : ""
                   }
                 >
-                  End Round
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  End Round Now
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Are you sure you want to end this round?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will finalize the voting, calculate the results, and
+                    finish the round. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={!canEndVoting}
+                    onClick={() =>
+                      handleAction(
+                        manageRoundState,
+                        { roundId: round._id, action: "endVoting" },
+                        "Round has been finished!",
+                      )
+                    }
+                  >
+                    End Round
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline">Reopen Submissions (24h)</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Reopen submissions for 24 hours?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will move the round back to the submission phase for 24 hours. Existing submissions will remain. Any existing votes will be preserved but voting will pause until submissions close again.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() =>
+                      handleAction(
+                        rollbackRoundToSubmissions,
+                        { roundId: round._id },
+                        "Submissions reopened for 24 hours!",
+                      )
+                    }
+                  >
+                    Reopen
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
         )}
 
         {canEditRound && (
