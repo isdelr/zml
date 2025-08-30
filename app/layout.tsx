@@ -55,6 +55,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#FAFBFF" },
     { media: "(prefers-color-scheme: dark)", color: "#1A1926" },
@@ -92,7 +95,9 @@ export default function RootLayout({
           <RoutePrefetcher />
 
           <NotificationProvider>
-            {children}
+            <main className="min-h-dvh pb-[calc(env(safe-area-inset-bottom)+4.5rem)] md:pb-0">
+              {children}
+            </main>
             <Toaster />
             <MusicPlayer />
             <BottomNavbar />

@@ -73,7 +73,7 @@ export function SubmissionForm({
   const PresubmissionItem = ({ pre }: { pre: NonNullable<typeof myPresubmissions>[0] }) => (
     <Card>
       <div className="p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             {pre.albumArtUrl && (
               <Image
@@ -81,12 +81,12 @@ export function SubmissionForm({
                 alt={pre.songTitle}
                 width={56}
                 height={56}
-                className="rounded"
+                className="rounded shrink-0"
               />
             )}
-            <div>
-              <p className="font-semibold">{pre.songTitle}</p>
-              <p className="text-sm text-muted-foreground">{pre.artist}</p>
+            <div className="min-w-0">
+              <p className="font-semibold truncate">{pre.songTitle}</p>
+              <p className="text-sm text-muted-foreground truncate">{pre.artist}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -115,7 +115,7 @@ export function SubmissionForm({
       {mySubmissions.map((submission) => (
         <Card key={submission._id}>
           <div className="p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-4">
                 {submission.albumArtUrl && (
                   <Image
@@ -123,12 +123,12 @@ export function SubmissionForm({
                     alt={submission.songTitle}
                     width={56}
                     height={56}
-                    className="rounded"
+                    className="rounded shrink-0"
                   />
                 )}
-                <div>
-                  <p className="font-semibold">{submission.songTitle}</p>
-                  <p className="text-sm text-muted-foreground">
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{submission.songTitle}</p>
+                  <p className="text-sm text-muted-foreground truncate">
                     {submission.artist}
                   </p>
                 </div>

@@ -146,7 +146,7 @@ export function LeagueHeader({
         {searchResults &&
           (searchResults.rounds.length > 0 ||
             searchResults.songs.length > 0) && (
-            <div className="absolute top-full z-10 mt-2 w-full max-w-xs rounded-md border bg-card shadow-lg">
+            <div className="absolute top-full z-10 mt-2 w-full rounded-md border bg-card shadow-lg">
               <div className="max-h-96 overflow-y-auto p-2">
                 {/* Rounds Section */}
                 {searchResults.rounds.length > 0 && (
@@ -159,13 +159,13 @@ export function LeagueHeader({
                         <Button
                           key={round._id}
                           variant="ghost"
-                          className="h-auto justify-start p-2 text-left"
+                          className="h-auto w-full justify-start p-2 text-left"
                           onClick={() => {
                             handleRoundSelect(round._id);
                             onSearchChange("");
                           }}
                         >
-                          <p className="font-semibold">{round.title}</p>
+                          <p className="font-semibold truncate overflow-hidden text-ellipsis whitespace-nowrap">{round.title}</p>
                         </Button>
                       ))}
                     </div>
@@ -183,13 +183,13 @@ export function LeagueHeader({
                         <Button
                           key={song._id}
                           variant="ghost"
-                          className="flex h-auto items-center justify-start gap-3 p-2 text-left"
+                          className="flex h-auto w-full items-center justify-start gap-3 p-2 text-left"
                           onClick={() => {
                             playerActions.playSong(song);
                             onSearchChange("");
                           }}
                         >
-                          <Avatar className="size-8">
+                          <Avatar className="shrink-0 size-8">
                             <AvatarImage
                               src={song.albumArtUrl}
                               alt={song.songTitle}
@@ -202,11 +202,9 @@ export function LeagueHeader({
                               />
                             </AvatarFallback>
                           </Avatar>
-                          <div>
-                            <p className="font-semibold">{song.songTitle}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {song.artist}
-                            </p>
+                          <div className="min-w-0">
+                            <p className="font-semibold truncate">{song.songTitle}</p>
+                            <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
                           </div>
                         </Button>
                       ))}

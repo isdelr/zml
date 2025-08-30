@@ -26,8 +26,8 @@ export function BottomNavbar() {
   const middleIndex = Math.floor(navItems.length / 2);
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm">
-      <div className="grid h-16 grid-cols-5 items-center justify-items-center">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
+      <div className="grid min-h-16 grid-cols-5 items-center justify-items-center py-1">
         {/* Items before the plus button */}
         {navItems.slice(0, middleIndex).map((item) => {
           const isActive = pathname.startsWith(item.href);
