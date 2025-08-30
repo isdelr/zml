@@ -4,12 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="enforcement features">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="ui and responsive fixes">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/layout.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/BottomNavbar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/BottomNavbar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/home/HomeHeader.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/home/HomeHeader.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/league/LeagueHeader.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/league/LeagueHeader.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -362,7 +358,15 @@
       <option name="project" value="LOCAL" />
       <updated>1756568654296</updated>
     </task>
-    <option name="localTasksCounter" value="32" />
+    <task id="LOCAL-00032" summary="ui and responsive fixes">
+      <option name="closed" value="true" />
+      <created>1756569990114</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1756569990114</updated>
+    </task>
+    <option name="localTasksCounter" value="33" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -403,6 +407,7 @@
     <MESSAGE value="various feature updates" />
     <MESSAGE value="generated convex" />
     <MESSAGE value="enforcement features" />
-    <option name="LAST_COMMIT_MESSAGE" value="enforcement features" />
+    <MESSAGE value="ui and responsive fixes" />
+    <option name="LAST_COMMIT_MESSAGE" value="ui and responsive fixes" />
   </component>
 </project>
