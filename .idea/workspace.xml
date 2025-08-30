@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="middleware adjustments" />
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="added unversioned project files" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -67,7 +67,7 @@
     "prettierjs.PrettierConfiguration.Package": "/Users/rosvelt/Documents/projects/zml/node_modules/prettier",
     "settings.editor.selected.configurable": "vcs.Git",
     "to.speed.mode.migration.done": "true",
-    "ts.external.directory.path": "/Users/rosvelt/Documents/projects/zml/node_modules/typescript/lib",
+    "ts.external.directory.path": "C:\\Users\\isaia\\Projects\\zml\\node_modules\\typescript\\lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>

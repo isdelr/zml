@@ -47,7 +47,7 @@ export function LeagueHeader({
     <header className="mb-8 flex flex-col-reverse items-start justify-between gap-4 md:flex-row md:items-center">
       <div className="flex items-center gap-4">
         {/* Invite Button Popover */}
-        {leagueData?.isOwner && (
+        {leagueData?.canManageLeague && (
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline">
@@ -94,7 +94,7 @@ export function LeagueHeader({
         )}
 
         {/* Settings Dialog Trigger */}
-        {leagueData?.isOwner && (
+        {leagueData?.canManageLeague && (
           <Button variant="outline" size="icon" onClick={onSettingsOpen}>
             <Settings className="size-4" />
             <span className="sr-only">League Settings</span>
