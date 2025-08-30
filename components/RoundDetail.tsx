@@ -53,10 +53,10 @@ const RoundVoteSummary = dynamicImport(() =>
 interface RoundDetailProps {
   round: Doc<"rounds"> & { art: string | null; submissionCount: number };
   league: NonNullable<Awaited<ReturnType<typeof api.leagues.get>>>;
-  isOwner: boolean;
+  canManageLeague: boolean;
 }
 
-export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
+export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps) {
   const {
     actions: playerActions,
     currentTrackIndex,
@@ -436,7 +436,7 @@ export function RoundDetail({ round, league, isOwner }: RoundDetailProps) {
 
   return (
     <section>
-      {isOwner && (
+      {canManageLeague && (
         <RoundAdminControls
           round={round}
           submissions={submissions}

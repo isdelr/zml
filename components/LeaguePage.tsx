@@ -227,7 +227,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
           <RoundDetail
             round={selectedRound}
             league={leagueData}
-            isOwner={leagueData.isOwner}
+            canManageLeague={leagueData.canManageLeague}
           />
         ) : null}
       </LeagueTabs>

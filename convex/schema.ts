@@ -30,6 +30,7 @@ export default defineSchema({
     phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
+    isGlobalAdmin: v.optional(v.boolean()),
     presence: v.optional(
       v.object({
         location: v.union(v.null(), v.id("submissions")),
@@ -56,6 +57,7 @@ export default defineSchema({
     maxPositiveVotes: v.number(),
     maxNegativeVotes: v.number(),
     inviteCode: v.union(v.string(), v.null()),
+    managers: v.optional(v.array(v.id("users"))),
     enforceListenPercentage: v.optional(v.boolean()),
     listenPercentage: v.optional(v.number()),
     listenTimeLimitMinutes: v.optional(v.number()),

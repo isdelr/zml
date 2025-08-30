@@ -81,6 +81,98 @@ const checkLeagueOwnership = async (
   return league;
 };
 
+const hasLeagueManagementPermission = async (
+  ctx: MutationCtx,
+  leagueId: Id<"leagues">,
+) => {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) return false;
+  
+  // Get user to check for global admin status
+  const user = await ctx.db.get(userId);
+  if (user?.isGlobalAdmin) return true;
+  
+  // Get league to check ownership and managers
+  const league = await ctx.db.get(leagueId);
+  if (!league) return false;
+  
+  // Check if user is league creator
+  if (league.creatorId === userId) return true;
+  
+  // Check if user is a league manager
+  if (league.managers && league.managers.includes(userId)) return true;
+  
+  return false;
+};
+
+const checkLeagueManagementPermission = async (
+  ctx: MutationCtx,
+  leagueId: Id<"leagues">,
+) => {
+  const hasPermission = await hasLeagueManagementPermission(ctx, leagueId);
+  if (!hasPermission) {
+    throw new Error("You do not have permission to manage this league.");
+  }
+  const league = await ctx.db.get(leagueId);
+  if (!league) throw new Error("League not found.");
+  return league;
+};
+
+export const addLeagueManager = mutation({
+  args: {
+    leagueId: v.id("leagues"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Only league owners can add managers
+    const league = await checkLeagueOwnership(ctx, args.leagueId);
+    
+    // Check if user exists
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found.");
+    
+    // Check if user is already a manager or the owner
+    if (league.creatorId === args.userId) {
+      throw new Error("League owner already has management permissions.");
+    }
+    
+    const currentManagers = league.managers || [];
+    if (currentManagers.includes(args.userId)) {
+      throw new Error("User is already a league manager.");
+    }
+    
+    // Add user to managers list
+    await ctx.db.patch(args.leagueId, {
+      managers: [...currentManagers, args.userId],
+    });
+    
+    return { success: true };
+  },
+});
+
+export const removeLeagueManager = mutation({
+  args: {
+    leagueId: v.id("leagues"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Only league owners can remove managers
+    const league = await checkLeagueOwnership(ctx, args.leagueId);
+    
+    const currentManagers = league.managers || [];
+    if (!currentManagers.includes(args.userId)) {
+      throw new Error("User is not a league manager.");
+    }
+    
+    // Remove user from managers list
+    await ctx.db.patch(args.leagueId, {
+      managers: currentManagers.filter(id => id !== args.userId),
+    });
+    
+    return { success: true };
+  },
+});
+
 export const create = mutation({
   args: {
     name: v.string(),
@@ -290,6 +382,7 @@ export const get = query({
       creatorName: v.string(),
       memberCount: v.number(),
       isOwner: v.boolean(),
+      canManageLeague: v.boolean(),
       isMember: v.boolean(),
       inviteCode: v.optional(v.union(v.string(), v.null())),
       creatorImage: v.optional(v.string()),
@@ -300,6 +393,7 @@ export const get = query({
           image: v.optional(v.string()),
         }),
       ),
+      managers: v.optional(v.array(v.id("users"))),
       enforceListenPercentage: v.optional(v.boolean()),
       listenPercentage: v.optional(v.number()),
       listenTimeLimitMinutes: v.optional(v.number()),
@@ -351,6 +445,16 @@ export const get = query({
 
     const isOwner = userId === league.creatorId;
     const isMember = !!membership;
+    
+    // Check if user can manage the league (owner, manager, or global admin)
+    let canManageLeague = false;
+    if (userId) {
+      const user = await ctx.db.get(userId);
+      canManageLeague = user?.isGlobalAdmin || 
+                       isOwner || 
+                       (league.managers && league.managers.includes(userId)) || 
+                       false;
+    }
 
     return {
       ...league,
@@ -358,8 +462,9 @@ export const get = query({
       creatorImage: creator?.image,
       memberCount: memberCount,
       isOwner,
+      canManageLeague,
       isMember,
-      inviteCode: isOwner ? league.inviteCode : undefined,
+      inviteCode: canManageLeague ? league.inviteCode : undefined,
       members,
     };
   },
@@ -539,7 +644,7 @@ export const updateLeague = mutation({
     maxNegativeVotesPerSubmission: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await checkLeagueOwnership(ctx, args.leagueId);
+    await checkLeagueManagementPermission(ctx, args.leagueId);
     const { leagueId, ...updates } = args;
 
     const maxHours = 30 * 24;
@@ -575,7 +680,7 @@ export const manageInviteCode = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await checkLeagueOwnership(ctx, args.leagueId);
+    await checkLeagueManagementPermission(ctx, args.leagueId);
 
     if (args.action === "disable") {
       await ctx.db.patch(args.leagueId, { inviteCode: null });
@@ -601,7 +706,7 @@ export const manageInviteCode = mutation({
 export const kickMember = mutation({
   args: { leagueId: v.id("leagues"), memberIdToKick: v.id("users") },
   handler: async (ctx, args) => {
-    const league = await checkLeagueOwnership(ctx, args.leagueId);
+    const league = await checkLeagueManagementPermission(ctx, args.leagueId);
     if (args.memberIdToKick === league.creatorId) {
       throw new Error("The league owner cannot be kicked.");
     }
