@@ -241,7 +241,17 @@ export const manageRoundState = mutation({
   handler: async (ctx, args) => {
     const round = await ctx.db.get(args.roundId);
     if (!round) throw new Error("Round not found");
-    const { league, userId } = await checkOwnership(ctx, round.leagueId);
+    const league = await ctx.db.get(round.leagueId);
+    if (!league) throw new Error("League not found");
+
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated.");
+    const user = await ctx.db.get(userId);
+    const isOwner = league.creatorId === userId;
+    const isGlobalAdmin = !!user?.isGlobalAdmin;
+    if (!(isOwner || isGlobalAdmin)) {
+      throw new Error("You do not have permission to manage this league.");
+    }
 
     switch (args.action) {
       case "startVoting":
