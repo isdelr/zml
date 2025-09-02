@@ -28,6 +28,7 @@ import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import { Song } from "@/types";
 import { AvatarStack } from "../AvatarStack";
+import { LinkSubmissionTimer } from "../LinkSubmissionTimer";
 
 // A new component for the animated equalizer
 const EqualizerIcon = () => (
@@ -88,12 +89,12 @@ export function SubmissionItem({
   const otherListeners = listeners.filter(listener => listener._id !== currentUser?._id);
 
   const isListenRequirementMetForThisSong = useMemo(() => {
-    if (!league.enforceListenPercentage || song.submissionType !== "file" || userIsSubmitter) return true;
+    if (!league.enforceListenPercentage || !["file", "spotify", "youtube"].includes(song.submissionType) || userIsSubmitter) return true;
     return listenProgress?.isCompleted || localListenProgress[song._id as Id<"submissions">];
   }, [league, localListenProgress, listenProgress, song._id, song.submissionType, userIsSubmitter]);
 
   const showListenRequirementIndicator = useMemo(() => {
-    return roundStatus === 'voting' && league.enforceListenPercentage && song.submissionType === 'file' && !userIsSubmitter && !isListenRequirementMetForThisSong;
+    return roundStatus === 'voting' && league.enforceListenPercentage && ["file", "spotify", "youtube"].includes(song.submissionType) && !userIsSubmitter && !isListenRequirementMetForThisSong;
   }, [roundStatus, league.enforceListenPercentage, song.submissionType, userIsSubmitter, isListenRequirementMetForThisSong]);
 
 
@@ -105,7 +106,7 @@ export function SubmissionItem({
     if (league.limitVotesPerSubmission && currentVoteValue >= (league.maxPositiveVotesPerSubmission ?? 1)) return `Max ${league.maxPositiveVotesPerSubmission} upvote(s) per song.`;
 
     if (league.enforceListenPercentage) {
-      if (song.submissionType === "file" && !isListenRequirementMetForThisSong) {
+      if (["file", "spotify", "youtube"].includes(song.submissionType) && !isListenRequirementMetForThisSong) {
         return `You must listen to ${league.listenPercentage}% of this song to vote.`;
       }
       if (!isReadyToVoteOverall) {
@@ -124,7 +125,7 @@ export function SubmissionItem({
     if (league.limitVotesPerSubmission && currentVoteValue <= -(league.maxNegativeVotesPerSubmission ?? 0)) return `Max ${league.maxNegativeVotesPerSubmission} downvote(s) per song.`;
 
     if (league.enforceListenPercentage) {
-      if (song.submissionType === "file" && !isListenRequirementMetForThisSong) {
+      if (["file", "spotify", "youtube"].includes(song.submissionType) && !isListenRequirementMetForThisSong) {
         return `You must listen to ${league.listenPercentage}% of this song to vote.`;
       }
       if (!isReadyToVoteOverall) {
@@ -283,6 +284,21 @@ export function SubmissionItem({
             <Button variant="ghost" size="icon" className="size-8" onClick={(e) => { e.stopPropagation(); onToggleComments(); }}><MessageSquare className={cn("size-5", isCommentsVisible && "fill-accent")} /></Button>
           </div>
         </div>
+
+        {/* Link Submission Timer */}
+        {isLinkSubmission && league.enforceListenPercentage && roundStatus === 'voting' && !userIsSubmitter && (
+          <div className="mt-3 px-3 pb-3">
+            <LinkSubmissionTimer
+              submissionId={song._id as Id<"submissions">}
+              submissionType={song.submissionType as "spotify" | "youtube"}
+              songLink={song.songLink!}
+              duration={song.duration || 180} // fallback to 3 minutes if duration not available
+              initialProgress={listenProgress?.progressSeconds || 0}
+              isCompleted={listenProgress?.isCompleted || false}
+              listenPercentage={league.listenPercentage || 80}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

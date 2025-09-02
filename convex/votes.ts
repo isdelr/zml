@@ -106,14 +106,14 @@ export const castVote = mutation({
 
     if (league.enforceListenPercentage) {
       const allSubs = await ctx.db.query("submissions").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id)).collect();
-      const requiredSubs = allSubs.filter((s) => s.submissionType === "file" && s.userId !== userId);
+      const requiredSubs = allSubs.filter((s) => ["file", "spotify", "youtube"].includes(s.submissionType) && s.userId !== userId);
       if (requiredSubs.length > 0) {
         const progressDocs = await Promise.all(
           requiredSubs.map((s) => ctx.db.query("listenProgress").withIndex("by_user_and_submission", (q) => q.eq("userId", userId).eq("submissionId", s._id)).first()),
         );
         const allCompleted = progressDocs.every((p) => p !== null && p.isCompleted);
         if (!allCompleted) {
-          throw new Error("You must listen to the required portion of all file submissions before voting.");
+          throw new Error("You must listen to the required portion of all submissions before voting.");
         }
       }
     }

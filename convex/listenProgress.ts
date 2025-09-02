@@ -66,8 +66,8 @@ export const updateProgress = mutation({
       return;
     }
 
-    // Only track file-based submissions server-side
-    if (submission.submissionType !== "file") {
+    // Track progress for file-based and link submissions (spotify, youtube)
+    if (!["file", "spotify", "youtube"].includes(submission.submissionType)) {
       return;
     }
 
