@@ -103,7 +103,7 @@ export function SubmissionItem({
   const handleTrollSubmissionToggle = async () => {
     try {
       const result = await markAsTrollSubmission({
-        submissionId: song._id as any,
+        submissionId: song._id,
         isTrollSubmission: !song.isTrollSubmission,
       });
       toast.success(result.message);
@@ -142,7 +142,7 @@ export function SubmissionItem({
     }
 
     return null;
-  }, [roundStatus, userIsSubmitter, canVote, hasVoted, song.isTrollSubmission, league, currentVoteValue, isReadyToVoteOverall, song, isListenRequirementMetForThisSong]);
+  }, [roundStatus, userIsSubmitter, canVote, hasVoted, league, currentVoteValue, isReadyToVoteOverall, song, isListenRequirementMetForThisSong]);
 
   const downvoteDisabledReason = useMemo(() => {
     if (roundStatus !== "voting") return "Voting is not currently open.";
