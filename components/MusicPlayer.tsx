@@ -64,6 +64,7 @@ export function MusicPlayer() {
   const [isWaveformLoading, setIsWaveformLoading] = useState(false);
   const [lastVolume, setLastVolume] = useState(volume);
   const [refreshedUrls, setRefreshedUrls] = useState<Record<string, string>>({});
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
 
   const leagueData = useQuery(
     api.leagues.get,
@@ -521,6 +522,10 @@ export function MusicPlayer() {
     }
   };
 
+  const handleStartTimer = () => {
+    setIsTimerRunning(true);
+  };
+
   const handleAudioError = async () => {
     const audioElement = audioRef.current;
     if (
@@ -596,6 +601,7 @@ export function MusicPlayer() {
               onPlayPrevious={actions.playPrevious}
               onToggleShuffle={actions.toggleShuffle}
               onToggleRepeat={actions.toggleRepeat}
+              onStartTimer={handleStartTimer}
             />
 
             <PlayerProgress
@@ -609,6 +615,7 @@ export function MusicPlayer() {
               onSeek={handleSeek}
               leagueData={leagueData}
               listenProgress={currentTrackListenProgress}
+              isTimerRunning={isTimerRunning}
             />
           </div>
 

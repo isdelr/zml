@@ -28,7 +28,6 @@ import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import { Song } from "@/types";
 import { AvatarStack } from "../AvatarStack";
-import { LinkSubmissionTimer } from "../LinkSubmissionTimer";
 
 // A new component for the animated equalizer
 const EqualizerIcon = () => (
@@ -285,20 +284,6 @@ export function SubmissionItem({
           </div>
         </div>
 
-        {/* Link Submission Timer */}
-        {isLinkSubmission && league.enforceListenPercentage && roundStatus === 'voting' && !userIsSubmitter && (
-          <div className="mt-3 px-3 pb-3">
-            <LinkSubmissionTimer
-              submissionId={song._id as Id<"submissions">}
-              submissionType={song.submissionType as "spotify" | "youtube"}
-              songLink={song.songLink!}
-              duration={song.duration || 180} // fallback to 3 minutes if duration not available
-              initialProgress={listenProgress?.progressSeconds || 0}
-              isCompleted={listenProgress?.isCompleted || false}
-              listenPercentage={league.listenPercentage || 80}
-            />
-          </div>
-        )}
       </div>
     </div>
   );

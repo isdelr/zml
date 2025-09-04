@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { Doc } from "@/convex/_generated/dataModel";
+import { useMemo, useEffect, useRef, useState } from "react";
+import { Doc, Id } from "@/convex/_generated/dataModel";
 import { api } from "@/convex/_generated/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
@@ -9,18 +9,27 @@ import { Waveform, WaveformComment } from "@/components/Waveform";
 import WaveformData from "waveform-data";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { useMutation } from "convex/react";
+import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
 
 interface PlayerProgressProps {
   isExternalLink: boolean;
   isWaveformLoading: boolean;
   waveformData: WaveformData | null;
-  currentTrack: { submissionType?: "spotify" | "youtube" | "file"; leagueId?: string; } | null;
+  currentTrack: { 
+    submissionType?: "spotify" | "youtube" | "file"; 
+    leagueId?: string; 
+    _id?: string; 
+    duration?: number;
+  } | null;
   leagueData: Awaited<ReturnType<typeof api.leagues.get>>;
   listenProgress: Doc<"listenProgress"> | undefined;
   progress: number;
   duration: number;
   comments: WaveformComment[];
   onSeek: (time: number) => void;
+  isTimerRunning?: boolean;
 }
 
 export function PlayerProgress({
@@ -34,13 +43,72 @@ export function PlayerProgress({
   onSeek,
   leagueData,
   listenProgress,
+  isTimerRunning = false,
 }: PlayerProgressProps) {
+  // Timer state for external link submissions
+  const [timerProgress, setTimerProgress] = useState(listenProgress?.progressSeconds || 0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastUpdateRef = useRef(0);
+  const updateProgress = useMutation(api.listenProgress.updateProgress);
+
   const formatTime = (seconds: number) => {
     if (isNaN(seconds) || seconds < 0) return "0:00";
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
+
+  // Timer logic for external link submissions
+  const isLinkSubmission = isExternalLink && (currentTrack?.submissionType === "spotify" || currentTrack?.submissionType === "youtube");
+  const linkDuration = currentTrack?.duration || duration || 180; // fallback to 3 minutes
+  const listenPercentage = leagueData?.listenPercentage || 80;
+  const requiredTimerProgress = Math.min(linkDuration * (listenPercentage / 100), linkDuration);
+  const isTimerCompleted = timerProgress >= requiredTimerProgress || listenProgress?.isCompleted;
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (isLinkSubmission && isTimerRunning && !isTimerCompleted) {
+      intervalRef.current = setInterval(() => {
+        setTimerProgress((prev) => {
+          const newProgress = Math.min(prev + 1, linkDuration);
+          
+          // Update database every 5 seconds to avoid spam
+          if (currentTrack?._id && (newProgress - lastUpdateRef.current >= 5 || newProgress >= requiredTimerProgress)) {
+            updateProgress({
+              submissionId: currentTrack._id as Id<"submissions">,
+              progressSeconds: newProgress
+            }).catch(console.error);
+            lastUpdateRef.current = newProgress;
+          }
+          
+          // Show completion toast
+          if (newProgress >= requiredTimerProgress) {
+            toast.success("Timer completed! You can now vote on this submission.");
+          }
+          
+          return newProgress;
+        });
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isLinkSubmission, isTimerRunning, isTimerCompleted, currentTrack?._id, requiredTimerProgress, linkDuration, updateProgress]);
+
+  // Update timer progress when listenProgress prop changes
+  useEffect(() => {
+    if (listenProgress?.progressSeconds !== undefined) {
+      setTimerProgress(listenProgress.progressSeconds);
+    }
+  }, [listenProgress?.progressSeconds]);
 
   const showListenRequirement = leagueData?.enforceListenPercentage && currentTrack?.submissionType === 'file' && duration > 0;
 
@@ -70,10 +138,43 @@ export function PlayerProgress({
   return (
     <div className="flex w-full max-w-xl items-center gap-2">
       <span className="w-10 text-right text-xs text-muted-foreground select-none">
-        {isExternalLink ? "--:--" : formatTime(progress)}
+        {isLinkSubmission ? formatTime(timerProgress) : isExternalLink ? "--:--" : formatTime(progress)}
       </span>
       <div className="relative flex-1 h-8 flex items-center group transition-transform duration-50">
-        {isExternalLink ? (
+        {isLinkSubmission ? (
+          <div className="flex flex-col w-full gap-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                {currentTrack?.submissionType === "spotify" ? "Spotify" : "YouTube"} Timer
+                {isTimerCompleted && " ✓"}
+              </span>
+              <span className="text-muted-foreground">
+                {isTimerCompleted ? "Complete!" : `${formatTime(Math.max(0, requiredTimerProgress - timerProgress))} remaining`}
+              </span>
+            </div>
+            <div className="relative">
+              <Progress 
+                value={(timerProgress / linkDuration) * 100} 
+                className="h-2"
+              />
+              {leagueData?.enforceListenPercentage && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="absolute top-0 h-full w-[1.5px] bg-primary opacity-70 transition-opacity group-hover:opacity-100"
+                        style={{ left: `${(requiredTimerProgress / linkDuration) * 100}%` }}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Listen Requirement: {formatTime(requiredTimerProgress)} ({listenPercentage}%)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          </div>
+        ) : isExternalLink ? (
           <div className="flex h-full w-full items-center justify-center rounded-md bg-muted px-2 text-center text-xs text-muted-foreground">
             Playing on{" "}
             {currentTrack?.submissionType === "spotify" ? "Spotify" : "YouTube"}

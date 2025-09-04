@@ -16,6 +16,7 @@ interface PlayerControlsProps {
   onPlayPrevious: () => void;
   onToggleShuffle: () => void;
   onToggleRepeat: () => void;
+  onStartTimer?: () => void;
 }
 
 export function PlayerControls({
@@ -29,6 +30,7 @@ export function PlayerControls({
                                  onPlayPrevious,
                                  onToggleShuffle,
                                  onToggleRepeat,
+                                 onStartTimer,
                                }: PlayerControlsProps) {
   return (
     <div className="flex items-center justify-center gap-2">
@@ -59,12 +61,16 @@ export function PlayerControls({
         className="size-10 rounded-full"
         onClick={() => {
           if (isExternalLink) {
+            // Start timer for external link submissions and open the link
+            if (onStartTimer) {
+              onStartTimer();
+            }
             window.open(currentTrack.songLink, "_blank", "noopener,noreferrer");
           } else {
             onTogglePlayPause();
           }
         }}
-        title={isExternalLink ? "Open Link" : isPlaying ? "Pause" : "Play"}
+        title={isExternalLink ? "Play & Start Timer" : isPlaying ? "Pause" : "Play"}
       >
         {isExternalLink ? (
           currentTrack.submissionType === "spotify" ? (

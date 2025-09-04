@@ -6,9 +6,10 @@
   <component name="ChangeListManager">
     <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Extend listen tracking to support Spotify and YouTube submissions">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/MusicPlayer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/MusicPlayer.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/player/PlayerControls.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerControls.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/listenProgress.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/listenProgress.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/votes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/votes.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -116,7 +117,8 @@
       <workItem from="1756602324288" duration="1077000" />
       <workItem from="1756643847353" duration="378000" />
       <workItem from="1756644241009" duration="65000" />
-      <workItem from="1756824323679" duration="737000" />
+      <workItem from="1756824323679" duration="2794000" />
+      <workItem from="1756990630917" duration="1028000" />
     </task>
     <task id="LOCAL-00001" summary="Submission overhaul">
       <option name="closed" value="true" />
@@ -382,7 +384,23 @@
       <option name="project" value="LOCAL" />
       <updated>1756601249656</updated>
     </task>
-    <option name="localTasksCounter" value="34" />
+    <task id="LOCAL-00034" summary="Extend listen tracking to support Spotify and YouTube submissions">
+      <option name="closed" value="true" />
+      <created>1756826775673</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1756826775673</updated>
+    </task>
+    <task id="LOCAL-00035" summary="Extend listen tracking to support Spotify and YouTube submissions">
+      <option name="closed" value="true" />
+      <created>1756826780985</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1756826780985</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
