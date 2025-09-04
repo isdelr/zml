@@ -10,6 +10,7 @@ import {
   Pause,
   Ban,
   Headphones,
+  AlertTriangle,
 } from "lucide-react";
 import { FaSpotify, FaYoutube } from "react-icons/fa";
 import Image from "next/image";
@@ -28,6 +29,8 @@ import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import { Song } from "@/types";
 import { AvatarStack } from "../AvatarStack";
+import { useMutation } from "convex/react";
+import { toast } from "sonner";
 
 // A new component for the animated equalizer
 const EqualizerIcon = () => (
@@ -84,6 +87,30 @@ export function SubmissionItem({
                                }: SubmissionItemProps) {
   const { listenProgress: localListenProgress } = useMusicPlayerStore();
   const isLinkSubmission = song.submissionType === 'spotify' || song.submissionType === 'youtube';
+  
+  // Troll submission functionality
+  const markAsTrollSubmission = useMutation(api.submissions.markAsTrollSubmission);
+  
+  // Check if current user can mark troll submissions (league owner, manager, or global admin)
+  const canMarkTrollSubmissions = useMemo(() => {
+    if (!currentUser) return false;
+    const isOwner = league.creatorId === currentUser._id;
+    const isManager = league.managers?.includes(currentUser._id) ?? false;
+    const isGlobalAdmin = currentUser.isGlobalAdmin ?? false;
+    return isOwner || isManager || isGlobalAdmin;
+  }, [currentUser, league]);
+
+  const handleTrollSubmissionToggle = async () => {
+    try {
+      const result = await markAsTrollSubmission({
+        submissionId: song._id as any,
+        isTrollSubmission: !song.isTrollSubmission,
+      });
+      toast.success(result.message);
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  };
 
   const otherListeners = listeners.filter(listener => listener._id !== currentUser?._id);
 
@@ -102,6 +129,7 @@ export function SubmissionItem({
     if (userIsSubmitter) return "You cannot vote on your own submission.";
     if (!canVote) return "You must submit a song to vote in this round.";
     if (hasVoted) return "Your vote for this round is final.";
+    if (song.isTrollSubmission) return "You cannot vote on submissions marked as troll submissions.";
     if (league.limitVotesPerSubmission && currentVoteValue >= (league.maxPositiveVotesPerSubmission ?? 1)) return `Max ${league.maxPositiveVotesPerSubmission} upvote(s) per song.`;
 
     if (league.enforceListenPercentage) {
@@ -114,13 +142,14 @@ export function SubmissionItem({
     }
 
     return null;
-  }, [roundStatus, userIsSubmitter, canVote, hasVoted, league, currentVoteValue, isReadyToVoteOverall, song, isListenRequirementMetForThisSong]);
+  }, [roundStatus, userIsSubmitter, canVote, hasVoted, song.isTrollSubmission, league, currentVoteValue, isReadyToVoteOverall, song, isListenRequirementMetForThisSong]);
 
   const downvoteDisabledReason = useMemo(() => {
     if (roundStatus !== "voting") return "Voting is not currently open.";
     if (userIsSubmitter) return "You cannot vote on your own submission.";
     if (!canVote) return "You must submit a song to vote in this round.";
     if (hasVoted) return "Your vote for this round is final.";
+    // Note: Troll submissions can still receive downvotes, so we don't block them here
     if (league.limitVotesPerSubmission && currentVoteValue <= -(league.maxNegativeVotesPerSubmission ?? 0)) return `Max ${league.maxNegativeVotesPerSubmission} downvote(s) per song.`;
 
     if (league.enforceListenPercentage) {
@@ -214,6 +243,25 @@ export function SubmissionItem({
             <SubmitterInfo />
             <div className="flex items-center gap-1">
               {roundStatus === 'voting' && <VoteButtonGroup />}
+              {canMarkTrollSubmissions && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="size-8" 
+                        onClick={(e) => { e.stopPropagation(); handleTrollSubmissionToggle(); }}
+                      >
+                        <AlertTriangle className={cn("size-5", song.isTrollSubmission && "text-red-500")} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{song.isTrollSubmission ? "Unmark as troll submission" : "Mark as troll submission"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               <Button variant="ghost" size="icon" className="size-8" onClick={(e) => { e.stopPropagation(); onBookmark(); }}><Bookmark className={cn("size-5", song.isBookmarked && "fill-primary text-primary")} /></Button>
               <Button variant="ghost" size="icon" className="size-8" onClick={(e) => { e.stopPropagation(); onToggleComments(); }}><MessageSquare className={cn("size-5", isCommentsVisible && "fill-accent")} /></Button>
             </div>
@@ -270,6 +318,13 @@ export function SubmissionItem({
                 </Tooltip>
               </TooltipProvider>
             )}
+            {song.isTrollSubmission && (
+              <TooltipProvider>
+                <Tooltip><TooltipTrigger asChild><AlertTriangle className="size-4 text-red-500" /></TooltipTrigger>
+                  <TooltipContent><p>This submission has been marked as a troll submission. Positive votes are ignored.</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
           <div className="flex items-center justify-center w-44 gap-1">
             {roundStatus === 'voting' ? (
@@ -279,6 +334,25 @@ export function SubmissionItem({
                 <Button variant="ghost" size="icon" className="size-8">{song.submissionType === 'spotify' ? <FaSpotify className="size-5 text-green-500"/> : <FaYoutube className="size-5 text-red-500"/>}</Button>
               </a>
             ) : null}
+            {canMarkTrollSubmissions && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="size-8" 
+                      onClick={(e) => { e.stopPropagation(); handleTrollSubmissionToggle(); }}
+                    >
+                      <AlertTriangle className={cn("size-5", song.isTrollSubmission && "text-red-500")} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{song.isTrollSubmission ? "Unmark as troll submission" : "Mark as troll submission"}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <Button variant="ghost" size="icon" className="size-8" onClick={(e) => { e.stopPropagation(); onBookmark(); }}><Bookmark className={cn("size-5", song.isBookmarked && "fill-primary text-primary")} /></Button>
             <Button variant="ghost" size="icon" className="size-8" onClick={(e) => { e.stopPropagation(); onToggleComments(); }}><MessageSquare className={cn("size-5", isCommentsVisible && "fill-accent")} /></Button>
           </div>

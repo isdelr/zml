@@ -1632,6 +1632,7 @@ export const calculateAndStoreResults = internalMutation({
 
     // Compute points per submission with penalty:
     // If the submitter did NOT finalize their votes, annul positive votes on their own submission(s).
+    // If submission is marked as troll, ignore positive votes but count negative votes.
     const perSubmission = new Map<
       string,
       { points: number; penaltyApplied: boolean }
@@ -1640,22 +1641,25 @@ export const calculateAndStoreResults = internalMutation({
       const sid = sub._id.toString();
       const subVotes = votesBySubmission.get(sid) ?? [];
       const submitterFinalized = finalizedVoters.has(sub.userId.toString());
+      const isTrollSubmission = sub.isTrollSubmission ?? false;
 
       let pts = 0;
-      if (!submitterFinalized) {
+      if (!submitterFinalized || isTrollSubmission) {
         // Annul positive votes, keep negatives
+        // For troll submissions: positive votes are ignored, negative votes still count
+        // For unfinalized submitters: same behavior as before
         for (const vte of subVotes) {
           if (vte.vote < 0) pts += vte.vote;
         }
       } else {
-        // Count all votes
+        // Count all votes (normal case)
         for (const vte of subVotes) {
           pts += vte.vote;
         }
       }
       perSubmission.set(sid, {
         points: pts,
-        penaltyApplied: !submitterFinalized,
+        penaltyApplied: !submitterFinalized || isTrollSubmission,
       });
     }
 

@@ -88,6 +88,11 @@ export const castVote = mutation({
     const submission = await ctx.db.get(args.submissionId);
     if (!submission) throw new Error("Submission not found.");
 
+    // Prevent voting on troll submissions
+    if (submission.isTrollSubmission) {
+      throw new Error("You cannot vote on submissions marked as troll submissions.");
+    }
+
     const round = await ctx.db.get(submission.roundId);
     if (!round) throw new Error("Round not found.");
     if (round.status !== "voting") throw new Error("Voting is not open.");

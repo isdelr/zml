@@ -73,6 +73,9 @@ export default defineSchema({
     userId: v.id("users"),
     leagueId: v.id("leagues"),
     joinDate: v.optional(v.number()),
+    trollSubmissionCount: v.optional(v.number()),
+    isBanned: v.optional(v.boolean()),
+    bannedAt: v.optional(v.number()),
   })
     .index("by_league_and_user", ["leagueId", "userId"])
     .index("by_user", ["userId"])
@@ -115,6 +118,9 @@ export default defineSchema({
     waveform: v.optional(v.string()),
     duration: v.optional(v.number()),
     searchText: v.string(),
+    isTrollSubmission: v.optional(v.boolean()),
+    markedAsTrollBy: v.optional(v.id("users")),
+    markedAsTrollAt: v.optional(v.number()),
   })
     .index("by_round_and_user", ["roundId", "userId"])
     .index("by_user_and_league", ["userId", "leagueId"])

@@ -17,4 +17,7 @@ export type Song = {
   leagueName?: string;
   leagueId?: Id<"leagues">;
   comment?: string | null;
+  isTrollSubmission?: boolean;
+  markedAsTrollBy?: Id<"users">;
+  markedAsTrollAt?: number;
 };

@@ -4,12 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Extend listen tracking to support Spotify and YouTube submissions">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Extend listen tracking to support timers in Spotify and YouTube submissions">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/MusicPlayer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/MusicPlayer.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/player/PlayerControls.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerControls.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/leagues.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/leagues.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/schema.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/submissions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/submissions.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/votes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/votes.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/types/index.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -118,7 +120,7 @@
       <workItem from="1756643847353" duration="378000" />
       <workItem from="1756644241009" duration="65000" />
       <workItem from="1756824323679" duration="2794000" />
-      <workItem from="1756990630917" duration="1028000" />
+      <workItem from="1756990630917" duration="2628000" />
     </task>
     <task id="LOCAL-00001" summary="Submission overhaul">
       <option name="closed" value="true" />
@@ -400,7 +402,15 @@
       <option name="project" value="LOCAL" />
       <updated>1756826780985</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="Extend listen tracking to support timers in Spotify and YouTube submissions">
+      <option name="closed" value="true" />
+      <created>1756991690651</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1756991690651</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -418,7 +428,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="package lock update" />
     <MESSAGE value="added dockerfile" />
     <MESSAGE value="dependency changes" />
     <MESSAGE value="Docker updates" />
@@ -443,6 +452,7 @@
     <MESSAGE value="ui and responsive fixes" />
     <MESSAGE value="Improve league management permissions" />
     <MESSAGE value="Extend listen tracking to support Spotify and YouTube submissions" />
-    <option name="LAST_COMMIT_MESSAGE" value="Extend listen tracking to support Spotify and YouTube submissions" />
+    <MESSAGE value="Extend listen tracking to support timers in Spotify and YouTube submissions" />
+    <option name="LAST_COMMIT_MESSAGE" value="" />
   </component>
 </project>

@@ -174,6 +174,18 @@ export const submitSong = mutation({
     if (!round) throw new Error("Round not found.");
     if (round.status !== "submissions") throw new Error("Submissions are not open.");
 
+    // Check if user is banned from this league
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_league_and_user", (q) =>
+        q.eq("leagueId", round.leagueId).eq("userId", userId)
+      )
+      .unique();
+
+    if (membership?.isBanned) {
+      throw new Error("You have been permanently banned from this league for repeated troll submissions.");
+    }
+
     const submissionsPerUser = round.submissionsPerUser ?? 1;
 
     const existingSubmissions = await ctx.db
@@ -250,6 +262,18 @@ export const presubmitSong = mutation({
 
     const round = await ctx.db.get(args.roundId);
     if (!round) throw new Error("Round not found.");
+
+    // Check if user is banned from this league
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_league_and_user", (q) =>
+        q.eq("leagueId", round.leagueId).eq("userId", userId)
+      )
+      .unique();
+
+    if (membership?.isBanned) {
+      throw new Error("You have been permanently banned from this league for repeated troll submissions.");
+    }
 
     const submissionsPerUser = round.submissionsPerUser ?? 1;
 
@@ -748,5 +772,118 @@ export const checkForPotentialDuplicates = mutation({
     }
 
     return { songExists, artistExists };
+  },
+});
+
+export const markAsTrollSubmission = mutation({
+  args: {
+    submissionId: v.id("submissions"),
+    isTrollSubmission: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the submission
+    const submission = await ctx.db.get(args.submissionId);
+    if (!submission) {
+      throw new Error("Submission not found");
+    }
+
+    // Get the league to check if user is owner or manager
+    const league = await ctx.db.get(submission.leagueId);
+    if (!league) {
+      throw new Error("League not found");
+    }
+
+    // Check if user has permission (league creator, manager, or global admin)
+    const user = await ctx.db.get(userId);
+    const isOwner = league.creatorId === userId;
+    const isManager = league.managers?.includes(userId) ?? false;
+    const isGlobalAdmin = user?.isGlobalAdmin ?? false;
+
+    if (!isOwner && !isManager && !isGlobalAdmin) {
+      throw new Error("You don't have permission to mark troll submissions");
+    }
+
+    // If marking as troll submission for the first time
+    if (args.isTrollSubmission && !submission.isTrollSubmission) {
+      // Update submission
+      await ctx.db.patch(args.submissionId, {
+        isTrollSubmission: true,
+        markedAsTrollBy: userId,
+        markedAsTrollAt: Date.now(),
+      });
+
+      // Get or create membership
+      const membership = await ctx.db
+        .query("memberships")
+        .withIndex("by_league_and_user", (q) =>
+          q.eq("leagueId", submission.leagueId).eq("userId", submission.userId)
+        )
+        .unique();
+
+      if (membership) {
+        const currentCount = membership.trollSubmissionCount ?? 0;
+        const newCount = currentCount + 1;
+
+        // Check if this is their second troll submission
+        if (newCount >= 2) {
+          // Permanently ban the user
+          await ctx.db.patch(membership._id, {
+            trollSubmissionCount: newCount,
+            isBanned: true,
+            bannedAt: Date.now(),
+          });
+        } else {
+          // Just increment the count
+          await ctx.db.patch(membership._id, {
+            trollSubmissionCount: newCount,
+          });
+        }
+
+        // Apply -10 penalty to round results if it exists
+        const roundResult = await ctx.db
+          .query("roundResults")
+          .withIndex("by_submission", (q) => q.eq("submissionId", args.submissionId))
+          .unique();
+
+        if (roundResult) {
+          await ctx.db.patch(roundResult._id, {
+            points: roundResult.points - 10,
+            penaltyApplied: true,
+          });
+        }
+      }
+
+      return { success: true, message: "Submission marked as troll submission" };
+    } 
+    // If unmarking as troll submission
+    else if (!args.isTrollSubmission && submission.isTrollSubmission) {
+      await ctx.db.patch(args.submissionId, {
+        isTrollSubmission: false,
+        markedAsTrollBy: undefined,
+        markedAsTrollAt: undefined,
+      });
+
+      // Remove the penalty from round results if it exists
+      const roundResult = await ctx.db
+        .query("roundResults")
+        .withIndex("by_submission", (q) => q.eq("submissionId", args.submissionId))
+        .unique();
+
+      if (roundResult && roundResult.penaltyApplied) {
+        await ctx.db.patch(roundResult._id, {
+          points: roundResult.points + 10,
+          penaltyApplied: false,
+        });
+      }
+
+      return { success: true, message: "Submission unmarked as troll submission" };
+    }
+
+    return { success: true, message: "No changes made" };
   },
 });
