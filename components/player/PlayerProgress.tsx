@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/
 import { useMutation } from "convex/react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 
 interface PlayerProgressProps {
   isExternalLink: boolean;
@@ -50,6 +51,7 @@ export function PlayerProgress({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastUpdateRef = useRef(0);
   const updateProgress = useMutation(api.listenProgress.updateProgress);
+  const { actions } = useMusicPlayerStore();
 
   const formatTime = (seconds: number) => {
     if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -81,9 +83,10 @@ export function PlayerProgress({
             lastUpdateRef.current = newProgress;
           }
           
-          // Show completion toast
-          if (newProgress >= requiredTimerProgress) {
+          // Show completion toast and mark as completed locally
+          if (newProgress >= requiredTimerProgress && currentTrack?._id) {
             toast.success("Timer completed! You can now vote on this submission.");
+            actions.setListenProgress(currentTrack._id, true);
           }
           
           return newProgress;
