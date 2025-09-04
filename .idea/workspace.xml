@@ -4,14 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Extend listen tracking to support timers in Spotify and YouTube submissions">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Fix build error">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/leagues.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/leagues.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/schema.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/submissions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/submissions.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/votes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/votes.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/types/index.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -52,34 +47,34 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;JavaScript Debug.start_push.executor&quot;: &quot;Debug&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;disable.download.node.interpreter.editor.notification&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;24.4.1&quot;,
-    &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;24.3.0&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/rosvelt/.local/share/nvm/v24.6.0/bin/node&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_interpreter_path&quot;: &quot;C:/Users/isaia/AppData/Local/mise/shims/node.cmd&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;/Users/rosvelt/Documents/projects/zml/node_modules/prettier&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;settings.nodejs&quot;,
-    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\isaia\\Projects\\zml\\node_modules\\typescript\\lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "JavaScript Debug.start_push.executor": "Debug",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "disable.download.node.interpreter.editor.notification": "true",
+    "git-widget-placeholder": "master",
+    "ignore.virus.scanning.warn.message": "true",
+    "javascript.nodejs.core.library.configured.version": "24.4.1",
+    "javascript.nodejs.core.library.typings.version": "24.3.0",
+    "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "/Users/rosvelt/.local/share/nvm/v24.6.0/bin/node",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_interpreter_path": "C:/Users/isaia/AppData/Local/mise/shims/node.cmd",
+    "nodejs_package_manager_path": "npm",
+    "prettierjs.PrettierConfiguration.Package": "C:\\Users\\isaia\\Projects\\zml\\node_modules\\prettier",
+    "settings.editor.selected.configurable": "settings.nodejs",
+    "to.speed.mode.migration.done": "true",
+    "ts.external.directory.path": "C:\\Users\\isaia\\Projects\\zml\\node_modules\\typescript\\lib",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="Push.Settings">
     <force-push-targets>
       <force-push-target remote-path="origin" branch="master" />
@@ -120,7 +115,7 @@
       <workItem from="1756643847353" duration="378000" />
       <workItem from="1756644241009" duration="65000" />
       <workItem from="1756824323679" duration="2794000" />
-      <workItem from="1756990630917" duration="2628000" />
+      <workItem from="1756990630917" duration="6885000" />
     </task>
     <task id="LOCAL-00001" summary="Submission overhaul">
       <option name="closed" value="true" />
@@ -410,7 +405,23 @@
       <option name="project" value="LOCAL" />
       <updated>1756991690651</updated>
     </task>
-    <option name="localTasksCounter" value="37" />
+    <task id="LOCAL-00037" summary="Add troll submission handling and ban functionality&#10;&#10;- Allow marking/unmarking of troll submissions.&#10;- Annul positive votes for troll submissions, but count negative votes.&#10;- Prevent banned users from making submissions.&#10;- Add penalties and automatic banning for repeated troll submissions.&#10;- Update UI to support troll submission management and indicators.">
+      <option name="closed" value="true" />
+      <created>1756993311481</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1756993311481</updated>
+    </task>
+    <task id="LOCAL-00038" summary="Fix build error">
+      <option name="closed" value="true" />
+      <created>1756997125377</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1756997125377</updated>
+    </task>
+    <option name="localTasksCounter" value="39" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -428,8 +439,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added dockerfile" />
-    <MESSAGE value="dependency changes" />
     <MESSAGE value="Docker updates" />
     <MESSAGE value="deleted unused const" />
     <MESSAGE value="added removed use node" />
@@ -453,6 +462,8 @@
     <MESSAGE value="Improve league management permissions" />
     <MESSAGE value="Extend listen tracking to support Spotify and YouTube submissions" />
     <MESSAGE value="Extend listen tracking to support timers in Spotify and YouTube submissions" />
-    <option name="LAST_COMMIT_MESSAGE" value="" />
+    <MESSAGE value="Add troll submission handling and ban functionality&#10;&#10;- Allow marking/unmarking of troll submissions.&#10;- Annul positive votes for troll submissions, but count negative votes.&#10;- Prevent banned users from making submissions.&#10;- Add penalties and automatic banning for repeated troll submissions.&#10;- Update UI to support troll submission management and indicators." />
+    <MESSAGE value="Fix build error" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fix build error" />
   </component>
 </project>
