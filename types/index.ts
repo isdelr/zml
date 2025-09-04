@@ -11,7 +11,7 @@ export type Song = {
   roundStatus?: Doc<"rounds">["status"];
   isBookmarked?: boolean;
    
-  submissionType: "file" | "spotify" | "youtube";
+  submissionType: "file" | "youtube";
   songLink?: string | null;
   roundTitle?: string;
   leagueName?: string;

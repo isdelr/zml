@@ -4,9 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Fix build error">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Update `.idea/` settings and ignore `.idea/` directory">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/EditSubmissionForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/EditSubmissionForm.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/schema.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/submissions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/submissions.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/types/index.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -115,7 +119,7 @@
       <workItem from="1756643847353" duration="378000" />
       <workItem from="1756644241009" duration="65000" />
       <workItem from="1756824323679" duration="2794000" />
-      <workItem from="1756990630917" duration="6885000" />
+      <workItem from="1756990630917" duration="7994000" />
     </task>
     <task id="LOCAL-00001" summary="Submission overhaul">
       <option name="closed" value="true" />
@@ -421,7 +425,15 @@
       <option name="project" value="LOCAL" />
       <updated>1756997125377</updated>
     </task>
-    <option name="localTasksCounter" value="39" />
+    <task id="LOCAL-00039" summary="Update `.idea/` settings and ignore `.idea/` directory">
+      <option name="closed" value="true" />
+      <created>1757015144411</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1757015144411</updated>
+    </task>
+    <option name="localTasksCounter" value="40" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -439,7 +451,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Docker updates" />
     <MESSAGE value="deleted unused const" />
     <MESSAGE value="added removed use node" />
     <MESSAGE value="fixed import" />
@@ -464,6 +475,7 @@
     <MESSAGE value="Extend listen tracking to support timers in Spotify and YouTube submissions" />
     <MESSAGE value="Add troll submission handling and ban functionality&#10;&#10;- Allow marking/unmarking of troll submissions.&#10;- Annul positive votes for troll submissions, but count negative votes.&#10;- Prevent banned users from making submissions.&#10;- Add penalties and automatic banning for repeated troll submissions.&#10;- Update UI to support troll submission management and indicators." />
     <MESSAGE value="Fix build error" />
-    <option name="LAST_COMMIT_MESSAGE" value="Fix build error" />
+    <MESSAGE value="Update `.idea/` settings and ignore `.idea/` directory" />
+    <option name="LAST_COMMIT_MESSAGE" value="Update `.idea/` settings and ignore `.idea/` directory" />
   </component>
 </project>

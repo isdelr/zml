@@ -24,7 +24,7 @@ import Image from "next/image";
 import * as mm from "music-metadata-browser";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { FaSpotify, FaYoutube } from "react-icons/fa";
+import { FaYoutube } from "react-icons/fa";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,17 +52,16 @@ const editFormSchema = z
       if (!data.songLink || data.songLink.trim() === "") {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "A Spotify or YouTube link is required.",
+          message: "A YouTube link is required.",
           path: ["songLink"],
         });
       } else if (
-        !data.songLink.includes("spotify.com") &&
         !data.songLink.includes("youtube.com") &&
         !data.songLink.includes("youtu.be")
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Please provide a valid Spotify or YouTube link.",
+          message: "Please provide a valid YouTube link.",
           path: ["songLink"],
         });
       }
@@ -144,7 +143,7 @@ export function EditSubmissionForm({
     if (!watchedLink) return;
     const link = watchedLink.trim();
     const isSupported =
-      link.includes("spotify.com") || link.includes("youtube.com") || link.includes("youtu.be");
+      link.includes("youtube.com") || link.includes("youtu.be");
     if (!isSupported) return;
 
     // Avoid refetching for same link
@@ -376,7 +375,7 @@ export function EditSubmissionForm({
             >
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="file">File Upload</TabsTrigger>
-                <TabsTrigger value="link">Spotify/YouTube Link</TabsTrigger>
+                <TabsTrigger value="link">YouTube Link</TabsTrigger>
               </TabsList>
 
               <TabsContent value="file" className="mt-6">
@@ -523,21 +522,18 @@ export function EditSubmissionForm({
                   name="songLink"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Spotify or YouTube Link</FormLabel>
+                      <FormLabel>YouTube Link</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Input
-                            placeholder="https://open.spotify.com/track/..."
+                            placeholder="https://www.youtube.com/watch?v=..."
                             {...field}
                           />
                           <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-2">
                             {isFetchingLinkMeta ? (
                               <Loader2 className="size-4 animate-spin" />
                             ) : (
-                              <>
-                                <FaSpotify className="text-green-500" />
-                                <FaYoutube className="text-red-500" />
-                              </>
+                              <FaYoutube className="text-red-500" />
                             )}
                           </div>
                         </div>

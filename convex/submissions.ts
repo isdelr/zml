@@ -20,93 +20,7 @@ function getYouTubeVideoId(url: string) {
 export const getSongMetadataFromLink = action({
   args: { link: v.string() },
   handler: async (ctx, args) => {
-    const extractSpotifyTrackId = (raw: string): string | null => {
-      try {
-        if (raw.startsWith("spotify:track:")) {
-          const id = raw.slice("spotify:track:".length);
-          return /^[A-Za-z0-9]{22}$/.test(id) ? id : null;
-        }
-        const url = new URL(raw);
-        if (url.hostname.includes("open.spotify.com")) {
-          const segments = url.pathname.split("/").filter(Boolean);
-          const i = segments.findIndex((s) => s.toLowerCase() === "track");
-          if (i !== -1 && segments[i + 1]) {
-            const id = segments[i + 1].split("?")[0];
-            return /^[A-Za-z0-9]{22}$/.test(id) ? id : null;
-          }
-        }
-      } catch {
-        // Not a URL
-      }
-      return null;
-    };
-
-    if (args.link.includes("spotify")) {
-      const clientId = process.env.SPOTIFY_CLIENT_ID;
-      const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-      if (!clientId || !clientSecret) {
-        throw new Error("Spotify credentials are not configured on the server.");
-      }
-
-      const trackId = extractSpotifyTrackId(args.link);
-      if (!trackId) {
-        throw new Error("Could not extract a Spotify track ID from the link.");
-      }
-
-      let track;
-      try {
-        const credentials = btoa(`${clientId}:${clientSecret}`);
-        const tokenResponse = await fetch("https://accounts.spotify.com/api/token", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            Authorization: `Basic ${credentials}`,
-          },
-          body: "grant_type=client_credentials",
-        });
-        if (!tokenResponse.ok) {
-          throw new Error(`Failed to authenticate with Spotify: ${tokenResponse.status}`);
-        }
-        const tokenData = await tokenResponse.json();
-        const accessToken = tokenData.access_token;
-        if (!accessToken) {
-          throw new Error("Failed to obtain Spotify access token");
-        }
-
-        const trackResponse = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-      });
-        if (!trackResponse.ok) {
-          if (trackResponse.status === 404) {
-            throw new Error("Could not find this track on Spotify. Please check the link.");
-          } else if (trackResponse.status === 401) {
-            throw new Error("Spotify API authentication failed. Please check server credentials.");
-          } else {
-            throw new Error(`Spotify API error: ${trackResponse.status}`);
-          }
-        }
-        track = await trackResponse.json();
-      } catch (err) {
-        console.error("Spotify API error:", err);
-        let errorMessage = "Failed to fetch track metadata from Spotify.";
-        if (err instanceof Error && err.message) {
-          errorMessage = err.message;
-        }
-        throw new Error(errorMessage);
-      }
-
-      if (!track || !track.name) {
-        throw new Error("Invalid track data received from Spotify API.");
-      }
-
-      return {
-        songTitle: track.name,
-        artist: Array.isArray(track.artists) && track.artists.length > 0 ? track.artists.filter((a: any) => a && a.name).map((a: any) => a.name).join(", ") : "Unknown Artist",
-        albumArtUrl: track.album?.images?.[0]?.url ?? null,
-        duration: Math.round((track.duration_ms ?? 0) / 1000),
-        submissionType: "spotify" as const,
-      };
-    } else if (args.link.includes("youtube") || args.link.includes("youtu.be")) {
+    if (args.link.includes("youtube") || args.link.includes("youtu.be")) {
       const videoId = getYouTubeVideoId(args.link);
       if (!videoId) {
         throw new Error("Invalid YouTube link provided.");
@@ -149,14 +63,14 @@ export const getSongMetadataFromLink = action({
       };
     }
 
-    throw new Error("Invalid link provided. Please use a Spotify or YouTube link.");
+    throw new Error("Invalid link provided. Please use a YouTube link.");
   },
 });
 
 export const submitSong = mutation({
   args: {
     roundId: v.id("rounds"),
-    submissionType: v.union(v.literal("file"), v.literal("spotify"), v.literal("youtube")),
+    submissionType: v.union(v.literal("file"), v.literal("youtube")),
     songTitle: v.string(),
     artist: v.string(),
     comment: v.optional(v.string()),
@@ -246,7 +160,7 @@ export const submitSong = mutation({
 export const presubmitSong = mutation({
   args: {
     roundId: v.id("rounds"),
-    submissionType: v.union(v.literal("file"), v.literal("spotify"), v.literal("youtube")),
+    submissionType: v.union(v.literal("file"), v.literal("youtube")),
     songTitle: v.string(),
     artist: v.string(),
     comment: v.optional(v.string()),
@@ -408,7 +322,7 @@ export const editSong = mutation({
     submissionId: v.id("submissions"),
     songTitle: v.string(),
     artist: v.string(),
-    submissionType: v.union(v.literal("file"), v.literal("spotify"), v.literal("youtube")),
+    submissionType: v.union(v.literal("file"), v.literal("youtube")),
     comment: v.optional(v.string()),
     albumArtKey: v.optional(v.union(v.string(), v.null())),
     songFileKey: v.optional(v.union(v.string(), v.null())),

@@ -110,7 +110,6 @@ export default defineSchema({
     comment: v.optional(v.string()),
     submissionType: v.union(
       v.literal("file"),
-      v.literal("spotify"),
       v.literal("youtube"),
     ),
     songLink: v.optional(v.string()),
@@ -141,7 +140,6 @@ export default defineSchema({
     comment: v.optional(v.string()),
     submissionType: v.union(
       v.literal("file"),
-      v.literal("spotify"),
       v.literal("youtube"),
     ),
     songLink: v.optional(v.string()),

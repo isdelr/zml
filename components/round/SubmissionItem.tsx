@@ -12,7 +12,7 @@ import {
   Headphones,
   AlertTriangle,
 } from "lucide-react";
-import { FaSpotify, FaYoutube } from "react-icons/fa";
+import { FaYoutube } from "react-icons/fa";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -86,7 +86,7 @@ export function SubmissionItem({
                                  currentUser,
                                }: SubmissionItemProps) {
   const { listenProgress: localListenProgress } = useMusicPlayerStore();
-  const isLinkSubmission = song.submissionType === 'spotify' || song.submissionType === 'youtube';
+  const isLinkSubmission = song.submissionType === 'youtube';
   
   // Troll submission functionality
   const markAsTrollSubmission = useMutation(api.submissions.markAsTrollSubmission);
@@ -115,12 +115,12 @@ export function SubmissionItem({
   const otherListeners = listeners.filter(listener => listener._id !== currentUser?._id);
 
   const isListenRequirementMetForThisSong = useMemo(() => {
-    if (!league.enforceListenPercentage || !["file", "spotify", "youtube"].includes(song.submissionType) || userIsSubmitter) return true;
+    if (!league.enforceListenPercentage || !["file", "youtube"].includes(song.submissionType) || userIsSubmitter) return true;
     return listenProgress?.isCompleted || localListenProgress[song._id as Id<"submissions">];
   }, [league, localListenProgress, listenProgress, song._id, song.submissionType, userIsSubmitter]);
 
   const showListenRequirementIndicator = useMemo(() => {
-    return roundStatus === 'voting' && league.enforceListenPercentage && ["file", "spotify", "youtube"].includes(song.submissionType) && !userIsSubmitter && !isListenRequirementMetForThisSong;
+    return roundStatus === 'voting' && league.enforceListenPercentage && ["file", "youtube"].includes(song.submissionType) && !userIsSubmitter && !isListenRequirementMetForThisSong;
   }, [roundStatus, league.enforceListenPercentage, song.submissionType, userIsSubmitter, isListenRequirementMetForThisSong]);
 
 
@@ -331,7 +331,7 @@ export function SubmissionItem({
               <VoteButtonGroup />
             ) : isLinkSubmission ? (
               <a href={song.songLink!} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="size-8">{song.submissionType === 'spotify' ? <FaSpotify className="size-5 text-green-500"/> : <FaYoutube className="size-5 text-red-500"/>}</Button>
+                <Button variant="ghost" size="icon" className="size-8"><FaYoutube className="size-5 text-red-500"/></Button>
               </a>
             ) : null}
             {canMarkTrollSubmissions && (
