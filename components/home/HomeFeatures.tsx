@@ -12,7 +12,7 @@ const features = [
     icon: <Music className="size-6" />,
     title: "Submit Your Best Tracks",
     description:
-      "Each round has a unique theme. Pick the perfect song from your library, Spotify, or YouTube.",
+      "Each round has a unique theme. Pick the perfect song from your library or YouTube.",
   },
   {
     icon: <Vote className="size-6" />,

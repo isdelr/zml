@@ -19,7 +19,7 @@ interface PlayerProgressProps {
   isWaveformLoading: boolean;
   waveformData: WaveformData | null;
   currentTrack: { 
-    submissionType?: "spotify" | "youtube" | "file"; 
+    submissionType?: "youtube" | "file";
     leagueId?: string; 
     _id?: string; 
     duration?: number;
@@ -61,7 +61,7 @@ export function PlayerProgress({
   };
 
   // Timer logic for external link submissions
-  const isLinkSubmission = isExternalLink && (currentTrack?.submissionType === "spotify" || currentTrack?.submissionType === "youtube");
+  const isLinkSubmission = isExternalLink && ( currentTrack?.submissionType === "youtube");
   const linkDuration = currentTrack?.duration || duration || 180; // fallback to 3 minutes
   const listenPercentage = leagueData?.listenPercentage || 80;
   const requiredTimerProgress = Math.min(linkDuration * (listenPercentage / 100), linkDuration);
@@ -148,7 +148,7 @@ export function PlayerProgress({
           <div className="flex flex-col w-full gap-1">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">
-                {currentTrack?.submissionType === "spotify" ? "Spotify" : "YouTube"} Timer
+                Youtube Timer
                 {isTimerCompleted && " ✓"}
               </span>
               <span className="text-muted-foreground">
@@ -180,7 +180,7 @@ export function PlayerProgress({
         ) : isExternalLink ? (
           <div className="flex h-full w-full items-center justify-center rounded-md bg-muted px-2 text-center text-xs text-muted-foreground">
             Playing on{" "}
-            {currentTrack?.submissionType === "spotify" ? "Spotify" : "YouTube"}
+            Youtube
             . Use controls to continue.
           </div>
         ) : isWaveformLoading ? (

@@ -156,7 +156,6 @@ export function MusicPlayer() {
   const updatePresence = useMutation(api.presence.update);
 
   const isExternalLink =
-    currentTrack?.submissionType === "spotify" ||
     currentTrack?.submissionType === "youtube";
 
   useEffect(() => {

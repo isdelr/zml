@@ -66,8 +66,8 @@ export const updateProgress = mutation({
       return;
     }
 
-    // Track progress for file-based and link submissions (spotify, youtube)
-    if (!["file", "spotify", "youtube"].includes(submission.submissionType)) {
+    // Track progress for file-based and link submissions (youtube)
+    if (!["file", "youtube"].includes(submission.submissionType)) {
       return;
     }
 

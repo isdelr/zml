@@ -25,7 +25,7 @@ import Image from "next/image";
 import * as mm from "music-metadata-browser";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FaSpotify, FaYoutube } from "react-icons/fa";
+import { FaYoutube } from "react-icons/fa";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,8 +78,7 @@ const formSchema = z
       if (data.submissionType === "link") {
         return (
           data.songLink &&
-          (data.songLink.includes("spotify.com") ||
-            data.songLink.includes("youtube.com") ||
+          (data.songLink.includes("youtube.com") ||
             data.songLink.includes("youtu.be"))
         );
       }
@@ -324,7 +323,7 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
             >
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="manual">Manual Upload</TabsTrigger>
-                <TabsTrigger value="link">From Spotify/YouTube</TabsTrigger>
+                <TabsTrigger value="link">YouTube</TabsTrigger>
               </TabsList>
               <TabsContent value="manual" className="mt-6">
                 <div className="space-y-6">
@@ -550,15 +549,14 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
                   name="songLink"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Spotify or YouTube Link</FormLabel>
+                      <FormLabel>YouTube Link</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Input
-                            placeholder="https://open.spotify.com/track/..."
+                            placeholder="https://www.youtube.com/watch?v=8OcKBa9QYaI"
                             {...field}
                           />
                           <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-2">
-                            <FaSpotify className="text-green-500" />
                             <FaYoutube className="text-red-500" />
                           </div>
                         </div>

@@ -17,7 +17,7 @@ import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
 import { Preloaded, usePreloadedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { FaSpotify, FaYoutube } from "react-icons/fa";
+import { FaYoutube } from "react-icons/fa";
 
 const getResultIcon = (result: { type: string; points: number }) => {
   switch (result.type) {
@@ -207,9 +207,6 @@ export function MySubmissionsPage({ preloadedSubmissions }: MySubmissionsPagePro
                                 size="icon"
                                 className="opacity-0 transition-opacity group-hover:opacity-100"
                               >
-                                {submission.submissionType === "spotify" && (
-                                  <FaSpotify className="size-4 text-green-500" />
-                                )}
                                 {submission.submissionType === "youtube" && (
                                   <FaYoutube className="size-4 text-red-500" />
                                 )}

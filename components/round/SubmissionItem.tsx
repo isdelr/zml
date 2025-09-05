@@ -115,9 +115,10 @@ export function SubmissionItem({
   const otherListeners = listeners.filter(listener => listener._id !== currentUser?._id);
 
   const isListenRequirementMetForThisSong = useMemo(() => {
-    if (!league.enforceListenPercentage || !["file", "youtube"].includes(song.submissionType) || userIsSubmitter) return true;
+    if (song.isTrollSubmission) return true;
+    if (!league.enforceListenPercentage || ["file", "youtube"].includes(song.submissionType) === false || userIsSubmitter) return true;
     return listenProgress?.isCompleted || localListenProgress[song._id as Id<"submissions">];
-  }, [league, localListenProgress, listenProgress, song._id, song.submissionType, userIsSubmitter]);
+  }, [league, localListenProgress, listenProgress, song._id, song.submissionType, userIsSubmitter, song.isTrollSubmission]);
 
   const showListenRequirementIndicator = useMemo(() => {
     return roundStatus === 'voting' && league.enforceListenPercentage && ["file", "youtube"].includes(song.submissionType) && !userIsSubmitter && !isListenRequirementMetForThisSong;
@@ -133,7 +134,7 @@ export function SubmissionItem({
     if (league.limitVotesPerSubmission && currentVoteValue >= (league.maxPositiveVotesPerSubmission ?? 1)) return `Max ${league.maxPositiveVotesPerSubmission} upvote(s) per song.`;
 
     if (league.enforceListenPercentage) {
-      if (["file", "spotify", "youtube"].includes(song.submissionType) && !isListenRequirementMetForThisSong) {
+      if (["file", "youtube"].includes(song.submissionType) && !isListenRequirementMetForThisSong) {
         return `You must listen to ${league.listenPercentage}% of this song to vote.`;
       }
       if (!isReadyToVoteOverall) {
@@ -153,7 +154,7 @@ export function SubmissionItem({
     if (league.limitVotesPerSubmission && currentVoteValue <= -(league.maxNegativeVotesPerSubmission ?? 0)) return `Max ${league.maxNegativeVotesPerSubmission} downvote(s) per song.`;
 
     if (league.enforceListenPercentage) {
-      if (["file", "spotify", "youtube"].includes(song.submissionType) && !isListenRequirementMetForThisSong) {
+      if (["file", "youtube"].includes(song.submissionType) && !isListenRequirementMetForThisSong) {
         return `You must listen to ${league.listenPercentage}% of this song to vote.`;
       }
       if (!isReadyToVoteOverall) {

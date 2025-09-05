@@ -17,8 +17,8 @@ const faqItems: FaqItem[] = [
     answer: "Absolutely! You can be a member of multiple leagues at the same time. Your 'Active Rounds' page will show you all rounds that are currently open for submissions or voting across all your leagues.",
   },
   {
-    question: "Can I submit songs from Spotify or YouTube?",
-    answer: "Yes! You can submit by uploading an audio file or by simply pasting a link from Spotify or YouTube. We'll automatically fetch the song details and artwork for you.",
+    question: "Can I submit songs from YouTube?",
+    answer: "Yes! You can submit by uploading an audio file or by simply pasting a link from YouTube. We'll automatically fetch the song details and artwork for you.",
   },
 ];
 

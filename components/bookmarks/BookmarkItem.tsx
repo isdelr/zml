@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Bookmark, Play } from "lucide-react";
-import { FaSpotify, FaYoutube } from "react-icons/fa";
+import {  FaYoutube } from "react-icons/fa";
 import Image from "next/image";
 import Link from "next/link";
 import { Id } from "@/convex/_generated/dataModel";
@@ -67,9 +67,6 @@ export function BookmarkItem({
               size="icon"
               className="opacity-0 transition-opacity group-hover:opacity-100"
             >
-              {song.submissionType === "spotify" && (
-                <FaSpotify className="size-4 text-green-500" />
-              )}
               {song.submissionType === "youtube" && (
                 <FaYoutube className="size-4 text-red-500" />
               )}

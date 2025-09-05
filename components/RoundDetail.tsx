@@ -199,7 +199,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
     if (!league.enforceListenPercentage || !submissions || !currentUser)
       return [];
     const requiredSubs = submissions.filter(
-      (s) => s.submissionType === "file" && s.userId !== currentUser._id,
+      (s) => ["file", "youtube"].includes(s.submissionType) && s.userId !== currentUser._id && !s.isTrollSubmission,
     );
     if (requiredSubs.length === 0) return [];
     return requiredSubs.filter(
@@ -216,7 +216,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
     if (!league.enforceListenPercentage || !submissions || !currentUser)
       return true;
     const requiredSubs = submissions.filter(
-      (s) => s.submissionType === "file" && s.userId !== currentUser._id,
+      (s) => ["file", "youtube"].includes(s.submissionType) && s.userId !== currentUser._id && !s.isTrollSubmission,
     );
     if (requiredSubs.length === 0) return true;
     return requiredSubs.every(
@@ -271,7 +271,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
       (s) => s.submissionType === "file",
     );
     const linkSubmissions = submissions.filter(
-      (s) => s.submissionType === "spotify" || s.submissionType === "youtube",
+      (s) =>  s.submissionType === "youtube",
     );
 
     const sortById = (

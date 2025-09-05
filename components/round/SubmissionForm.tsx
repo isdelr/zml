@@ -19,7 +19,7 @@ import { EditSubmissionForm } from "@/components/EditSubmissionForm";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { FaSpotify, FaYoutube } from "react-icons/fa";
+import { FaYoutube } from "react-icons/fa";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 
 type SubmissionWithUrls = Doc<"submissions"> & { albumArtUrl: string | null; songFileUrl: string | null; };
@@ -90,7 +90,6 @@ export function SubmissionForm({
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
-            {pre.submissionType === "spotify" && <FaSpotify />}
             {pre.submissionType === "youtube" && <FaYoutube />}
           </div>
         </div>

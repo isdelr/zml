@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward } from "lucide-react";
-import { FaSpotify, FaYoutube } from "react-icons/fa";
+import { FaYoutube } from "react-icons/fa";
 import { Song } from "@/types";
 
 interface PlayerControlsProps {
@@ -73,11 +73,7 @@ export function PlayerControls({
         title={isExternalLink ? "Play & Start Timer" : isPlaying ? "Pause" : "Play"}
       >
         {isExternalLink ? (
-          currentTrack.submissionType === "spotify" ? (
-            <FaSpotify className="size-5 text-white" />
-          ) : (
             <FaYoutube className="size-5 text-white" />
-          )
         ) : isPlaying ? (
           <Pause className="size-5 fill-primary-foreground" />
         ) : (
