@@ -104,7 +104,7 @@ export function PlayerProgress({
         clearInterval(intervalRef.current);
       }
     };
-  }, [isLinkSubmission, isTimerRunning, isTimerCompleted, currentTrack?._id, requiredTimerProgress, linkDuration, updateProgress]);
+  }, [isLinkSubmission, isTimerRunning, isTimerCompleted, currentTrack?._id, requiredTimerProgress, linkDuration, updateProgress, actions]);
 
   // Update timer progress when listenProgress prop changes
   useEffect(() => {

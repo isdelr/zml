@@ -640,6 +640,20 @@ export const getPresignedSongUrl = action({
   },
 });
 
+export const getPresignedAlbumArtUrl = action({
+  args: { submissionId: v.id("submissions") },
+  handler: async (ctx, args): Promise<string | null> => {
+    const submission: Doc<"submissions"> | null = await ctx.runQuery(internal.submissions.getSubmissionById, {
+      submissionId: args.submissionId,
+    });
+    if (!submission || !submission.albumArtKey) {
+      console.error("Could not generate album art URL: albumArtKey is missing.");
+      return null;
+    }
+    return await r2.getUrl(submission.albumArtKey);
+  },
+});
+
 export const checkForPotentialDuplicates = mutation({
   args: {
     leagueId: v.id("leagues"),

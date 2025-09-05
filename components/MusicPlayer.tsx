@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo } from "react";
+import { useRef, useEffect, useState, useMemo, useCallback } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -65,6 +65,8 @@ export function MusicPlayer() {
   const [lastVolume, setLastVolume] = useState(volume);
   const [refreshedUrls, setRefreshedUrls] = useState<Record<string, string>>({});
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const audioRefreshTimeoutRef = useRef<number | null>(null);
+  const prevTrackIdRef = useRef<string | null>(null);
 
   const leagueData = useQuery(
     api.leagues.get,
@@ -103,6 +105,61 @@ export function MusicPlayer() {
 
   const getPresignedSongUrl = useAction(api.submissions.getPresignedSongUrl);
   const updateDbProgress = useMutation(api.listenProgress.updateProgress);
+
+  // Helpers to parse R2 signed URL expiry and schedule refresh
+  const parseExpiryFromUrl = useCallback((url?: string | null): number | null => {
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      const expires = u.searchParams.get("X-Amz-Expires");
+      const date = u.searchParams.get("X-Amz-Date");
+      if (expires && date) {
+        // X-Amz-Date format: YYYYMMDDTHHMMSSZ
+        const year = Number(date.slice(0, 4));
+        const month = Number(date.slice(4, 6)) - 1; // 0-based
+        const day = Number(date.slice(6, 8));
+        const hour = Number(date.slice(9, 11));
+        const min = Number(date.slice(11, 13));
+        const sec = Number(date.slice(13, 15));
+        const startMs = Date.UTC(year, month, day, hour, min, sec);
+        const expSec = Number(expires);
+        if (!isNaN(startMs) && !isNaN(expSec)) {
+          return startMs + expSec * 1000;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }, []);
+
+  const pendingSeekTimeRef = useRef<number | null>(null);
+  const pendingShouldPlayRef = useRef<boolean>(false);
+
+
+  const refreshAudioUrl = useCallback(async (silent = true) => {
+    const audioElement = audioRef.current;
+    if (!audioElement || !currentTrack || currentTrack.submissionType !== "file") return;
+    try {
+      // Preserve playback state
+      pendingSeekTimeRef.current = isFinite(audioElement.currentTime) ? audioElement.currentTime : 0;
+      pendingShouldPlayRef.current = !audioElement.paused;
+      const newUrl = await getPresignedSongUrl({
+        submissionId: currentTrack._id as Id<"submissions">,
+      });
+      if (newUrl) {
+        setRefreshedUrls((prev) => ({ ...prev, [currentTrack._id]: newUrl }));
+      } else {
+        // If cannot refresh, pause to avoid looping errors
+        actions.setIsPlaying(false);
+      }
+    } catch (e) {
+      if (!silent) {
+        console.error("Failed to refresh audio URL", e);
+      }
+      // Don't surface a toast to keep it invisible
+    }
+  }, [currentTrack, getPresignedSongUrl, actions]);
 
   const toggleBookmark = useMutation(
     api.bookmarks.toggleBookmark,
@@ -408,26 +465,104 @@ export function MusicPlayer() {
     const effectiveSongUrl =
       refreshedUrls[currentTrack._id] || currentTrack.songFileUrl;
 
+    const prevTrackId = prevTrackIdRef.current;
+    const sameTrack = prevTrackId === (currentTrack._id as string);
+    prevTrackIdRef.current = currentTrack._id as string;
+
+    // Define and schedule preemptive refresh before expiry
+    const scheduleAudioRefresh = (effectiveUrl?: string | null) => {
+      // Clear previous
+      if (audioRefreshTimeoutRef.current) {
+        window.clearTimeout(audioRefreshTimeoutRef.current);
+        audioRefreshTimeoutRef.current = null;
+      }
+      const expiry = parseExpiryFromUrl(effectiveUrl ?? undefined);
+      // Safety margin seconds before expiry
+      const SAFETY_MS = 60_000; // 60s
+      let delay = 0;
+      if (expiry) {
+        const now = Date.now();
+        delay = Math.max(0, expiry - SAFETY_MS - now);
+      } else {
+        // Fallback periodic refresh every 15 minutes
+        delay = 15 * 60 * 1000;
+      }
+      audioRefreshTimeoutRef.current = window.setTimeout(async () => {
+        await refreshAudioUrl(true);
+      }, delay);
+    };
+    scheduleAudioRefresh(effectiveSongUrl || undefined);
+
+    const applyPendingRestore = async () => {
+      const targetTime = pendingSeekTimeRef.current ?? 0;
+      const shouldPlay = pendingShouldPlayRef.current;
+      pendingSeekTimeRef.current = null;
+      pendingShouldPlayRef.current = false;
+      try {
+        // Set time as soon as metadata is available
+        if (!isNaN(audioElement.duration)) {
+          audioElement.currentTime = Math.min(targetTime, audioElement.duration || targetTime);
+        } else {
+          audioElement.currentTime = targetTime;
+        }
+        if (shouldPlay) {
+          await audioElement.play();
+        }
+      } catch {
+        // keep silent for invisibility
+      }
+    };
+
     const handlePlayback = async () => {
       if (effectiveSongUrl && audioElement.src !== effectiveSongUrl) {
-        audioElement.src = effectiveSongUrl;
-        setProgress(0);
-      }
-      try {
-        if (isPlaying) {
-          await audioElement.play();
-        } else {
-          audioElement.pause();
+        const isRefresh = sameTrack;
+        try {
+          audioElement.src = effectiveSongUrl;
+          if (isRefresh && pendingSeekTimeRef.current !== null) {
+            const onLoaded = async () => {
+              audioElement.removeEventListener("loadedmetadata", onLoaded);
+              await applyPendingRestore();
+            };
+            audioElement.addEventListener("loadedmetadata", onLoaded);
+          } else {
+            setProgress(0);
+            if (isPlaying) {
+              await audioElement.play();
+            } else {
+              audioElement.pause();
+            }
+          }
+        } catch (error) {
+          if (error?.name !== "AbortError") {
+            console.error("Error during playback:", error);
+            actions.setIsPlaying(false);
+          }
         }
-      } catch (error: unknown) {
-        if (error.name !== "AbortError") {
-          console.error("Error during playback:", error);
-          actions.setIsPlaying(false);
+      } else {
+        // No src change, just sync play/pause
+        try {
+          if (isPlaying) {
+            await audioElement.play();
+          } else {
+            audioElement.pause();
+          }
+        } catch (error) {
+          if (error?.name !== "AbortError") {
+            console.error("Error during playback:", error);
+            actions.setIsPlaying(false);
+          }
         }
       }
     };
     handlePlayback();
-  }, [currentTrack, isPlaying, actions, isExternalLink, volume, refreshedUrls]);
+
+    return () => {
+      if (audioRefreshTimeoutRef.current) {
+        window.clearTimeout(audioRefreshTimeoutRef.current);
+        audioRefreshTimeoutRef.current = null;
+      }
+    };
+  }, [currentTrack, isPlaying, actions, isExternalLink, volume, refreshedUrls, parseExpiryFromUrl, refreshAudioUrl]);
 
   const handleTimeUpdate = () => {
     const audioElement = audioRef.current;
@@ -527,41 +662,14 @@ export function MusicPlayer() {
 
   const handleAudioError = async () => {
     const audioElement = audioRef.current;
-    if (
-      !audioElement ||
-      !currentTrack ||
-      currentTrack.submissionType !== "file"
-    ) {
+    if (!audioElement || !currentTrack || currentTrack.submissionType !== "file") {
       return;
     }
-
-    // This error code (4) often corresponds to MEDIA_ERR_SRC_NOT_SUPPORTED,
-    // which can happen for expired URLs.
-    if (audioElement.error && audioElement.error.code === 4) {
-      console.error("Audio playback error:", audioElement.error);
-      toast.info("Link expired. Refreshing song...", { duration: 3000 });
-
-      try {
-        const newUrl = await getPresignedSongUrl({
-          submissionId: currentTrack._id as Id<"submissions">,
-        });
-
-        if (newUrl) {
-          // Update our local state with the new URL to break the loop
-          setRefreshedUrls(prev => ({...prev, [currentTrack._id]: newUrl}));
-
-          // The playback useEffect will now pick up this new URL and retry
-          // We don't need to manually set src here, let the effect handle it
-
-        } else {
-          toast.error("Could not refresh the song's link. Skipping to next.");
-          actions.playNext(); // Skip to next song if refresh fails
-        }
-      } catch (error) {
-        console.error("Failed to execute getPresignedSongUrl:", error);
-        toast.error("An error occurred while trying to refresh the song.");
-        actions.setIsPlaying(false);
-      }
+    // Any media error while using an expiring URL should trigger a silent refresh
+    try {
+      await refreshAudioUrl(true);
+    } catch {
+      // Silent
     }
   };
 
@@ -573,6 +681,7 @@ export function MusicPlayer() {
     <>
       <audio
         ref={audioRef}
+        preload="auto"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleTimeUpdate}
         onEnded={handleEnded}
