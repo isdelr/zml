@@ -305,7 +305,19 @@ export const adjustRoundTime = mutation({
   handler: async (ctx, args) => {
     const round = await ctx.db.get(args.roundId);
     if (!round) throw new Error("Round not found");
-    await checkOwnership(ctx, round.leagueId);
+    // Permission: allow league owner, league managers, or global admins
+    const league = await ctx.db.get(round.leagueId);
+    if (!league) throw new Error("League not found");
+
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated.");
+    const user = await ctx.db.get(userId);
+    const isManager = (league.managers && league.managers.includes(userId)) || false;
+    const isOwner = league.creatorId === userId;
+    const isGlobalAdmin = !!user?.isGlobalAdmin;
+    if (!(isOwner || isManager || isGlobalAdmin)) {
+      throw new Error("You do not have permission to manage this league.");
+    }
 
     const now = Date.now();
     const timeAdjustment = args.hours * 60 * 60 * 1000;
