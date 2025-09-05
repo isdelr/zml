@@ -738,14 +738,14 @@ export const markAsTrollSubmission = mutation({
 
     // If marking as troll submission for the first time
     if (args.isTrollSubmission && !submission.isTrollSubmission) {
-      // Update submission
+      // Update submission flag
       await ctx.db.patch(args.submissionId, {
         isTrollSubmission: true,
         markedAsTrollBy: userId,
         markedAsTrollAt: Date.now(),
       });
 
-      // Get or create membership
+      // Get membership
       const membership = await ctx.db
         .query("memberships")
         .withIndex("by_league_and_user", (q) =>
@@ -754,23 +754,21 @@ export const markAsTrollSubmission = mutation({
         .unique();
 
       if (membership) {
-        const currentCount = membership.trollSubmissionCount ?? 0;
-        const newCount = currentCount + 1;
+        // Recompute the current number of troll submissions for this user in this league
+        const userLeagueSubs = await ctx.db
+          .query("submissions")
+          .withIndex("by_user_and_league", (q) =>
+            q.eq("userId", submission.userId).eq("leagueId", submission.leagueId)
+          )
+          .collect();
+        const trollCount = userLeagueSubs.filter((s) => s.isTrollSubmission).length;
+        const isBannedNow = trollCount >= 2;
 
-        // Check if this is their second troll submission
-        if (newCount >= 2) {
-          // Permanently ban the user
-          await ctx.db.patch(membership._id, {
-            trollSubmissionCount: newCount,
-            isBanned: true,
-            bannedAt: Date.now(),
-          });
-        } else {
-          // Just increment the count
-          await ctx.db.patch(membership._id, {
-            trollSubmissionCount: newCount,
-          });
-        }
+        await ctx.db.patch(membership._id, {
+          trollSubmissionCount: trollCount,
+          isBanned: isBannedNow,
+          bannedAt: isBannedNow ? Date.now() : undefined,
+        });
 
         // Apply -10 penalty to round results if it exists
         const roundResult = await ctx.db
@@ -806,6 +804,29 @@ export const markAsTrollSubmission = mutation({
         await ctx.db.patch(roundResult._id, {
           points: roundResult.points + 10,
           penaltyApplied: false,
+        });
+      }
+
+      // Recompute troll count and update membership (ensures toggling doesn't inflate counts)
+      const membership = await ctx.db
+        .query("memberships")
+        .withIndex("by_league_and_user", (q) =>
+          q.eq("leagueId", submission.leagueId).eq("userId", submission.userId)
+        )
+        .unique();
+      if (membership) {
+        const userLeagueSubs = await ctx.db
+          .query("submissions")
+          .withIndex("by_user_and_league", (q) =>
+            q.eq("userId", submission.userId).eq("leagueId", submission.leagueId)
+          )
+          .collect();
+        const trollCount = userLeagueSubs.filter((s) => s.isTrollSubmission).length;
+        const isBannedNow = trollCount >= 2;
+        await ctx.db.patch(membership._id, {
+          trollSubmissionCount: trollCount,
+          isBanned: isBannedNow,
+          bannedAt: isBannedNow ? (membership.bannedAt ?? Date.now()) : undefined,
         });
       }
 

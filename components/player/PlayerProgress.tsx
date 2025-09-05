@@ -63,8 +63,13 @@ export function PlayerProgress({
   // Timer logic for external link submissions
   const isLinkSubmission = isExternalLink && ( currentTrack?.submissionType === "youtube");
   const linkDuration = currentTrack?.duration || duration || 180; // fallback to 3 minutes
-  const listenPercentage = leagueData?.listenPercentage || 80;
-  const requiredTimerProgress = Math.min(linkDuration * (listenPercentage / 100), linkDuration);
+  // Align client-side requirement with server logic (convex/listenProgress.ts)
+  const percentageRaw = leagueData?.listenPercentage;
+  const percentage = percentageRaw !== undefined ? Math.max(0, Math.min(100, percentageRaw)) : 100;
+  const timeLimitSeconds = leagueData?.listenTimeLimitMinutes !== undefined
+    ? Math.max(0, leagueData.listenTimeLimitMinutes * 60)
+    : Infinity;
+  const requiredTimerProgress = Math.min(linkDuration * (percentage / 100), timeLimitSeconds);
   const isTimerCompleted = timerProgress >= requiredTimerProgress || listenProgress?.isCompleted;
 
   // Timer countdown effect

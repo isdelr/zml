@@ -4,11 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Remove Spotify submission support and update logic/UI for YouTube-only handling">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add audio URL and album art refresh handling for expiring links&#10;&#10;- Introduced automatic preemptive refresh for expiring audio URLs and album art.&#10;- Preserves playback state and ensures seamless user experience during refresh.&#10;- Added new helper utilities to parse and schedule URL expiry-based refreshes.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/MusicPlayer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/MusicPlayer.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/player/PlayerTrackInfo.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerTrackInfo.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/convex/submissions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/submissions.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -120,7 +118,7 @@
       <workItem from="1756824323679" duration="2794000" />
       <workItem from="1756990630917" duration="12484000" />
       <workItem from="1757038650136" duration="1583000" />
-      <workItem from="1757075088867" duration="4448000" />
+      <workItem from="1757075088867" duration="6597000" />
     </task>
     <task id="LOCAL-00001" summary="Submission overhaul">
       <option name="closed" value="true" />
@@ -474,7 +472,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757076542844</updated>
     </task>
-    <option name="localTasksCounter" value="45" />
+    <task id="LOCAL-00045" summary="Add audio URL and album art refresh handling for expiring links&#10;&#10;- Introduced automatic preemptive refresh for expiring audio URLs and album art.&#10;- Preserves playback state and ensures seamless user experience during refresh.&#10;- Added new helper utilities to parse and schedule URL expiry-based refreshes.">
+      <option name="closed" value="true" />
+      <created>1757080711502</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1757080711502</updated>
+    </task>
+    <option name="localTasksCounter" value="46" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -492,7 +498,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="song download overhaul" />
     <MESSAGE value="middleware allow" />
     <MESSAGE value="rename api route" />
     <MESSAGE value="dockerfile fixes" />
@@ -517,6 +522,7 @@
     <MESSAGE value="fixed youtube timer" />
     <MESSAGE value="skip troll submission check" />
     <MESSAGE value="Remove Spotify submission support and update logic/UI for YouTube-only handling" />
-    <option name="LAST_COMMIT_MESSAGE" value="" />
+    <MESSAGE value="Add audio URL and album art refresh handling for expiring links&#10;&#10;- Introduced automatic preemptive refresh for expiring audio URLs and album art.&#10;- Preserves playback state and ensures seamless user experience during refresh.&#10;- Added new helper utilities to parse and schedule URL expiry-based refreshes." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add audio URL and album art refresh handling for expiring links&#10;&#10;- Introduced automatic preemptive refresh for expiring audio URLs and album art.&#10;- Preserves playback state and ensures seamless user experience during refresh.&#10;- Added new helper utilities to parse and schedule URL expiry-based refreshes." />
   </component>
 </project>
