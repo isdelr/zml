@@ -175,7 +175,7 @@ export function PlayerProgress({
                       />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Listen Requirement: {formatTime(requiredTimerProgress)} ({listenPercentage}%)</p>
+4                      <p>Listen Requirement: {formatTime(requiredTimerProgress)} ({percentage}%)</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="adjust player progress to use safe display constant" />
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Update `.idea/workspace.xml`: adjust player progress comment and reformat properties component">
+      <change beforePath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -20,6 +22,7 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RESET_MODE" value="HARD" />
+    <option name="UPDATE_TYPE" value="REBASE" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
   &quot;lastFilter&quot;: {
@@ -53,7 +56,7 @@
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "disable.download.node.interpreter.editor.notification": "true",
-    "git-widget-placeholder": "Rebasing master",
+    "git-widget-placeholder": "master",
     "ignore.virus.scanning.warn.message": "true",
     "javascript.nodejs.core.library.configured.version": "24.4.1",
     "javascript.nodejs.core.library.typings.version": "24.3.0",
@@ -484,7 +487,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757086871727</updated>
     </task>
-    <option name="localTasksCounter" value="47" />
+    <task id="LOCAL-00047" summary="Update `.idea/workspace.xml`: adjust player progress comment and reformat properties component">
+      <option name="closed" value="true" />
+      <created>1757171540113</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1757171540113</updated>
+    </task>
+    <option name="localTasksCounter" value="48" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -502,7 +513,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="dockerfile fixes" />
     <MESSAGE value="update deps" />
     <MESSAGE value="generated api" />
     <MESSAGE value="middleware allows" />
@@ -527,6 +537,7 @@
     <MESSAGE value="Add audio URL and album art refresh handling for expiring links&#10;&#10;- Introduced automatic preemptive refresh for expiring audio URLs and album art.&#10;- Preserves playback state and ensures seamless user experience during refresh.&#10;- Added new helper utilities to parse and schedule URL expiry-based refreshes." />
     <MESSAGE value="Improve submission logic for troll handling and timer progress alignment&#10;&#10;- Enhanced troll submission management by recomputing troll counts upon marking/unmarking to prevent inflated counts.&#10;- Updated membership banning logic to ensure correct troll count tracking and consistent rules for bans.&#10;- Refined" />
     <MESSAGE value="Improve submission logic for troll handling and timer progress alignment&#10;&#10;- Enhanced troll submission management by recomputing troll counts upon marking/unmarking to prevent inflated counts.&#10;- Updated membership banning logic to ensure correct troll count tracking and consistent rules for bans.&#10;- Refined player timer progress calculation to align with server-side requirements, adding support for both percentage and time limits." />
-    <option name="LAST_COMMIT_MESSAGE" value="Improve submission logic for troll handling and timer progress alignment&#10;&#10;- Enhanced troll submission management by recomputing troll counts upon marking/unmarking to prevent inflated counts.&#10;- Updated membership banning logic to ensure correct troll count tracking and consistent rules for bans.&#10;- Refined player timer progress calculation to align with server-side requirements, adding support for both percentage and time limits." />
+    <MESSAGE value="Update `.idea/workspace.xml`: adjust player progress comment and reformat properties component" />
+    <option name="LAST_COMMIT_MESSAGE" value="Update `.idea/workspace.xml`: adjust player progress comment and reformat properties component" />
   </component>
 </project>
