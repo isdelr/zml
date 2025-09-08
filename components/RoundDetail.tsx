@@ -694,7 +694,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
       </div>
 
       {/* YouTube playlist info & countdown */}
-      {youtubeVideoIds.length > 0 && (
+      {round.status !== "submissions" && youtubeVideoIds.length > 0 && (
         <Alert className="mt-4">
           <FaYoutube className="h-4 w-4" />
           <AlertTitle>Round YouTube playlist</AlertTitle>
