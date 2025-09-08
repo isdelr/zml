@@ -58,11 +58,7 @@ export const updateProgress = mutation({
     if (!Number.isFinite(args.progressSeconds)) return;
 
     const submission = await ctx.db.get(args.submissionId);
-    if (
-      !submission ||
-      submission.duration === undefined ||
-      submission.duration === null
-    ) {
+    if (!submission) {
       return;
     }
 
@@ -70,6 +66,23 @@ export const updateProgress = mutation({
     if (!["file", "youtube"].includes(submission.submissionType)) {
       return;
     }
+
+    // Derive a reliable duration value for server-side calculations.
+    // - Use actual submission.duration when available (clamped to integer seconds)
+    // - For YouTube links lacking duration, fallback to 180s
+    const isYoutube = submission.submissionType === "youtube";
+    const hasFiniteDuration =
+      submission.duration !== undefined &&
+      submission.duration !== null &&
+      Number.isFinite(submission.duration as any);
+    const durationSec: number | null = hasFiniteDuration
+      ? Math.max(0, Math.floor(submission.duration as number))
+      : isYoutube
+      ? 180
+      : null;
+
+    // If we still don't have a usable duration (e.g., malformed file submission), skip.
+    if (durationSec === null) return;
 
     const league = await ctx.db.get(submission.leagueId);
     if (!league || !league.enforceListenPercentage) {
@@ -88,14 +101,14 @@ export const updateProgress = mutation({
 
     const requiredPercentage = Math.max(0, Math.min(100, listenPercentage)) / 100;
     const requiredListenTime = Math.min(
-      submission.duration * requiredPercentage,
+      durationSec * requiredPercentage,
       timeLimitSeconds,
     );
 
-    // Normalize and clamp reported progress to [0, duration] and to integer seconds
+    // Normalize and clamp reported progress to [0, durationSec] and to integer seconds
     const reported = Math.max(
       0,
-      Math.min(submission.duration, Math.floor(args.progressSeconds)),
+      Math.min(durationSec, Math.floor(args.progressSeconds)),
     );
 
     const existing = await ctx.db
@@ -125,7 +138,7 @@ export const updateProgress = mutation({
     // - Also consider up to 10% of track length for very short tracks.
     const allowedJumpSec = Math.min(
       60,
-      Math.max(15, Math.floor(submission.duration * 0.1)),
+      Math.max(15, Math.floor(durationSec * 0.1)),
     );
 
     if (existing) {
@@ -149,8 +162,7 @@ export const updateProgress = mutation({
       // First record: accept as-is (already clamped), but still apply anti-tamper
       // for extremely large initial reports (e.g., direct jump near the end).
       // For first update, allow up to allowedJumpSec; otherwise, start at reported if small.
-      const initialProgress =
-        reported > allowedJumpSec ? 0 : reported;
+      const initialProgress = reported > allowedJumpSec ? 0 : reported;
 
       await ctx.db.insert("listenProgress", {
         userId,

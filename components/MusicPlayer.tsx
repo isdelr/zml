@@ -215,6 +215,16 @@ export function MusicPlayer() {
   const isExternalLink =
     currentTrack?.submissionType === "youtube";
 
+  // Auto-start/stop the external (YouTube) timer based on play state and track changes
+  useEffect(() => {
+    if (isExternalLink) {
+      setIsTimerRunning(isPlaying);
+    } else {
+      if (isTimerRunning) setIsTimerRunning(false);
+    }
+    // Reset when track changes as well
+  }, [isExternalLink, isPlaying, currentTrack?._id]);
+
   useEffect(() => {
     const intervalId = setInterval(() => {
       if (isPlaying && currentTrack && audioRef.current && !isExternalLink) {

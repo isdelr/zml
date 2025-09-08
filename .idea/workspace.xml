@@ -5,7 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Update `.idea/workspace.xml`: adjust player progress comment and reformat properties component">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/MusicPlayer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/MusicPlayer.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/listenProgress.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/listenProgress.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -71,7 +74,7 @@
     "prettierjs.PrettierConfiguration.Package": "C:\\Users\\isaia\\Projects\\zml\\node_modules\\prettier",
     "settings.editor.selected.configurable": "junie.application.models",
     "to.speed.mode.migration.done": "true",
-    "ts.external.directory.path": "/Users/rosvelt/Documents/projects/zml/node_modules/typescript/lib",
+    "ts.external.directory.path": "C:\\Users\\isaia\\Projects\\zml\\node_modules\\typescript\\lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>

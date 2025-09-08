@@ -113,10 +113,10 @@ export function PlayerProgress({
 
   // Update timer progress when listenProgress prop changes
   useEffect(() => {
-    if (listenProgress?.progressSeconds !== undefined) {
-      setTimerProgress(listenProgress.progressSeconds);
-    }
-  }, [listenProgress?.progressSeconds]);
+    const initial = listenProgress?.progressSeconds ?? 0;
+    setTimerProgress(initial);
+    lastUpdateRef.current = initial;
+  }, [currentTrack?._id, listenProgress?.progressSeconds]);
 
   const showListenRequirement = leagueData?.enforceListenPercentage && currentTrack?.submissionType === 'file' && duration > 0;
 
@@ -175,7 +175,7 @@ export function PlayerProgress({
                       />
                     </TooltipTrigger>
                     <TooltipContent>
-4                      <p>Listen Requirement: {formatTime(requiredTimerProgress)} ({percentage}%)</p>
+                      <p>Listen Requirement: {formatTime(requiredTimerProgress)} ({percentage}%)</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
