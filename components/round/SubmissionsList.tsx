@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useRef, Fragment } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
@@ -29,6 +30,7 @@ interface SubmissionsListProps {
   activeCommentsSubmissionId: Id<"submissions"> | null;
   onToggleComments: (submissionId: Id<"submissions"> | null) => void;
   listenersBySubmission: Record<string, unknown[]> | undefined;
+  onReachYouTube?: () => void;
 }
 
 export function SubmissionsList({
@@ -48,6 +50,7 @@ export function SubmissionsList({
                                   activeCommentsSubmissionId,
                                   onToggleComments,
                                   listenersBySubmission,
+                                  onReachYouTube,
                                 }: SubmissionsListProps) {
   const toggleBookmark = useMutation(
     api.bookmarks.toggleBookmark,
@@ -116,6 +119,33 @@ export function SubmissionsList({
   const hasVoted = userVoteStatus?.hasVoted ?? false;
   const canVote = userVoteStatus?.canVote ?? false;
 
+  // Determine the first YouTube submission index for observer
+  const firstYouTubeIndex = useMemo(() => {
+    if (!submissions || submissions.length === 0) return -1;
+    return submissions.findIndex(
+      (s) => s.submissionType === "youtube" && !!s.songLink,
+    );
+  }, [submissions]);
+
+  const ytSentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!onReachYouTube) return;
+    if (firstYouTubeIndex === -1) return;
+    const el = ytSentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          try { onReachYouTube(); } catch {}
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "0px 0px -60% 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onReachYouTube, firstYouTubeIndex]);
+
   const handleBookmark = async (submissionId: Id<"submissions">) => {
     try {
       await toggleBookmark({ submissionId });
@@ -159,28 +189,32 @@ export function SubmissionsList({
         const currentVoteValue = userVoteOnThisSong ? userVoteOnThisSong.vote : 0;
 
         return (
-          <SubmissionItem
-            key={song._id}
-            song={song}
-            index={index}
-            isThisSongPlaying={isThisSongPlaying}
-            isThisSongCurrent={isThisSongCurrent}
-            isCommentsVisible={isCommentsVisible}
-            userIsSubmitter={userIsSubmitter}
-            currentVoteValue={currentVoteValue}
-            roundStatus={roundStatus}
-            hasVoted={hasVoted}
-            league={league}
-            canVote={canVote}
-            onToggleComments={() => onToggleComments(isCommentsVisible ? null : song._id as Id<"submissions">)}
-            onVoteClick={(delta) => onVoteClick(song._id, delta)}
-            onBookmark={() => handleBookmark(song._id)}
-            onPlaySong={() => onPlaySong(song, index)}
-            listenProgress={listenProgressMap[song._id]}
-            isReadyToVoteOverall={isReadyToVoteOverall}
-            listeners={listeners ?? []}
-            currentUser={currentUser}
-          />
+          <Fragment key={song._id}>
+            {index === firstYouTubeIndex && (
+              <div ref={ytSentinelRef} aria-hidden className="h-1" />
+            )}
+            <SubmissionItem
+              song={song}
+              index={index}
+              isThisSongPlaying={isThisSongPlaying}
+              isThisSongCurrent={isThisSongCurrent}
+              isCommentsVisible={isCommentsVisible}
+              userIsSubmitter={userIsSubmitter}
+              currentVoteValue={currentVoteValue}
+              roundStatus={roundStatus}
+              hasVoted={hasVoted}
+              league={league}
+              canVote={canVote}
+              onToggleComments={() => onToggleComments(isCommentsVisible ? null : song._id as Id<"submissions">)}
+              onVoteClick={(delta) => onVoteClick(song._id, delta)}
+              onBookmark={() => handleBookmark(song._id)}
+              onPlaySong={() => onPlaySong(song, index)}
+              listenProgress={listenProgressMap[song._id]}
+              isReadyToVoteOverall={isReadyToVoteOverall}
+              listeners={listeners ?? []}
+              currentUser={currentUser}
+            />
+          </Fragment>
         );
       })}
     </div>

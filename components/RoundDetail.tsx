@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { SubmissionCommentsPanel } from "./round/SubmissionCommentsPanel";
 import { Ban, Headphones } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FaYoutube } from "react-icons/fa";
 // New imports for the confirmation dialog
 import {
   AlertDialog,
@@ -378,6 +380,21 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
   };
 
   const handlePlaySong = (song: Song, index: number) => {
+    // For YouTube submissions, open playlist with that song first
+    if (song.submissionType === "youtube") {
+      if (youtubeVideoIds.length > 0) {
+        const idx = youtubeData.findIndex((d) => d.submissionId === song._id);
+        const ordered = idx >= 0
+          ? [...youtubeVideoIds.slice(idx), ...youtubeVideoIds.slice(0, idx)]
+          : youtubeVideoIds;
+        openYouTubePlaylist(ordered);
+        startPlaylistTimer(totalYouTubeDurationSec);
+        try { sessionStorage.setItem(sessionOpenedKey, "1"); } catch {}
+      }
+      return;
+    }
+
+    // Default internal player flow for file submissions
     const isThisSongCurrent =
       currentTrackIndex !== null && queue[currentTrackIndex]?._id === song._id;
     if (isThisSongCurrent) {
@@ -411,6 +428,141 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
     () => submissions?.filter((s) => s.userId === currentUser?._id),
     [submissions, currentUser],
   );
+
+  // Helpers to build a temporary YouTube playlist from current round YouTube submissions
+  const getYouTubeVideoId = (url: string): string | null => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return match && match[2].length === 11 ? match[2] : null;
+  };
+
+  // Build ordered list of youtube submissions with ids and durations
+  const youtubeData = useMemo(() => {
+    if (!sortedSubmissions) return [] as { submissionId: Id<"submissions">; videoId: string; duration: number }[];
+    const seen = new Set<string>();
+    const list: { submissionId: Id<"submissions">; videoId: string; duration: number }[] = [];
+    for (const s of sortedSubmissions) {
+      if (s.submissionType === "youtube" && s.songLink) {
+        const vid = getYouTubeVideoId(s.songLink);
+        if (!vid || seen.has(vid)) continue;
+        seen.add(vid);
+        const dur = Number.isFinite(s.duration) && (s.duration ?? 0) > 0 ? Math.floor(s.duration as number) : 180;
+        list.push({ submissionId: s._id, videoId: vid, duration: dur });
+      }
+    }
+    return list;
+  }, [sortedSubmissions]);
+
+  const youtubeVideoIds = useMemo(() => youtubeData.map(d => d.videoId), [youtubeData]);
+  const youtubeSubmissionIds = useMemo(() => youtubeData.map(d => d.submissionId), [youtubeData]);
+  const totalYouTubeDurationSec = useMemo(() => youtubeData.reduce((sum, d) => sum + d.duration, 0), [youtubeData]);
+
+  // Playlist open + consolidated timer management (per-round session)
+  const sessionKey = useMemo(() => `ytPlaylist:${round._id}`, [round._id]);
+  const sessionOpenedKey = `${sessionKey}:opened`;
+  const sessionEndAtKey = `${sessionKey}:endAt`;
+  const sessionDurationKey = `${sessionKey}:duration`;
+
+  const [ytTimerRemainingSec, setYtTimerRemainingSec] = useState<number>(0);
+  const [ytTimerRunning, setYtTimerRunning] = useState<boolean>(false);
+  const timerRef = useRef<number | null>(null);
+
+  const clearTimer = () => {
+    if (timerRef.current !== null) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const markCompletedBatch = useMutation(api.listenProgress.markCompletedBatch);
+
+  const completeYouTubeListening = async () => {
+    clearTimer();
+    setYtTimerRunning(false);
+    setYtTimerRemainingSec(0);
+    try {
+      if (youtubeSubmissionIds.length > 0) {
+        await markCompletedBatch({ roundId: round._id, submissionIds: youtubeSubmissionIds });
+        // Optimistic local flag so UI reflects completion immediately
+        youtubeSubmissionIds.forEach((id) => playerActions.setListenProgress(id as unknown as string, true));
+      }
+    } catch (e) {
+      console.error("Failed to mark playlist listening complete", e);
+    } finally {
+      try {
+        sessionStorage.removeItem(sessionEndAtKey);
+        sessionStorage.removeItem(sessionDurationKey);
+      } catch {}
+    }
+  };
+
+  const startPlaylistTimer = (totalSec: number) => {
+    if (!totalSec || totalSec <= 0) return;
+    const endAt = Date.now() + totalSec * 1000;
+    try {
+      sessionStorage.setItem(sessionEndAtKey, String(endAt));
+      sessionStorage.setItem(sessionDurationKey, String(totalSec));
+    } catch {}
+
+    setYtTimerRunning(true);
+    setYtTimerRemainingSec(totalSec);
+    clearTimer();
+    timerRef.current = window.setInterval(() => {
+      const msLeft = (Number(sessionStorage.getItem(sessionEndAtKey)) || endAt) - Date.now();
+      const secLeft = Math.max(0, Math.ceil(msLeft / 1000));
+      setYtTimerRemainingSec(secLeft);
+      if (secLeft <= 0) {
+        completeYouTubeListening();
+      }
+    }, 1000);
+  };
+
+  // Resume timer if present in sessionStorage
+  useEffect(() => {
+    try {
+      const endAtStr = sessionStorage.getItem(sessionEndAtKey);
+      const durationStr = sessionStorage.getItem(sessionDurationKey);
+      if (endAtStr && durationStr) {
+        const endAt = Number(endAtStr);
+        const remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+        if (remaining > 0) {
+          setYtTimerRunning(true);
+          setYtTimerRemainingSec(remaining);
+          clearTimer();
+          timerRef.current = window.setInterval(() => {
+            const left = Math.max(0, Math.ceil((Number(sessionStorage.getItem(sessionEndAtKey)) - Date.now()) / 1000));
+            setYtTimerRemainingSec(left);
+            if (left <= 0) completeYouTubeListening();
+          }, 1000);
+        } else {
+          // Expired; ensure cleanup
+          sessionStorage.removeItem(sessionEndAtKey);
+          sessionStorage.removeItem(sessionDurationKey);
+        }
+      }
+    } catch {}
+    return () => clearTimer();
+  }, [sessionEndAtKey, sessionDurationKey, completeYouTubeListening]);
+
+  const openYouTubePlaylist = (orderedIds: string[]) => {
+    if (orderedIds.length === 0) return;
+    const ids = orderedIds.slice(0, 50);
+    const url = `https://www.youtube.com/watch_videos?video_ids=${ids.join(",")}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const ensureAutoOpenOnce = () => {
+    if (youtubeVideoIds.length === 0) return;
+    if (round.status !== "voting") return; // limit auto behavior to voting phase
+    try {
+      if (sessionStorage.getItem(sessionOpenedKey) === "1") return;
+      sessionStorage.setItem(sessionOpenedKey, "1");
+    } catch {}
+    openYouTubePlaylist(youtubeVideoIds);
+    // Start timer for ALL youtube songs (not only first 50)
+    startPlaylistTimer(totalYouTubeDurationSec);
+  };
+
   const submittedUsers = useMemo(() => {
     if (!submissions) return [] as { name: string | null; image: string | null }[];
     const required = (round).submissionsPerUser ?? 1;
@@ -440,6 +592,16 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
       parts.push(`${seconds} sec`);
     }
     return parts.join(" ");
+  };
+
+  const formatDurationCompact = (totalSeconds: number) => {
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    if (h > 0) return `${h}:${pad(m)}:${pad(sec)}`;
+    return `${m}:${pad(sec)}`;
   };
 
   return (
@@ -478,6 +640,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
         downvotesUsed={downvotesUsed}
         totalDuration={formatDuration(totalDurationSeconds)}
       />
+
 
       {round.status === "voting" &&
         league.enforceListenPercentage &&
@@ -530,6 +693,51 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
         )}
       </div>
 
+      {/* YouTube playlist info & countdown */}
+      {youtubeVideoIds.length > 0 && (
+        <Alert className="mt-4">
+          <FaYoutube className="h-4 w-4" />
+          <AlertTitle>Round YouTube playlist</AlertTitle>
+          <AlertDescription>
+            {ytTimerRunning ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span>
+                  Timer running: {youtubeVideoIds.length} video{youtubeVideoIds.length !== 1 ? "s" : ""} —
+                  <strong className="ml-1">{formatDurationCompact(ytTimerRemainingSec)}</strong> left
+                </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => openYouTubePlaylist(youtubeVideoIds)}
+                  title="Open playlist in a new tab"
+                >
+                  <FaYoutube className="mr-2" /> Open playlist
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <span>
+                  {youtubeVideoIds.length} YouTube track{youtubeVideoIds.length !== 1 ? "s" : ""}, total {formatDuration(totalYouTubeDurationSec)}.
+                  The playlist will open automatically when you reach the YouTube section.
+                </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    openYouTubePlaylist(youtubeVideoIds);
+                    startPlaylistTimer(totalYouTubeDurationSec);
+                    try { sessionStorage.setItem(sessionOpenedKey, "1"); } catch {}
+                  }}
+                  title="Open now if your browser blocks pop-ups"
+                >
+                  <FaYoutube className="mr-2" /> Open now
+                </Button>
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {(round.status === "voting" || round.status === "finished") && (
         <>
           {round.status === "voting" && voters && voters.length > 0 && (
@@ -561,6 +769,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
             activeCommentsSubmissionId={activeCommentsSubmissionId}
             onToggleComments={setActiveCommentsSubmissionId}
             listenersBySubmission={listenersBySubmission}
+            onReachYouTube={ensureAutoOpenOnce}
           />
           {round.status === "finished" && (
             <div ref={summaryTriggerRef}>

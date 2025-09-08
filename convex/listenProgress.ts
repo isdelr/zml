@@ -173,3 +173,88 @@ export const updateProgress = mutation({
     }
   },
 });
+
+// Bulk-complete listening progress for a set of submissions in a round (YouTube playlist timer)
+export const markCompletedBatch = mutation({
+  args: {
+    roundId: v.id("rounds"),
+    submissionIds: v.array(v.id("submissions")),
+  },
+  handler: async (ctx, args): Promise<{ updated: number }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return { updated: 0 };
+
+    const round = await ctx.db.get(args.roundId);
+    if (!round) return { updated: 0 };
+
+    // Get league for rules
+    const league = await ctx.db.get(round.leagueId);
+    if (!league || !league.enforceListenPercentage) {
+      // If listening isn't enforced, nothing to do
+      return { updated: 0 };
+    }
+
+    const listenPercentage =
+      league.listenPercentage !== undefined ? league.listenPercentage : 100;
+    const timeLimitSeconds =
+      league.listenTimeLimitMinutes !== undefined
+        ? Math.max(0, league.listenTimeLimitMinutes * 60)
+        : Infinity;
+    const requiredPercentage = Math.max(0, Math.min(100, listenPercentage)) / 100;
+
+    let updated = 0;
+
+    for (const subId of args.submissionIds) {
+      const submission = await ctx.db.get(subId);
+      if (!submission) continue;
+      // Must belong to the same round
+      if (submission.roundId !== args.roundId) continue;
+      // Only consider YouTube submissions
+      if (submission.submissionType !== "youtube") continue;
+      // Optionally skip user's own submission (not required, but consistent with gating)
+      if (submission.userId === userId) continue;
+
+      // Compute duration with YouTube fallback 180s
+      const hasFiniteDuration =
+        submission.duration !== undefined &&
+        submission.duration !== null &&
+        Number.isFinite(submission.duration as any);
+      const durationSec = hasFiniteDuration
+        ? Math.max(0, Math.floor(submission.duration as number))
+        : 180;
+
+      const requiredListenTime = Math.min(
+        durationSec * requiredPercentage,
+        timeLimitSeconds,
+      );
+
+      const existing = await ctx.db
+        .query("listenProgress")
+        .withIndex("by_user_and_submission", (q) =>
+          q.eq("userId", userId).eq("submissionId", subId),
+        )
+        .first();
+
+      if (existing) {
+        const newProgress = Math.max(existing.progressSeconds, Math.floor(requiredListenTime));
+        if (!existing.isCompleted || existing.progressSeconds < newProgress) {
+          await ctx.db.patch(existing._id, {
+            progressSeconds: newProgress,
+            isCompleted: true,
+          });
+          updated++;
+        }
+      } else {
+        await ctx.db.insert("listenProgress", {
+          userId,
+          submissionId: subId,
+          progressSeconds: Math.floor(requiredListenTime),
+          isCompleted: true,
+        });
+        updated++;
+      }
+    }
+
+    return { updated };
+  },
+});
