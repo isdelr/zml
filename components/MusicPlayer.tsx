@@ -223,7 +223,7 @@ export function MusicPlayer() {
       if (isTimerRunning) setIsTimerRunning(false);
     }
     // Reset when track changes as well
-  }, [isExternalLink, isPlaying, currentTrack?._id]);
+  }, [isExternalLink, isPlaying, currentTrack?._id, isTimerRunning]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
