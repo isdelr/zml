@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as adminSeed from "../adminSeed.js";
 import type * as aggregates from "../aggregates.js";
 import type * as auth from "../auth.js";
 import type * as bookmarks from "../bookmarks.js";
@@ -43,6 +44,7 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  adminSeed: typeof adminSeed;
   aggregates: typeof aggregates;
   auth: typeof auth;
   bookmarks: typeof bookmarks;

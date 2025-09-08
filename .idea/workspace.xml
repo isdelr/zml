@@ -4,9 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add YouTube playlist handling and batch listening progress update&#10;&#10;- Introduced server-side mutation for batch completion of listening progress based on YouTube playlist timers.&#10;- Enhanced front-end to auto-detect and open YouTube playlists during voting, including timer integration for duration tracking.&#10;- Updated `SubmissionsList` and `RoundDetail` components to support YouTube-related logic.">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add admin test data seeding tools and UI&#10;&#10;- Implemented comprehensive data seeding logic for leagues, rounds, submissions, and votes with namespace support.&#10;- Added support for resetting seeded test data by namespace.&#10;- Created an admin-facing UI to trigger seeding and reset operations, with configurable options.&#10;- Updated `api.d.ts` to include new admin seed functions.">
+      <change afterPath="$PROJECT_DIR$/app/admin/seed/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/components/AdminSeedPage.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/convex/adminSeed.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/components/RoundDetail.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/RoundDetail.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/_generated/api.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/_generated/api.d.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -48,34 +52,34 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "JavaScript Debug.start_push.executor": "Debug",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "disable.download.node.interpreter.editor.notification": "true",
-    "git-widget-placeholder": "master",
-    "ignore.virus.scanning.warn.message": "true",
-    "javascript.nodejs.core.library.configured.version": "24.4.1",
-    "javascript.nodejs.core.library.typings.version": "24.3.0",
-    "junie.onboarding.icon.badge.shown": "true",
-    "last_opened_file_path": "/Users/rosvelt/.local/share/nvm/v24.6.0/bin/node",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_interpreter_path": "C:/Users/isaia/AppData/Local/mise/shims/node.cmd",
-    "nodejs_package_manager_path": "npm",
-    "prettierjs.PrettierConfiguration.Package": "C:\\Users\\isaia\\Projects\\zml\\node_modules\\prettier",
-    "settings.editor.selected.configurable": "junie.application.models",
-    "to.speed.mode.migration.done": "true",
-    "ts.external.directory.path": "C:\\Users\\isaia\\Projects\\zml\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;JavaScript Debug.start_push.executor&quot;: &quot;Debug&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;disable.download.node.interpreter.editor.notification&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;24.4.1&quot;,
+    &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;24.3.0&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/rosvelt/.local/share/nvm/v24.6.0/bin/node&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_interpreter_path&quot;: &quot;C:/Users/isaia/AppData/Local/mise/shims/node.cmd&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;C:\\Users\\isaia\\Projects\\zml\\node_modules\\prettier&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;junie.application.models&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\isaia\\Projects\\zml\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="Push.Settings">
     <force-push-targets>
       <force-push-target remote-path="origin" branch="master" />
@@ -94,7 +98,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-e03c56caf84a-JavaScript-WS-252.23892.411" />
+        <option value="bundled-js-predefined-d6986cc7102b-b598e85cdad2-JavaScript-WS-252.25557.126" />
       </set>
     </attachedChunks>
   </component>
@@ -119,14 +123,8 @@
       <workItem from="1756990630917" duration="12484000" />
       <workItem from="1757038650136" duration="1583000" />
       <workItem from="1757075088867" duration="7232000" />
-    </task>
-    <task id="LOCAL-00002" summary="package lock update">
-      <option name="closed" value="true" />
-      <created>1755890694542</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1755890694543</updated>
+      <workItem from="1757344934847" duration="5000" />
+      <workItem from="1757344968881" duration="1712000" />
     </task>
     <task id="LOCAL-00003" summary="added dockerfile">
       <option name="closed" value="true" />
@@ -512,7 +510,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757342657406</updated>
     </task>
-    <option name="localTasksCounter" value="51" />
+    <task id="LOCAL-00051" summary="Restrict YouTube playlist display to post-submission phases in `RoundDetail` component">
+      <option name="closed" value="true" />
+      <created>1757344447474</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1757344447474</updated>
+    </task>
+    <option name="localTasksCounter" value="52" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -530,8 +536,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="middleware revert" />
-    <MESSAGE value="middleware adjustments" />
     <MESSAGE value="league management adjustments" />
     <MESSAGE value="various feature updates" />
     <MESSAGE value="generated convex" />
@@ -555,6 +559,8 @@
     <MESSAGE value="Refine timer progress logic and duration handling&#10;&#10;- Simplify and improve `listenProgress` effect for better initialization and reactivity to track changes.&#10;- Introduce robust server-side duration derivation to handle varying submission types (YouTube fallback, malformed files, etc.).&#10;- Update YouTube timer management to auto-start/stop based on play state and track switches.&#10;- Employ consistent clamping for reported progress across client and server sides." />
     <MESSAGE value="added missing dep" />
     <MESSAGE value="Add YouTube playlist handling and batch listening progress update&#10;&#10;- Introduced server-side mutation for batch completion of listening progress based on YouTube playlist timers.&#10;- Enhanced front-end to auto-detect and open YouTube playlists during voting, including timer integration for duration tracking.&#10;- Updated `SubmissionsList` and `RoundDetail` components to support YouTube-related logic." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add YouTube playlist handling and batch listening progress update&#10;&#10;- Introduced server-side mutation for batch completion of listening progress based on YouTube playlist timers.&#10;- Enhanced front-end to auto-detect and open YouTube playlists during voting, including timer integration for duration tracking.&#10;- Updated `SubmissionsList` and `RoundDetail` components to support YouTube-related logic." />
+    <MESSAGE value="Restrict YouTube playlist display to post-submission phases in `RoundDetail` component" />
+    <MESSAGE value="Add admin test data seeding tools and UI&#10;&#10;- Implemented comprehensive data seeding logic for leagues, rounds, submissions, and votes with namespace support.&#10;- Added support for resetting seeded test data by namespace.&#10;- Created an admin-facing UI to trigger seeding and reset operations, with configurable options.&#10;- Updated `api.d.ts` to include new admin seed functions." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add admin test data seeding tools and UI&#10;&#10;- Implemented comprehensive data seeding logic for leagues, rounds, submissions, and votes with namespace support.&#10;- Added support for resetting seeded test data by namespace.&#10;- Created an admin-facing UI to trigger seeding and reset operations, with configurable options.&#10;- Updated `api.d.ts` to include new admin seed functions." />
   </component>
 </project>

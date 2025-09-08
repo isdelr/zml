@@ -6,7 +6,7 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
 import { dynamicImport } from "@/components/ui/dynamic-import";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { AvatarStack } from "./AvatarStack";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
@@ -467,16 +467,16 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
   const [ytTimerRunning, setYtTimerRunning] = useState<boolean>(false);
   const timerRef = useRef<number | null>(null);
 
-  const clearTimer = () => {
+  const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
       window.clearInterval(timerRef.current);
       timerRef.current = null;
     }
-  };
+  }, []);
 
   const markCompletedBatch = useMutation(api.listenProgress.markCompletedBatch);
 
-  const completeYouTubeListening = async () => {
+  const completeYouTubeListening = useCallback(async () => {
     clearTimer();
     setYtTimerRunning(false);
     setYtTimerRemainingSec(0);
@@ -494,7 +494,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
         sessionStorage.removeItem(sessionDurationKey);
       } catch {}
     }
-  };
+  }, [clearTimer, youtubeSubmissionIds, markCompletedBatch, round._id, playerActions, sessionEndAtKey, sessionDurationKey]);
 
   const startPlaylistTimer = (totalSec: number) => {
     if (!totalSec || totalSec <= 0) return;
