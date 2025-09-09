@@ -460,9 +460,11 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
   const sessionOpenedKey = `${sessionKey}:opened`;
   const sessionEndAtKey = `${sessionKey}:endAt`;
   const sessionDurationKey = `${sessionKey}:duration`;
+  const sessionDoneKey = `${sessionKey}:done`;
 
   const [ytTimerRemainingSec, setYtTimerRemainingSec] = useState<number>(0);
   const [ytTimerRunning, setYtTimerRunning] = useState<boolean>(false);
+  const [ytTimerDone, setYtTimerDone] = useState<boolean>(false);
   const timerRef = useRef<number | null>(null);
 
   const clearTimer = useCallback(() => {
@@ -478,6 +480,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
     clearTimer();
     setYtTimerRunning(false);
     setYtTimerRemainingSec(0);
+    setYtTimerDone(true);
     try {
       if (youtubeSubmissionIds.length > 0) {
         await markCompletedBatch({ roundId: round._id, submissionIds: youtubeSubmissionIds });
@@ -490,12 +493,23 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
       try {
         sessionStorage.removeItem(sessionEndAtKey);
         sessionStorage.removeItem(sessionDurationKey);
+        localStorage.setItem(sessionDoneKey, "1");
       } catch {}
     }
-  }, [clearTimer, youtubeSubmissionIds, markCompletedBatch, round._id, playerActions, sessionEndAtKey, sessionDurationKey]);
+  }, [clearTimer, youtubeSubmissionIds, markCompletedBatch, round._id, playerActions, sessionEndAtKey, sessionDurationKey, sessionDoneKey]);
 
   const startPlaylistTimer = (totalSec: number) => {
     if (!totalSec || totalSec <= 0) return;
+
+    // Do not start if playlist already completed previously
+    try {
+      if (localStorage.getItem(sessionDoneKey) === "1") {
+        setYtTimerDone(true);
+        setYtTimerRunning(false);
+        setYtTimerRemainingSec(0);
+        return;
+      }
+    } catch {}
 
     // If a timer is already scheduled in this session and not expired, do not reset it
     try {
@@ -536,32 +550,41 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
     }, 1000);
   };
 
-  // Resume timer if present in sessionStorage
+  // Resume timer if present in sessionStorage or mark as done if completed previously
   useEffect(() => {
     try {
-      const endAtStr = sessionStorage.getItem(sessionEndAtKey);
-      const durationStr = sessionStorage.getItem(sessionDurationKey);
-      if (endAtStr && durationStr) {
-        const endAt = Number(endAtStr);
-        const remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
-        if (remaining > 0) {
-          setYtTimerRunning(true);
-          setYtTimerRemainingSec(remaining);
-          clearTimer();
-          timerRef.current = window.setInterval(() => {
-            const left = Math.max(0, Math.ceil((Number(sessionStorage.getItem(sessionEndAtKey)) - Date.now()) / 1000));
-            setYtTimerRemainingSec(left);
-            if (left <= 0) completeYouTubeListening();
-          }, 1000);
-        } else {
-          // Expired; ensure cleanup
-          sessionStorage.removeItem(sessionEndAtKey);
-          sessionStorage.removeItem(sessionDurationKey);
+      const isDone = localStorage.getItem(sessionDoneKey) === "1";
+      if (isDone) {
+        setYtTimerDone(true);
+        setYtTimerRunning(false);
+        setYtTimerRemainingSec(0);
+        // Ensure any stale session keys are cleared
+        sessionStorage.removeItem(sessionEndAtKey);
+        sessionStorage.removeItem(sessionDurationKey);
+      } else {
+        const endAtStr = sessionStorage.getItem(sessionEndAtKey);
+        const durationStr = sessionStorage.getItem(sessionDurationKey);
+        if (endAtStr && durationStr) {
+          const endAt = Number(endAtStr);
+          const remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+          if (remaining > 0) {
+            setYtTimerRunning(true);
+            setYtTimerRemainingSec(remaining);
+            clearTimer();
+            timerRef.current = window.setInterval(() => {
+              const left = Math.max(0, Math.ceil((Number(sessionStorage.getItem(sessionEndAtKey)) - Date.now()) / 1000));
+              setYtTimerRemainingSec(left);
+              if (left <= 0) completeYouTubeListening();
+            }, 1000);
+          } else if (endAtStr) {
+            // Timer expired while away: complete now
+            completeYouTubeListening();
+          }
         }
       }
     } catch {}
     return () => clearTimer();
-  }, [sessionEndAtKey, sessionDurationKey, completeYouTubeListening, clearTimer]);
+  }, [sessionEndAtKey, sessionDurationKey, sessionDoneKey, completeYouTubeListening, clearTimer]);
 
   const openYouTubePlaylist = (orderedIds: string[]) => {
     if (orderedIds.length === 0) return;
@@ -573,6 +596,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
   const ensureAutoOpenOnce = () => {
     if (youtubeVideoIds.length === 0) return;
     if (round.status !== "voting") return; // limit auto behavior to voting phase
+    if (ytTimerDone) return; // if already completed, don't auto-open or start timer
     try {
       if (sessionStorage.getItem(sessionOpenedKey) === "1") return;
       sessionStorage.setItem(sessionOpenedKey, "1");
@@ -738,12 +762,15 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
             onReachYouTube={ensureAutoOpenOnce}
             ytInfo={{
               running: ytTimerRunning,
+              done: ytTimerDone,
               remainingSec: ytTimerRemainingSec,
               videoCount: youtubeVideoIds.length,
               totalDurationSec: totalYouTubeDurationSec,
               onOpen: () => {
                 openYouTubePlaylist(youtubeVideoIds);
-                startPlaylistTimer(totalYouTubeDurationSec);
+                if (!ytTimerDone) {
+                  startPlaylistTimer(totalYouTubeDurationSec);
+                }
                 try { sessionStorage.setItem(sessionOpenedKey, "1"); } catch {}
               }
             }}

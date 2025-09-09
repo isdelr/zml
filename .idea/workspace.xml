@@ -4,9 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Remove YouTube timer logic and enhance playlist handling&#10;&#10;- Eliminated per-link YouTube timer logic within `PlayerProgress` and `MusicPlayer` components.&#10;- Introduced consolidated YouTube playlist management in `RoundDetail` and `SubmissionsList`.&#10;- Enhanced YouTube playlist information display, including inline progress tracking.">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add support for opening YouTube playlists from the queue&#10;&#10;- Implemented logic to build and open a YouTube playlist URL from queued submissions.&#10;- Enhanced `playNext` behavior to detect and handle YouTube submissions by triggering playlist opening.&#10;- Updated `handleEnded` and `onPlayNext` callbacks to incorporate new playlist logic.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/MusicPlayer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/MusicPlayer.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/RoundDetail.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/RoundDetail.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/round/SubmissionsList.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/SubmissionsList.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -121,15 +122,7 @@
       <workItem from="1757075088867" duration="7232000" />
       <workItem from="1757344934847" duration="5000" />
       <workItem from="1757344968881" duration="3570000" />
-      <workItem from="1757388136266" duration="3423000" />
-    </task>
-    <task id="LOCAL-00006" summary="Docker updates">
-      <option name="closed" value="true" />
-      <created>1755902740285</created>
-      <option name="number" value="00006" />
-      <option name="presentableId" value="LOCAL-00006" />
-      <option name="project" value="LOCAL" />
-      <updated>1755902740285</updated>
+      <workItem from="1757388136266" duration="4716000" />
     </task>
     <task id="LOCAL-00007" summary="deleted unused const">
       <option name="closed" value="true" />
@@ -515,7 +508,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757390814225</updated>
     </task>
-    <option name="localTasksCounter" value="55" />
+    <task id="LOCAL-00055" summary="Add support for opening YouTube playlists from the queue&#10;&#10;- Implemented logic to build and open a YouTube playlist URL from queued submissions.&#10;- Enhanced `playNext` behavior to detect and handle YouTube submissions by triggering playlist opening.&#10;- Updated `handleEnded` and `onPlayNext` callbacks to incorporate new playlist logic.">
+      <option name="closed" value="true" />
+      <created>1757391878697</created>
+      <option name="number" value="00055" />
+      <option name="presentableId" value="LOCAL-00055" />
+      <option name="project" value="LOCAL" />
+      <updated>1757391878697</updated>
+    </task>
+    <option name="localTasksCounter" value="56" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -533,7 +534,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="generated convex" />
     <MESSAGE value="enforcement features" />
     <MESSAGE value="ui and responsive fixes" />
     <MESSAGE value="Improve league management permissions" />
@@ -558,6 +558,7 @@
     <MESSAGE value="Add admin test data seeding tools and UI&#10;&#10;- Implemented comprehensive data seeding logic for leagues, rounds, submissions, and votes with namespace support.&#10;- Added support for resetting seeded test data by namespace.&#10;- Created an admin-facing UI to trigger seeding and reset operations, with configurable options.&#10;- Updated `api.d.ts` to include new admin seed functions." />
     <MESSAGE value="idea files" />
     <MESSAGE value="Remove YouTube timer logic and enhance playlist handling&#10;&#10;- Eliminated per-link YouTube timer logic within `PlayerProgress` and `MusicPlayer` components.&#10;- Introduced consolidated YouTube playlist management in `RoundDetail` and `SubmissionsList`.&#10;- Enhanced YouTube playlist information display, including inline progress tracking." />
-    <option name="LAST_COMMIT_MESSAGE" value="Remove YouTube timer logic and enhance playlist handling&#10;&#10;- Eliminated per-link YouTube timer logic within `PlayerProgress` and `MusicPlayer` components.&#10;- Introduced consolidated YouTube playlist management in `RoundDetail` and `SubmissionsList`.&#10;- Enhanced YouTube playlist information display, including inline progress tracking." />
+    <MESSAGE value="Add support for opening YouTube playlists from the queue&#10;&#10;- Implemented logic to build and open a YouTube playlist URL from queued submissions.&#10;- Enhanced `playNext` behavior to detect and handle YouTube submissions by triggering playlist opening.&#10;- Updated `handleEnded` and `onPlayNext` callbacks to incorporate new playlist logic." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add support for opening YouTube playlists from the queue&#10;&#10;- Implemented logic to build and open a YouTube playlist URL from queued submissions.&#10;- Enhanced `playNext` behavior to detect and handle YouTube submissions by triggering playlist opening.&#10;- Updated `handleEnded` and `onPlayNext` callbacks to incorporate new playlist logic." />
   </component>
 </project>

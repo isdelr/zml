@@ -33,6 +33,7 @@ interface SubmissionsListProps {
   onReachYouTube?: () => void;
   ytInfo?: {
     running: boolean;
+    done?: boolean;
     remainingSec: number;
     videoCount: number;
     totalDurationSec: number;
@@ -234,15 +235,17 @@ export function SubmissionsList({
         );
       })}
 
-      {youtubeItems.length > 0 && (
+      {roundStatus === "voting" && youtubeItems.length > 0 ? (
         <div className="m-2 rounded-lg border border-primary/30 bg-primary/5">
           <div className="flex items-center justify-between gap-2 border-b border-primary/20 px-3 py-2">
             <div className="text-xs text-muted-foreground">
               <span className="font-medium">YouTube playlist</span>
-              {ytInfo?.running ? (
+              {ytInfo?.done ? (
+                <span className="ml-2 text-green-600 dark:text-green-400">Completed ✓</span>
+              ) : ytInfo?.running ? (
                 <span className="ml-2">Timer running: {ytInfo.videoCount} video{ytInfo.videoCount !== 1 ? "s" : ""} — <strong>{formatDurationCompact(ytInfo.remainingSec)}</strong> left</span>
               ) : (
-                <span className="ml-2">{ytInfo?.videoCount ?? youtubeItems.length} YouTube track{(ytInfo?.videoCount ?? youtubeItems.length) !== 1 ? "s" : ""}, total {formatDurationCompact(ytInfo?.totalDurationSec ?? 0)}</span>
+                <span className="ml-2">{ytInfo?.videoCount ?? youtubeItems.length} YouTube track{(ytInfo?.videoCount ?? youtubeItems.length) !== 1 ? "s" : ""}, total {formatDurationCompact(ytInfo?.totalDurationSec ?? 0)} — pending</span>
               )}
             </div>
             {ytInfo && (
@@ -294,6 +297,44 @@ export function SubmissionsList({
             );
           })}
         </div>
+      ) : (
+        // Non-voting phases: render YouTube items as regular list items without the wrapper/header
+        <>
+          {youtubeItems.map((song) => {
+            const isThisSongPlaying = isPlaying && currentTrack?._id === song._id;
+            const isThisSongCurrent = currentTrack?._id === song._id;
+            const userIsSubmitter = song.userId === currentUser?._id;
+            const isCommentsVisible = activeCommentsSubmissionId === song._id;
+            const listeners = listenersBySubmission ? listenersBySubmission[song._id] : [];
+            const userVoteOnThisSong = userVotes.find((v) => v.submissionId === song._id);
+            const currentVoteValue = userVoteOnThisSong ? userVoteOnThisSong.vote : 0;
+            const indexInAll = submissions.indexOf(song);
+            return (
+              <SubmissionItem
+                key={song._id}
+                song={song}
+                index={indexInAll}
+                isThisSongPlaying={isThisSongPlaying}
+                isThisSongCurrent={isThisSongCurrent}
+                isCommentsVisible={isCommentsVisible}
+                userIsSubmitter={userIsSubmitter}
+                currentVoteValue={currentVoteValue}
+                roundStatus={roundStatus}
+                hasVoted={hasVoted}
+                league={league}
+                canVote={canVote}
+                onToggleComments={() => onToggleComments(isCommentsVisible ? null : song._id as Id<"submissions">)}
+                onVoteClick={(delta) => onVoteClick(song._id, delta)}
+                onBookmark={() => handleBookmark(song._id)}
+                onPlaySong={() => onPlaySong(song, indexInAll)}
+                listenProgress={listenProgressMap[song._id]}
+                isReadyToVoteOverall={isReadyToVoteOverall}
+                listeners={listeners ?? []}
+                currentUser={currentUser}
+              />
+            );
+          })}
+        </>
       )}
     </div>
   );
