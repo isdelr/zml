@@ -600,12 +600,81 @@ export function MusicPlayer() {
     }
   };
 
+  // Build a YouTube playlist URL from all YouTube submissions currently in the queue
+  const openYouTubePlaylistFromQueue = (roundId?: string | null) => {
+    const extractYouTubeId = (url?: string | null): string | null => {
+      if (!url) return null;
+      try {
+        const u = new URL(url);
+        const host = u.hostname.replace(/^www\./, "");
+        if (host === "youtube.com" || host === "m.youtube.com" || host === "music.youtube.com" || host === "youtube-nocookie.com") {
+          const v = u.searchParams.get("v");
+          if (v) return v;
+          // Shorts URL format: /shorts/<id>
+          const shorts = u.pathname.match(/\/shorts\/([a-zA-Z0-9_-]{6,})/);
+          if (shorts) return shorts[1];
+        }
+        if (host === "youtu.be") {
+          const id = u.pathname.split("/").filter(Boolean)[0];
+          return id || null;
+        }
+      } catch {}
+      return null;
+    };
+
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const track of queue) {
+      if (track?.submissionType === "youtube") {
+        const id = extractYouTubeId(track.songLink as string | undefined);
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          ids.push(id);
+          if (ids.length >= 50) break; // YouTube watch_videos limit
+        }
+      }
+    }
+    if (ids.length === 0) return;
+    const url = `https://www.youtube.com/watch_videos?video_ids=${ids.join(",")}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    // Mark playlist as opened for this round to avoid repeated auto-open
+    try {
+      if (roundId) {
+        const sessionKey = `ytPlaylist:${roundId}`;
+        const sessionOpenedKey = `${sessionKey}:opened`;
+        sessionStorage.setItem(sessionOpenedKey, "1");
+      }
+    } catch {}
+  };
+
+  // Intercept playNext: if the next track is a YouTube submission, open the playlist instead
+  const handlePlayNext = () => {
+    const idx = currentTrackIndex;
+    if (idx === null || queue.length === 0) {
+      actions.playNext();
+      return;
+    }
+    const isAtEnd = idx === queue.length - 1;
+    const nextIndex = isAtEnd ? (repeatMode === "all" ? 0 : null) : idx + 1;
+    if (nextIndex === null) {
+      // Defer to store behavior (will stop playback)
+      actions.playNext();
+      return;
+    }
+    const nextTrack = queue[nextIndex];
+    if (nextTrack?.submissionType === "youtube") {
+      openYouTubePlaylistFromQueue();
+      return; // do not advance to an individual YouTube track
+    }
+    actions.playNext();
+  };
+
   const handleEnded = async () => {
     if (repeatMode === "one" && audioRef.current) {
       audioRef.current.currentTime = 0;
       await audioRef.current.play();
     } else {
-      actions.playNext();
+      handlePlayNext();
     }
   };
 
@@ -701,7 +770,7 @@ export function MusicPlayer() {
               repeatMode={repeatMode}
               currentTrack={currentTrack as Song}
               onTogglePlayPause={actions.togglePlayPause}
-              onPlayNext={actions.playNext}
+              onPlayNext={handlePlayNext}
               onPlayPrevious={actions.playPrevious}
               onToggleShuffle={actions.toggleShuffle}
               onToggleRepeat={actions.toggleRepeat}
