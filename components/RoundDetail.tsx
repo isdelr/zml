@@ -9,11 +9,9 @@ import { dynamicImport } from "@/components/ui/dynamic-import";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { AvatarStack } from "./AvatarStack";
 import { toast } from "sonner";
-import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { SubmissionCommentsPanel } from "./round/SubmissionCommentsPanel";
 import { Ban, Headphones } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { FaYoutube } from "react-icons/fa";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 // New imports for the confirmation dialog
 import {
   AlertDialog,
@@ -498,6 +496,27 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
 
   const startPlaylistTimer = (totalSec: number) => {
     if (!totalSec || totalSec <= 0) return;
+
+    // If a timer is already scheduled in this session and not expired, do not reset it
+    try {
+      const existingEndAt = sessionStorage.getItem(sessionEndAtKey);
+      if (existingEndAt) {
+        const remaining = Math.ceil((Number(existingEndAt) - Date.now()) / 1000);
+        if (remaining > 0) {
+          // Ensure UI reflects running state without resetting the end time
+          setYtTimerRunning(true);
+          setYtTimerRemainingSec(remaining);
+          clearTimer();
+          timerRef.current = window.setInterval(() => {
+            const left = Math.max(0, Math.ceil((Number(sessionStorage.getItem(sessionEndAtKey)) - Date.now()) / 1000));
+            setYtTimerRemainingSec(left);
+            if (left <= 0) completeYouTubeListening();
+          }, 1000);
+          return;
+        }
+      }
+    } catch {}
+
     const endAt = Date.now() + totalSec * 1000;
     try {
       sessionStorage.setItem(sessionEndAtKey, String(endAt));
@@ -542,7 +561,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
       }
     } catch {}
     return () => clearTimer();
-  }, [sessionEndAtKey, sessionDurationKey, completeYouTubeListening]);
+  }, [sessionEndAtKey, sessionDurationKey, completeYouTubeListening, clearTimer]);
 
   const openYouTubePlaylist = (orderedIds: string[]) => {
     if (orderedIds.length === 0) return;
@@ -592,16 +611,6 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
       parts.push(`${seconds} sec`);
     }
     return parts.join(" ");
-  };
-
-  const formatDurationCompact = (totalSeconds: number) => {
-    const s = Math.max(0, Math.floor(totalSeconds));
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    if (h > 0) return `${h}:${pad(m)}:${pad(sec)}`;
-    return `${m}:${pad(sec)}`;
   };
 
   return (
@@ -693,50 +702,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
         )}
       </div>
 
-      {/* YouTube playlist info & countdown */}
-      {round.status !== "submissions" && youtubeVideoIds.length > 0 && (
-        <Alert className="mt-4">
-          <FaYoutube className="h-4 w-4" />
-          <AlertTitle>Round YouTube playlist</AlertTitle>
-          <AlertDescription>
-            {ytTimerRunning ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span>
-                  Timer running: {youtubeVideoIds.length} video{youtubeVideoIds.length !== 1 ? "s" : ""} —
-                  <strong className="ml-1">{formatDurationCompact(ytTimerRemainingSec)}</strong> left
-                </span>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => openYouTubePlaylist(youtubeVideoIds)}
-                  title="Open playlist in a new tab"
-                >
-                  <FaYoutube className="mr-2" /> Open playlist
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <span>
-                  {youtubeVideoIds.length} YouTube track{youtubeVideoIds.length !== 1 ? "s" : ""}, total {formatDuration(totalYouTubeDurationSec)}.
-                  The playlist will open automatically when you reach the YouTube section.
-                </span>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    openYouTubePlaylist(youtubeVideoIds);
-                    startPlaylistTimer(totalYouTubeDurationSec);
-                    try { sessionStorage.setItem(sessionOpenedKey, "1"); } catch {}
-                  }}
-                  title="Open now if your browser blocks pop-ups"
-                >
-                  <FaYoutube className="mr-2" /> Open now
-                </Button>
-              </div>
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* YouTube playlist info banner removed in favor of inline wrapper in the list */}
 
       {(round.status === "voting" || round.status === "finished") && (
         <>
@@ -770,6 +736,17 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
             onToggleComments={setActiveCommentsSubmissionId}
             listenersBySubmission={listenersBySubmission}
             onReachYouTube={ensureAutoOpenOnce}
+            ytInfo={{
+              running: ytTimerRunning,
+              remainingSec: ytTimerRemainingSec,
+              videoCount: youtubeVideoIds.length,
+              totalDurationSec: totalYouTubeDurationSec,
+              onOpen: () => {
+                openYouTubePlaylist(youtubeVideoIds);
+                startPlaylistTimer(totalYouTubeDurationSec);
+                try { sessionStorage.setItem(sessionOpenedKey, "1"); } catch {}
+              }
+            }}
           />
           {round.status === "finished" && (
             <div ref={summaryTriggerRef}>

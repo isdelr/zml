@@ -64,7 +64,6 @@ export function MusicPlayer() {
   const [isWaveformLoading, setIsWaveformLoading] = useState(false);
   const [lastVolume, setLastVolume] = useState(volume);
   const [refreshedUrls, setRefreshedUrls] = useState<Record<string, string>>({});
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
   const audioRefreshTimeoutRef = useRef<number | null>(null);
   const prevTrackIdRef = useRef<string | null>(null);
 
@@ -214,16 +213,6 @@ export function MusicPlayer() {
 
   const isExternalLink =
     currentTrack?.submissionType === "youtube";
-
-  // Auto-start/stop the external (YouTube) timer based on play state and track changes
-  useEffect(() => {
-    if (isExternalLink) {
-      setIsTimerRunning(isPlaying);
-    } else {
-      if (isTimerRunning) setIsTimerRunning(false);
-    }
-    // Reset when track changes as well
-  }, [isExternalLink, isPlaying, currentTrack?._id, isTimerRunning]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -666,9 +655,6 @@ export function MusicPlayer() {
     }
   };
 
-  const handleStartTimer = () => {
-    setIsTimerRunning(true);
-  };
 
   const handleAudioError = async () => {
     const audioElement = audioRef.current;
@@ -719,7 +705,6 @@ export function MusicPlayer() {
               onPlayPrevious={actions.playPrevious}
               onToggleShuffle={actions.toggleShuffle}
               onToggleRepeat={actions.toggleRepeat}
-              onStartTimer={handleStartTimer}
             />
 
             <PlayerProgress
@@ -733,7 +718,6 @@ export function MusicPlayer() {
               onSeek={handleSeek}
               leagueData={leagueData}
               listenProgress={currentTrackListenProgress}
-              isTimerRunning={isTimerRunning}
             />
           </div>
 
