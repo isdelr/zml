@@ -5,12 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add admin test data seeding tools and UI&#10;&#10;- Implemented comprehensive data seeding logic for leagues, rounds, submissions, and votes with namespace support.&#10;- Added support for resetting seeded test data by namespace.&#10;- Created an admin-facing UI to trigger seeding and reset operations, with configurable options.&#10;- Updated `api.d.ts` to include new admin seed functions.">
-      <change afterPath="$PROJECT_DIR$/app/admin/seed/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/AdminSeedPage.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/convex/adminSeed.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/RoundDetail.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/RoundDetail.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/_generated/api.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/_generated/api.d.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -124,15 +119,7 @@
       <workItem from="1757038650136" duration="1583000" />
       <workItem from="1757075088867" duration="7232000" />
       <workItem from="1757344934847" duration="5000" />
-      <workItem from="1757344968881" duration="1712000" />
-    </task>
-    <task id="LOCAL-00003" summary="added dockerfile">
-      <option name="closed" value="true" />
-      <created>1755891476973</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1755891476973</updated>
+      <workItem from="1757344968881" duration="3570000" />
     </task>
     <task id="LOCAL-00004" summary="dependency changes">
       <option name="closed" value="true" />
@@ -518,7 +505,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757344447474</updated>
     </task>
-    <option name="localTasksCounter" value="52" />
+    <task id="LOCAL-00052" summary="Add admin test data seeding tools and UI&#10;&#10;- Implemented comprehensive data seeding logic for leagues, rounds, submissions, and votes with namespace support.&#10;- Added support for resetting seeded test data by namespace.&#10;- Created an admin-facing UI to trigger seeding and reset operations, with configurable options.&#10;- Updated `api.d.ts` to include new admin seed functions.">
+      <option name="closed" value="true" />
+      <created>1757346873090</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1757346873091</updated>
+    </task>
+    <option name="localTasksCounter" value="53" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
