@@ -144,19 +144,13 @@ export const getForLeague = query({
         const userDocs = await Promise.all(Array.from(allUserIds).map((id) => ctx.db.get(id)));
         const userMap = new Map(userDocs.filter(Boolean).map((u) => [u!._id, u! as Doc<"users">]));
 
-        // Compute per-user submission counts
-        const perUserCounts = new Map<Id<"users">, number>();
-        for (const s of submissions) {
-          const cnt = perUserCounts.get(s.userId) ?? 0;
-          perUserCounts.set(s.userId, cnt + 1);
-        }
-        const requiredPerUser = (round as any).submissionsPerUser ?? 1;
-        const completedUserIds = Array.from(perUserCounts.entries())
-          .filter(([, count]) => count >= requiredPerUser)
-          .map(([uid]) => uid);
-        const completedSubmitters = completedUserIds
+        // Collect unique submitters (anyone with at least one submission)
+        const submitterIds = Array.from(new Set(submissions.map((s) => s.userId)));
+        const submitterUsers = submitterIds
           .map((uid) => userMap.get(uid))
           .filter(Boolean) as Doc<"users">[];
+
+        const requiredPerUser = (round as any).submissionsPerUser ?? 1;
 
         const artUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
 
@@ -175,7 +169,7 @@ export const getForLeague = query({
           expectedTrackCount,
           leagueMemberCount,
           voterCount: voters.length,
-          submitters: completedSubmitters.map((u) => ({ name: u.name, image: u.image })),
+          submitters: submitterUsers.map((u) => ({ name: u.name, image: u.image })),
           voters: voters.map((u) => ({ name: u.name, image: u.image })),
           winner: winnerInfo,
         };

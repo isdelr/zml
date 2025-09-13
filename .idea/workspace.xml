@@ -4,14 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Remove unnecessary type casting for `round` in vote limit calculations&#10;&#10;- Simplified code by removing redundant `(round as any)` type casting.&#10;- Updated `RoundDetail` and `EditRoundDialog` components to directly utilize `round` properties for `maxPositiveVotes` and `maxNegativeVotes`.&#10;- Ensured cleaner and more maintainable logic while retaining existing functionality.">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/RoundDetail.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/RoundDetail.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/SongSubmissionForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/SongSubmissionForm.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/round/SubmissionForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/SubmissionForm.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/schema.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/submissions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/submissions.ts" afterDir="false" />
-    </list>
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Remove presubmission functionality&#10;&#10;- Eliminated presubmission logic, including mutations, queries, and related schema definitions.&#10;- Updated `SubmissionForm` and `SongSubmissionForm` components to simplify submission flow.&#10;- Removed unused `presubmissions` table and associated handling in backend logic.&#10;- Ensured UI adjustments to reflect the removal of presubmission features and maintain clarity." />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -41,6 +34,9 @@
     &quot;accountId&quot;: &quot;47764666-e725-4140-a348-361face7763c&quot;
   }
 }</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 0
 }</component>
@@ -129,15 +125,7 @@
       <workItem from="1757446980220" duration="12000" />
       <workItem from="1757503581492" duration="310000" />
       <workItem from="1757503910133" duration="1074000" />
-      <workItem from="1757762392475" duration="6806000" />
-    </task>
-    <task id="LOCAL-00011" summary="dockerfile correction">
-      <option name="closed" value="true" />
-      <created>1755905114401</created>
-      <option name="number" value="00011" />
-      <option name="presentableId" value="LOCAL-00011" />
-      <option name="project" value="LOCAL" />
-      <updated>1755905114401</updated>
+      <workItem from="1757762392475" duration="7610000" />
     </task>
     <task id="LOCAL-00012" summary="song download overhaul">
       <option name="closed" value="true" />
@@ -523,7 +511,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757767128023</updated>
     </task>
-    <option name="localTasksCounter" value="60" />
+    <task id="LOCAL-00060" summary="Remove presubmission functionality&#10;&#10;- Eliminated presubmission logic, including mutations, queries, and related schema definitions.&#10;- Updated `SubmissionForm` and `SongSubmissionForm` components to simplify submission flow.&#10;- Removed unused `presubmissions` table and associated handling in backend logic.&#10;- Ensured UI adjustments to reflect the removal of presubmission features and maintain clarity.">
+      <option name="closed" value="true" />
+      <created>1757770896692</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1757770896692</updated>
+    </task>
+    <option name="localTasksCounter" value="61" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -541,7 +537,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Extend listen tracking to support Spotify and YouTube submissions" />
     <MESSAGE value="Extend listen tracking to support timers in Spotify and YouTube submissions" />
     <MESSAGE value="Add troll submission handling and ban functionality&#10;&#10;- Allow marking/unmarking of troll submissions.&#10;- Annul positive votes for troll submissions, but count negative votes.&#10;- Prevent banned users from making submissions.&#10;- Add penalties and automatic banning for repeated troll submissions.&#10;- Update UI to support troll submission management and indicators." />
     <MESSAGE value="Fix build error" />
@@ -566,6 +561,7 @@
     <MESSAGE value="Refine YouTube playlist completion logic and timer integration&#10;&#10;- Introduced `done` state for YouTube playlists to track completion.&#10;- Enhanced `RoundDetail` and `SubmissionsList` components to handle completed playlists with updated UI and logic.&#10;- Improved session and local storage handling to persist and detect playlist completion state across sessions.&#10;- Added safeguards to prevent restarting completed timers." />
     <MESSAGE value="Introduce per-round vote limit overrides&#10;&#10;- Added support for custom `maxPositiveVotes` and `maxNegativeVotes` values on a per-round basis, defaulting to league limits when not specified.&#10;- Updated vote validation and calculations across backend (`rounds`, `votes`, `leagues`) to utilize effective vote limits.&#10;- Enhanced `RoundDetail`, `EditRoundDialog`, and `RoundHeader` components to display and manage custom vote limits.&#10;- Adjusted schema to include optional per-round vote override fields." />
     <MESSAGE value="Remove unnecessary type casting for `round` in vote limit calculations&#10;&#10;- Simplified code by removing redundant `(round as any)` type casting.&#10;- Updated `RoundDetail` and `EditRoundDialog` components to directly utilize `round` properties for `maxPositiveVotes` and `maxNegativeVotes`.&#10;- Ensured cleaner and more maintainable logic while retaining existing functionality." />
-    <option name="LAST_COMMIT_MESSAGE" value="Remove unnecessary type casting for `round` in vote limit calculations&#10;&#10;- Simplified code by removing redundant `(round as any)` type casting.&#10;- Updated `RoundDetail` and `EditRoundDialog` components to directly utilize `round` properties for `maxPositiveVotes` and `maxNegativeVotes`.&#10;- Ensured cleaner and more maintainable logic while retaining existing functionality." />
+    <MESSAGE value="Remove presubmission functionality&#10;&#10;- Eliminated presubmission logic, including mutations, queries, and related schema definitions.&#10;- Updated `SubmissionForm` and `SongSubmissionForm` components to simplify submission flow.&#10;- Removed unused `presubmissions` table and associated handling in backend logic.&#10;- Ensured UI adjustments to reflect the removal of presubmission features and maintain clarity." />
+    <option name="LAST_COMMIT_MESSAGE" value="Remove presubmission functionality&#10;&#10;- Eliminated presubmission logic, including mutations, queries, and related schema definitions.&#10;- Updated `SubmissionForm` and `SongSubmissionForm` components to simplify submission flow.&#10;- Removed unused `presubmissions` table and associated handling in backend logic.&#10;- Ensured UI adjustments to reflect the removal of presubmission features and maintain clarity." />
   </component>
 </project>
