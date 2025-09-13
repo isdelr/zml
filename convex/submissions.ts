@@ -111,10 +111,6 @@ export const submitSong = mutation({
       throw new Error(`You have already submitted the maximum of ${submissionsPerUser} song(s).`);
     }
 
-    const existingPre = await ctx.db.query("presubmissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).first();
-    if (existingPre) {
-      throw new Error("You already have a presubmission queued. You can wait for it to auto-submit or remove it first.");
-    }
 
     const baseSubmissionData = {
       leagueId: round.leagueId,
@@ -154,166 +150,6 @@ export const submitSong = mutation({
     await submissionCounter.inc(ctx, args.roundId);
     const submissionDoc = await ctx.db.get(submissionId);
     await submissionsByUser.insert(ctx, submissionDoc!);
-  },
-});
-
-export const presubmitSong = mutation({
-  args: {
-    roundId: v.id("rounds"),
-    submissionType: v.union(v.literal("file"), v.literal("youtube")),
-    songTitle: v.string(),
-    artist: v.string(),
-    comment: v.optional(v.string()),
-    albumArtKey: v.optional(v.string()),
-    songFileKey: v.optional(v.string()),
-    songLink: v.optional(v.string()),
-    albumArtUrlValue: v.optional(v.string()),
-    duration: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated.");
-
-    const round = await ctx.db.get(args.roundId);
-    if (!round) throw new Error("Round not found.");
-
-    // Check if user is banned from this league
-    const membership = await ctx.db
-      .query("memberships")
-      .withIndex("by_league_and_user", (q) =>
-        q.eq("leagueId", round.leagueId).eq("userId", userId)
-      )
-      .unique();
-
-    if (membership?.isBanned) {
-      throw new Error("You have been permanently banned from this league for repeated troll submissions.");
-    }
-
-    const submissionsPerUser = round.submissionsPerUser ?? 1;
-
-    const existingSubmissions = await ctx.db
-      .query("submissions")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId))
-      .collect();
-
-    const existingPre = await ctx.db.query("presubmissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).collect();
-
-    if (existingSubmissions.length + existingPre.length >= submissionsPerUser) {
-      throw new Error(`You have already submitted or presubmitted the maximum of ${submissionsPerUser} song(s).`);
-    }
-
-    const baseData = {
-      leagueId: round.leagueId,
-      roundId: args.roundId,
-      userId,
-      songTitle: args.songTitle,
-      artist: args.artist,
-      comment: args.comment,
-      duration: args.duration,
-      searchText: `${args.songTitle} ${args.artist}`,
-      _note: "queued",
-    };
-
-    if (args.submissionType === "file") {
-      if (!args.albumArtKey || !args.songFileKey) {
-        throw new Error("File keys are required for manual presubmission.");
-      }
-      await ctx.db.insert("presubmissions", {
-        ...baseData,
-        submissionType: "file",
-        albumArtKey: args.albumArtKey,
-        songFileKey: args.songFileKey,
-      });
-    } else {
-      if (!args.songLink || !args.albumArtUrlValue) {
-        throw new Error("Link and album art URL are required for link presubmission.");
-      }
-      await ctx.db.insert("presubmissions", {
-        ...baseData,
-        submissionType: args.submissionType,
-        songLink: args.songLink,
-        albumArtUrlValue: args.albumArtUrlValue,
-      });
-    }
-  },
-});
-
-export const promotePresubmissionsForRound = mutation({
-  args: { roundId: v.id("rounds") },
-  handler: async (ctx, args) => {
-    const round = await ctx.db.get(args.roundId);
-    if (!round) return;
-    if (round.status !== "submissions") {
-      return;
-    }
-
-    const queued = await ctx.db.query("presubmissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId)).collect();
-    if (queued.length === 0) return;
-
-    for (const pre of queued) {
-      const existing = await ctx.db
-        .query("submissions")
-        .withIndex("by_round_and_user", (q) => q.eq("roundId", pre.roundId).eq("userId", pre.userId))
-        .first();
-
-      if (existing) {
-        await ctx.db.delete(pre._id);
-        continue;
-      }
-
-      const submissionId = await ctx.db.insert("submissions", {
-        leagueId: pre.leagueId,
-        roundId: pre.roundId,
-        userId: pre.userId,
-        songTitle: pre.songTitle,
-        artist: pre.artist,
-        comment: pre.comment,
-        duration: pre.duration,
-        searchText: pre.searchText,
-        submissionType: pre.submissionType,
-        albumArtKey: pre.albumArtKey,
-        songFileKey: pre.songFileKey,
-        songLink: pre.songLink,
-        albumArtUrlValue: pre.albumArtUrlValue,
-      });
-      await submissionCounter.inc(ctx, pre.roundId);
-      const doc = await ctx.db.get(submissionId);
-      await submissionsByUser.insert(ctx, doc!);
-
-      await ctx.db.delete(pre._id);
-    }
-  },
-});
-
-export const getMyPresubmissionForRound = query({
-  args: { roundId: v.id("rounds") },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return null;
-
-    const presubmissions = await ctx.db.query("presubmissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).collect();
-    if (presubmissions.length === 0) return [];
-
-    return Promise.all(
-      presubmissions.map(async (pre) => {
-        let albumArtUrl: string | null = null;
-        let songFileUrl: string | null = null;
-        if (pre.submissionType === "file") {
-          [albumArtUrl, songFileUrl] = await Promise.all([
-            pre.albumArtKey ? r2.getUrl(pre.albumArtKey) : Promise.resolve(null),
-            pre.songFileKey ? r2.getUrl(pre.songFileKey) : Promise.resolve(null),
-          ]);
-        } else {
-          albumArtUrl = pre.albumArtUrlValue ?? null;
-          songFileUrl = pre.songLink ?? null;
-        }
-        return {
-          ...pre,
-          albumArtUrl,
-          songFileUrl,
-        };
-      }),
-    );
   },
 });
 
@@ -662,38 +498,65 @@ export const checkForPotentialDuplicates = mutation({
     currentSubmissionId: v.optional(v.id("submissions")),
   },
   handler: async (ctx, args) => {
-    const submissions = await ctx.db.query("submissions").withIndex("by_league", (q) => q.eq("leagueId", args.leagueId)).collect();
-    const presubmissions = await ctx.db.query("presubmissions").withIndex("by_league", (q) => q.eq("leagueId", args.leagueId)).collect();
-    const allPotentialSubmissions = [...submissions, ...presubmissions];
+    const submissions = await ctx.db
+      .query("submissions")
+      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+      .collect();
 
-    if (allPotentialSubmissions.length === 0) {
+    if (submissions.length === 0) {
       return { songExists: null, artistExists: null };
     }
 
-    const normalizedTitle = args.songTitle.trim().toLowerCase().replace(/\(.*\)|\[.*\]/g, "").trim();
+    const normalizedTitle = args.songTitle
+      .trim()
+      .toLowerCase()
+      .replace(/\(.*\)|\[.*\]/g, "")
+      .trim();
     const normalizedArtist = args.artist.trim().toLowerCase();
 
     let songExists: { title: string; artist: string; roundTitle: string } | null = null;
     let artistExists: { title: string; artist: string; roundTitle: string } | null = null;
 
-    const roundIds = [...new Set(allPotentialSubmissions.map((s) => s.roundId))];
+    const roundIds = [...new Set(submissions.map((s) => s.roundId))];
     const rounds = await Promise.all(roundIds.map((id) => ctx.db.get(id)));
-    const roundMap = new Map(rounds.filter(Boolean).map((r) => [r!._id.toString(), r!.title]));
+    const roundMap = new Map(
+      rounds.filter(Boolean).map((r) => [r!._id.toString(), r!.title]),
+    );
 
-    for (const submission of allPotentialSubmissions) {
-      if (args.currentSubmissionId && submission._id === args.currentSubmissionId) {
+    for (const submission of submissions) {
+      if (
+        args.currentSubmissionId &&
+        submission._id === args.currentSubmissionId
+      ) {
         continue;
       }
 
-      const dbTitle = submission.songTitle.trim().toLowerCase().replace(/\(.*\)|\[.*\]/g, "").trim();
+      const dbTitle = submission.songTitle
+        .trim()
+        .toLowerCase()
+        .replace(/\(.*\)|\[.*\]/g, "")
+        .trim();
       const dbArtist = submission.artist.trim().toLowerCase();
-      const roundTitle = roundMap.get(submission.roundId.toString()) ?? "a previous round";
+      const roundTitle =
+        roundMap.get(submission.roundId.toString()) ?? "a previous round";
 
-      if (!songExists && (dbTitle.includes(normalizedTitle) || normalizedTitle.includes(dbTitle))) {
-        songExists = { title: submission.songTitle, artist: submission.artist, roundTitle };
+      if (
+        !songExists &&
+        (dbTitle.includes(normalizedTitle) ||
+          normalizedTitle.includes(dbTitle))
+      ) {
+        songExists = {
+          title: submission.songTitle,
+          artist: submission.artist,
+          roundTitle,
+        };
       }
       if (!artistExists && dbArtist === normalizedArtist) {
-        artistExists = { title: submission.songTitle, artist: submission.artist, roundTitle };
+        artistExists = {
+          title: submission.songTitle,
+          artist: submission.artist,
+          roundTitle,
+        };
       }
 
       if (songExists && artistExists) break;

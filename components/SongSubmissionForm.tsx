@@ -96,12 +96,10 @@ type DuplicateWarning = Awaited<ReturnType<typeof api.submissions.checkForPotent
 
 interface SongSubmissionFormProps {
   roundId: Id<"rounds">;
-  isPresubmit?: boolean;
 }
 
-export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmissionFormProps) {
+export function SongSubmissionForm({ roundId }: SongSubmissionFormProps) {
   const submitSong = useMutation(api.submissions.submitSong);
-  const presubmitSong = useMutation(api.submissions.presubmitSong);
   const getSongMetadataFromLink = useAction(api.submissions.getSongMetadataFromLink);
   const checkForDuplicates = useMutation(api.submissions.checkForPotentialDuplicates);
   const uploadFile = useUploadFile({
@@ -132,7 +130,7 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
 
   const handleFinalSubmit = async (values: FormValues) => {
     const toastId = toast.loading(
-      isPresubmit ? "Queuing your presubmission..." : "Submitting your masterpiece...",
+      "Submitting your masterpiece...",
     );
     try {
       if (
@@ -158,11 +156,7 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
           duration: values.duration,
         };
 
-        if (isPresubmit) {
-          await presubmitSong(payload);
-        } else {
-          await submitSong(payload);
-        }
+        await submitSong(payload);
       } else if (values.submissionType === "link" && values.songLink) {
         const metadata = await getSongMetadataFromLink({ link: values.songLink });
 
@@ -177,15 +171,11 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
           duration: metadata.duration,
         };
 
-        if (isPresubmit) {
-          await presubmitSong(payload);
-        } else {
-          await submitSong(payload);
-        }
+        await submitSong(payload);
       }
 
       toast.success(
-        isPresubmit ? "Presubmission queued! It will auto-submit when the round opens." : "Song submitted successfully!",
+        "Song submitted successfully!",
         { id: toastId },
       );
       form.reset();
@@ -193,7 +183,7 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";
-      toast.error(`${isPresubmit ? "Presubmission failed" : "Submission failed"}: ${errorMessage}`, {
+      toast.error(`Submission failed: ${errorMessage}`, {
         id: toastId,
       });
       console.error(error);
@@ -305,12 +295,10 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
 
       <div className="rounded-lg border bg-card p-6">
         <h2 className="text-2xl font-bold">
-          {isPresubmit ? "Presubmit Your Track" : "Submit Your Track"}
+          Submit Your Track
         </h2>
         <p className="mb-6 text-muted-foreground">
-          {isPresubmit
-            ? "Queue your track now. It will be automatically submitted when this round opens."
-            : "Choose your submission method."}
+          Choose your submission method.
         </p>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -562,7 +550,7 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
                         </div>
                       </FormControl>
                       <FormDescription>
-                        Paste the link to the song you want to {isPresubmit ? "presubmit" : "submit"}. We&apos;ll fetch
+                        Paste the link to the song you want to submit. We&apos;ll fetch
                         the details automatically.
                       </FormDescription>
                       <FormMessage />
@@ -580,11 +568,7 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
                   <FormLabel>Comment (Optional)</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder={
-                        isPresubmit
-                          ? "Add a comment that will appear with your song when it auto-submits..."
-                          : "Add a little comment about your song..."
-                      }
+                      placeholder="Add a little comment about your song..."
                       {...field}
                     />
                   </FormControl>
@@ -606,7 +590,7 @@ export function SongSubmissionForm({ roundId, isPresubmit = false }: SongSubmiss
               {form.formState.isSubmitting && (
                 <Loader2 className="mr-2 size-4 animate-spin" />
               )}
-              {isPresubmit ? "Presubmit Song" : "Submit Song"}
+              Submit Song
             </Button>
           </form>
         </Form>

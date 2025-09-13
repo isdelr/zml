@@ -4,9 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Introduce per-round vote limit overrides&#10;&#10;- Added support for custom `maxPositiveVotes` and `maxNegativeVotes` values on a per-round basis, defaulting to league limits when not specified.&#10;- Updated vote validation and calculations across backend (`rounds`, `votes`, `leagues`) to utilize effective vote limits.&#10;- Enhanced `RoundDetail`, `EditRoundDialog`, and `RoundHeader` components to display and manage custom vote limits.&#10;- Adjusted schema to include optional per-round vote override fields.">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Remove unnecessary type casting for `round` in vote limit calculations&#10;&#10;- Simplified code by removing redundant `(round as any)` type casting.&#10;- Updated `RoundDetail` and `EditRoundDialog` components to directly utilize `round` properties for `maxPositiveVotes` and `maxNegativeVotes`.&#10;- Ensured cleaner and more maintainable logic while retaining existing functionality.">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/components/RoundDetail.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/RoundDetail.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/round/EditRoundDialog.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/EditRoundDialog.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/SongSubmissionForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/SongSubmissionForm.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/round/SubmissionForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/SubmissionForm.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/schema.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/submissions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/submissions.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -125,15 +129,7 @@
       <workItem from="1757446980220" duration="12000" />
       <workItem from="1757503581492" duration="310000" />
       <workItem from="1757503910133" duration="1074000" />
-      <workItem from="1757762392475" duration="3471000" />
-    </task>
-    <task id="LOCAL-00010" summary="new implementation for yt downloader">
-      <option name="closed" value="true" />
-      <created>1755905003715</created>
-      <option name="number" value="00010" />
-      <option name="presentableId" value="LOCAL-00010" />
-      <option name="project" value="LOCAL" />
-      <updated>1755905003715</updated>
+      <workItem from="1757762392475" duration="6806000" />
     </task>
     <task id="LOCAL-00011" summary="dockerfile correction">
       <option name="closed" value="true" />
@@ -519,7 +515,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757766385711</updated>
     </task>
-    <option name="localTasksCounter" value="59" />
+    <task id="LOCAL-00059" summary="Remove unnecessary type casting for `round` in vote limit calculations&#10;&#10;- Simplified code by removing redundant `(round as any)` type casting.&#10;- Updated `RoundDetail` and `EditRoundDialog` components to directly utilize `round` properties for `maxPositiveVotes` and `maxNegativeVotes`.&#10;- Ensured cleaner and more maintainable logic while retaining existing functionality.">
+      <option name="closed" value="true" />
+      <created>1757767128023</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1757767128023</updated>
+    </task>
+    <option name="localTasksCounter" value="60" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -537,7 +541,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Improve league management permissions" />
     <MESSAGE value="Extend listen tracking to support Spotify and YouTube submissions" />
     <MESSAGE value="Extend listen tracking to support timers in Spotify and YouTube submissions" />
     <MESSAGE value="Add troll submission handling and ban functionality&#10;&#10;- Allow marking/unmarking of troll submissions.&#10;- Annul positive votes for troll submissions, but count negative votes.&#10;- Prevent banned users from making submissions.&#10;- Add penalties and automatic banning for repeated troll submissions.&#10;- Update UI to support troll submission management and indicators." />
@@ -562,6 +565,7 @@
     <MESSAGE value="Add support for opening YouTube playlists from the queue&#10;&#10;- Implemented logic to build and open a YouTube playlist URL from queued submissions.&#10;- Enhanced `playNext` behavior to detect and handle YouTube submissions by triggering playlist opening.&#10;- Updated `handleEnded` and `onPlayNext` callbacks to incorporate new playlist logic." />
     <MESSAGE value="Refine YouTube playlist completion logic and timer integration&#10;&#10;- Introduced `done` state for YouTube playlists to track completion.&#10;- Enhanced `RoundDetail` and `SubmissionsList` components to handle completed playlists with updated UI and logic.&#10;- Improved session and local storage handling to persist and detect playlist completion state across sessions.&#10;- Added safeguards to prevent restarting completed timers." />
     <MESSAGE value="Introduce per-round vote limit overrides&#10;&#10;- Added support for custom `maxPositiveVotes` and `maxNegativeVotes` values on a per-round basis, defaulting to league limits when not specified.&#10;- Updated vote validation and calculations across backend (`rounds`, `votes`, `leagues`) to utilize effective vote limits.&#10;- Enhanced `RoundDetail`, `EditRoundDialog`, and `RoundHeader` components to display and manage custom vote limits.&#10;- Adjusted schema to include optional per-round vote override fields." />
-    <option name="LAST_COMMIT_MESSAGE" value="Introduce per-round vote limit overrides&#10;&#10;- Added support for custom `maxPositiveVotes` and `maxNegativeVotes` values on a per-round basis, defaulting to league limits when not specified.&#10;- Updated vote validation and calculations across backend (`rounds`, `votes`, `leagues`) to utilize effective vote limits.&#10;- Enhanced `RoundDetail`, `EditRoundDialog`, and `RoundHeader` components to display and manage custom vote limits.&#10;- Adjusted schema to include optional per-round vote override fields." />
+    <MESSAGE value="Remove unnecessary type casting for `round` in vote limit calculations&#10;&#10;- Simplified code by removing redundant `(round as any)` type casting.&#10;- Updated `RoundDetail` and `EditRoundDialog` components to directly utilize `round` properties for `maxPositiveVotes` and `maxNegativeVotes`.&#10;- Ensured cleaner and more maintainable logic while retaining existing functionality." />
+    <option name="LAST_COMMIT_MESSAGE" value="Remove unnecessary type casting for `round` in vote limit calculations&#10;&#10;- Simplified code by removing redundant `(round as any)` type casting.&#10;- Updated `RoundDetail` and `EditRoundDialog` components to directly utilize `round` properties for `maxPositiveVotes` and `maxNegativeVotes`.&#10;- Ensured cleaner and more maintainable logic while retaining existing functionality." />
   </component>
 </project>

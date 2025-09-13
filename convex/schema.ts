@@ -132,28 +132,6 @@ export default defineSchema({
       filterFields: ["leagueId"],
     }),
 
-  presubmissions: defineTable({
-    leagueId: v.id("leagues"),
-    roundId: v.id("rounds"),
-    userId: v.id("users"),
-    songTitle: v.string(),
-    artist: v.string(),
-    albumArtKey: v.optional(v.string()),
-    songFileKey: v.optional(v.string()),
-    comment: v.optional(v.string()),
-    submissionType: v.union(
-      v.literal("file"),
-      v.literal("youtube"),
-    ),
-    songLink: v.optional(v.string()),
-    albumArtUrlValue: v.optional(v.string()),
-    duration: v.optional(v.number()),
-    searchText: v.string(),
-    _note: v.optional(v.string()),
-  })
-    .index("by_round_and_user", ["roundId", "userId"])
-    .index("by_league", ["leagueId"]),
-
   votes: defineTable({
     roundId: v.id("rounds"),
     submissionId: v.id("submissions"),

@@ -17,9 +17,6 @@ import Image from "next/image";
 import { useState } from "react";
 import { EditSubmissionForm } from "@/components/EditSubmissionForm";
 import { Doc, Id } from "@/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { FaYoutube } from "react-icons/fa";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 
 type SubmissionWithUrls = Doc<"submissions"> & { albumArtUrl: string | null; songFileUrl: string | null; };
@@ -38,15 +35,14 @@ export function SubmissionForm({
                                  mySubmissions,
                                }: SubmissionFormProps) {
   const [editingSubmission, setEditingSubmission] = useState<SubmissionWithUrls | null>(null);
-  const myPresubmissions = useQuery(api.submissions.getMyPresubmissionForRound, { roundId: round._id });
   const { actions: playerActions } = useMusicPlayerStore();
 
-  if (currentUser === undefined || mySubmissions === undefined || myPresubmissions === undefined) {
+  if (currentUser === undefined || mySubmissions === undefined) {
     return <Skeleton className="h-64 w-full" />;
   }
 
   const submissionsPerUser = round.submissionsPerUser ?? 1;
-  const canSubmitMore = mySubmissions.length + (myPresubmissions?.length ?? 0) < submissionsPerUser;
+  const canSubmitMore = mySubmissions.length < submissionsPerUser;
 
   const canPlay = (s: { submissionType: string; songFileUrl: string | null; songLink?: string | null; }) => {
     if (s.submissionType === "file") return !!s.songFileUrl;
@@ -70,45 +66,11 @@ export function SubmissionForm({
     playerActions.playSong(song);
   };
 
-  const PresubmissionItem = ({ pre }: { pre: NonNullable<typeof myPresubmissions>[0] }) => (
-    <Card>
-      <div className="p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
-            {pre.albumArtUrl && (
-              <Image
-                src={pre.albumArtUrl}
-                alt={pre.songTitle}
-                width={56}
-                height={56}
-                className="rounded shrink-0"
-              />
-            )}
-            <div className="min-w-0">
-              <p className="font-semibold truncate">{pre.songTitle}</p>
-              <p className="text-sm text-muted-foreground truncate">{pre.artist}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            {pre.submissionType === "youtube" && <FaYoutube />}
-          </div>
-        </div>
-        {pre.comment && (
-          <blockquote className="mt-4 border-l-2 pl-3 text-sm italic text-muted-foreground">
-            {pre.comment}
-          </blockquote>
-        )}
-        <p className="mt-3 text-xs text-muted-foreground">
-          This track will be auto-submitted when the round opens for submissions.
-        </p>
-      </div>
-    </Card>
-  );
 
   return (
     <div className="space-y-4">
       <h3 className="text-xl font-semibold">
-        Your Submissions ({mySubmissions.length + (myPresubmissions?.length ?? 0)} / {submissionsPerUser})
+        Your Submissions ({mySubmissions.length} / {submissionsPerUser})
       </h3>
 
       {mySubmissions.map((submission) => (
@@ -155,10 +117,9 @@ export function SubmissionForm({
         </Card>
       ))}
 
-      {myPresubmissions?.map((pre) => <PresubmissionItem key={pre._id} pre={pre} />)}
 
       {canSubmitMore && roundStatus === "submissions" && (
-        <SongSubmissionForm roundId={round._id} isPresubmit={false} />
+        <SongSubmissionForm roundId={round._id} />
       )}
 
       <Dialog open={!!editingSubmission} onOpenChange={(isOpen) => !isOpen && setEditingSubmission(null)}>

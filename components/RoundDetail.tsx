@@ -83,10 +83,6 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
   const listenProgressData = useQuery(api.listenProgress.getForRound, {
     roundId: round._id,
   });
-  const promotePresubs = useMutation(
-    api.submissions.promotePresubmissionsForRound,
-  );
-  const promotedRef = useRef<string | null>(null);
   const submissions = useQuery(api.submissions.getForRound, {
     roundId: round._id,
   });
@@ -159,14 +155,6 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
   const voters = useQuery(api.votes.getVotersForRound, { roundId: round._id });
   const votes = useQuery(api.votes.getForRound, { roundId: round._id });
 
-  useEffect(() => {
-    if (round.status === "submissions" && promotedRef.current !== round._id) {
-      promotedRef.current = round._id as string;
-      promotePresubs({ roundId: round._id }).catch((e) => {
-        console.error("Failed to promote presubmissions:", e);
-      });
-    }
-  }, [round._id, round.status, promotePresubs]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -615,20 +603,15 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
 
   const submittedUsers = useMemo(() => {
     if (!submissions) return [] as { name: string | null; image: string | null }[];
-    const required = (round).submissionsPerUser ?? 1;
-    const counts = new Map<string, { name: string | null; image: string | null; count: number }>();
+    const unique = new Map<string, { name: string | null; image: string | null }>();
     for (const sub of submissions) {
       const key = (sub.userId as unknown as string) ?? sub.submittedBy ?? Math.random().toString();
-      const existing = counts.get(key) ?? { name: sub.submittedBy, image: sub.submittedByImage, count: 0 };
-      existing.count += 1;
-      existing.name = sub.submittedBy; // latest name/image
-      existing.image = sub.submittedByImage;
-      counts.set(key, existing);
+      if (!unique.has(key)) {
+        unique.set(key, { name: sub.submittedBy, image: sub.submittedByImage });
+      }
     }
-    return Array.from(counts.values())
-      .filter((e) => e.count >= required)
-      .map(({ name, image }) => ({ name, image }));
-  }, [submissions, round]);
+    return Array.from(unique.values());
+  }, [submissions]);
 
   const formatDuration = (totalSeconds: number) => {
     if (!totalSeconds || totalSeconds <= 0) return null;
