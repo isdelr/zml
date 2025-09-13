@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Remove presubmission functionality&#10;&#10;- Eliminated presubmission logic, including mutations, queries, and related schema definitions.&#10;- Updated `SubmissionForm` and `SongSubmissionForm` components to simplify submission flow.&#10;- Removed unused `presubmissions` table and associated handling in backend logic.&#10;- Ensured UI adjustments to reflect the removal of presubmission features and maintain clarity." />
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Simplify submitter collection logic in `rounds`&#10;&#10;- Replaced per-user submission count calculation with a streamlined approach using unique submitter IDs.&#10;- Simplified submitter display logic by directly mapping unique submitter IDs to user data.&#10;- Retained functionality for required submissions per user while improving code readability and efficiency.">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/rounds.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/rounds.ts" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -35,7 +38,7 @@
   }
 }</component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="CurrentFile" />
+    <option name="selectedTabId" value="AISelfReview" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 0
@@ -125,15 +128,7 @@
       <workItem from="1757446980220" duration="12000" />
       <workItem from="1757503581492" duration="310000" />
       <workItem from="1757503910133" duration="1074000" />
-      <workItem from="1757762392475" duration="7610000" />
-    </task>
-    <task id="LOCAL-00012" summary="song download overhaul">
-      <option name="closed" value="true" />
-      <created>1755906746895</created>
-      <option name="number" value="00012" />
-      <option name="presentableId" value="LOCAL-00012" />
-      <option name="project" value="LOCAL" />
-      <updated>1755906746895</updated>
+      <workItem from="1757762392475" duration="8450000" />
     </task>
     <task id="LOCAL-00013" summary="song download overhaul">
       <option name="closed" value="true" />
@@ -519,7 +514,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757770896692</updated>
     </task>
-    <option name="localTasksCounter" value="61" />
+    <task id="LOCAL-00061" summary="Simplify submitter collection logic in `rounds`&#10;&#10;- Replaced per-user submission count calculation with a streamlined approach using unique submitter IDs.&#10;- Simplified submitter display logic by directly mapping unique submitter IDs to user data.&#10;- Retained functionality for required submissions per user while improving code readability and efficiency.">
+      <option name="closed" value="true" />
+      <created>1757775804884</created>
+      <option name="number" value="00061" />
+      <option name="presentableId" value="LOCAL-00061" />
+      <option name="project" value="LOCAL" />
+      <updated>1757775804884</updated>
+    </task>
+    <option name="localTasksCounter" value="62" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -537,7 +540,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Extend listen tracking to support timers in Spotify and YouTube submissions" />
     <MESSAGE value="Add troll submission handling and ban functionality&#10;&#10;- Allow marking/unmarking of troll submissions.&#10;- Annul positive votes for troll submissions, but count negative votes.&#10;- Prevent banned users from making submissions.&#10;- Add penalties and automatic banning for repeated troll submissions.&#10;- Update UI to support troll submission management and indicators." />
     <MESSAGE value="Fix build error" />
     <MESSAGE value="Update `.idea/` settings and ignore `.idea/` directory" />
@@ -562,6 +564,7 @@
     <MESSAGE value="Introduce per-round vote limit overrides&#10;&#10;- Added support for custom `maxPositiveVotes` and `maxNegativeVotes` values on a per-round basis, defaulting to league limits when not specified.&#10;- Updated vote validation and calculations across backend (`rounds`, `votes`, `leagues`) to utilize effective vote limits.&#10;- Enhanced `RoundDetail`, `EditRoundDialog`, and `RoundHeader` components to display and manage custom vote limits.&#10;- Adjusted schema to include optional per-round vote override fields." />
     <MESSAGE value="Remove unnecessary type casting for `round` in vote limit calculations&#10;&#10;- Simplified code by removing redundant `(round as any)` type casting.&#10;- Updated `RoundDetail` and `EditRoundDialog` components to directly utilize `round` properties for `maxPositiveVotes` and `maxNegativeVotes`.&#10;- Ensured cleaner and more maintainable logic while retaining existing functionality." />
     <MESSAGE value="Remove presubmission functionality&#10;&#10;- Eliminated presubmission logic, including mutations, queries, and related schema definitions.&#10;- Updated `SubmissionForm` and `SongSubmissionForm` components to simplify submission flow.&#10;- Removed unused `presubmissions` table and associated handling in backend logic.&#10;- Ensured UI adjustments to reflect the removal of presubmission features and maintain clarity." />
-    <option name="LAST_COMMIT_MESSAGE" value="Remove presubmission functionality&#10;&#10;- Eliminated presubmission logic, including mutations, queries, and related schema definitions.&#10;- Updated `SubmissionForm` and `SongSubmissionForm` components to simplify submission flow.&#10;- Removed unused `presubmissions` table and associated handling in backend logic.&#10;- Ensured UI adjustments to reflect the removal of presubmission features and maintain clarity." />
+    <MESSAGE value="Simplify submitter collection logic in `rounds`&#10;&#10;- Replaced per-user submission count calculation with a streamlined approach using unique submitter IDs.&#10;- Simplified submitter display logic by directly mapping unique submitter IDs to user data.&#10;- Retained functionality for required submissions per user while improving code readability and efficiency." />
+    <option name="LAST_COMMIT_MESSAGE" value="Simplify submitter collection logic in `rounds`&#10;&#10;- Replaced per-user submission count calculation with a streamlined approach using unique submitter IDs.&#10;- Simplified submitter display logic by directly mapping unique submitter IDs to user data.&#10;- Retained functionality for required submissions per user while improving code readability and efficiency." />
   </component>
 </project>

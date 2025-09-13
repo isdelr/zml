@@ -411,7 +411,10 @@ export const updateRound = mutation({
       throw new Error("Cannot edit a finished round.");
     }
 
-    const submissionsPerUserChanged = round.submissionsPerUser !== args.submissionsPerUser;
+    // Compare effective values (default undefined to 1) so changing only vote limits doesn't wipe submissions
+    const prevSubmissionsPerUser = (round.submissionsPerUser ?? 1);
+    const nextSubmissionsPerUser = (args.submissionsPerUser ?? 1);
+    const submissionsPerUserChanged = prevSubmissionsPerUser !== nextSubmissionsPerUser;
     if (submissionsPerUserChanged && round.status === "voting") {
       throw new Error("Cannot change the number of submissions for a round that is in the voting phase.");
     }
