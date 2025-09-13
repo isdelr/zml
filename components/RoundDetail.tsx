@@ -140,8 +140,8 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
         0,
       );
 
-      const effectiveMaxUp = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
-      const effectiveMaxDown = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
+      const effectiveMaxUp = round.maxPositiveVotes ?? league.maxPositiveVotes;
+      const effectiveMaxDown = round.maxNegativeVotes ?? league.maxNegativeVotes;
       newVoteStatus.hasVoted =
         newVoteStatus.upvotesUsed === effectiveMaxUp &&
         newVoteStatus.downvotesUsed === effectiveMaxDown;
@@ -355,8 +355,8 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
       Math.abs(Math.min(0, nextVote));
 
     // Only prompt if this click would actually make votes final
-    const effectiveMaxUpClick = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
-    const effectiveMaxDownClick = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
+    const effectiveMaxUpClick = round.maxPositiveVotes ?? league.maxPositiveVotes;
+    const effectiveMaxDownClick = round.maxNegativeVotes ?? league.maxNegativeVotes;
     const willBeFinal =
       nextUpvotesUsed === effectiveMaxUpClick &&
       nextDownvotesUsed === effectiveMaxDownClick;
@@ -418,12 +418,12 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
 
   const upvotesUsed = userVoteStatus?.upvotesUsed ?? 0;
   const downvotesUsed = userVoteStatus?.downvotesUsed ?? 0;
-  const effectiveMaxUp = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
-  const effectiveMaxDown = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
+  const effectiveMaxUp = round.maxPositiveVotes ?? league.maxPositiveVotes;
+  const effectiveMaxDown = round.maxNegativeVotes ?? league.maxNegativeVotes;
   const positiveVotesRemaining = Math.max(0, effectiveMaxUp - upvotesUsed);
   const negativeVotesRemaining = Math.max(0, effectiveMaxDown - downvotesUsed);
   const isVoteFinal = userVoteStatus?.hasVoted ?? false;
-  const usesCustomLimits = (((round as any).maxPositiveVotes ?? null) !== null && (round as any).maxPositiveVotes !== league.maxPositiveVotes) || (((round as any).maxNegativeVotes ?? null) !== null && (round as any).maxNegativeVotes !== league.maxNegativeVotes);
+  const usesCustomLimits = (((round.maxPositiveVotes ?? null) !== null && round.maxPositiveVotes !== league.maxPositiveVotes) || ((round.maxNegativeVotes ?? null) !== null && round.maxNegativeVotes !== league.maxNegativeVotes));
   const totalDurationSeconds = useMemo(
     () =>
       submissions?.reduce((total, sub) => total + (sub.duration || 0), 0) ?? 0,

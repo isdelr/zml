@@ -58,8 +58,8 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
       title: round.title || "",
       description: round.description || "",
       submissionsPerUser: round.submissionsPerUser ?? 1,
-      maxPositiveVotes: (round as any).maxPositiveVotes ?? null,
-      maxNegativeVotes: (round as any).maxNegativeVotes ?? null,
+      maxPositiveVotes: round.maxPositiveVotes ?? null,
+      maxNegativeVotes: round.maxNegativeVotes ?? null,
     },
   });
 
