@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Compare `submissionsPerUser` with effective values to prevent data loss&#10;&#10;- Updated logic to default undefined `submissionsPerUser` to 1 for comparison.&#10;- Ensured changes to vote limits won't overwrite submission settings in `rounds`.&#10;- Improved error handling for submission changes during the voting phase.">
-      <change beforePath="$PROJECT_DIR$/convex/rounds.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/rounds.ts" afterDir="false" />
-    </list>
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add ownership validation for round updates&#10;&#10;- Introduced user authentication and ownership checks for round modifications.&#10;- Enforced permission restrictions to ensure only league creators or global admins can update rounds." />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -127,15 +125,7 @@
       <workItem from="1757446980220" duration="12000" />
       <workItem from="1757503581492" duration="310000" />
       <workItem from="1757503910133" duration="1074000" />
-      <workItem from="1757762392475" duration="8762000" />
-    </task>
-    <task id="LOCAL-00014" summary="middleware allow">
-      <option name="closed" value="true" />
-      <created>1755908421129</created>
-      <option name="number" value="00014" />
-      <option name="presentableId" value="LOCAL-00014" />
-      <option name="project" value="LOCAL" />
-      <updated>1755908421129</updated>
+      <workItem from="1757762392475" duration="9103000" />
     </task>
     <task id="LOCAL-00015" summary="middleware allow">
       <option name="closed" value="true" />
@@ -521,7 +511,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757776232884</updated>
     </task>
-    <option name="localTasksCounter" value="63" />
+    <task id="LOCAL-00063" summary="Add ownership validation for round updates&#10;&#10;- Introduced user authentication and ownership checks for round modifications.&#10;- Enforced permission restrictions to ensure only league creators or global admins can update rounds.">
+      <option name="closed" value="true" />
+      <created>1757776613223</created>
+      <option name="number" value="00063" />
+      <option name="presentableId" value="LOCAL-00063" />
+      <option name="project" value="LOCAL" />
+      <updated>1757776613223</updated>
+    </task>
+    <option name="localTasksCounter" value="64" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -539,7 +537,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Fix build error" />
     <MESSAGE value="Update `.idea/` settings and ignore `.idea/` directory" />
     <MESSAGE value="Remove Spotify submission support and adjust logic/UI for YouTube-only handling" />
     <MESSAGE value="remove unncessary component" />
@@ -564,6 +561,7 @@
     <MESSAGE value="Remove presubmission functionality&#10;&#10;- Eliminated presubmission logic, including mutations, queries, and related schema definitions.&#10;- Updated `SubmissionForm` and `SongSubmissionForm` components to simplify submission flow.&#10;- Removed unused `presubmissions` table and associated handling in backend logic.&#10;- Ensured UI adjustments to reflect the removal of presubmission features and maintain clarity." />
     <MESSAGE value="Simplify submitter collection logic in `rounds`&#10;&#10;- Replaced per-user submission count calculation with a streamlined approach using unique submitter IDs.&#10;- Simplified submitter display logic by directly mapping unique submitter IDs to user data.&#10;- Retained functionality for required submissions per user while improving code readability and efficiency." />
     <MESSAGE value="Compare `submissionsPerUser` with effective values to prevent data loss&#10;&#10;- Updated logic to default undefined `submissionsPerUser` to 1 for comparison.&#10;- Ensured changes to vote limits won't overwrite submission settings in `rounds`.&#10;- Improved error handling for submission changes during the voting phase." />
-    <option name="LAST_COMMIT_MESSAGE" value="Compare `submissionsPerUser` with effective values to prevent data loss&#10;&#10;- Updated logic to default undefined `submissionsPerUser` to 1 for comparison.&#10;- Ensured changes to vote limits won't overwrite submission settings in `rounds`.&#10;- Improved error handling for submission changes during the voting phase." />
+    <MESSAGE value="Add ownership validation for round updates&#10;&#10;- Introduced user authentication and ownership checks for round modifications.&#10;- Enforced permission restrictions to ensure only league creators or global admins can update rounds." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add ownership validation for round updates&#10;&#10;- Introduced user authentication and ownership checks for round modifications.&#10;- Enforced permission restrictions to ensure only league creators or global admins can update rounds." />
   </component>
 </project>
