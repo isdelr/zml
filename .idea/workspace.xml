@@ -4,10 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add support for opening YouTube playlists from the queue&#10;&#10;- Implemented logic to build and open a YouTube playlist URL from queued submissions.&#10;- Enhanced `playNext` behavior to detect and handle YouTube submissions by triggering playlist opening.&#10;- Updated `handleEnded` and `onPlayNext` callbacks to incorporate new playlist logic.">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Refine YouTube playlist completion logic and timer integration&#10;&#10;- Introduced `done` state for YouTube playlists to track completion.&#10;- Enhanced `RoundDetail` and `SubmissionsList` components to handle completed playlists with updated UI and logic.&#10;- Improved session and local storage handling to persist and detect playlist completion state across sessions.&#10;- Added safeguards to prevent restarting completed timers.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/components/RoundDetail.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/RoundDetail.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/round/SubmissionsList.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/SubmissionsList.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/round/EditRoundDialog.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/EditRoundDialog.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/round/RoundHeader.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/RoundHeader.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/leagues.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/leagues.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/rounds.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/rounds.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/schema.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/votes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/votes.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -71,7 +76,7 @@
     &quot;nodejs_interpreter_path&quot;: &quot;C:/Users/isaia/AppData/Local/mise/shims/node.cmd&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
     &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;C:\\Users\\isaia\\Projects\\zml\\node_modules\\prettier&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;junie.application.models&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
     &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
     &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\isaia\\Projects\\zml\\node_modules\\typescript\\lib&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
@@ -122,15 +127,11 @@
       <workItem from="1757075088867" duration="7232000" />
       <workItem from="1757344934847" duration="5000" />
       <workItem from="1757344968881" duration="3570000" />
-      <workItem from="1757388136266" duration="4716000" />
-    </task>
-    <task id="LOCAL-00007" summary="deleted unused const">
-      <option name="closed" value="true" />
-      <created>1755902836375</created>
-      <option name="number" value="00007" />
-      <option name="presentableId" value="LOCAL-00007" />
-      <option name="project" value="LOCAL" />
-      <updated>1755902836375</updated>
+      <workItem from="1757388136266" duration="9619000" />
+      <workItem from="1757446980220" duration="12000" />
+      <workItem from="1757503581492" duration="310000" />
+      <workItem from="1757503910133" duration="1074000" />
+      <workItem from="1757762392475" duration="2712000" />
     </task>
     <task id="LOCAL-00008" summary="added removed use node">
       <option name="closed" value="true" />
@@ -516,7 +517,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757391878697</updated>
     </task>
-    <option name="localTasksCounter" value="56" />
+    <task id="LOCAL-00056" summary="Refine YouTube playlist completion logic and timer integration&#10;&#10;- Introduced `done` state for YouTube playlists to track completion.&#10;- Enhanced `RoundDetail` and `SubmissionsList` components to handle completed playlists with updated UI and logic.&#10;- Improved session and local storage handling to persist and detect playlist completion state across sessions.&#10;- Added safeguards to prevent restarting completed timers.">
+      <option name="closed" value="true" />
+      <created>1757393374727</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1757393374727</updated>
+    </task>
+    <option name="localTasksCounter" value="57" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -534,7 +543,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="enforcement features" />
     <MESSAGE value="ui and responsive fixes" />
     <MESSAGE value="Improve league management permissions" />
     <MESSAGE value="Extend listen tracking to support Spotify and YouTube submissions" />
@@ -559,6 +567,7 @@
     <MESSAGE value="idea files" />
     <MESSAGE value="Remove YouTube timer logic and enhance playlist handling&#10;&#10;- Eliminated per-link YouTube timer logic within `PlayerProgress` and `MusicPlayer` components.&#10;- Introduced consolidated YouTube playlist management in `RoundDetail` and `SubmissionsList`.&#10;- Enhanced YouTube playlist information display, including inline progress tracking." />
     <MESSAGE value="Add support for opening YouTube playlists from the queue&#10;&#10;- Implemented logic to build and open a YouTube playlist URL from queued submissions.&#10;- Enhanced `playNext` behavior to detect and handle YouTube submissions by triggering playlist opening.&#10;- Updated `handleEnded` and `onPlayNext` callbacks to incorporate new playlist logic." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add support for opening YouTube playlists from the queue&#10;&#10;- Implemented logic to build and open a YouTube playlist URL from queued submissions.&#10;- Enhanced `playNext` behavior to detect and handle YouTube submissions by triggering playlist opening.&#10;- Updated `handleEnded` and `onPlayNext` callbacks to incorporate new playlist logic." />
+    <MESSAGE value="Refine YouTube playlist completion logic and timer integration&#10;&#10;- Introduced `done` state for YouTube playlists to track completion.&#10;- Enhanced `RoundDetail` and `SubmissionsList` components to handle completed playlists with updated UI and logic.&#10;- Improved session and local storage handling to persist and detect playlist completion state across sessions.&#10;- Added safeguards to prevent restarting completed timers." />
+    <option name="LAST_COMMIT_MESSAGE" value="Refine YouTube playlist completion logic and timer integration&#10;&#10;- Introduced `done` state for YouTube playlists to track completion.&#10;- Enhanced `RoundDetail` and `SubmissionsList` components to handle completed playlists with updated UI and logic.&#10;- Improved session and local storage handling to persist and detect playlist completion state across sessions.&#10;- Added safeguards to prevent restarting completed timers." />
   </component>
 </project>

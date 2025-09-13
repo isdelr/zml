@@ -140,9 +140,11 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
         0,
       );
 
+      const effectiveMaxUp = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
+      const effectiveMaxDown = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
       newVoteStatus.hasVoted =
-        newVoteStatus.upvotesUsed === league.maxPositiveVotes &&
-        newVoteStatus.downvotesUsed === league.maxNegativeVotes;
+        newVoteStatus.upvotesUsed === effectiveMaxUp &&
+        newVoteStatus.downvotesUsed === effectiveMaxDown;
 
       localStore.setQuery(
         api.votes.getForUserInRound,
@@ -353,9 +355,11 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
       Math.abs(Math.min(0, nextVote));
 
     // Only prompt if this click would actually make votes final
+    const effectiveMaxUpClick = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
+    const effectiveMaxDownClick = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
     const willBeFinal =
-      nextUpvotesUsed === league.maxPositiveVotes &&
-      nextDownvotesUsed === league.maxNegativeVotes;
+      nextUpvotesUsed === effectiveMaxUpClick &&
+      nextDownvotesUsed === effectiveMaxDownClick;
 
     if (willBeFinal) {
       setConfirmationState({
@@ -414,9 +418,12 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
 
   const upvotesUsed = userVoteStatus?.upvotesUsed ?? 0;
   const downvotesUsed = userVoteStatus?.downvotesUsed ?? 0;
-  const positiveVotesRemaining = league.maxPositiveVotes - upvotesUsed;
-  const negativeVotesRemaining = league.maxNegativeVotes - downvotesUsed;
+  const effectiveMaxUp = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
+  const effectiveMaxDown = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
+  const positiveVotesRemaining = Math.max(0, effectiveMaxUp - upvotesUsed);
+  const negativeVotesRemaining = Math.max(0, effectiveMaxDown - downvotesUsed);
   const isVoteFinal = userVoteStatus?.hasVoted ?? false;
+  const usesCustomLimits = (((round as any).maxPositiveVotes ?? null) !== null && (round as any).maxPositiveVotes !== league.maxPositiveVotes) || (((round as any).maxNegativeVotes ?? null) !== null && (round as any).maxNegativeVotes !== league.maxNegativeVotes);
   const totalDurationSeconds = useMemo(
     () =>
       submissions?.reduce((total, sub) => total + (sub.duration || 0), 0) ?? 0,
@@ -672,6 +679,11 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
         upvotesUsed={upvotesUsed}
         downvotesUsed={downvotesUsed}
         totalDuration={formatDuration(totalDurationSeconds)}
+        usesCustomLimits={usesCustomLimits}
+        effectiveMaxUp={effectiveMaxUp}
+        effectiveMaxDown={effectiveMaxDown}
+        leagueMaxUp={league.maxPositiveVotes}
+        leagueMaxDown={league.maxNegativeVotes}
       />
 
 

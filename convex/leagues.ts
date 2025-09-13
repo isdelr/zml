@@ -1589,9 +1589,11 @@ export const calculateAndStoreResults = internalMutation({
       budgetByUser.set(key, entry);
     }
 
+    const maxUp = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
+    const maxDown = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
     const finalizedVoters = new Set<string>();
     for (const [userId, { up, down }] of budgetByUser.entries()) {
-      if (up === league.maxPositiveVotes && down === league.maxNegativeVotes) {
+      if (up === maxUp && down === maxDown) {
         finalizedVoters.add(userId);
       }
     }

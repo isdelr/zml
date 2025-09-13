@@ -128,8 +128,10 @@ export const getForLeague = query({
               else if (vte.vote < 0) entry.down += Math.abs(vte.vote);
               sums.set(key, entry);
             }
+            const maxUp = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
+            const maxDown = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
             for (const [userIdStr, { up, down }] of sums.entries()) {
-              if (up === league.maxPositiveVotes && down === league.maxNegativeVotes) {
+              if (up === maxUp && down === maxDown) {
                 finalizedVoterIds.push(userIdStr as unknown as Id<"users">);
               }
             }
@@ -403,6 +405,8 @@ export const updateRound = mutation({
     title: v.string(),
     description: v.string(),
     submissionsPerUser: v.number(),
+    maxPositiveVotes: v.optional(v.union(v.number(), v.null())),
+    maxNegativeVotes: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const round = await ctx.db.get(args.roundId);

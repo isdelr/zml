@@ -95,6 +95,9 @@ export default defineSchema({
     submissionDeadline: v.number(),
     votingDeadline: v.number(),
     submissionsPerUser: v.optional(v.number()),
+    // Per-round overrides for vote limits; null/undefined means use league defaults
+    maxPositiveVotes: v.optional(v.union(v.number(), v.null())),
+    maxNegativeVotes: v.optional(v.union(v.number(), v.null())),
   })
     .index("by_league", ["leagueId"])
     .index("by_league_and_status", ["leagueId", "status"]),

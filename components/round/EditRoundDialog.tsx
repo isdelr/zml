@@ -22,6 +22,16 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Doc } from "@/convex/_generated/dataModel";
 
+const numberOrNull = z.preprocess((val) => {
+  if (val === "" || val === undefined || val === null) return null;
+  if (typeof val === "string") {
+    const n = Number(val);
+    return Number.isNaN(n) ? null : n;
+  }
+  if (typeof val === "number") return val;
+  return null;
+}, z.union([z.number().int().min(0), z.null()]));
+
 const roundEditSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters."),
   description: z
@@ -31,6 +41,8 @@ const roundEditSchema = z.object({
     .number()
     .min(1, "Must be at least 1.")
     .max(5, "Max 5 submissions per user."),
+  maxPositiveVotes: numberOrNull.optional(),
+  maxNegativeVotes: numberOrNull.optional(),
 });
 
 interface EditRoundDialogProps {
@@ -46,6 +58,8 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
       title: round.title || "",
       description: round.description || "",
       submissionsPerUser: round.submissionsPerUser ?? 1,
+      maxPositiveVotes: (round as any).maxPositiveVotes ?? null,
+      maxNegativeVotes: (round as any).maxNegativeVotes ?? null,
     },
   });
 
@@ -106,6 +120,38 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
                 {round.status === "voting"
                   ? "This cannot be changed while a round is in the voting phase."
                   : "Changing this for a round with submissions will delete them and notify users to resubmit."}
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="maxPositiveVotes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Upvotes per round (override)</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} placeholder="Leave empty to use league default" />
+              </FormControl>
+              <FormDescription>
+                Leave empty to use league default. Set to 0 or more to override for this round.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="maxNegativeVotes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Downvotes per round (override)</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} placeholder="Leave empty to use league default" />
+              </FormControl>
+              <FormDescription>
+                Leave empty to use league default. Set to 0 or more to override for this round.
               </FormDescription>
               <FormMessage />
             </FormItem>

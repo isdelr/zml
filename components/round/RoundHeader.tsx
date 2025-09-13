@@ -43,6 +43,12 @@ interface RoundHeaderProps {
   upvotesUsed: number;
   downvotesUsed: number;
   totalDuration: string | null;
+  // UI clarity for custom per-round vote limits
+  usesCustomLimits?: boolean;
+  effectiveMaxUp?: number;
+  effectiveMaxDown?: number;
+  leagueMaxUp?: number;
+  leagueMaxDown?: number;
 }
 
 export function RoundHeader({
@@ -55,6 +61,11 @@ export function RoundHeader({
                               upvotesUsed,
                               downvotesUsed,
                               totalDuration,
+                              usesCustomLimits,
+                              effectiveMaxUp,
+                              effectiveMaxDown,
+                              leagueMaxUp,
+                              leagueMaxDown,
                             }: RoundHeaderProps) {
   return (
     <div className="mb-8 flex flex-col gap-6 md:flex-row md:gap-8">
@@ -101,6 +112,14 @@ export function RoundHeader({
             <p className="mt-2 text-sm text-muted-foreground">
               {round.description}
             </p>
+            {usesCustomLimits && (
+              <span
+                className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
+                title={`League defaults: +${leagueMaxUp} / -${leagueMaxDown}`}
+              >
+                Custom vote limits: <span className="font-semibold">+{effectiveMaxUp}</span> / <span className="font-semibold">-{effectiveMaxDown}</span>
+              </span>
+            )}
           </div>
           {round.status !== "submissions" && submissions && (submissions).length > 0 && (
             <Button

@@ -28,13 +28,15 @@ export const getForUserInRound = query({
     if (!league) {
       throw new Error("Could not find league for this round");
     }
+    const maxUp = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
+    const maxDown = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
     const userSubmission = await ctx.db.query("submissions").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).first();
     const canVote = !!userSubmission;
 
     const userVotes = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId)).collect();
     const upvotesUsed = userVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
     const downvotesUsed = userVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
-    const hasVoted = upvotesUsed === league.maxPositiveVotes && downvotesUsed === league.maxNegativeVotes;
+    const hasVoted = upvotesUsed === maxUp && downvotesUsed === maxDown;
 
     return { hasVoted, canVote, votes: userVotes, upvotesUsed, downvotesUsed };
   },
@@ -47,6 +49,9 @@ export const getVotersForRound = query({
     if (!round) return [];
     const league = await ctx.db.get(round.leagueId);
     if (!league) return [];
+
+    const maxUp = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
+    const maxDown = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
 
     const votes = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId)).collect();
     if (votes.length === 0) {
@@ -64,7 +69,7 @@ export const getVotersForRound = query({
 
     const finalizedUserIds: Id<"users">[] = [];
     for (const [userIdStr, { up, down }] of sums.entries()) {
-      if (up === league.maxPositiveVotes && down === league.maxNegativeVotes) {
+      if (up === maxUp && down === maxDown) {
         finalizedUserIds.push(userIdStr as unknown as Id<"users">);
       }
     }
@@ -104,6 +109,9 @@ export const castVote = mutation({
     const league = await ctx.db.get(submission.leagueId);
     if (!league) throw new Error("League not found.");
 
+    const maxUp = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
+    const maxDown = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
+
     const userSubmission = await ctx.db.query("submissions").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId)).first();
     if (!userSubmission) {
       throw new Error("You must submit a song in this round to be able to vote.");
@@ -126,7 +134,7 @@ export const castVote = mutation({
     const allUserVotesInRound = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId)).collect();
     const upUsedSoFar = allUserVotesInRound.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
     const downUsedSoFar = allUserVotesInRound.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
-    if (upUsedSoFar === league.maxPositiveVotes && downUsedSoFar === league.maxNegativeVotes) {
+    if (upUsedSoFar === maxUp && downUsedSoFar === maxDown) {
       throw new Error("Your votes are final and cannot be changed.");
     }
 
@@ -153,10 +161,10 @@ export const castVote = mutation({
     const newPosUsed = otherPos + Math.max(0, newVote);
     const newNegUsed = otherNeg + Math.abs(Math.min(0, newVote));
 
-    if (args.delta === 1 && newPosUsed > league.maxPositiveVotes) {
+    if (args.delta === 1 && newPosUsed > maxUp) {
       throw new Error("No upvotes remaining.");
     }
-    if (args.delta === -1 && newNegUsed > league.maxNegativeVotes) {
+    if (args.delta === -1 && newNegUsed > maxDown) {
       throw new Error("No downvotes remaining.");
     }
 
@@ -180,7 +188,7 @@ export const castVote = mutation({
     const finalVotes = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id).eq("userId", userId)).collect();
     const finalUp = finalVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
     const finalDown = finalVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
-    const currentUserFinishedVoting = finalUp === league.maxPositiveVotes && finalDown === league.maxNegativeVotes;
+    const currentUserFinishedVoting = finalUp === maxUp && finalDown === maxDown;
 
     if (currentUserFinishedVoting) {
       const allVotesInRound = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id)).collect();
@@ -192,7 +200,7 @@ export const castVote = mutation({
         const submitterVotes = allVotesInRound.filter((v) => v.userId === submitterId);
         const submitterUp = submitterVotes.reduce((sum, v) => sum + Math.max(0, v.vote), 0);
         const submitterDown = submitterVotes.reduce((sum, v) => sum + Math.abs(Math.min(0, v.vote)), 0);
-        if (submitterUp < league.maxPositiveVotes || submitterDown < league.maxNegativeVotes) {
+        if (submitterUp < maxUp || submitterDown < maxDown) {
           allSubmittersHaveVoted = false;
           break;
         }
