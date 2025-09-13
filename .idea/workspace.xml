@@ -4,16 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Refine YouTube playlist completion logic and timer integration&#10;&#10;- Introduced `done` state for YouTube playlists to track completion.&#10;- Enhanced `RoundDetail` and `SubmissionsList` components to handle completed playlists with updated UI and logic.&#10;- Improved session and local storage handling to persist and detect playlist completion state across sessions.&#10;- Added safeguards to prevent restarting completed timers.">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/RoundDetail.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/RoundDetail.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/round/EditRoundDialog.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/EditRoundDialog.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/round/RoundHeader.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/RoundHeader.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/leagues.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/leagues.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/rounds.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/rounds.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/schema.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/votes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/votes.ts" afterDir="false" />
-    </list>
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Introduce per-round vote limit overrides&#10;&#10;- Added support for custom `maxPositiveVotes` and `maxNegativeVotes` values on a per-round basis, defaulting to league limits when not specified.&#10;- Updated vote validation and calculations across backend (`rounds`, `votes`, `leagues`) to utilize effective vote limits.&#10;- Enhanced `RoundDetail`, `EditRoundDialog`, and `RoundHeader` components to display and manage custom vote limits.&#10;- Adjusted schema to include optional per-round vote override fields." />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -131,15 +122,7 @@
       <workItem from="1757446980220" duration="12000" />
       <workItem from="1757503581492" duration="310000" />
       <workItem from="1757503910133" duration="1074000" />
-      <workItem from="1757762392475" duration="2712000" />
-    </task>
-    <task id="LOCAL-00008" summary="added removed use node">
-      <option name="closed" value="true" />
-      <created>1755903000491</created>
-      <option name="number" value="00008" />
-      <option name="presentableId" value="LOCAL-00008" />
-      <option name="project" value="LOCAL" />
-      <updated>1755903000491</updated>
+      <workItem from="1757762392475" duration="3022000" />
     </task>
     <task id="LOCAL-00009" summary="fixed import">
       <option name="closed" value="true" />
@@ -525,7 +508,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757393374727</updated>
     </task>
-    <option name="localTasksCounter" value="57" />
+    <task id="LOCAL-00057" summary="Introduce per-round vote limit overrides&#10;&#10;- Added support for custom `maxPositiveVotes` and `maxNegativeVotes` values on a per-round basis, defaulting to league limits when not specified.&#10;- Updated vote validation and calculations across backend (`rounds`, `votes`, `leagues`) to utilize effective vote limits.&#10;- Enhanced `RoundDetail`, `EditRoundDialog`, and `RoundHeader` components to display and manage custom vote limits.&#10;- Adjusted schema to include optional per-round vote override fields.">
+      <option name="closed" value="true" />
+      <created>1757766371865</created>
+      <option name="number" value="00057" />
+      <option name="presentableId" value="LOCAL-00057" />
+      <option name="project" value="LOCAL" />
+      <updated>1757766371865</updated>
+    </task>
+    <option name="localTasksCounter" value="58" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -543,7 +534,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="ui and responsive fixes" />
     <MESSAGE value="Improve league management permissions" />
     <MESSAGE value="Extend listen tracking to support Spotify and YouTube submissions" />
     <MESSAGE value="Extend listen tracking to support timers in Spotify and YouTube submissions" />
@@ -568,6 +558,7 @@
     <MESSAGE value="Remove YouTube timer logic and enhance playlist handling&#10;&#10;- Eliminated per-link YouTube timer logic within `PlayerProgress` and `MusicPlayer` components.&#10;- Introduced consolidated YouTube playlist management in `RoundDetail` and `SubmissionsList`.&#10;- Enhanced YouTube playlist information display, including inline progress tracking." />
     <MESSAGE value="Add support for opening YouTube playlists from the queue&#10;&#10;- Implemented logic to build and open a YouTube playlist URL from queued submissions.&#10;- Enhanced `playNext` behavior to detect and handle YouTube submissions by triggering playlist opening.&#10;- Updated `handleEnded` and `onPlayNext` callbacks to incorporate new playlist logic." />
     <MESSAGE value="Refine YouTube playlist completion logic and timer integration&#10;&#10;- Introduced `done` state for YouTube playlists to track completion.&#10;- Enhanced `RoundDetail` and `SubmissionsList` components to handle completed playlists with updated UI and logic.&#10;- Improved session and local storage handling to persist and detect playlist completion state across sessions.&#10;- Added safeguards to prevent restarting completed timers." />
-    <option name="LAST_COMMIT_MESSAGE" value="Refine YouTube playlist completion logic and timer integration&#10;&#10;- Introduced `done` state for YouTube playlists to track completion.&#10;- Enhanced `RoundDetail` and `SubmissionsList` components to handle completed playlists with updated UI and logic.&#10;- Improved session and local storage handling to persist and detect playlist completion state across sessions.&#10;- Added safeguards to prevent restarting completed timers." />
+    <MESSAGE value="Introduce per-round vote limit overrides&#10;&#10;- Added support for custom `maxPositiveVotes` and `maxNegativeVotes` values on a per-round basis, defaulting to league limits when not specified.&#10;- Updated vote validation and calculations across backend (`rounds`, `votes`, `leagues`) to utilize effective vote limits.&#10;- Enhanced `RoundDetail`, `EditRoundDialog`, and `RoundHeader` components to display and manage custom vote limits.&#10;- Adjusted schema to include optional per-round vote override fields." />
+    <option name="LAST_COMMIT_MESSAGE" value="Introduce per-round vote limit overrides&#10;&#10;- Added support for custom `maxPositiveVotes` and `maxNegativeVotes` values on a per-round basis, defaulting to league limits when not specified.&#10;- Updated vote validation and calculations across backend (`rounds`, `votes`, `leagues`) to utilize effective vote limits.&#10;- Enhanced `RoundDetail`, `EditRoundDialog`, and `RoundHeader` components to display and manage custom vote limits.&#10;- Adjusted schema to include optional per-round vote override fields." />
   </component>
 </project>
