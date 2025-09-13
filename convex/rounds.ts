@@ -405,7 +405,17 @@ export const updateRound = mutation({
   handler: async (ctx, args) => {
     const round = await ctx.db.get(args.roundId);
     if (!round) throw new Error("Round not found.");
-    const { league, userId: adminUserId } = await checkOwnership(ctx, round.leagueId);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated.");
+    const league = await ctx.db.get(round.leagueId);
+    if (!league) throw new Error("League not found.");
+    const user = await ctx.db.get(userId);
+    const isOwner = league.creatorId === userId;
+    const isGlobalAdmin = !!user?.isGlobalAdmin;
+    if (!(isOwner || isGlobalAdmin)) {
+      throw new Error("You do not have permission to update this round.");
+    }
+    const adminUserId = userId;
 
     if (round.status === "finished") {
       throw new Error("Cannot edit a finished round.");
