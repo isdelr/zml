@@ -74,15 +74,15 @@ export const getForLeague = query({
       .order("desc")
       .paginate(args.paginationOpts);
 
+    const league = await ctx.db.get(args.leagueId);
+    const leagueName = league?.name ?? "Unknown League";
+    const leagueMemberCount = await memberCounter.count(ctx, args.leagueId);
+
     const roundsWithDetails = await Promise.all(
       paginationResult.page.map(async (round) => {
-        const league = await ctx.db.get(round.leagueId);
 
         // Lightweight counts using sharded counters
-        const [submissionCount, leagueMemberCount] = await Promise.all([
-          submissionCounter.count(ctx, round._id),
-          memberCounter.count(ctx, round.leagueId),
-        ]);
+        const submissionCount = await submissionCounter.count(ctx, round._id);
 
         const requiredPerUser = (round as any).submissionsPerUser ?? 1;
 
@@ -127,30 +127,8 @@ export const getForLeague = query({
           }
         }
 
-        // Build a small preview of submitters without scanning the entire table.
-        // We approximate by sampling a limited number of submissions and selecting
-        // users who meet the per-user requirement within the sample.
-        const SUBMISSION_SAMPLE = 200;
-        const PREVIEW_USERS = 8;
-        const submissionSample = await ctx.db
-          .query("submissions")
-          .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
-          .take(SUBMISSION_SAMPLE);
-
-        const countsByUser = new Map<string, number>();
-        for (const s of submissionSample) {
-          const key = s.userId.toString();
-          countsByUser.set(key, (countsByUser.get(key) ?? 0) + 1);
-        }
-        const completedSubmitterIds: Id<"users">[] = [];
-        for (const [uidStr, cnt] of countsByUser.entries()) {
-          if (cnt >= requiredPerUser) {
-            completedSubmitterIds.push(uidStr as unknown as Id<"users">);
-            if (completedSubmitterIds.length >= PREVIEW_USERS) break;
-          }
-        }
-        const submitterUsersDocs = await Promise.all(completedSubmitterIds.map((id) => ctx.db.get(id)));
-        const submitterUsers = submitterUsersDocs.filter((u): u is Doc<"users"> => u !== null);
+        // Skip reading submissions to avoid large reads; show no submitter preview
+        const submitterUsers: Doc<"users">[] = [];
 
         const artUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
         const expectedTrackCount = leagueMemberCount * requiredPerUser;
@@ -162,12 +140,12 @@ export const getForLeague = query({
         return {
           ...round,
           art: artUrl,
-          leagueName: league?.name ?? "Unknown League",
+          leagueName,
           submissionCount, // total submitted tracks from counter
           expectedTrackCount,
           leagueMemberCount,
           voterCount,
-          submitters: submitterUsers.map((u) => ({ name: u.name ?? null, image: u.image ?? null })),
+          submitters: [],
           voters,
           winner: winnerInfo,
           winners: winnersInfo,

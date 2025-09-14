@@ -4,9 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="updated packages">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Streamline submission and league member counting logic&#10;&#10;- Integrated sharded counters for lightweight submission and member counts.&#10;- Avoided heavy database scans by sampling submissions and approximating submitter count.&#10;- Updated `RoundListItem` to derive submitter counts with improved efficiency.&#10;- Removed redundant voter processing for rounds to prevent large reads.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/league/RoundListItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/league/RoundListItem.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/convex/rounds.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/rounds.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -131,14 +130,6 @@
       <workItem from="1757503910133" duration="1074000" />
       <workItem from="1757762392475" duration="9127000" />
       <workItem from="1757820381986" duration="2800000" />
-    </task>
-    <task id="LOCAL-00020" summary="middleware allows">
-      <option name="closed" value="true" />
-      <created>1755911876948</created>
-      <option name="number" value="00020" />
-      <option name="presentableId" value="LOCAL-00020" />
-      <option name="project" value="LOCAL" />
-      <updated>1755911876948</updated>
     </task>
     <task id="LOCAL-00021" summary="middleware revert">
       <option name="closed" value="true" />
@@ -524,7 +515,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757882948869</updated>
     </task>
-    <option name="localTasksCounter" value="69" />
+    <task id="LOCAL-00069" summary="Streamline submission and league member counting logic&#10;&#10;- Integrated sharded counters for lightweight submission and member counts.&#10;- Avoided heavy database scans by sampling submissions and approximating submitter count.&#10;- Updated `RoundListItem` to derive submitter counts with improved efficiency.&#10;- Removed redundant voter processing for rounds to prevent large reads.">
+      <option name="closed" value="true" />
+      <created>1757883507436</created>
+      <option name="number" value="00069" />
+      <option name="presentableId" value="LOCAL-00069" />
+      <option name="project" value="LOCAL" />
+      <updated>1757883507436</updated>
+    </task>
+    <option name="localTasksCounter" value="70" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -542,7 +541,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="skip troll submission check" />
     <MESSAGE value="Remove Spotify submission support and update logic/UI for YouTube-only handling" />
     <MESSAGE value="Add audio URL and album art refresh handling for expiring links&#10;&#10;- Introduced automatic preemptive refresh for expiring audio URLs and album art.&#10;- Preserves playback state and ensures seamless user experience during refresh.&#10;- Added new helper utilities to parse and schedule URL expiry-based refreshes." />
     <MESSAGE value="Improve submission logic for troll handling and timer progress alignment&#10;&#10;- Enhanced troll submission management by recomputing troll counts upon marking/unmarking to prevent inflated counts.&#10;- Updated membership banning logic to ensure correct troll count tracking and consistent rules for bans.&#10;- Refined" />
@@ -567,6 +565,7 @@
     <MESSAGE value="Enhance submission tracking and display logic&#10;&#10;- Implemented per-user submission count tracking to identify users who completed required submissions.&#10;- Updated submitter calculations to only include users meeting the submission requirements.&#10;- Enhanced UI in `RoundDetail` to show completed and missing submitters, improving clarity for league members.&#10;- Adjusted submission count displays in `RoundListItem` to reflect accurate data." />
     <MESSAGE value="Improve external link handling and listen requirement display logic  &#10;&#10;- Updated listen percentage calculation to default to 100% when not provided.&#10;- Enhanced messaging for YouTube links to clarify tracking and playback instructions.&#10;- Added validation for external links before enabling the play button.&#10;- Adjusted tooltips and error messages to accurately reflect listen requirements." />
     <MESSAGE value="updated packages" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated packages" />
+    <MESSAGE value="Streamline submission and league member counting logic&#10;&#10;- Integrated sharded counters for lightweight submission and member counts.&#10;- Avoided heavy database scans by sampling submissions and approximating submitter count.&#10;- Updated `RoundListItem` to derive submitter counts with improved efficiency.&#10;- Removed redundant voter processing for rounds to prevent large reads." />
+    <option name="LAST_COMMIT_MESSAGE" value="Streamline submission and league member counting logic&#10;&#10;- Integrated sharded counters for lightweight submission and member counts.&#10;- Avoided heavy database scans by sampling submissions and approximating submitter count.&#10;- Updated `RoundListItem` to derive submitter counts with improved efficiency.&#10;- Removed redundant voter processing for rounds to prevent large reads." />
   </component>
 </project>
