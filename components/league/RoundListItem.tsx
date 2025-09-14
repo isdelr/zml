@@ -68,7 +68,7 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
             <Clock className="size-3" /> Ends {formatDeadline(round.submissionDeadline)}
           </div>
           <div className="flex items-center gap-1.5">
-            {(round.submitters?.length ?? 0)}/{round.leagueMemberCount} submitted
+            {submitterCount}/{round.leagueMemberCount} submitted
           </div>
         </>
       )}
@@ -104,6 +104,15 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
         )
       )}
     </div>
+  );
+
+  // Derive an estimated submitter count from counters to avoid heavy server reads
+  const requiredPerUser = round.leagueMemberCount > 0 && round.expectedTrackCount
+    ? round.expectedTrackCount / round.leagueMemberCount
+    : 1;
+  const submitterCount = Math.min(
+    round.leagueMemberCount,
+    Math.floor(round.submissionCount / (requiredPerUser || 1)),
   );
 
   return (
@@ -179,7 +188,7 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
               />
               <span className="text-sm font-medium">
 {round.status === "submissions"
-  ? `${(round.submitters?.length ?? 0)}/${round.leagueMemberCount}`
+  ? `${submitterCount}/${round.leagueMemberCount}`
   : `${round.voterCount}/${round.leagueMemberCount}`}
 </span>
             </div>

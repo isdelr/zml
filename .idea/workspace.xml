@@ -4,9 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Improve external link handling and listen requirement display logic  &#10;&#10;- Updated listen percentage calculation to default to 100% when not provided.&#10;- Enhanced messaging for YouTube links to clarify tracking and playback instructions.&#10;- Added validation for external links before enabling the play button.&#10;- Adjusted tooltips and error messages to accurately reflect listen requirements.">
-      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="updated packages">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/league/RoundListItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/league/RoundListItem.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/rounds.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/rounds.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -130,22 +131,6 @@
       <workItem from="1757503910133" duration="1074000" />
       <workItem from="1757762392475" duration="9127000" />
       <workItem from="1757820381986" duration="2800000" />
-    </task>
-    <task id="LOCAL-00018" summary="update deps">
-      <option name="closed" value="true" />
-      <created>1755911472645</created>
-      <option name="number" value="00018" />
-      <option name="presentableId" value="LOCAL-00018" />
-      <option name="project" value="LOCAL" />
-      <updated>1755911472645</updated>
-    </task>
-    <task id="LOCAL-00019" summary="generated api">
-      <option name="closed" value="true" />
-      <created>1755911682121</created>
-      <option name="number" value="00019" />
-      <option name="presentableId" value="LOCAL-00019" />
-      <option name="project" value="LOCAL" />
-      <updated>1755911682121</updated>
     </task>
     <task id="LOCAL-00020" summary="middleware allows">
       <option name="closed" value="true" />
@@ -523,7 +508,23 @@
       <option name="project" value="LOCAL" />
       <updated>1757825785996</updated>
     </task>
-    <option name="localTasksCounter" value="67" />
+    <task id="LOCAL-00067" summary="updated packages">
+      <option name="closed" value="true" />
+      <created>1757882942827</created>
+      <option name="number" value="00067" />
+      <option name="presentableId" value="LOCAL-00067" />
+      <option name="project" value="LOCAL" />
+      <updated>1757882942827</updated>
+    </task>
+    <task id="LOCAL-00068" summary="updated packages">
+      <option name="closed" value="true" />
+      <created>1757882948869</created>
+      <option name="number" value="00068" />
+      <option name="presentableId" value="LOCAL-00068" />
+      <option name="project" value="LOCAL" />
+      <updated>1757882948869</updated>
+    </task>
+    <option name="localTasksCounter" value="69" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -541,7 +542,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fixed youtube timer" />
     <MESSAGE value="skip troll submission check" />
     <MESSAGE value="Remove Spotify submission support and update logic/UI for YouTube-only handling" />
     <MESSAGE value="Add audio URL and album art refresh handling for expiring links&#10;&#10;- Introduced automatic preemptive refresh for expiring audio URLs and album art.&#10;- Preserves playback state and ensures seamless user experience during refresh.&#10;- Added new helper utilities to parse and schedule URL expiry-based refreshes." />
@@ -566,6 +566,7 @@
     <MESSAGE value="Update `.idea/` workspace configuration&#10;&#10;- Adjusted tasks and changelist comments to reflect recent round update validation changes.&#10;- Updated LAST_COMMIT_MESSAGE and local task counter for consistency." />
     <MESSAGE value="Enhance submission tracking and display logic&#10;&#10;- Implemented per-user submission count tracking to identify users who completed required submissions.&#10;- Updated submitter calculations to only include users meeting the submission requirements.&#10;- Enhanced UI in `RoundDetail` to show completed and missing submitters, improving clarity for league members.&#10;- Adjusted submission count displays in `RoundListItem` to reflect accurate data." />
     <MESSAGE value="Improve external link handling and listen requirement display logic  &#10;&#10;- Updated listen percentage calculation to default to 100% when not provided.&#10;- Enhanced messaging for YouTube links to clarify tracking and playback instructions.&#10;- Added validation for external links before enabling the play button.&#10;- Adjusted tooltips and error messages to accurately reflect listen requirements." />
-    <option name="LAST_COMMIT_MESSAGE" value="Improve external link handling and listen requirement display logic  &#10;&#10;- Updated listen percentage calculation to default to 100% when not provided.&#10;- Enhanced messaging for YouTube links to clarify tracking and playback instructions.&#10;- Added validation for external links before enabling the play button.&#10;- Adjusted tooltips and error messages to accurately reflect listen requirements." />
+    <MESSAGE value="updated packages" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated packages" />
   </component>
 </project>

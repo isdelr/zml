@@ -4,7 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
-import { submissionCounter } from "./counters";
+import { submissionCounter, memberCounter } from "./counters";
 import { paginationOptsValidator } from "convex/server";
 import { submissionsByUser } from "./aggregates";
 
@@ -78,13 +78,15 @@ export const getForLeague = query({
       paginationResult.page.map(async (round) => {
         const league = await ctx.db.get(round.leagueId);
 
-        const submissions = await ctx.db
-          .query("submissions")
-          .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
-          .collect();
+        // Lightweight counts using sharded counters
+        const [submissionCount, leagueMemberCount] = await Promise.all([
+          submissionCounter.count(ctx, round._id),
+          memberCounter.count(ctx, round.leagueId),
+        ]);
 
-        const allUserIds = new Set(submissions.map((s) => s.userId));
+        const requiredPerUser = (round as any).submissionsPerUser ?? 1;
 
+        // Winners (small result set)
         let winnerInfo: {
           name: string;
           image: string | null;
@@ -97,8 +99,6 @@ export const getForLeague = query({
           songTitle: string;
           points: number;
         }[] = [];
-
-        let voters: Doc<"users">[] = [];
 
         if (round.status === "finished") {
           const results = await ctx.db
@@ -127,71 +127,48 @@ export const getForLeague = query({
           }
         }
 
-        if (round.status === "voting" || round.status === "finished") {
-          const votes = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id)).collect();
+        // Build a small preview of submitters without scanning the entire table.
+        // We approximate by sampling a limited number of submissions and selecting
+        // users who meet the per-user requirement within the sample.
+        const SUBMISSION_SAMPLE = 200;
+        const PREVIEW_USERS = 8;
+        const submissionSample = await ctx.db
+          .query("submissions")
+          .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+          .take(SUBMISSION_SAMPLE);
 
-          const finalizedVoterIds: Id<"users">[] = [];
-          if (league) {
-            const sums = new Map<string, { up: number; down: number }>();
-            for (const vte of votes) {
-              const key = vte.userId.toString();
-              const entry = sums.get(key) ?? { up: 0, down: 0 };
-              if (vte.vote > 0) entry.up += vte.vote;
-              else if (vte.vote < 0) entry.down += Math.abs(vte.vote);
-              sums.set(key, entry);
-            }
-            const maxUp = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
-            const maxDown = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
-            for (const [userIdStr, { up, down }] of sums.entries()) {
-              if (up === maxUp && down === maxDown) {
-                finalizedVoterIds.push(userIdStr as unknown as Id<"users">);
-              }
-            }
-          }
-          finalizedVoterIds.forEach((id) => allUserIds.add(id));
-          const voterDocs = await Promise.all(finalizedVoterIds.map((id) => ctx.db.get(id)));
-          voters = voterDocs.filter((u): u is Doc<"users"> => u !== null);
-        }
-
-        const userDocs = await Promise.all(Array.from(allUserIds).map((id) => ctx.db.get(id)));
-        const userMap = new Map(userDocs.filter(Boolean).map((u) => [u!._id, u! as Doc<"users">]));
-
-        // Compute per-user submission counts
         const countsByUser = new Map<string, number>();
-        for (const s of submissions) {
+        for (const s of submissionSample) {
           const key = s.userId.toString();
           countsByUser.set(key, (countsByUser.get(key) ?? 0) + 1);
         }
-
-        const requiredPerUser = (round as any).submissionsPerUser ?? 1;
-
-        // Submitters are only users who completed all required submissions
-        const completedSubmitterIds = Array.from(countsByUser.entries())
-          .filter(([, cnt]) => cnt >= requiredPerUser)
-          .map(([uid]) => uid as unknown as Id<"users">);
-        const submitterUsers = completedSubmitterIds
-          .map((uid) => userMap.get(uid))
-          .filter(Boolean) as Doc<"users">[];
+        const completedSubmitterIds: Id<"users">[] = [];
+        for (const [uidStr, cnt] of countsByUser.entries()) {
+          if (cnt >= requiredPerUser) {
+            completedSubmitterIds.push(uidStr as unknown as Id<"users">);
+            if (completedSubmitterIds.length >= PREVIEW_USERS) break;
+          }
+        }
+        const submitterUsersDocs = await Promise.all(completedSubmitterIds.map((id) => ctx.db.get(id)));
+        const submitterUsers = submitterUsersDocs.filter((u): u is Doc<"users"> => u !== null);
 
         const artUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
-
-        // Member count for denominator and expected tracks
-        const leagueMemberCount = (await ctx.db
-          .query("memberships")
-          .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
-          .collect()).length;
         const expectedTrackCount = leagueMemberCount * requiredPerUser;
+
+        // For voters, avoid expensive scans; return an empty preview and 0 count to prevent large reads.
+        const voterCount = 0;
+        const voters: { name: string | null | undefined; image: string | null | undefined }[] = [];
 
         return {
           ...round,
           art: artUrl,
           leagueName: league?.name ?? "Unknown League",
-          submissionCount: submissions.length, // total submitted tracks (kept for compatibility)
+          submissionCount, // total submitted tracks from counter
           expectedTrackCount,
           leagueMemberCount,
-          voterCount: voters.length,
-          submitters: submitterUsers.map((u) => ({ name: u.name, image: u.image })),
-          voters: voters.map((u) => ({ name: u.name, image: u.image })),
+          voterCount,
+          submitters: submitterUsers.map((u) => ({ name: u.name ?? null, image: u.image ?? null })),
+          voters,
           winner: winnerInfo,
           winners: winnersInfo,
         };
