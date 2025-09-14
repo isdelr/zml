@@ -1664,20 +1664,13 @@ export const calculateAndStoreResults = internalMutation({
       });
     }
 
-    // Determine winning submission: highest points; tie-breaker = earliest submission
-    let winningSubId: string | null = null;
+    // Determine winning submissions: all with highest points (allow ties)
     let bestPoints = -Infinity;
-    let bestCreation = Number.MAX_SAFE_INTEGER;
     for (const sub of submissions) {
       const sid = sub._id.toString();
       const { points } = perSubmission.get(sid)!;
       if (points > bestPoints) {
         bestPoints = points;
-        bestCreation = sub._creationTime;
-        winningSubId = sid;
-      } else if (points === bestPoints && sub._creationTime < bestCreation) {
-        bestCreation = sub._creationTime;
-        winningSubId = sid;
       }
     }
 
@@ -1690,7 +1683,7 @@ export const calculateAndStoreResults = internalMutation({
         submissionId: sid,
         userId: sub.userId,
         points: r.points,
-        isWinner: winningSubId === sid.toString(),
+        isWinner: r.points === bestPoints,
         penaltyApplied: r.penaltyApplied,
       });
     }
@@ -1703,7 +1696,7 @@ export const calculateAndStoreResults = internalMutation({
       const u = sub.userId.toString();
       const r = perSubmission.get(sid)!;
       newPointsByUser.set(u, (newPointsByUser.get(u) ?? 0) + r.points);
-      if (winningSubId === sid) {
+      if (r.points === bestPoints) {
         newWinsByUser.set(u, (newWinsByUser.get(u) ?? 0) + 1);
       }
     }

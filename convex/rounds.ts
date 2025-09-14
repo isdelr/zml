@@ -91,6 +91,12 @@ export const getForLeague = query({
           songTitle: string;
           points: number;
         } | null = null;
+        let winnersInfo: {
+          name: string;
+          image: string | null;
+          songTitle: string;
+          points: number;
+        }[] = [];
 
         let voters: Doc<"users">[] = [];
 
@@ -102,15 +108,21 @@ export const getForLeague = query({
             .collect();
 
           if (results.length > 0) {
-            const winnerResult = results[0];
-            const [winnerUser, winningSubmission] = await Promise.all([ctx.db.get(winnerResult.userId), ctx.db.get(winnerResult.submissionId)]);
-            if (winnerUser && winningSubmission) {
-              winnerInfo = {
-                name: winnerUser.name ?? "Unknown",
-                image: winnerUser.image ?? null,
-                songTitle: winningSubmission.songTitle,
-                points: winnerResult.points,
-              };
+            const winners = await Promise.all(
+              results.map(async (res) => {
+                const [u, s] = await Promise.all([ctx.db.get(res.userId), ctx.db.get(res.submissionId)]);
+                if (!u || !s) return null;
+                return {
+                  name: u.name ?? "Unknown",
+                  image: u.image ?? null,
+                  songTitle: s.songTitle,
+                  points: res.points,
+                };
+              })
+            );
+            winnersInfo = winners.filter((w): w is NonNullable<typeof w> => w !== null);
+            if (winnersInfo.length > 0) {
+              winnerInfo = winnersInfo[0]; // backward-compatible single winner for existing UI
             }
           }
         }
@@ -181,6 +193,7 @@ export const getForLeague = query({
           submitters: submitterUsers.map((u) => ({ name: u.name, image: u.image })),
           voters: voters.map((u) => ({ name: u.name, image: u.image })),
           winner: winnerInfo,
+          winners: winnersInfo,
         };
       }),
     );

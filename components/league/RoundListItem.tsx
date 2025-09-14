@@ -23,6 +23,12 @@ type RoundListItemProps = {
       songTitle: string;
       points: number;
     } | null;
+    winners?: {
+      name: string;
+      image: string | null;
+      songTitle: string;
+      points: number;
+    }[];
     submitters?: { name: string | null; image: string | null }[];
     voters?: { name: string | null; image: string | null }[];
   };
@@ -76,16 +82,26 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
           </div>
         </>
       )}
-      {round.status === "finished" && round.winner && (
-        <div className="flex items-center gap-2 truncate">
-          <Crown className="size-3 text-amber-500 flex-shrink-0" />
-          <Avatar className="size-4 flex-shrink-0">
-            <AvatarImage src={round.winner.image ?? undefined} />
-            <AvatarFallback>{round.winner.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <p className="font-semibold text-foreground/80 truncate">{round.winner.name}</p>
-          <span className="truncate">- “{round.winner.songTitle}”</span>
-        </div>
+      {round.status === "finished" && (
+        round.winners && round.winners.length > 1 ? (
+          <div className="flex items-center gap-2 truncate">
+            <Crown className="size-3 text-amber-500 flex-shrink-0" />
+            <AvatarStack users={round.winners.map(w => ({ name: w.name, image: w.image }))} />
+            <p className="font-semibold text-foreground/80 truncate">Tie: {round.winners.map(w => w.name).join(", ")}</p>
+          </div>
+        ) : (
+          round.winner && (
+            <div className="flex items-center gap-2 truncate">
+              <Crown className="size-3 text-amber-500 flex-shrink-0" />
+              <Avatar className="size-4 flex-shrink-0">
+                <AvatarImage src={round.winner.image ?? undefined} />
+                <AvatarFallback>{round.winner.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <p className="font-semibold text-foreground/80 truncate">{round.winner.name}</p>
+              <span className="truncate">- “{round.winner.songTitle}”</span>
+            </div>
+          )
+        )
       )}
     </div>
   );
@@ -133,16 +149,26 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
               <span>Ends {formatDeadline(round.votingDeadline)}</span>
             </>
           )}
-          {round.status === "finished" && round.winner && (
-            <div className="flex items-center gap-2 truncate">
-              <Crown className="size-4 text-amber-500 flex-shrink-0" />
-              <Avatar className="size-5 flex-shrink-0">
-                <AvatarImage src={round.winner.image ?? undefined} />
-                <AvatarFallback>{round.winner.name.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <p className="font-semibold text-foreground truncate">{round.winner.name}</p>
-              <span className="truncate hidden lg:inline">- “{round.winner.songTitle}”</span>
-            </div>
+          {round.status === "finished" && (
+            round.winners && round.winners.length > 1 ? (
+              <div className="flex items-center gap-2 truncate">
+                <Crown className="size-4 text-amber-500 flex-shrink-0" />
+                <AvatarStack users={round.winners.map(w => ({ name: w.name, image: w.image }))} />
+                <p className="font-semibold text-foreground truncate">Tie: {round.winners.map(w => w.name).join(", ")}</p>
+              </div>
+            ) : (
+              round.winner && (
+                <div className="flex items-center gap-2 truncate">
+                  <Crown className="size-4 text-amber-500 flex-shrink-0" />
+                  <Avatar className="size-5 flex-shrink-0">
+                    <AvatarImage src={round.winner.image ?? undefined} />
+                    <AvatarFallback>{round.winner.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <p className="font-semibold text-foreground truncate">{round.winner.name}</p>
+                  <span className="truncate hidden lg:inline">- “{round.winner.songTitle}”</span>
+                </div>
+              )
+            )
           )}
         </div>
         <div className="flex items-center justify-start">
@@ -158,11 +184,20 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
 </span>
             </div>
           )}
-          {round.status === "finished" && round.winner && (
-            <div className="flex items-center gap-1.5 text-sm font-bold">
-              <Music className="size-4 text-muted-foreground" />
-              <span>{round.winner.points} pts</span>
-            </div>
+          {round.status === "finished" && (
+            round.winners && round.winners.length > 1 ? (
+              <div className="flex items-center gap-1.5 text-sm font-bold">
+                <Music className="size-4 text-muted-foreground" />
+                <span>{round.winners[0]?.points ?? 0} pts · tie</span>
+              </div>
+            ) : (
+              round.winner && (
+                <div className="flex items-center gap-1.5 text-sm font-bold">
+                  <Music className="size-4 text-muted-foreground" />
+                  <span>{round.winner.points} pts</span>
+                </div>
+              )
+            )
           )}
         </div>
       </div>
