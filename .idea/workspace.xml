@@ -5,8 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Improve external link handling and listen requirement display logic  &#10;&#10;- Updated listen percentage calculation to default to 100% when not provided.&#10;- Enhanced messaging for YouTube links to clarify tracking and playback instructions.&#10;- Added validation for external links before enabling the play button.&#10;- Adjusted tooltips and error messages to accurately reflect listen requirements.">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
