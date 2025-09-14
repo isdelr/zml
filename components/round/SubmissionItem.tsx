@@ -11,6 +11,7 @@ import {
   Ban,
   Headphones,
   AlertTriangle,
+  Download,
 } from "lucide-react";
 import { FaYoutube } from "react-icons/fa";
 import Image from "next/image";
@@ -244,6 +245,13 @@ export function SubmissionItem({
             <SubmitterInfo />
             <div className="flex items-center gap-1">
               {roundStatus === 'voting' && <VoteButtonGroup />}
+              {roundStatus !== 'submissions' && song.submissionType === 'file' && song.songFileUrl && (
+                <a href={song.songFileUrl} download onClick={(e) => e.stopPropagation()} title="Download audio file">
+                  <Button variant="ghost" size="icon" className="size-8">
+                    <Download className="size-5" />
+                  </Button>
+                </a>
+              )}
               {canMarkTrollSubmissions && (
                 <TooltipProvider>
                   <Tooltip>
@@ -330,10 +338,18 @@ export function SubmissionItem({
           <div className="flex items-center justify-center w-44 gap-1">
             {roundStatus === 'voting' ? (
               <VoteButtonGroup />
-            ) : isLinkSubmission ? (
-              <a href={song.songLink!} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="size-8"><FaYoutube className="size-5 text-red-500"/></Button>
-              </a>
+            ) : roundStatus !== 'submissions' ? (
+              isLinkSubmission ? (
+                <a href={song.songLink!} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="size-8"><FaYoutube className="size-5 text-red-500"/></Button>
+                </a>
+              ) : (song.submissionType === 'file' && song.songFileUrl ? (
+                <a href={song.songFileUrl} download onClick={(e) => e.stopPropagation()} title="Download audio file">
+                  <Button variant="ghost" size="icon" className="size-8">
+                    <Download className="size-5" />
+                  </Button>
+                </a>
+              ) : null)
             ) : null}
             {canMarkTrollSubmissions && (
               <TooltipProvider>

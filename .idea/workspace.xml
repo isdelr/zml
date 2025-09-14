@@ -4,11 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Enhance submission tracking and display logic&#10;&#10;- Implemented per-user submission count tracking to identify users who completed required submissions.&#10;- Updated submitter calculations to only include users meeting the submission requirements.&#10;- Enhanced UI in `RoundDetail` to show completed and missing submitters, improving clarity for league members.&#10;- Adjusted submission count displays in `RoundListItem` to reflect accurate data.">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Improve external link handling and listen requirement display logic  &#10;&#10;- Updated listen percentage calculation to default to 100% when not provided.&#10;- Enhanced messaging for YouTube links to clarify tracking and playback instructions.&#10;- Added validation for external links before enabling the play button.&#10;- Adjusted tooltips and error messages to accurately reflect listen requirements.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/player/PlayerControls.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerControls.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/votes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/votes.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/round/SubmissionItem.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -132,14 +130,6 @@
       <workItem from="1757503910133" duration="1074000" />
       <workItem from="1757762392475" duration="9127000" />
       <workItem from="1757820381986" duration="2800000" />
-    </task>
-    <task id="LOCAL-00017" summary="dockerfile fixes">
-      <option name="closed" value="true" />
-      <created>1755910604502</created>
-      <option name="number" value="00017" />
-      <option name="presentableId" value="LOCAL-00017" />
-      <option name="project" value="LOCAL" />
-      <updated>1755910604502</updated>
     </task>
     <task id="LOCAL-00018" summary="update deps">
       <option name="closed" value="true" />
@@ -525,7 +515,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757821434346</updated>
     </task>
-    <option name="localTasksCounter" value="66" />
+    <task id="LOCAL-00066" summary="Improve external link handling and listen requirement display logic  &#10;&#10;- Updated listen percentage calculation to default to 100% when not provided.&#10;- Enhanced messaging for YouTube links to clarify tracking and playback instructions.&#10;- Added validation for external links before enabling the play button.&#10;- Adjusted tooltips and error messages to accurately reflect listen requirements.">
+      <option name="closed" value="true" />
+      <created>1757825785996</created>
+      <option name="number" value="00066" />
+      <option name="presentableId" value="LOCAL-00066" />
+      <option name="project" value="LOCAL" />
+      <updated>1757825785996</updated>
+    </task>
+    <option name="localTasksCounter" value="67" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -543,7 +541,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="remove unncessary component" />
     <MESSAGE value="fixed youtube timer" />
     <MESSAGE value="skip troll submission check" />
     <MESSAGE value="Remove Spotify submission support and update logic/UI for YouTube-only handling" />
@@ -568,6 +565,7 @@
     <MESSAGE value="Add ownership validation for round updates&#10;&#10;- Introduced user authentication and ownership checks for round modifications.&#10;- Enforced permission restrictions to ensure only league creators or global admins can update rounds." />
     <MESSAGE value="Update `.idea/` workspace configuration&#10;&#10;- Adjusted tasks and changelist comments to reflect recent round update validation changes.&#10;- Updated LAST_COMMIT_MESSAGE and local task counter for consistency." />
     <MESSAGE value="Enhance submission tracking and display logic&#10;&#10;- Implemented per-user submission count tracking to identify users who completed required submissions.&#10;- Updated submitter calculations to only include users meeting the submission requirements.&#10;- Enhanced UI in `RoundDetail` to show completed and missing submitters, improving clarity for league members.&#10;- Adjusted submission count displays in `RoundListItem` to reflect accurate data." />
-    <option name="LAST_COMMIT_MESSAGE" value="Enhance submission tracking and display logic&#10;&#10;- Implemented per-user submission count tracking to identify users who completed required submissions.&#10;- Updated submitter calculations to only include users meeting the submission requirements.&#10;- Enhanced UI in `RoundDetail` to show completed and missing submitters, improving clarity for league members.&#10;- Adjusted submission count displays in `RoundListItem` to reflect accurate data." />
+    <MESSAGE value="Improve external link handling and listen requirement display logic  &#10;&#10;- Updated listen percentage calculation to default to 100% when not provided.&#10;- Enhanced messaging for YouTube links to clarify tracking and playback instructions.&#10;- Added validation for external links before enabling the play button.&#10;- Adjusted tooltips and error messages to accurately reflect listen requirements." />
+    <option name="LAST_COMMIT_MESSAGE" value="Improve external link handling and listen requirement display logic  &#10;&#10;- Updated listen percentage calculation to default to 100% when not provided.&#10;- Enhanced messaging for YouTube links to clarify tracking and playback instructions.&#10;- Added validation for external links before enabling the play button.&#10;- Adjusted tooltips and error messages to accurately reflect listen requirements." />
   </component>
 </project>
