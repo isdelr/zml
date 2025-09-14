@@ -126,7 +126,7 @@ export const castVote = mutation({
         );
         const allCompleted = progressDocs.every((p) => p !== null && p.isCompleted);
         if (!allCompleted) {
-          throw new Error("You must listen to the required portion of all submissions before voting.");
+          throw new Error("You must listen to the required portion of all submissions before voting. For YouTube links, use the Play button to open the link so your listening can be tracked.");
         }
       }
     }

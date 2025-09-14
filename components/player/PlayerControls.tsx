@@ -32,6 +32,11 @@ export function PlayerControls({
                                  onToggleRepeat,
                                  onStartTimer,
                                }: PlayerControlsProps) {
+  const hasExternalLink = !!currentTrack?.songLink;
+  const externalTitle = hasExternalLink
+    ? "Open link & start timer"
+    : "No external link provided";
+
   return (
     <div className="flex items-center justify-center gap-2">
       <Button
@@ -59,18 +64,21 @@ export function PlayerControls({
         variant="default"
         size="icon"
         className="size-10 rounded-full"
+        disabled={isExternalLink && !hasExternalLink}
         onClick={() => {
           if (isExternalLink) {
+            if (!hasExternalLink) return;
             // Start timer for external link submissions and open the link
             if (onStartTimer) {
               onStartTimer();
             }
-            window.open(currentTrack.songLink, "_blank", "noopener,noreferrer");
+            window.open(currentTrack.songLink!, "_blank", "noopener,noreferrer");
           } else {
             onTogglePlayPause();
           }
         }}
-        title={isExternalLink ? "Play & Start Timer" : isPlaying ? "Pause" : "Play"}
+        title={isExternalLink ? externalTitle : isPlaying ? "Pause" : "Play"}
+        aria-label={isExternalLink ? externalTitle : isPlaying ? "Pause" : "Play"}
       >
         {isExternalLink ? (
             <FaYoutube className="size-5 text-white" />

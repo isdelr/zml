@@ -6,9 +6,9 @@
   <component name="ChangeListManager">
     <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Enhance submission tracking and display logic&#10;&#10;- Implemented per-user submission count tracking to identify users who completed required submissions.&#10;- Updated submitter calculations to only include users meeting the submission requirements.&#10;- Enhanced UI in `RoundDetail` to show completed and missing submitters, improving clarity for league members.&#10;- Adjusted submission count displays in `RoundListItem` to reflect accurate data.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/league/RoundListItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/league/RoundListItem.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/leagues.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/leagues.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/rounds.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/rounds.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/player/PlayerControls.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerControls.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerProgress.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/votes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/votes.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

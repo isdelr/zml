@@ -60,7 +60,8 @@ export function PlayerProgress({
       return { requirementLinePercent: 0, requiredListenTimeFormatted: "0:00" };
     }
 
-    const requiredTimeFromPercentage = duration * (leagueData.listenPercentage! / 100);
+    const listenPercentage = leagueData.listenPercentage ?? 100;
+    const requiredTimeFromPercentage = duration * (listenPercentage / 100);
     const timeLimitInSeconds = (leagueData.listenTimeLimitMinutes ?? Infinity) * 60;
 
     const actualRequiredListenTime = Math.min(requiredTimeFromPercentage, timeLimitInSeconds);
@@ -81,7 +82,7 @@ export function PlayerProgress({
       <div className="relative flex-1 h-8 flex items-center group transition-transform duration-50">
         {isExternalLink ? (
           <div className="flex h-full w-full items-center justify-center rounded-md bg-muted px-2 text-center text-xs text-muted-foreground">
-            Playing on Youtube. Use controls to continue.
+            Playing on YouTube. Open the link with the Play button to track listening, then use controls here to continue.
           </div>
         ) : isWaveformLoading ? (
           <Skeleton className="h-8 w-full" />
@@ -106,7 +107,7 @@ export function PlayerProgress({
                     />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Listen Requirement: {requiredListenTimeFormatted} ({leagueData.listenPercentage}%)</p>
+                    <p>Listen Requirement: {requiredListenTimeFormatted} ({leagueData.listenPercentage ?? 100}%)</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -143,7 +144,7 @@ export function PlayerProgress({
                     />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Listen Requirement: {requiredListenTimeFormatted} ({leagueData.listenPercentage}%)</p>
+                    <p>Listen Requirement: {requiredListenTimeFormatted} ({leagueData.listenPercentage ?? 100}%)</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
