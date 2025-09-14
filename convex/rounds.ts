@@ -144,17 +144,26 @@ export const getForLeague = query({
         const userDocs = await Promise.all(Array.from(allUserIds).map((id) => ctx.db.get(id)));
         const userMap = new Map(userDocs.filter(Boolean).map((u) => [u!._id, u! as Doc<"users">]));
 
-        // Collect unique submitters (anyone with at least one submission)
-        const submitterIds = Array.from(new Set(submissions.map((s) => s.userId)));
-        const submitterUsers = submitterIds
-          .map((uid) => userMap.get(uid))
-          .filter(Boolean) as Doc<"users">[];
+        // Compute per-user submission counts
+        const countsByUser = new Map<string, number>();
+        for (const s of submissions) {
+          const key = s.userId.toString();
+          countsByUser.set(key, (countsByUser.get(key) ?? 0) + 1);
+        }
 
         const requiredPerUser = (round as any).submissionsPerUser ?? 1;
 
+        // Submitters are only users who completed all required submissions
+        const completedSubmitterIds = Array.from(countsByUser.entries())
+          .filter(([, cnt]) => cnt >= requiredPerUser)
+          .map(([uid]) => uid as unknown as Id<"users">);
+        const submitterUsers = completedSubmitterIds
+          .map((uid) => userMap.get(uid))
+          .filter(Boolean) as Doc<"users">[];
+
         const artUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
 
-        // Member count for denominator in voting and to compute expected tracks
+        // Member count for denominator and expected tracks
         const leagueMemberCount = (await ctx.db
           .query("memberships")
           .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
@@ -165,7 +174,7 @@ export const getForLeague = query({
           ...round,
           art: artUrl,
           leagueName: league?.name ?? "Unknown League",
-          submissionCount: submissions.length, // total submitted tracks
+          submissionCount: submissions.length, // total submitted tracks (kept for compatibility)
           expectedTrackCount,
           leagueMemberCount,
           voterCount: voters.length,

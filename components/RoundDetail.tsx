@@ -601,17 +601,31 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
     startPlaylistTimer(totalYouTubeDurationSec);
   };
 
-  const submittedUsers = useMemo(() => {
-    if (!submissions) return [] as { name: string | null; image: string | null }[];
-    const unique = new Map<string, { name: string | null; image: string | null }>();
-    for (const sub of submissions) {
-      const key = (sub.userId as unknown as string) ?? sub.submittedBy ?? Math.random().toString();
-      if (!unique.has(key)) {
-        unique.set(key, { name: sub.submittedBy, image: sub.submittedByImage });
-      }
+  const submissionsPerUser = round.submissionsPerUser ?? 1;
+
+  const { completedSubmitters, missingSubmitters, totalMembers } = useMemo(() => {
+    const allMembers = league.members ?? [];
+    const totalMembers = allMembers.length;
+    if (!submissions) {
+      return {
+        completedSubmitters: [] as { name: string | null; image: string | null }[],
+        missingSubmitters: allMembers.map((m) => ({ name: m.name ?? null, image: m.image ?? null })),
+        totalMembers,
+      };
     }
-    return Array.from(unique.values());
-  }, [submissions]);
+    const counts = new Map<string, number>();
+    for (const s of submissions) {
+      const k = (s.userId as unknown as string);
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    const completed = allMembers.filter((m) => (counts.get(m._id.toString()) ?? 0) >= submissionsPerUser);
+    const missing = allMembers.filter((m) => (counts.get(m._id.toString()) ?? 0) < submissionsPerUser);
+    return {
+      completedSubmitters: completed.map((m) => ({ name: m.name ?? null, image: m.image ?? null })),
+      missingSubmitters: missing.map((m) => ({ name: m.name ?? null, image: m.image ?? null })),
+      totalMembers,
+    };
+  }, [submissions, league.members, submissionsPerUser]);
 
   const formatDuration = (totalSeconds: number) => {
     if (!totalSeconds || totalSeconds <= 0) return null;
@@ -704,12 +718,11 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
         {round.status === "submissions" && (
           <div className="mt-8 rounded-lg border bg-card p-6 text-center">
             <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
-            {submittedUsers.length > 0 ? (
+            {completedSubmitters.length > 0 ? (
               <div className="mt-4 flex flex-col items-center justify-center gap-2">
-                <AvatarStack users={submittedUsers} />
+                <AvatarStack users={completedSubmitters} />
                 <p className="text-sm text-muted-foreground">
-                  {submittedUsers.length} submission
-                  {submittedUsers.length > 1 ? "s" : ""}
+                  {completedSubmitters.length}/{totalMembers} members completed
                 </p>
               </div>
             ) : (
@@ -717,6 +730,19 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
                 No one has submitted yet. Be the first!
               </p>
             )}
+            <div className="mt-4">
+              <h4 className="text-sm font-semibold">Who&apos;s still missing?</h4>
+              {missingSubmitters.length > 0 ? (
+                <div className="mt-2 flex flex-col items-center justify-center gap-2">
+                  <AvatarStack users={missingSubmitters} />
+                  <p className="text-xs text-muted-foreground">
+                    {missingSubmitters.length} member{missingSubmitters.length !== 1 ? "s" : ""} remaining
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-muted-foreground">All members have completed their submissions.</p>
+              )}
+            </div>
           </div>
         )}
       </div>

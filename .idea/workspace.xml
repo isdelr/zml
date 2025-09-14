@@ -4,7 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add ownership validation for round updates&#10;&#10;- Introduced user authentication and ownership checks for round modifications.&#10;- Enforced permission restrictions to ensure only league creators or global admins can update rounds." />
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Update `.idea/` workspace configuration&#10;&#10;- Adjusted tasks and changelist comments to reflect recent round update validation changes.&#10;- Updated LAST_COMMIT_MESSAGE and local task counter for consistency.">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/RoundDetail.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/RoundDetail.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/league/RoundListItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/league/RoundListItem.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/rounds.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/rounds.ts" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -125,15 +130,8 @@
       <workItem from="1757446980220" duration="12000" />
       <workItem from="1757503581492" duration="310000" />
       <workItem from="1757503910133" duration="1074000" />
-      <workItem from="1757762392475" duration="9103000" />
-    </task>
-    <task id="LOCAL-00015" summary="middleware allow">
-      <option name="closed" value="true" />
-      <created>1755908962883</created>
-      <option name="number" value="00015" />
-      <option name="presentableId" value="LOCAL-00015" />
-      <option name="project" value="LOCAL" />
-      <updated>1755908962883</updated>
+      <workItem from="1757762392475" duration="9127000" />
+      <workItem from="1757820381986" duration="939000" />
     </task>
     <task id="LOCAL-00016" summary="rename api route">
       <option name="closed" value="true" />
@@ -519,7 +517,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757776613223</updated>
     </task>
-    <option name="localTasksCounter" value="64" />
+    <task id="LOCAL-00064" summary="Update `.idea/` workspace configuration&#10;&#10;- Adjusted tasks and changelist comments to reflect recent round update validation changes.&#10;- Updated LAST_COMMIT_MESSAGE and local task counter for consistency.">
+      <option name="closed" value="true" />
+      <created>1757776891858</created>
+      <option name="number" value="00064" />
+      <option name="presentableId" value="LOCAL-00064" />
+      <option name="project" value="LOCAL" />
+      <updated>1757776891858</updated>
+    </task>
+    <option name="localTasksCounter" value="65" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -537,7 +543,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Update `.idea/` settings and ignore `.idea/` directory" />
     <MESSAGE value="Remove Spotify submission support and adjust logic/UI for YouTube-only handling" />
     <MESSAGE value="remove unncessary component" />
     <MESSAGE value="fixed youtube timer" />
@@ -562,6 +567,7 @@
     <MESSAGE value="Simplify submitter collection logic in `rounds`&#10;&#10;- Replaced per-user submission count calculation with a streamlined approach using unique submitter IDs.&#10;- Simplified submitter display logic by directly mapping unique submitter IDs to user data.&#10;- Retained functionality for required submissions per user while improving code readability and efficiency." />
     <MESSAGE value="Compare `submissionsPerUser` with effective values to prevent data loss&#10;&#10;- Updated logic to default undefined `submissionsPerUser` to 1 for comparison.&#10;- Ensured changes to vote limits won't overwrite submission settings in `rounds`.&#10;- Improved error handling for submission changes during the voting phase." />
     <MESSAGE value="Add ownership validation for round updates&#10;&#10;- Introduced user authentication and ownership checks for round modifications.&#10;- Enforced permission restrictions to ensure only league creators or global admins can update rounds." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add ownership validation for round updates&#10;&#10;- Introduced user authentication and ownership checks for round modifications.&#10;- Enforced permission restrictions to ensure only league creators or global admins can update rounds." />
+    <MESSAGE value="Update `.idea/` workspace configuration&#10;&#10;- Adjusted tasks and changelist comments to reflect recent round update validation changes.&#10;- Updated LAST_COMMIT_MESSAGE and local task counter for consistency." />
+    <option name="LAST_COMMIT_MESSAGE" value="Update `.idea/` workspace configuration&#10;&#10;- Adjusted tasks and changelist comments to reflect recent round update validation changes.&#10;- Updated LAST_COMMIT_MESSAGE and local task counter for consistency." />
   </component>
 </project>

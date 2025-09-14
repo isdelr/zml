@@ -62,7 +62,7 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
             <Clock className="size-3" /> Ends {formatDeadline(round.submissionDeadline)}
           </div>
           <div className="flex items-center gap-1.5">
-            {round.submissionCount}/{round.expectedTrackCount ?? round.leagueMemberCount} submitted
+            {(round.submitters?.length ?? 0)}/{round.leagueMemberCount} submitted
           </div>
         </>
       )}
@@ -153,7 +153,7 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
               />
               <span className="text-sm font-medium">
 {round.status === "submissions"
-  ? `${round.submissionCount}/${round.expectedTrackCount ?? round.leagueMemberCount}`
+  ? `${(round.submitters?.length ?? 0)}/${round.leagueMemberCount}`
   : `${round.voterCount}/${round.leagueMemberCount}`}
 </span>
             </div>
