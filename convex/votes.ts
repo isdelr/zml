@@ -4,6 +4,7 @@ import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
+import { voterCounter } from "./counters";
 
 export const getForRound = query({
   args: { roundId: v.id("rounds") },
@@ -191,6 +192,7 @@ export const castVote = mutation({
     const currentUserFinishedVoting = finalUp === maxUp && finalDown === maxDown;
 
     if (currentUserFinishedVoting) {
+      await voterCounter.inc(ctx, round._id);
       const allVotesInRound = await ctx.db.query("votes").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id)).collect();
       const allSubmissionsInRound = await ctx.db.query("submissions").withIndex("by_round_and_user", (q) => q.eq("roundId", round._id)).collect();
       const submitterIds = [...new Set(allSubmissionsInRound.map((s) => s.userId))];

@@ -18,8 +18,8 @@ export const submissionCounter = new ShardedCounter<Id<"rounds">>(
   { defaultShards: 4 }
 );
 
-export const submissionScoreCounter = new ShardedCounter<Id<"submissions">>(
+// Counter for finalized voters within a round (distinct users who have used all their allowed votes)
+export const voterCounter = new ShardedCounter<Id<"rounds">>(
   components.shardedCounter,
-  // Submissions might get many votes quickly, so 8 shards is a safe choice.
-  { defaultShards: 8 }
+  { defaultShards: 4 }
 );

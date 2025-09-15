@@ -4,7 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { R2 } from "@convex-dev/r2";
 import { components, internal } from "./_generated/api";
-import { submissionCounter, memberCounter } from "./counters";
+import { submissionCounter, memberCounter, voterCounter } from "./counters";
 import { paginationOptsValidator } from "convex/server";
 import { submissionsByUser } from "./aggregates";
 
@@ -133,9 +133,12 @@ export const getForLeague = query({
         const artUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
         const expectedTrackCount = leagueMemberCount * requiredPerUser;
 
-        // For voters, avoid expensive scans; return an empty preview and 0 count to prevent large reads.
-        const voterCount = 0;
-        const voters: { name: string | null | undefined; image: string | null | undefined }[] = [];
+
+        let voterCount = 0;
+        let voters: { name: string | null | undefined; image: string | null | undefined }[] = [];
+        if (round.status === "voting") {
+          voterCount = await voterCounter.count(ctx, round._id);
+        }
 
         return {
           ...round,
