@@ -4,11 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add sharded voter counter and improve voting logic&#10;&#10;- Introduced a `voterCounter` to track finalized voters efficiently using sharded counters.&#10;- Updated voting logic to increment voter count upon completion of all votes.&#10;- Adjusted `rounds` logic to fetch voter count dynamically during the voting phase for improved scalability.">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add sharded voter counter and dynamic voting logic&#10;&#10;- Introduced a `voterCounter` for efficient tracking of finalized voters using sharded counters.&#10;- Updated voting logic to increment voter count upon completion of all votes.&#10;- Adjusted `rounds` logic to fetch voter count dynamically during the voting phase for scalability improvements.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/counters.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/counters.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/convex/rounds.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/rounds.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/votes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/votes.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -132,15 +130,7 @@
       <workItem from="1757503910133" duration="1074000" />
       <workItem from="1757762392475" duration="9127000" />
       <workItem from="1757820381986" duration="2800000" />
-      <workItem from="1757888484469" duration="4149000" />
-    </task>
-    <task id="LOCAL-00023" summary="middleware adjustments">
-      <option name="closed" value="true" />
-      <created>1755913083159</created>
-      <option name="number" value="00023" />
-      <option name="presentableId" value="LOCAL-00023" />
-      <option name="project" value="LOCAL" />
-      <updated>1755913083159</updated>
+      <workItem from="1757888484469" duration="5822000" />
     </task>
     <task id="LOCAL-00024" summary="middleware adjustments">
       <option name="closed" value="true" />
@@ -526,7 +516,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757899797036</updated>
     </task>
-    <option name="localTasksCounter" value="72" />
+    <task id="LOCAL-00072" summary="Add sharded voter counter and dynamic voting logic&#10;&#10;- Introduced a `voterCounter` for efficient tracking of finalized voters using sharded counters.&#10;- Updated voting logic to increment voter count upon completion of all votes.&#10;- Adjusted `rounds` logic to fetch voter count dynamically during the voting phase for scalability improvements.">
+      <option name="closed" value="true" />
+      <created>1757903013181</created>
+      <option name="number" value="00072" />
+      <option name="presentableId" value="LOCAL-00072" />
+      <option name="project" value="LOCAL" />
+      <updated>1757903013181</updated>
+    </task>
+    <option name="localTasksCounter" value="73" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -544,7 +542,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Improve submission logic for troll handling and timer progress alignment&#10;&#10;- Enhanced troll submission management by recomputing troll counts upon marking/unmarking to prevent inflated counts.&#10;- Updated membership banning logic to ensure correct troll count tracking and consistent rules for bans.&#10;- Refined" />
     <MESSAGE value="Improve submission logic for troll handling and timer progress alignment&#10;&#10;- Enhanced troll submission management by recomputing troll counts upon marking/unmarking to prevent inflated counts.&#10;- Updated membership banning logic to ensure correct troll count tracking and consistent rules for bans.&#10;- Refined player timer progress calculation to align with server-side requirements, adding support for both percentage and time limits." />
     <MESSAGE value="Update `.idea/workspace.xml`: adjust player progress comment and reformat properties component" />
     <MESSAGE value="Refine timer progress logic and duration handling&#10;&#10;- Simplify and improve `listenProgress` effect for better initialization and reactivity to track changes.&#10;- Introduce robust server-side duration derivation to handle varying submission types (YouTube fallback, malformed files, etc.).&#10;- Update YouTube timer management to auto-start/stop based on play state and track switches.&#10;- Employ consistent clamping for reported progress across client and server sides." />
@@ -569,6 +566,7 @@
     <MESSAGE value="Streamline submission and league member counting logic&#10;&#10;- Integrated sharded counters for lightweight submission and member counts.&#10;- Avoided heavy database scans by sampling submissions and approximating submitter count.&#10;- Updated `RoundListItem` to derive submitter counts with improved efficiency.&#10;- Removed redundant voter processing for rounds to prevent large reads." />
     <MESSAGE value="rounds improvements" />
     <MESSAGE value="Add sharded voter counter and improve voting logic&#10;&#10;- Introduced a `voterCounter` to track finalized voters efficiently using sharded counters.&#10;- Updated voting logic to increment voter count upon completion of all votes.&#10;- Adjusted `rounds` logic to fetch voter count dynamically during the voting phase for improved scalability." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add sharded voter counter and improve voting logic&#10;&#10;- Introduced a `voterCounter` to track finalized voters efficiently using sharded counters.&#10;- Updated voting logic to increment voter count upon completion of all votes.&#10;- Adjusted `rounds` logic to fetch voter count dynamically during the voting phase for improved scalability." />
+    <MESSAGE value="Add sharded voter counter and dynamic voting logic&#10;&#10;- Introduced a `voterCounter` for efficient tracking of finalized voters using sharded counters.&#10;- Updated voting logic to increment voter count upon completion of all votes.&#10;- Adjusted `rounds` logic to fetch voter count dynamically during the voting phase for scalability improvements." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add sharded voter counter and dynamic voting logic&#10;&#10;- Introduced a `voterCounter` for efficient tracking of finalized voters using sharded counters.&#10;- Updated voting logic to increment voter count upon completion of all votes.&#10;- Adjusted `rounds` logic to fetch voter count dynamically during the voting phase for scalability improvements." />
   </component>
 </project>
