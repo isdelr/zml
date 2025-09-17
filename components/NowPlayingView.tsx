@@ -176,7 +176,7 @@ export function NowPlayingView() {
             <p className="text-sm text-muted-foreground">Loading lyrics...</p>
           )}
           {lyricsError && (
-            <p className="text-sm text-destructive">{lyricsError}</p>
+            <p className="text-sm text-center text-muted">{lyricsError}</p>
           )}
           {!isLyricsLoading && !lyricsError && lyrics && (
             <div className="leading-relaxed text-md md:text-lg font-sans">

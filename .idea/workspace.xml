@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Enhance Genius lyrics fetching and UI integration&#10;&#10;- Added fallback to LRCLIB and improved Genius JSON scraping with proxy support.&#10;- Implemented better error handling and detailed status reporting for failed requests.&#10;- Integrated real-time lyrics fetching and display in the `NowPlayingView`.&#10;- Removed the `LyricsDisplay` component from `PlayerActions` for cleaner UI structure." />
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add real-time lyrics parsing and UI enhancements&#10;&#10;- Implemented LRC (synchronized lyrics) parsing with active line highlighting in `NowPlayingView`.&#10;- Added support for multi-paragraph plain text lyrics display.&#10;- Integrated playback time tracking and duration updates via `useMusicPlayerStore`.&#10;- Refined lyrics rendering for better user experience during playback.">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -129,15 +131,7 @@
       <workItem from="1757820381986" duration="2800000" />
       <workItem from="1757888484469" duration="5855000" />
       <workItem from="1757906654809" duration="116000" />
-      <workItem from="1758112837201" duration="6145000" />
-    </task>
-    <task id="LOCAL-00029" summary="various feature updates">
-      <option name="closed" value="true" />
-      <created>1756567378907</created>
-      <option name="number" value="00029" />
-      <option name="presentableId" value="LOCAL-00029" />
-      <option name="project" value="LOCAL" />
-      <updated>1756567378907</updated>
+      <workItem from="1758112837201" duration="7512000" />
     </task>
     <task id="LOCAL-00030" summary="generated convex">
       <option name="closed" value="true" />
@@ -523,7 +517,15 @@
       <option name="project" value="LOCAL" />
       <updated>1758119414881</updated>
     </task>
-    <option name="localTasksCounter" value="78" />
+    <task id="LOCAL-00078" summary="Add real-time lyrics parsing and UI enhancements&#10;&#10;- Implemented LRC (synchronized lyrics) parsing with active line highlighting in `NowPlayingView`.&#10;- Added support for multi-paragraph plain text lyrics display.&#10;- Integrated playback time tracking and duration updates via `useMusicPlayerStore`.&#10;- Refined lyrics rendering for better user experience during playback.">
+      <option name="closed" value="true" />
+      <created>1758120030779</created>
+      <option name="number" value="00078" />
+      <option name="presentableId" value="LOCAL-00078" />
+      <option name="project" value="LOCAL" />
+      <updated>1758120030779</updated>
+    </task>
+    <option name="localTasksCounter" value="79" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -541,7 +543,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Restrict YouTube playlist display to post-submission phases in `RoundDetail` component" />
     <MESSAGE value="Add admin test data seeding tools and UI&#10;&#10;- Implemented comprehensive data seeding logic for leagues, rounds, submissions, and votes with namespace support.&#10;- Added support for resetting seeded test data by namespace.&#10;- Created an admin-facing UI to trigger seeding and reset operations, with configurable options.&#10;- Updated `api.d.ts` to include new admin seed functions." />
     <MESSAGE value="idea files" />
     <MESSAGE value="Remove YouTube timer logic and enhance playlist handling&#10;&#10;- Eliminated per-link YouTube timer logic within `PlayerProgress` and `MusicPlayer` components.&#10;- Introduced consolidated YouTube playlist management in `RoundDetail` and `SubmissionsList`.&#10;- Enhanced YouTube playlist information display, including inline progress tracking." />
@@ -566,6 +567,7 @@
     <MESSAGE value="Add Genius lyrics scraping and display functionality&#10;&#10;- Introduced orchestration for fetching and scraping lyrics from the Genius API, including caching mechanisms.&#10;- Added `LyricsDisplay` UI component for seamless lyrics viewing alongside song playback.&#10;- Updated schema to support lyrics caching on submissions.&#10;- Extended environment configuration for Genius API integration via `GENIUS_ACCESS_TOKEN`." />
     <MESSAGE value="Improve Genius lyrics scraping and caching logic&#10;&#10;- Enhanced fallback mechanism to handle blocked or failed requests using a proxy service.&#10;- Added checks to avoid caching error placeholders as lyrics.&#10;- Improved handling of cached lyrics validity with additional validation." />
     <MESSAGE value="Enhance Genius lyrics fetching and UI integration&#10;&#10;- Added fallback to LRCLIB and improved Genius JSON scraping with proxy support.&#10;- Implemented better error handling and detailed status reporting for failed requests.&#10;- Integrated real-time lyrics fetching and display in the `NowPlayingView`.&#10;- Removed the `LyricsDisplay` component from `PlayerActions` for cleaner UI structure." />
-    <option name="LAST_COMMIT_MESSAGE" value="Enhance Genius lyrics fetching and UI integration&#10;&#10;- Added fallback to LRCLIB and improved Genius JSON scraping with proxy support.&#10;- Implemented better error handling and detailed status reporting for failed requests.&#10;- Integrated real-time lyrics fetching and display in the `NowPlayingView`.&#10;- Removed the `LyricsDisplay` component from `PlayerActions` for cleaner UI structure." />
+    <MESSAGE value="Add real-time lyrics parsing and UI enhancements&#10;&#10;- Implemented LRC (synchronized lyrics) parsing with active line highlighting in `NowPlayingView`.&#10;- Added support for multi-paragraph plain text lyrics display.&#10;- Integrated playback time tracking and duration updates via `useMusicPlayerStore`.&#10;- Refined lyrics rendering for better user experience during playback." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add real-time lyrics parsing and UI enhancements&#10;&#10;- Implemented LRC (synchronized lyrics) parsing with active line highlighting in `NowPlayingView`.&#10;- Added support for multi-paragraph plain text lyrics display.&#10;- Integrated playback time tracking and duration updates via `useMusicPlayerStore`.&#10;- Refined lyrics rendering for better user experience during playback." />
   </component>
 </project>
