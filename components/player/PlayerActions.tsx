@@ -14,8 +14,6 @@ import { cn } from "@/lib/utils";
 import { Slider } from "../ui/slider";
 import { useMemo } from "react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { LyricsDisplay } from "@/components/LyricsDisplay";
-import { Id } from "@/convex/_generated/dataModel";
 
 interface PlayerActionsProps {
   isBookmarked: boolean;
@@ -69,12 +67,6 @@ export function PlayerActions({
           className={cn("size-5", isBookmarked && "fill-primary text-primary")}
         />
       </Button>
-      {currentTrack && (
-        <LyricsDisplay
-          submissionId={currentTrack._id as Id<"submissions">}
-          songTitle={currentTrack.songTitle}
-        />
-      )}
       <Button
         variant="ghost"
         size="icon"

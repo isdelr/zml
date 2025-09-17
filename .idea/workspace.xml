@@ -4,8 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add Genius lyrics scraping and display functionality&#10;&#10;- Introduced orchestration for fetching and scraping lyrics from the Genius API, including caching mechanisms.&#10;- Added `LyricsDisplay` UI component for seamless lyrics viewing alongside song playback.&#10;- Updated schema to support lyrics caching on submissions.&#10;- Extended environment configuration for Genius API integration via `GENIUS_ACCESS_TOKEN`.">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Improve Genius lyrics scraping and caching logic&#10;&#10;- Enhanced fallback mechanism to handle blocked or failed requests using a proxy service.&#10;- Added checks to avoid caching error placeholders as lyrics.&#10;- Improved handling of cached lyrics validity with additional validation.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/NowPlayingView.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/NowPlayingView.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/player/PlayerActions.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerActions.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/convex/lyrics.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/lyrics.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -132,15 +134,7 @@
       <workItem from="1757820381986" duration="2800000" />
       <workItem from="1757888484469" duration="5855000" />
       <workItem from="1757906654809" duration="116000" />
-      <workItem from="1758112837201" duration="2615000" />
-    </task>
-    <task id="LOCAL-00027" summary="middleware adjustments">
-      <option name="closed" value="true" />
-      <created>1755913706403</created>
-      <option name="number" value="00027" />
-      <option name="presentableId" value="LOCAL-00027" />
-      <option name="project" value="LOCAL" />
-      <updated>1755913706403</updated>
+      <workItem from="1758112837201" duration="5839000" />
     </task>
     <task id="LOCAL-00028" summary="league management adjustments">
       <option name="closed" value="true" />
@@ -526,7 +520,15 @@
       <option name="project" value="LOCAL" />
       <updated>1758115310311</updated>
     </task>
-    <option name="localTasksCounter" value="76" />
+    <task id="LOCAL-00076" summary="Improve Genius lyrics scraping and caching logic&#10;&#10;- Enhanced fallback mechanism to handle blocked or failed requests using a proxy service.&#10;- Added checks to avoid caching error placeholders as lyrics.&#10;- Improved handling of cached lyrics validity with additional validation.">
+      <option name="closed" value="true" />
+      <created>1758116125216</created>
+      <option name="number" value="00076" />
+      <option name="presentableId" value="LOCAL-00076" />
+      <option name="project" value="LOCAL" />
+      <updated>1758116125216</updated>
+    </task>
+    <option name="localTasksCounter" value="77" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -544,7 +546,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="added missing dep" />
     <MESSAGE value="Add YouTube playlist handling and batch listening progress update&#10;&#10;- Introduced server-side mutation for batch completion of listening progress based on YouTube playlist timers.&#10;- Enhanced front-end to auto-detect and open YouTube playlists during voting, including timer integration for duration tracking.&#10;- Updated `SubmissionsList` and `RoundDetail` components to support YouTube-related logic." />
     <MESSAGE value="Restrict YouTube playlist display to post-submission phases in `RoundDetail` component" />
     <MESSAGE value="Add admin test data seeding tools and UI&#10;&#10;- Implemented comprehensive data seeding logic for leagues, rounds, submissions, and votes with namespace support.&#10;- Added support for resetting seeded test data by namespace.&#10;- Created an admin-facing UI to trigger seeding and reset operations, with configurable options.&#10;- Updated `api.d.ts` to include new admin seed functions." />
@@ -569,6 +570,7 @@
     <MESSAGE value="Add recountVoterCounterForRound mutation&#10;&#10;- Added an admin/owner tool to recompute finalized voter counters for a round.&#10;- Reconciled the sharded counter with aggregated user vote counts to maintain accuracy.&#10;- Included permission validation for league owners, managers, and global admins." />
     <MESSAGE value="Remove `recountVoterCounterForRound` mutation&#10;&#10;- Deleted the admin/owner tool for recalculating finalized voter counters for rounds.&#10;- Simplified codebase by removing unnecessary logic and permissions checks.&#10;- Improved maintainability by eliminating the sharded counter reconciliation process." />
     <MESSAGE value="Add Genius lyrics scraping and display functionality&#10;&#10;- Introduced orchestration for fetching and scraping lyrics from the Genius API, including caching mechanisms.&#10;- Added `LyricsDisplay` UI component for seamless lyrics viewing alongside song playback.&#10;- Updated schema to support lyrics caching on submissions.&#10;- Extended environment configuration for Genius API integration via `GENIUS_ACCESS_TOKEN`." />
-    <option name="LAST_COMMIT_MESSAGE" value="Add Genius lyrics scraping and display functionality&#10;&#10;- Introduced orchestration for fetching and scraping lyrics from the Genius API, including caching mechanisms.&#10;- Added `LyricsDisplay` UI component for seamless lyrics viewing alongside song playback.&#10;- Updated schema to support lyrics caching on submissions.&#10;- Extended environment configuration for Genius API integration via `GENIUS_ACCESS_TOKEN`." />
+    <MESSAGE value="Improve Genius lyrics scraping and caching logic&#10;&#10;- Enhanced fallback mechanism to handle blocked or failed requests using a proxy service.&#10;- Added checks to avoid caching error placeholders as lyrics.&#10;- Improved handling of cached lyrics validity with additional validation." />
+    <option name="LAST_COMMIT_MESSAGE" value="Improve Genius lyrics scraping and caching logic&#10;&#10;- Enhanced fallback mechanism to handle blocked or failed requests using a proxy service.&#10;- Added checks to avoid caching error placeholders as lyrics.&#10;- Improved handling of cached lyrics validity with additional validation." />
   </component>
 </project>

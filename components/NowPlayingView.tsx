@@ -8,6 +8,10 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import { useWindowSize } from "@/hooks/useWindowSize";
+import { useEffect, useState } from "react";
+import { useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 
 export function NowPlayingView() {
   const { currentTrackIndex, queue, actions, isContextViewOpen } =
@@ -15,6 +19,43 @@ export function NowPlayingView() {
   const track = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
   const { width } = useWindowSize();
   const isMobile = width < 768;
+
+  // Lyrics fetching state & action
+  const getLyrics = useAction(api.lyrics.getForSubmission);
+  const [lyrics, setLyrics] = useState<string | null>(track?.lyrics ?? null);
+  const [isLyricsLoading, setIsLyricsLoading] = useState(false);
+  const [lyricsError, setLyricsError] = useState<string | null>(null);
+
+  // Reset lyrics state when track changes
+  useEffect(() => {
+    setLyrics(track?.lyrics ?? null);
+    setLyricsError(null);
+    setIsLyricsLoading(false);
+  }, [track?._id]);
+
+  // Fetch lyrics when Now Playing opens or track changes and lyrics are missing
+  useEffect(() => {
+    if (!track || !isContextViewOpen) return;
+    if (lyrics && lyrics.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setIsLyricsLoading(true);
+        const result = await getLyrics({ submissionId: track._id as Id<"submissions"> });
+        if (cancelled) return;
+        setLyrics(result);
+      } catch (e) {
+        if (cancelled) return;
+        console.error("Failed to fetch lyrics", e);
+        setLyricsError("Could not load lyrics.");
+      } finally {
+        if (!cancelled) setIsLyricsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [track?._id, isContextViewOpen, getLyrics, lyrics]);
 
   if (!track) return null;
 
@@ -74,6 +115,26 @@ export function NowPlayingView() {
           )}
         </CardContent>
       </Card>
+
+      <section className="space-y-2">
+        <h4 className="text-base font-semibold">Lyrics</h4>
+        <div className="bg-muted/30 rounded-md p-4">
+          {isLyricsLoading && (
+            <p className="text-sm text-muted-foreground">Loading lyrics...</p>
+          )}
+          {lyricsError && (
+            <p className="text-sm text-destructive">{lyricsError}</p>
+          )}
+          {!isLyricsLoading && !lyricsError && lyrics && (
+            <pre className="whitespace-pre-wrap leading-relaxed text-lg md:text-xl font-sans">
+              {lyrics}
+            </pre>
+          )}
+          {!isLyricsLoading && !lyricsError && !lyrics && (
+            <p className="text-sm text-muted-foreground">No lyrics found.</p>
+          )}
+        </div>
+      </section>
     </div>
   );
 
