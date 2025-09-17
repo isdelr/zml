@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="muted text for lyrics error" />
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="muted text for lyrics error">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/auth.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/auth.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/middleware.ts" beforeDir="false" afterPath="$PROJECT_DIR$/middleware.ts" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -129,15 +133,7 @@
       <workItem from="1757820381986" duration="2800000" />
       <workItem from="1757888484469" duration="5855000" />
       <workItem from="1757906654809" duration="116000" />
-      <workItem from="1758112837201" duration="7946000" />
-    </task>
-    <task id="LOCAL-00031" summary="enforcement features">
-      <option name="closed" value="true" />
-      <created>1756568654296</created>
-      <option name="number" value="00031" />
-      <option name="presentableId" value="LOCAL-00031" />
-      <option name="project" value="LOCAL" />
-      <updated>1756568654296</updated>
+      <workItem from="1758112837201" duration="9061000" />
     </task>
     <task id="LOCAL-00032" summary="ui and responsive fixes">
       <option name="closed" value="true" />
@@ -523,7 +519,15 @@
       <option name="project" value="LOCAL" />
       <updated>1758121086935</updated>
     </task>
-    <option name="localTasksCounter" value="80" />
+    <task id="LOCAL-00080" summary="muted text for lyrics error">
+      <option name="closed" value="true" />
+      <created>1758121500741</created>
+      <option name="number" value="00080" />
+      <option name="presentableId" value="LOCAL-00080" />
+      <option name="project" value="LOCAL" />
+      <updated>1758121500741</updated>
+    </task>
+    <option name="localTasksCounter" value="81" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

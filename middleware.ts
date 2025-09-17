@@ -9,8 +9,9 @@ const publicRoutes = createRouteMatcher([
   "/signin",                // Sign-in page
   "/invite/(.*)",           // Invite links (e.g., /invite/some-code)
   "/api/auth/session",      // API route for session management
+  "/api/auth/(.*)",         // All auth endpoints must be public (callbacks, refresh, etc.)
   "/manifest.js",           // PWA manifest file
-  "/robots.txt",             // SEO robots file
+  "/robots.txt",            // SEO robots file
   "/sw.js",                 // Service Worker for PWA
   "/icons/(.*)",            // PWA icons
 ]);

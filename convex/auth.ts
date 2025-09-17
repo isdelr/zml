@@ -65,4 +65,11 @@ const CustomDiscord = Discord({
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [CustomDiscord],
+  // Make sessions durable for PWAs: keep users signed in unless inactive for a long time
+  session: {
+    // Total session lifetime before requiring re-auth (e.g., 30 days)
+    totalDurationMs: 1000 * 60 * 60 * 24 * 30,
+    // How long a user can be inactive before session expires (e.g., 14 days)
+    inactiveDurationMs: 1000 * 60 * 60 * 24 * 14,
+  },
 });
