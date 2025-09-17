@@ -4,12 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Remove `recountVoterCounterForRound` mutation&#10;&#10;- Deleted the admin/owner tool for recalculating finalized voter counters for rounds.&#10;- Simplified codebase by removing unnecessary logic and permissions checks.&#10;- Improved maintainability by eliminating the sharded counter reconciliation process.">
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Add Genius lyrics scraping and display functionality&#10;&#10;- Introduced orchestration for fetching and scraping lyrics from the Genius API, including caching mechanisms.&#10;- Added `LyricsDisplay` UI component for seamless lyrics viewing alongside song playback.&#10;- Updated schema to support lyrics caching on submissions.&#10;- Extended environment configuration for Genius API integration via `GENIUS_ACCESS_TOKEN`.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/player/PlayerActions.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/player/PlayerActions.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/convex/schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/schema.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example.env" beforeDir="false" afterPath="$PROJECT_DIR$/example.env" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/types/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convex/lyrics.ts" beforeDir="false" afterPath="$PROJECT_DIR$/convex/lyrics.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -135,15 +132,7 @@
       <workItem from="1757820381986" duration="2800000" />
       <workItem from="1757888484469" duration="5855000" />
       <workItem from="1757906654809" duration="116000" />
-      <workItem from="1758112837201" duration="1361000" />
-    </task>
-    <task id="LOCAL-00026" summary="middleware adjustments">
-      <option name="closed" value="true" />
-      <created>1755913466504</created>
-      <option name="number" value="00026" />
-      <option name="presentableId" value="LOCAL-00026" />
-      <option name="project" value="LOCAL" />
-      <updated>1755913466504</updated>
+      <workItem from="1758112837201" duration="2615000" />
     </task>
     <task id="LOCAL-00027" summary="middleware adjustments">
       <option name="closed" value="true" />
@@ -529,7 +518,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757906761305</updated>
     </task>
-    <option name="localTasksCounter" value="75" />
+    <task id="LOCAL-00075" summary="Add Genius lyrics scraping and display functionality&#10;&#10;- Introduced orchestration for fetching and scraping lyrics from the Genius API, including caching mechanisms.&#10;- Added `LyricsDisplay` UI component for seamless lyrics viewing alongside song playback.&#10;- Updated schema to support lyrics caching on submissions.&#10;- Extended environment configuration for Genius API integration via `GENIUS_ACCESS_TOKEN`.">
+      <option name="closed" value="true" />
+      <created>1758115310311</created>
+      <option name="number" value="00075" />
+      <option name="presentableId" value="LOCAL-00075" />
+      <option name="project" value="LOCAL" />
+      <updated>1758115310311</updated>
+    </task>
+    <option name="localTasksCounter" value="76" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -547,7 +544,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Refine timer progress logic and duration handling&#10;&#10;- Simplify and improve `listenProgress` effect for better initialization and reactivity to track changes.&#10;- Introduce robust server-side duration derivation to handle varying submission types (YouTube fallback, malformed files, etc.).&#10;- Update YouTube timer management to auto-start/stop based on play state and track switches.&#10;- Employ consistent clamping for reported progress across client and server sides." />
     <MESSAGE value="added missing dep" />
     <MESSAGE value="Add YouTube playlist handling and batch listening progress update&#10;&#10;- Introduced server-side mutation for batch completion of listening progress based on YouTube playlist timers.&#10;- Enhanced front-end to auto-detect and open YouTube playlists during voting, including timer integration for duration tracking.&#10;- Updated `SubmissionsList` and `RoundDetail` components to support YouTube-related logic." />
     <MESSAGE value="Restrict YouTube playlist display to post-submission phases in `RoundDetail` component" />
@@ -572,6 +568,7 @@
     <MESSAGE value="Add sharded voter counter and dynamic voting logic&#10;&#10;- Introduced a `voterCounter` for efficient tracking of finalized voters using sharded counters.&#10;- Updated voting logic to increment voter count upon completion of all votes.&#10;- Adjusted `rounds` logic to fetch voter count dynamically during the voting phase for scalability improvements." />
     <MESSAGE value="Add recountVoterCounterForRound mutation&#10;&#10;- Added an admin/owner tool to recompute finalized voter counters for a round.&#10;- Reconciled the sharded counter with aggregated user vote counts to maintain accuracy.&#10;- Included permission validation for league owners, managers, and global admins." />
     <MESSAGE value="Remove `recountVoterCounterForRound` mutation&#10;&#10;- Deleted the admin/owner tool for recalculating finalized voter counters for rounds.&#10;- Simplified codebase by removing unnecessary logic and permissions checks.&#10;- Improved maintainability by eliminating the sharded counter reconciliation process." />
-    <option name="LAST_COMMIT_MESSAGE" value="Remove `recountVoterCounterForRound` mutation&#10;&#10;- Deleted the admin/owner tool for recalculating finalized voter counters for rounds.&#10;- Simplified codebase by removing unnecessary logic and permissions checks.&#10;- Improved maintainability by eliminating the sharded counter reconciliation process." />
+    <MESSAGE value="Add Genius lyrics scraping and display functionality&#10;&#10;- Introduced orchestration for fetching and scraping lyrics from the Genius API, including caching mechanisms.&#10;- Added `LyricsDisplay` UI component for seamless lyrics viewing alongside song playback.&#10;- Updated schema to support lyrics caching on submissions.&#10;- Extended environment configuration for Genius API integration via `GENIUS_ACCESS_TOKEN`." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add Genius lyrics scraping and display functionality&#10;&#10;- Introduced orchestration for fetching and scraping lyrics from the Genius API, including caching mechanisms.&#10;- Added `LyricsDisplay` UI component for seamless lyrics viewing alongside song playback.&#10;- Updated schema to support lyrics caching on submissions.&#10;- Extended environment configuration for Genius API integration via `GENIUS_ACCESS_TOKEN`." />
   </component>
 </project>

@@ -96,19 +96,70 @@ export const fetchFromGeniusAndScrape = internalAction({
 
       // 2) Fetch the page HTML
       const pageResponse = await fetch(songUrl, {
-        // Add UA to reduce chance of being blocked
+        // Add UA + headers to reduce chance of being blocked
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
           Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          Referer: "https://genius.com/",
         },
+        // Let redirects happen automatically
+        redirect: "follow",
       });
-      if (!pageResponse.ok) {
+
+      let html: string | null = null;
+      if (pageResponse.ok) {
+        html = await pageResponse.text();
+      } else {
+        // Fallback: fetch via r.jina.ai proxy which returns readable text
+        try {
+          const stripped = songUrl.replace(/^https?:\/\//, "");
+          const proxyUrl = `https://r.jina.ai/http://${stripped}`;
+          const proxyResp = await fetch(proxyUrl, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+              Accept: "text/plain, */*;q=0.1",
+              "Accept-Language": "en-US,en;q=0.9",
+            },
+          });
+          if (proxyResp.ok) {
+            const text = await proxyResp.text();
+            // r.jina.ai already returns plain text; treat it as our lyrics if scraping fails
+            const cleaned = text?.trim();
+            if (cleaned) {
+              return cleaned;
+            }
+          }
+        } catch (e) {
+          // ignore and continue to return error below
+        }
         return "Could not load the lyrics page.";
       }
-      const html = await pageResponse.text();
 
       // 3) Extract
-      const lyrics = extractLyricsFromHtml(html);
+      const lyrics = html ? extractLyricsFromHtml(html) : null;
+
+      if (!lyrics) {
+        // Try proxy as a secondary attempt even if direct fetch succeeded but structure changed
+        try {
+          const stripped = songUrl.replace(/^https?:\/\//, "");
+          const proxyUrl = `https://r.jina.ai/http://${stripped}`;
+          const proxyResp = await fetch(proxyUrl, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+              Accept: "text/plain, */*;q=0.1",
+              "Accept-Language": "en-US,en;q=0.9",
+            },
+          });
+          if (proxyResp.ok) {
+            const text = await proxyResp.text();
+            const cleaned = text?.trim();
+            if (cleaned) {
+              return cleaned;
+            }
+          }
+        } catch {}
+      }
       return lyrics ?? "Lyrics not available for this song.";
     } catch (err) {
       console.error("Error fetching/scraping lyrics:", err);
@@ -135,7 +186,24 @@ export const getForSubmission = action({
     // Check cache
     const submission = await ctx.runQuery(internal.submissions.getSubmissionById, { submissionId });
     if (!submission) return null;
-    if (submission.lyrics) return submission.lyrics;
+    // If lyrics exist but look like an error placeholder, ignore cache and refetch
+    const isCachedMeaningful = (() => {
+      const l = submission.lyrics?.trim();
+      if (!l) return false;
+      const lower = l.toLowerCase();
+      const badSnippets = [
+        "could not load the lyrics page",
+        "could not contact the lyrics provider",
+        "could not retrieve lyrics",
+        "lyrics not found",
+        "lyrics not available",
+        "genius_access_token is not configured",
+      ];
+      if (badSnippets.some((s) => lower.includes(s))) return false;
+      return l.length >= 20;
+    })();
+
+    if (submission.lyrics && isCachedMeaningful) return submission.lyrics;
 
     // Fetch and scrape
     const lyrics = await ctx.runAction(internal.lyrics.fetchFromGeniusAndScrape, {
@@ -143,7 +211,24 @@ export const getForSubmission = action({
       songTitle: submission.songTitle,
     });
 
-    if (lyrics) {
+    // Only cache meaningful lyrics, not error placeholders
+    const shouldCache = (() => {
+      if (!lyrics) return false;
+      const lower = lyrics.toLowerCase();
+      const badSnippets = [
+        "could not load the lyrics page",
+        "could not contact the lyrics provider",
+        "could not retrieve lyrics",
+        "lyrics not found",
+        "lyrics not available",
+        "genius_access_token is not configured",
+      ];
+      if (badSnippets.some((s) => lower.includes(s))) return false;
+      // Avoid caching extremely short strings
+      return lyrics.trim().length >= 20;
+    })();
+
+    if (shouldCache) {
       await ctx.runMutation(internal.lyrics.saveLyrics, { submissionId, lyrics });
     }
     return lyrics;
