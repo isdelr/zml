@@ -123,6 +123,7 @@ export default defineSchema({
     isTrollSubmission: v.optional(v.boolean()),
     markedAsTrollBy: v.optional(v.id("users")),
     markedAsTrollAt: v.optional(v.number()),
+    lyrics: v.optional(v.string()),
   })
     .index("by_round_and_user", ["roundId", "userId"])
     .index("by_user_and_league", ["userId", "leagueId"])

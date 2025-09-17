@@ -20,4 +20,5 @@ export type Song = {
   isTrollSubmission?: boolean;
   markedAsTrollBy?: Id<"users">;
   markedAsTrollAt?: number;
+  lyrics?: string | null;
 };

@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { Slider } from "../ui/slider";
 import { useMemo } from "react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import { LyricsDisplay } from "@/components/LyricsDisplay";
+import { Id } from "@/convex/_generated/dataModel";
 
 interface PlayerActionsProps {
   isBookmarked: boolean;
@@ -32,7 +34,9 @@ export function PlayerActions({
   onVolumeChange,
   onMuteToggle,
 }: PlayerActionsProps) {
-  const { actions, isContextViewOpen } = useMusicPlayerStore();
+  const { actions, isContextViewOpen, queue, currentTrackIndex } = useMusicPlayerStore();
+  const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+
   const VolumeIcon = useMemo(() => {
     if (volume === 0) {
       return VolumeX;
@@ -65,6 +69,12 @@ export function PlayerActions({
           className={cn("size-5", isBookmarked && "fill-primary text-primary")}
         />
       </Button>
+      {currentTrack && (
+        <LyricsDisplay
+          submissionId={currentTrack._id as Id<"submissions">}
+          songTitle={currentTrack.songTitle}
+        />
+      )}
       <Button
         variant="ghost"
         size="icon"
