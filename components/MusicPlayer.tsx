@@ -568,6 +568,10 @@ export function MusicPlayer() {
     if (audioElement && !isNaN(audioElement.duration)) {
       setProgress(audioElement.currentTime);
       setDuration(audioElement.duration);
+      try {
+        actions.setPlaybackTime(audioElement.currentTime);
+        actions.setPlaybackDuration(audioElement.duration);
+      } catch {}
 
       // Logic to track listening progress and contiguous listened time
       if (leagueData?.enforceListenPercentage && currentTrack) {

@@ -8,7 +8,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import { useWindowSize } from "@/hooks/useWindowSize";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -56,6 +56,59 @@ export function NowPlayingView() {
       cancelled = true;
     };
   }, [track?._id, isContextViewOpen, getLyrics, lyrics]);
+
+  // Derived lyric parsing and timing
+  const currentTime = useMusicPlayerStore((s) => s.currentTime);
+
+  const isLrc = useMemo(() => {
+    if (!lyrics) return false;
+    return /\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]/.test(lyrics);
+  }, [lyrics]);
+
+  type LrcLine = { time: number; text: string };
+  const lrcLines: LrcLine[] | null = useMemo(() => {
+    if (!isLrc || !lyrics) return null;
+    const lines = lyrics.split(/\r?\n/);
+    const out: LrcLine[] = [];
+    const tsRegex = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
+    for (const line of lines) {
+      let m: RegExpExecArray | null;
+      const times: number[] = [];
+      while ((m = tsRegex.exec(line)) !== null) {
+        const min = parseInt(m[1], 10) || 0;
+        const sec = parseInt(m[2], 10) || 0;
+        const ms = m[3] ? parseInt((m[3] + "00").slice(0, 3), 10) : 0;
+        const t = min * 60 + sec + ms / 1000;
+        times.push(t);
+      }
+      const text = line.replace(tsRegex, "").trim();
+      if (times.length && text) {
+        for (const t of times) out.push({ time: t, text });
+      }
+    }
+    out.sort((a, b) => a.time - b.time);
+    return out;
+  }, [isLrc, lyrics]);
+
+  const activeIndex = useMemo(() => {
+    if (!lrcLines || lrcLines.length === 0) return -1;
+    const t = currentTime || 0;
+    let idx = -1;
+    for (let i = 0; i < lrcLines.length; i++) {
+      if (lrcLines[i].time <= t) idx = i;
+      else break;
+    }
+    return idx;
+  }, [lrcLines, currentTime]);
+
+  const verseParagraphs: string[][] | null = useMemo(() => {
+    if (!lyrics || isLrc) return null;
+    return lyrics
+      .split(/\n\s*\n+/)
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((p) => p.split(/\n/));
+  }, [lyrics, isLrc]);
 
   if (!track) return null;
 
@@ -126,9 +179,36 @@ export function NowPlayingView() {
             <p className="text-sm text-destructive">{lyricsError}</p>
           )}
           {!isLyricsLoading && !lyricsError && lyrics && (
-            <pre className="whitespace-pre-wrap leading-relaxed text-lg md:text-xl font-sans">
-              {lyrics}
-            </pre>
+            <div className="leading-relaxed text-md md:text-lg font-sans">
+              {isLrc && lrcLines ? (
+                <div className="space-y-1">
+                  {lrcLines.map((line, i) => {
+                    const isActive = i === activeIndex;
+                    const isSectionHeader = /^(verse|chorus|bridge|intro|outro)/i.test(line.text);
+                    return (
+                      <div
+                        key={`${line.time}-${i}`}
+                        className={cn(
+                          "transition-colors duration-200",
+                          isActive ? "text-foreground font-semibold" : "text-muted-foreground",
+                          isSectionHeader && "mt-3"
+                        )}
+                      >
+                        {line.text}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {verseParagraphs?.map((lines, idx) => (
+                    <p key={idx} className="whitespace-pre-wrap">
+                      {lines.join("\n")}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           {!isLyricsLoading && !lyricsError && !lyrics && (
             <p className="text-sm text-muted-foreground">No lyrics found.</p>
