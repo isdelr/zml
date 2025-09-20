@@ -19,8 +19,10 @@ import {
   Target,
   Scale,
   ListMusic,
+  Download,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Skeleton } from "./ui/skeleton";
 import Image from "next/image";
@@ -290,12 +292,134 @@ function Podium({
   );
 }
 
+// --- Export poster generation (SVG -> PNG) ---
+function escapeXml(text?: string | null) {
+  return (text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+function buildHighlightsSvg(params: {
+  width: number;
+  height: number;
+  standings?: { name: string; totalPoints: number }[];
+  stats: any;
+}) {
+  const { width, height, standings, stats } = params;
+  const w = width;
+  const h = height;
+
+  const winner = standings && standings.length > 0 ? standings[0] : undefined;
+  const runner = standings && standings.length > 1 ? standings[1] : undefined;
+  const third = standings && standings.length > 2 ? standings[2] : undefined;
+
+  const topSong = stats?.topSong;
+  const tiles = [
+    { x: 36, y: 36, w: 300, h: 160, title: "Overlord", subtitle: stats?.overlord?.name ? `${stats.overlord.name} · ${stats.overlord.count} wins` : "—" },
+    { x: 36, y: 212, w: 300, h: 140, title: "People's Champion", subtitle: stats?.peopleChampion?.name ? `${stats.peopleChampion.name} · ${stats.peopleChampion.count} upvotes` : "—" },
+    { x: 36, y: 364, w: 300, h: 140, title: "Fan Favorite", subtitle: stats?.fanFavoriteSong?.songTitle ? `${stats.fanFavoriteSong.songTitle} — ${stats.fanFavoriteSong.artist}` : "—" },
+    { x: w - 336, y: 36, w: 300, h: 140, title: "Golden Ears", subtitle: stats?.goldenEars?.name ? `${stats.goldenEars.name} · ${stats.goldenEars.count} avg` : "—" },
+    { x: w - 336, y: 188, w: 300, h: 140, title: "Consistency King", subtitle: stats?.consistencyKing?.name ? `${stats.consistencyKing.name} · σ ${stats.consistencyKing.count}` : "—" },
+    { x: w - 336, y: 340, w: 300, h: 164, title: "Top Voted Song", subtitle: topSong ? `${topSong.songTitle} — ${topSong.artist} · ${topSong.score} pts` : "—" },
+  ];
+
+  const now = new Date();
+  const dateLabel = now.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+
+  function tileRect(t: any, i: number) {
+    const colors = ["#60a5fa", "#22d3ee", "#a78bfa", "#34d399", "#f59e0b", "#f472b6"];
+    const c = colors[i % colors.length];
+    return `
+      <g>
+        <rect x="${t.x}" y="${t.y}" rx="24" ry="24" width="${t.w}" height="${t.h}" fill="${c}20" stroke="${c}55" stroke-width="1"/>
+        <text x="${t.x + 18}" y="${t.y + 36}" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="20" fill="#e5e7eb" font-weight="700">${escapeXml(t.title)}</text>
+        <text x="${t.x + 18}" y="${t.y + 68}" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="16" fill="#c7d2fe">${escapeXml(t.subtitle)}</text>
+      </g>`;
+  }
+
+  const centralTitle = winner ? `${winner.name} wins the league` : "League Highlights";
+  const centralSub = winner ? `Runner-up: ${runner?.name ?? "—"} • Third: ${third?.name ?? "—"}` : "Top 3: —";
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+  <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#0ea5e9"/>
+        <stop offset="50%" stop-color="#6366f1"/>
+        <stop offset="100%" stop-color="#111827"/>
+      </linearGradient>
+      <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.35"/>
+      </filter>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#bg)"/>
+
+    <!-- Central hero tile -->
+    <g filter="url(#softShadow)">
+      <rect x="356" y="80" rx="28" ry="28" width="${w - 712}" height="${h - 160}" fill="#0b1220cc" stroke="#93c5fd55"/>
+      <text x="${w / 2}" y="${h / 2 - 40}" text-anchor="middle" font-size="42" font-weight="800" fill="#f9fafb" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">${escapeXml(centralTitle)}</text>
+      <text x="${w / 2}" y="${h / 2 + 4}" text-anchor="middle" font-size="18" fill="#d1d5db" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">${escapeXml(centralSub)}</text>
+      <text x="${w / 2}" y="${h / 2 + 40}" text-anchor="middle" font-size="16" fill="#9ca3af" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">${topSong ? `Top Song: ${escapeXml(topSong.songTitle)} — ${escapeXml(topSong.artist)}` : ""}</text>
+    </g>
+
+    <!-- Side tiles -->
+    ${tiles.map(tileRect).join("\n")}
+
+    <text x="${w - 36}" y="${h - 24}" text-anchor="end" font-size="14" fill="#9ca3af" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">${escapeXml(dateLabel)} • zml.gg</text>
+  </svg>`;
+}
+
 export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
   const stats = useQuery(api.leagues.getLeagueStats, { leagueId });
   const standings = useQuery(api.leagues.getLeagueStandings, { leagueId });
 
   // Hooks must be called unconditionally (before any early return)
   const [active, setActive] = useState(0);
+
+  async function onExport() {
+    if (!stats) return;
+    const width = 1200;
+    const height = 675;
+    const svg = buildHighlightsSvg({ width, height, standings: standings as any, stats });
+
+    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = 2; // 2x for crispness
+          const canvas = document.createElement("canvas");
+          canvas.width = width * scale;
+          canvas.height = height * scale;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            reject(new Error("Canvas not supported"));
+            return;
+          }
+          ctx.scale(scale, scale);
+          ctx.fillStyle = "#0b0b0c";
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((out) => {
+            if (!out) return reject(new Error("Failed to encode PNG"));
+            const a = document.createElement("a");
+            const outUrl = URL.createObjectURL(out);
+            a.href = outUrl;
+            const ts = new Date().toISOString().replace(/[:.]/g, "-");
+            a.download = `league-highlights-${ts}.png`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(outUrl);
+            resolve();
+          }, "image/png");
+        };
+        img.onerror = () => reject(new Error("Failed to render SVG"));
+        img.src = url;
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
 
   const highlights = useMemo(() => {
     if (!stats) return [];
@@ -398,6 +522,12 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
 
   return (
     <div className="space-y-8">
+      <div className="flex items-center justify-end">
+        <Button variant="outline" size="sm" onClick={onExport} aria-label="export-league-highlights">
+          <Download className="size-4" />
+          <span className="ml-2">Export highlights (PNG)</span>
+        </Button>
+      </div>
       <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
           {/* Highlights carousel */}
