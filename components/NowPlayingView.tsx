@@ -31,7 +31,7 @@ export function NowPlayingView() {
     setLyrics(track?.lyrics ?? null);
     setLyricsError(null);
     setIsLyricsLoading(false);
-  }, [track?._id]);
+  }, [track?._id, track?.lyrics]);
 
   // Fetch lyrics when Now Playing opens or track changes and lyrics are missing
   useEffect(() => {
@@ -55,7 +55,7 @@ export function NowPlayingView() {
     return () => {
       cancelled = true;
     };
-  }, [track?._id, isContextViewOpen, getLyrics, lyrics]);
+  }, [track, track?._id, isContextViewOpen, getLyrics, lyrics]);
 
   // Derived lyric parsing and timing
   const currentTime = useMusicPlayerStore((s) => s.currentTime);

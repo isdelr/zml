@@ -55,6 +55,55 @@ type UserAward =
   | null
   | undefined;
 
+// Types for league stats used in this view
+interface TopSong {
+  songTitle: string;
+  artist: string;
+  albumArtUrl: string | null;
+  score: number;
+  submittedBy: string;
+}
+interface SongAward {
+  songTitle: string;
+  artist: string;
+  albumArtUrl: string | null;
+  submittedBy: string;
+  count: number;
+}
+interface RoundAward {
+  roundId: string;
+  title: string;
+  imageUrl: string | null;
+  metric: number;
+  submissions: number;
+  totalUpvotes: number;
+}
+interface GenreSlice { name: string; value: number }
+interface LeagueStatsData {
+  overlord: UserAward;
+  peopleChampion: UserAward;
+  mostControversial: UserAward;
+  prolificVoter: UserAward;
+  topSong: TopSong | null;
+  mostUpvotedSong: SongAward | null;
+  mostDownvotedSong: SongAward | null;
+  fanFavoriteSong: SongAward | null;
+  attendanceStar: UserAward;
+  goldenEars: UserAward;
+  consistencyKing: UserAward;
+  biggestDownvoter: UserAward;
+  worstRound: RoundAward | null;
+  closestRound: RoundAward | null;
+  blowoutRound: RoundAward | null;
+  genreBreakdown: GenreSlice[];
+}
+
+interface StandingsItem { name: string; totalPoints: number }
+
+interface TileSpec {
+  x: number; y: number; w: number; h: number; title: string; subtitle: string;
+}
+
 function UserRow({
                    icon,
                    title,
@@ -300,8 +349,8 @@ function escapeXml(text?: string | null) {
 function buildHighlightsSvg(params: {
   width: number;
   height: number;
-  standings?: { name: string; totalPoints: number }[];
-  stats: any;
+  standings?: StandingsItem[];
+  stats: LeagueStatsData;
 }) {
   const { width, height, standings, stats } = params;
   const w = width;
@@ -324,7 +373,7 @@ function buildHighlightsSvg(params: {
   const now = new Date();
   const dateLabel = now.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
 
-  function tileRect(t: any, i: number) {
+  function tileRect(t: TileSpec, i: number) {
     const colors = ["#60a5fa", "#22d3ee", "#a78bfa", "#34d399", "#f59e0b", "#f472b6"];
     const c = colors[i % colors.length];
     return `
@@ -378,7 +427,7 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
     if (!stats) return;
     const width = 1200;
     const height = 675;
-    const svg = buildHighlightsSvg({ width, height, standings: standings as any, stats });
+    const svg = buildHighlightsSvg({ width, height, standings: standings?.map(s => ({ name: s.name, totalPoints: s.totalPoints })), stats: stats as LeagueStatsData });
 
     const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);

@@ -33,7 +33,6 @@ export function PlayerActions({
   onMuteToggle,
 }: PlayerActionsProps) {
   const { actions, isContextViewOpen, queue, currentTrackIndex } = useMusicPlayerStore();
-  const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
 
   const VolumeIcon = useMemo(() => {
     if (volume === 0) {
