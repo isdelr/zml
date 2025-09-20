@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Improve lyrics state dependencies and add types for LeagueStats&#10;&#10;- Updated `useEffect` dependencies in `NowPlayingView` to fix missing state updates for lyrics.&#10;- Introduced detailed TypeScript interfaces for `LeagueStats` for better type safety and maintainability.&#10;- Refined `buildHighlightsSvg` function with accurate parameter typing and mapping logic." />
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Replace `Image` with `NextImage` for improved Next.js compatibility in `LeagueStats.tsx`." />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -133,15 +133,7 @@
       <workItem from="1758312966800" duration="1538000" />
       <workItem from="1758332086162" duration="871000" />
       <workItem from="1758332983111" duration="4000" />
-      <workItem from="1758337184464" duration="752000" />
-    </task>
-    <task id="LOCAL-00036" summary="Extend listen tracking to support timers in Spotify and YouTube submissions">
-      <option name="closed" value="true" />
-      <created>1756991690651</created>
-      <option name="number" value="00036" />
-      <option name="presentableId" value="LOCAL-00036" />
-      <option name="project" value="LOCAL" />
-      <updated>1756991690651</updated>
+      <workItem from="1758337184464" duration="1051000" />
     </task>
     <task id="LOCAL-00037" summary="Add troll submission handling and ban functionality&#10;&#10;- Allow marking/unmarking of troll submissions.&#10;- Annul positive votes for troll submissions, but count negative votes.&#10;- Prevent banned users from making submissions.&#10;- Add penalties and automatic banning for repeated troll submissions.&#10;- Update UI to support troll submission management and indicators.">
       <option name="closed" value="true" />
@@ -527,7 +519,15 @@
       <option name="project" value="LOCAL" />
       <updated>1758337689855</updated>
     </task>
-    <option name="localTasksCounter" value="85" />
+    <task id="LOCAL-00085" summary="Replace `Image` with `NextImage` for improved Next.js compatibility in `LeagueStats.tsx`.">
+      <option name="closed" value="true" />
+      <created>1758338046931</created>
+      <option name="number" value="00085" />
+      <option name="presentableId" value="LOCAL-00085" />
+      <option name="project" value="LOCAL" />
+      <updated>1758338046931</updated>
+    </task>
+    <option name="localTasksCounter" value="86" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -545,7 +545,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Remove unnecessary type casting for `round` in vote limit calculations&#10;&#10;- Simplified code by removing redundant `(round as any)` type casting.&#10;- Updated `RoundDetail` and `EditRoundDialog` components to directly utilize `round` properties for `maxPositiveVotes` and `maxNegativeVotes`.&#10;- Ensured cleaner and more maintainable logic while retaining existing functionality." />
     <MESSAGE value="Remove presubmission functionality&#10;&#10;- Eliminated presubmission logic, including mutations, queries, and related schema definitions.&#10;- Updated `SubmissionForm` and `SongSubmissionForm` components to simplify submission flow.&#10;- Removed unused `presubmissions` table and associated handling in backend logic.&#10;- Ensured UI adjustments to reflect the removal of presubmission features and maintain clarity." />
     <MESSAGE value="Simplify submitter collection logic in `rounds`&#10;&#10;- Replaced per-user submission count calculation with a streamlined approach using unique submitter IDs.&#10;- Simplified submitter display logic by directly mapping unique submitter IDs to user data.&#10;- Retained functionality for required submissions per user while improving code readability and efficiency." />
     <MESSAGE value="Compare `submissionsPerUser` with effective values to prevent data loss&#10;&#10;- Updated logic to default undefined `submissionsPerUser` to 1 for comparison.&#10;- Ensured changes to vote limits won't overwrite submission settings in `rounds`.&#10;- Improved error handling for submission changes during the voting phase." />
@@ -570,6 +569,7 @@
     <MESSAGE value="Update `.idea/workspace.xml` and `chart.tsx`&#10;&#10;- Removed outdated comments and tasks in `.idea/workspace.xml`.&#10;- Added `useMemo` import in `chart.tsx` for performance optimization." />
     <MESSAGE value="fixed build errors" />
     <MESSAGE value="Improve lyrics state dependencies and add types for LeagueStats&#10;&#10;- Updated `useEffect` dependencies in `NowPlayingView` to fix missing state updates for lyrics.&#10;- Introduced detailed TypeScript interfaces for `LeagueStats` for better type safety and maintainability.&#10;- Refined `buildHighlightsSvg` function with accurate parameter typing and mapping logic." />
-    <option name="LAST_COMMIT_MESSAGE" value="Improve lyrics state dependencies and add types for LeagueStats&#10;&#10;- Updated `useEffect` dependencies in `NowPlayingView` to fix missing state updates for lyrics.&#10;- Introduced detailed TypeScript interfaces for `LeagueStats` for better type safety and maintainability.&#10;- Refined `buildHighlightsSvg` function with accurate parameter typing and mapping logic." />
+    <MESSAGE value="Replace `Image` with `NextImage` for improved Next.js compatibility in `LeagueStats.tsx`." />
+    <option name="LAST_COMMIT_MESSAGE" value="Replace `Image` with `NextImage` for improved Next.js compatibility in `LeagueStats.tsx`." />
   </component>
 </project>

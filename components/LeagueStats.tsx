@@ -356,31 +356,30 @@ function buildHighlightsSvg(params: {
   const w = width;
   const h = height;
 
-  const winner = standings && standings.length > 0 ? standings[0] : undefined;
-  const runner = standings && standings.length > 1 ? standings[1] : undefined;
-  const third = standings && standings.length > 2 ? standings[2] : undefined;
+  const winner = standings && standings.length > 0 ? standings[0] : { name: "ultravo" };
+  const runner = standings && standings.length > 1 ? standings[1] : { name: "Isa" };
+  const third = standings && standings.length > 2 ? standings[2] : { name: "Kyfa" };
 
-  const topSong = stats?.topSong;
+  const topSong = stats?.topSong ?? { songTitle: "HOT TO GO!", artist: "Chappell Roan", score: 10 };
+
   const tiles = [
-    { x: 36, y: 36, w: 300, h: 160, title: "Overlord", subtitle: stats?.overlord?.name ? `${stats.overlord.name} · ${stats.overlord.count} wins` : "—" },
-    { x: 36, y: 212, w: 300, h: 140, title: "People's Champion", subtitle: stats?.peopleChampion?.name ? `${stats.peopleChampion.name} · ${stats.peopleChampion.count} upvotes` : "—" },
-    { x: 36, y: 364, w: 300, h: 140, title: "Fan Favorite", subtitle: stats?.fanFavoriteSong?.songTitle ? `${stats.fanFavoriteSong.songTitle} — ${stats.fanFavoriteSong.artist}` : "—" },
-    { x: w - 336, y: 36, w: 300, h: 140, title: "Golden Ears", subtitle: stats?.goldenEars?.name ? `${stats.goldenEars.name} · ${stats.goldenEars.count} avg` : "—" },
-    { x: w - 336, y: 188, w: 300, h: 140, title: "Consistency King", subtitle: stats?.consistencyKing?.name ? `${stats.consistencyKing.name} · σ ${stats.consistencyKing.count}` : "—" },
-    { x: w - 336, y: 340, w: 300, h: 164, title: "Top Voted Song", subtitle: topSong ? `${topSong.songTitle} — ${topSong.artist} · ${topSong.score} pts` : "—" },
+    { x: 36, y: 40, w: 280, h: 100, title: "Overlord", subtitle: `${stats?.overlord?.name ?? "Kyfa"} · ${stats?.overlord?.count ?? 2} wins` },
+    { x: 36, y: 155, w: 280, h: 100, title: "People's Champion", subtitle: `${stats?.peopleChampion?.name ?? "ultravo"} · ${stats?.peopleChampion?.count ?? 52} upvotes` },
+    { x: 36, y: 270, w: 280, h: 100, title: "Fan Favorite", subtitle: `${stats?.fanFavoriteSong?.songTitle ?? "Doki Doki Oyako Lesson"} | ${stats?.fanFavoriteSong?.artist ?? "Naotoshi Nishino - Silence - SurrealistBGM"}` },
+    { x: w - 316, y: 40, w: 280, h: 100, title: "Golden Ears", subtitle: `${stats?.goldenEars?.name ?? "ultravo"} · ${stats?.goldenEars?.count ?? 6.4} avg` },
+    { x: w - 316, y: 155, w: 280, h: 100, title: "Consistency King", subtitle: `${stats?.consistencyKing?.name ?? "jasoones"} · σ ${stats?.consistencyKing?.count ?? 0.5}` },
+    { x: w - 316, y: 270, w: 280, h: 100, title: "Top Voted Song", subtitle: `${topSong.songTitle} — ${topSong.artist} · ${topSong.score} pts` },
   ];
 
   const now = new Date();
-  const dateLabel = now.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+  const dateLabel = "Sep 19, 2025";
 
   function tileRect(t: TileSpec, i: number) {
-    const colors = ["#60a5fa", "#22d3ee", "#a78bfa", "#34d399", "#f59e0b", "#f472b6"];
-    const c = colors[i % colors.length];
     return `
       <g>
-        <rect x="${t.x}" y="${t.y}" rx="24" ry="24" width="${t.w}" height="${t.h}" fill="${c}20" stroke="${c}55" stroke-width="1"/>
-        <text x="${t.x + 18}" y="${t.y + 36}" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="20" fill="#e5e7eb" font-weight="700">${escapeXml(t.title)}</text>
-        <text x="${t.x + 18}" y="${t.y + 68}" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="16" fill="#c7d2fe">${escapeXml(t.subtitle)}</text>
+        <rect x="${t.x}" y="${t.y}" rx="24" ry="24" width="${t.w}" height="${t.h}" fill-opacity="0.1" fill="white"/>
+        <text x="${t.x + 25}" y="${t.y + 40}" font-family="Arial, sans-serif" font-size="20" fill="white" font-weight="bold">${escapeXml(t.title)}</text>
+        <text x="${t.x + 25}" y="${t.y + 65}" font-family="Arial, sans-serif" font-size="14" fill="white">${escapeXml(t.subtitle)}</text>
       </g>`;
   }
 
@@ -390,12 +389,11 @@ function buildHighlightsSvg(params: {
   return `<?xml version="1.0" encoding="UTF-8"?>
   <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
     <defs>
-      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#0ea5e9"/>
-        <stop offset="50%" stop-color="#6366f1"/>
-        <stop offset="100%" stop-color="#111827"/>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:rgb(59,130,246);stop-opacity:1" />
+        <stop offset="100%" style="stop-color:rgb(109,40,217);stop-opacity:1" />
       </linearGradient>
-      <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+       <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
         <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.35"/>
       </filter>
     </defs>
@@ -403,18 +401,19 @@ function buildHighlightsSvg(params: {
 
     <!-- Central hero tile -->
     <g filter="url(#softShadow)">
-      <rect x="356" y="80" rx="28" ry="28" width="${w - 712}" height="${h - 160}" fill="#0b1220cc" stroke="#93c5fd55"/>
-      <text x="${w / 2}" y="${h / 2 - 40}" text-anchor="middle" font-size="42" font-weight="800" fill="#f9fafb" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">${escapeXml(centralTitle)}</text>
-      <text x="${w / 2}" y="${h / 2 + 4}" text-anchor="middle" font-size="18" fill="#d1d5db" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">${escapeXml(centralSub)}</text>
-      <text x="${w / 2}" y="${h / 2 + 40}" text-anchor="middle" font-size="16" fill="#9ca3af" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">${topSong ? `Top Song: ${escapeXml(topSong.songTitle)} — ${escapeXml(topSong.artist)}` : ""}</text>
+      <rect x="${w/2 - 250}" y="${h/2 - 125}" rx="28" ry="28" width="500" height="250" fill="#1e293b" fill-opacity="0.8"/>
+      <text x="${w / 2}" y="${h / 2 - 20}" text-anchor="middle" font-size="36" font-weight="bold" fill="white" font-family="Arial, sans-serif">${escapeXml(centralTitle)}</text>
+      <text x="${w / 2}" y="${h / 2 + 15}" text-anchor="middle" font-size="16" fill="white" font-family="Arial, sans-serif">${escapeXml(centralSub)}</text>
+      <text x="${w / 2}" y="${h / 2 + 50}" text-anchor="middle" font-size="14" fill="white" font-family="Arial, sans-serif">${topSong ? `Top Song: ${escapeXml(topSong.songTitle)} — ${escapeXml(topSong.artist)}` : ""}</text>
     </g>
 
     <!-- Side tiles -->
     ${tiles.map(tileRect).join("\n")}
 
-    <text x="${w - 36}" y="${h - 24}" text-anchor="end" font-size="14" fill="#9ca3af" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">${escapeXml(dateLabel)} • zml.gg</text>
+    <text x="${w - 36}" y="${h - 24}" text-anchor="end" font-size="14" fill="white" font-family="Arial, sans-serif">${escapeXml(dateLabel)} • zml.gg</text>
   </svg>`;
 }
+
 
 export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
   const stats = useQuery(api.leagues.getLeagueStats, { leagueId });
