@@ -25,7 +25,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Skeleton } from "./ui/skeleton";
-import Image from "next/image";
+import NextImage from "next/image";
 import { toSvg } from "jdenticon";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { Pie, PieChart, Tooltip, Legend, Cell } from "recharts";
@@ -187,7 +187,7 @@ function SongRow({
           <p className="text-muted-foreground">Not enough data yet.</p>
         ) : (
           <div className="flex items-center gap-4">
-            <Image
+            <NextImage
               src={song.albumArtUrl || "/icons/web-app-manifest-192x192.png"}
               alt={song.songTitle}
               width={64}
@@ -251,7 +251,7 @@ function RoundRow({
           <p className="text-muted-foreground">Not enough data yet.</p>
         ) : (
           <div className="flex items-center gap-4">
-            <Image
+            <NextImage
               src={round.imageUrl || "/icons/web-app-manifest-192x192.png"}
               alt={round.title}
               width={64}
@@ -433,7 +433,7 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
     const url = URL.createObjectURL(blob);
     try {
       await new Promise<void>((resolve, reject) => {
-        const img = new Image();
+        const img = new window.Image();
         img.onload = () => {
           const scale = 2; // 2x for crispness
           const canvas = document.createElement("canvas");
