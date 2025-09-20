@@ -4,10 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="Make PWA sessions durable with configurable expiration and expand public auth route handling">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/LeagueStats.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/LeagueStats.tsx" afterDir="false" />
-    </list>
+    <list default="true" id="b4efd6da-7d24-4694-b277-185175a020f6" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -134,15 +131,8 @@
       <workItem from="1757906654809" duration="116000" />
       <workItem from="1758112837201" duration="10160000" />
       <workItem from="1758312966800" duration="1538000" />
-      <workItem from="1758332086162" duration="724000" />
-    </task>
-    <task id="LOCAL-00033" summary="Improve league management permissions">
-      <option name="closed" value="true" />
-      <created>1756601249656</created>
-      <option name="number" value="00033" />
-      <option name="presentableId" value="LOCAL-00033" />
-      <option name="project" value="LOCAL" />
-      <updated>1756601249656</updated>
+      <workItem from="1758332086162" duration="871000" />
+      <workItem from="1758332983111" duration="4000" />
     </task>
     <task id="LOCAL-00034" summary="Extend listen tracking to support Spotify and YouTube submissions">
       <option name="closed" value="true" />
@@ -528,7 +518,15 @@
       <option name="project" value="LOCAL" />
       <updated>1758122744727</updated>
     </task>
-    <option name="localTasksCounter" value="82" />
+    <task id="LOCAL-00082" summary="Add export functionality for league highlights as PNG&#10;&#10;- Introduced an SVG generation utility to create league highlights visuals.  &#10;- Added a button in `LeagueStats` to export highlights as a high-resolution PNG file.  &#10;- Implemented dynamic rendering of stats, standings, and top songs into a visually styled SVG/PNG.">
+      <option name="closed" value="true" />
+      <created>1758332842530</created>
+      <option name="number" value="00082" />
+      <option name="presentableId" value="LOCAL-00082" />
+      <option name="project" value="LOCAL" />
+      <updated>1758332842532</updated>
+    </task>
+    <option name="localTasksCounter" value="83" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -546,7 +544,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Remove YouTube timer logic and enhance playlist handling&#10;&#10;- Eliminated per-link YouTube timer logic within `PlayerProgress` and `MusicPlayer` components.&#10;- Introduced consolidated YouTube playlist management in `RoundDetail` and `SubmissionsList`.&#10;- Enhanced YouTube playlist information display, including inline progress tracking." />
     <MESSAGE value="Add support for opening YouTube playlists from the queue&#10;&#10;- Implemented logic to build and open a YouTube playlist URL from queued submissions.&#10;- Enhanced `playNext` behavior to detect and handle YouTube submissions by triggering playlist opening.&#10;- Updated `handleEnded` and `onPlayNext` callbacks to incorporate new playlist logic." />
     <MESSAGE value="Refine YouTube playlist completion logic and timer integration&#10;&#10;- Introduced `done` state for YouTube playlists to track completion.&#10;- Enhanced `RoundDetail` and `SubmissionsList` components to handle completed playlists with updated UI and logic.&#10;- Improved session and local storage handling to persist and detect playlist completion state across sessions.&#10;- Added safeguards to prevent restarting completed timers." />
     <MESSAGE value="Introduce per-round vote limit overrides&#10;&#10;- Added support for custom `maxPositiveVotes` and `maxNegativeVotes` values on a per-round basis, defaulting to league limits when not specified.&#10;- Updated vote validation and calculations across backend (`rounds`, `votes`, `leagues`) to utilize effective vote limits.&#10;- Enhanced `RoundDetail`, `EditRoundDialog`, and `RoundHeader` components to display and manage custom vote limits.&#10;- Adjusted schema to include optional per-round vote override fields." />
@@ -571,6 +568,7 @@
     <MESSAGE value="Add real-time lyrics parsing and UI enhancements&#10;&#10;- Implemented LRC (synchronized lyrics) parsing with active line highlighting in `NowPlayingView`.&#10;- Added support for multi-paragraph plain text lyrics display.&#10;- Integrated playback time tracking and duration updates via `useMusicPlayerStore`.&#10;- Refined lyrics rendering for better user experience during playback." />
     <MESSAGE value="muted text for lyrics error" />
     <MESSAGE value="Make PWA sessions durable with configurable expiration and expand public auth route handling" />
-    <option name="LAST_COMMIT_MESSAGE" value="Make PWA sessions durable with configurable expiration and expand public auth route handling" />
+    <MESSAGE value="Add export functionality for league highlights as PNG&#10;&#10;- Introduced an SVG generation utility to create league highlights visuals.  &#10;- Added a button in `LeagueStats` to export highlights as a high-resolution PNG file.  &#10;- Implemented dynamic rendering of stats, standings, and top songs into a visually styled SVG/PNG." />
+    <option name="LAST_COMMIT_MESSAGE" value="Add export functionality for league highlights as PNG&#10;&#10;- Introduced an SVG generation utility to create league highlights visuals.  &#10;- Added a button in `LeagueStats` to export highlights as a high-resolution PNG file.  &#10;- Implemented dynamic rendering of stats, standings, and top songs into a visually styled SVG/PNG." />
   </component>
 </project>

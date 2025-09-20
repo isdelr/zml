@@ -11,7 +11,7 @@ import type { Props as LegendProps } from "recharts/types/component/Legend"
 import { TooltipContentProps } from "recharts/types/component/Tooltip"
 
 import { cn } from "@/lib/utils"
-import { createContext, useContext, useId } from "react"
+import { createContext, useContext, useId, useMemo } from "react"
 
  
 const THEMES = { light: "", dark: ".dark" } as const
