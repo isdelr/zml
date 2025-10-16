@@ -651,10 +651,21 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
         />
       )}
 
+      {league.isSpectator && (
+        <Alert className="mb-8 border-blue-500/50 bg-blue-500/10 text-blue-400">
+          <Ban className="size-4" />
+          <AlertTitle className="font-bold">Spectator Mode</AlertTitle>
+          <AlertDescription className="text-blue-400/80">
+            You are viewing this league as a spectator. You can listen to all submissions but cannot submit songs or vote.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {round.status === "voting" &&
         userVoteStatus &&
         !userVoteStatus.hasVoted &&
-        !userVoteStatus.canVote && (
+        !userVoteStatus.canVote &&
+        !league.isSpectator && (
           <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10 text-yellow-400">
             <Ban className="size-4" />
             <AlertTitle className="font-bold">Voting Restricted</AlertTitle>
@@ -708,44 +719,46 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
           </Alert>
         )}
 
-      <div className="mt-8">
-        <SubmissionForm
-          round={round as Doc<"rounds">}
-          roundStatus={round.status}
-          currentUser={currentUser}
-          mySubmissions={mySubmissions}
-        />
-        {round.status === "submissions" && (
-          <div className="mt-8 rounded-lg border bg-card p-6 text-center">
-            <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
-            {completedSubmitters.length > 0 ? (
-              <div className="mt-4 flex flex-col items-center justify-center gap-2">
-                <AvatarStack users={completedSubmitters} />
-                <p className="text-sm text-muted-foreground">
-                  {completedSubmitters.length}/{totalMembers} members completed
-                </p>
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">
-                No one has submitted yet. Be the first!
-              </p>
-            )}
-            <div className="mt-4">
-              <h4 className="text-sm font-semibold">Who&apos;s still missing?</h4>
-              {missingSubmitters.length > 0 ? (
-                <div className="mt-2 flex flex-col items-center justify-center gap-2">
-                  <AvatarStack users={missingSubmitters} />
-                  <p className="text-xs text-muted-foreground">
-                    {missingSubmitters.length} member{missingSubmitters.length !== 1 ? "s" : ""} remaining
+      {!league.isSpectator && (
+        <div className="mt-8">
+          <SubmissionForm
+            round={round as Doc<"rounds">}
+            roundStatus={round.status}
+            currentUser={currentUser}
+            mySubmissions={mySubmissions}
+          />
+          {round.status === "submissions" && (
+            <div className="mt-8 rounded-lg border bg-card p-6 text-center">
+              <h3 className="font-semibold">Who&apos;s Submitted So Far?</h3>
+              {completedSubmitters.length > 0 ? (
+                <div className="mt-4 flex flex-col items-center justify-center gap-2">
+                  <AvatarStack users={completedSubmitters} />
+                  <p className="text-sm text-muted-foreground">
+                    {completedSubmitters.length}/{totalMembers} members completed
                   </p>
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-muted-foreground">All members have completed their submissions.</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No one has submitted yet. Be the first!
+                </p>
               )}
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold">Who&apos;s still missing?</h4>
+                {missingSubmitters.length > 0 ? (
+                  <div className="mt-2 flex flex-col items-center justify-center gap-2">
+                    <AvatarStack users={missingSubmitters} />
+                    <p className="text-xs text-muted-foreground">
+                      {missingSubmitters.length} member{missingSubmitters.length !== 1 ? "s" : ""} remaining
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">All members have completed their submissions.</p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* YouTube playlist info banner removed in favor of inline wrapper in the list */}
 
@@ -765,7 +778,7 @@ export function RoundDetail({ round, league, canManageLeague }: RoundDetailProps
           )}
           <SubmissionsList
             submissions={sortedSubmissions}
-            userVoteStatus={userVoteStatus}
+            userVoteStatus={league.isSpectator ? { hasVoted: true, canVote: false, votes: [], upvotesUsed: 0, downvotesUsed: 0 } : userVoteStatus}
             userVotes={userVoteStatus?.votes ?? []}
             currentUser={currentUser}
             roundStatus={round.status}

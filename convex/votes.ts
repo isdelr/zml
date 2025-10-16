@@ -110,6 +110,18 @@ export const castVote = mutation({
     const league = await ctx.db.get(submission.leagueId);
     if (!league) throw new Error("League not found.");
 
+    // Check if user is a spectator
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_league_and_user", (q) =>
+        q.eq("leagueId", league._id).eq("userId", userId)
+      )
+      .first();
+
+    if (membership?.isSpectator) {
+      throw new Error("Spectators cannot vote. Join as a full member to participate.");
+    }
+
     const maxUp = (round as any).maxPositiveVotes ?? league.maxPositiveVotes;
     const maxDown = (round as any).maxNegativeVotes ?? league.maxNegativeVotes;
 

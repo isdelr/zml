@@ -18,6 +18,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { Eye } from "lucide-react";
 
 interface LeagueJoinCardProps {
   leagueData: Id<"leagues">;
@@ -30,15 +31,16 @@ export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
   const { signIn } = useAuthActions();
   const joinLeagueMutation = useMutation(api.leagues.joinPublicLeague);
 
-  const handleJoinLeague = async () => {
+  const handleJoinLeague = async (asSpectator: boolean = false) => {
     if (!isAuthenticated) {
       signIn("discord");
       return;
     }
-    const toastId = toast.loading("Joining league...");
+    const toastId = toast.loading(asSpectator ? "Joining as spectator..." : "Joining league...");
     try {
       const result = await joinLeagueMutation({
         leagueId: leagueData._id as Id<"leagues">,
+        asSpectator,
       });
       if (result === "not_found") {
         toast.error("This league does not exist.", { id: toastId });
@@ -46,7 +48,7 @@ export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
       } else if (result === "already_joined") {
         toast.info("You are already in this league.", { id: toastId });
       } else {
-        toast.success(`Successfully joined ${leagueData.name}!`, {
+        toast.success(`Successfully joined ${leagueData.name}${asSpectator ? " as a spectator" : ""}!`, {
           id: toastId,
         });
         router.push(`/leagues/${String(result)}`);
@@ -110,9 +112,23 @@ export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
                 ))}
             </div>
           </div>
-          <Button size="lg" className="w-full" onClick={handleJoinLeague}>
-            Join League
-          </Button>
+          <div className="space-y-3">
+            <Button size="lg" className="w-full" onClick={() => handleJoinLeague(false)}>
+              Join League
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="w-full" 
+              onClick={() => handleJoinLeague(true)}
+            >
+              <Eye className="mr-2 size-4" />
+              Join as Spectator
+            </Button>
+            <p className="text-xs text-center text-muted-foreground">
+              Spectators can listen to playlists but cannot submit songs or vote
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -76,6 +76,7 @@ export default defineSchema({
     trollSubmissionCount: v.optional(v.number()),
     isBanned: v.optional(v.boolean()),
     bannedAt: v.optional(v.number()),
+    isSpectator: v.optional(v.boolean()),
   })
     .index("by_league_and_user", ["leagueId", "userId"])
     .index("by_user", ["userId"])

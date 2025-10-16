@@ -97,7 +97,7 @@ export const submitSong = mutation({
     if (!round) throw new Error("Round not found.");
     if (round.status !== "submissions") throw new Error("Submissions are not open.");
 
-    // Check if user is banned from this league
+    // Check if user is banned from this league or is a spectator
     const membership = await ctx.db
       .query("memberships")
       .withIndex("by_league_and_user", (q) =>
@@ -107,6 +107,10 @@ export const submitSong = mutation({
 
     if (membership?.isBanned) {
       throw new Error("You have been permanently banned from this league for repeated troll submissions.");
+    }
+
+    if (membership?.isSpectator) {
+      throw new Error("Spectators cannot submit songs. Join as a full member to participate.");
     }
 
     const submissionsPerUser = round.submissionsPerUser ?? 1;

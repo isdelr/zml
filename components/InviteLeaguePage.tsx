@@ -12,11 +12,12 @@ import {
 } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AvatarStack } from "@/components/AvatarStack";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toSvg } from "jdenticon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Eye } from "lucide-react";
 
 function InviteCardSkeleton() {
   return (
@@ -54,21 +55,22 @@ export default function InviteLeaguePage() {
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const { signIn } = useAuthActions();
   const hasAttemptedJoin = useRef(false);
+  const [showJoinChoice, setShowJoinChoice] = useState(false);
 
   const inviteCode = params.inviteCode as string;
   const inviteInfo = useQuery(api.leagues.getInviteInfo, { inviteCode });
   const joinLeague = useMutation(api.leagues.joinWithInviteCode);
 
-  const handleJoinLeague = async () => {
+  const handleJoinLeague = async (asSpectator: boolean = false) => {
     if (!isAuthenticated) {
       signIn("discord", { redirectTo: pathname });
       return;
     }
     if (!inviteCode) return;
 
-    const toastId = toast.loading("Joining league...");
+    const toastId = toast.loading(asSpectator ? "Joining as spectator..." : "Joining league...");
     try {
-      const result = await joinLeague({ inviteCode });
+      const result = await joinLeague({ inviteCode, asSpectator });
       if (result === "not_found") {
         toast.error("Invite link is invalid or has expired.", { id: toastId });
         router.push("/explore");
@@ -80,7 +82,7 @@ export default function InviteLeaguePage() {
           router.push("/explore");
         }
       } else {
-        toast.success(`Successfully joined ${inviteInfo?.name}!`, { id: toastId });
+        toast.success(`Successfully joined ${inviteInfo?.name}${asSpectator ? " as a spectator" : ""}!`, { id: toastId });
         router.push(`/leagues/${result}`);
       }
     } catch {
@@ -93,7 +95,8 @@ export default function InviteLeaguePage() {
   useEffect(() => {
     if (isAuthenticated && inviteInfo && !hasAttemptedJoin.current) {
       hasAttemptedJoin.current = true;
-      void handleJoinLeague();
+      // Instead of auto-joining, show the choice
+      setShowJoinChoice(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, inviteInfo]);
@@ -147,9 +150,80 @@ export default function InviteLeaguePage() {
                 <span>{inviteInfo.creatorName}</span>
               </div>
             </div>
-            <Button size="lg" className="w-full" onClick={handleJoinLeague}>
-              Accept Invite
-            </Button>
+            <div className="space-y-3">
+              <Button size="lg" className="w-full" onClick={() => handleJoinLeague(false)}>
+                Accept Invite
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="w-full" 
+                onClick={() => handleJoinLeague(true)}
+              >
+                <Eye className="mr-2 size-4" />
+                Join as Spectator
+              </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                Spectators can listen to playlists but cannot submit songs or vote
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show choice screen if user is authenticated and has the info
+  if (isAuthenticated && showJoinChoice && inviteInfo) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Join {inviteInfo.name}</CardTitle>
+            <CardDescription className="text-foreground">
+              Choose how you&apos;d like to participate
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <p className="break-words text-center text-muted-foreground">
+              {inviteInfo.description}
+            </p>
+            <div className="flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                {inviteInfo.members && <AvatarStack users={inviteInfo.members} />}
+                <span>{inviteInfo.memberCount} members</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span>Created by</span>
+                <Avatar className="size-5">
+                  <AvatarImage
+                    src={inviteInfo.creatorImage ?? undefined}
+                    alt={inviteInfo.creatorName}
+                  />
+                  <AvatarFallback
+                    dangerouslySetInnerHTML={{ __html: toSvg(inviteInfo.creatorName, 20) }}
+                  />
+                </Avatar>
+                <span>{inviteInfo.creatorName}</span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <Button size="lg" className="w-full" onClick={() => handleJoinLeague(false)}>
+                Join as Full Member
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="w-full" 
+                onClick={() => handleJoinLeague(true)}
+              >
+                <Eye className="mr-2 size-4" />
+                Join as Spectator
+              </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                Spectators can listen to playlists but cannot submit songs or vote
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

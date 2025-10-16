@@ -435,6 +435,7 @@ export const get = query({
       isOwner: v.boolean(),
       canManageLeague: v.boolean(),
       isMember: v.boolean(),
+      isSpectator: v.boolean(),
       inviteCode: v.optional(v.union(v.string(), v.null())),
       creatorImage: v.optional(v.string()),
       members: v.array(
@@ -496,6 +497,7 @@ export const get = query({
 
     const isOwner = userId === league.creatorId;
     const isMember = !!membership;
+    const isSpectator = membership?.isSpectator ?? false;
     
     // Check if user can manage the league (owner, manager, or global admin)
     let canManageLeague = false;
@@ -515,6 +517,7 @@ export const get = query({
       isOwner,
       canManageLeague,
       isMember,
+      isSpectator,
       inviteCode: canManageLeague ? league.inviteCode : undefined,
       members,
     };
@@ -581,7 +584,7 @@ export const getInviteInfo = query({
 });
 
 export const joinWithInviteCode = mutation({
-  args: { inviteCode: v.string() },
+  args: { inviteCode: v.string(), asSpectator: v.optional(v.boolean()) },
   returns: v.union(v.string(), v.id("leagues")),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -609,28 +612,34 @@ export const joinWithInviteCode = mutation({
       return "already_joined";
     }
 
+    const isSpectator = args.asSpectator ?? false;
+
     const membershipId = await ctx.db.insert("memberships", {
       userId,
       leagueId: league._id,
       joinDate: Date.now(),
+      isSpectator,
     });
     const membershipDoc = await ctx.db.get(membershipId);
     await membershipsByUser.insert(ctx, membershipDoc!);
     await memberCounter.inc(ctx, league._id);
 
-    await ctx.db.insert("leagueStandings", {
-      leagueId: league._id,
-      userId,
-      totalPoints: 0,
-      totalWins: 0,
-    });
+    // Only create standings entry for non-spectators
+    if (!isSpectator) {
+      await ctx.db.insert("leagueStandings", {
+        leagueId: league._id,
+        userId,
+        totalPoints: 0,
+        totalWins: 0,
+      });
+    }
 
     return league._id;
   },
 });
 
 export const joinPublicLeague = mutation({
-  args: { leagueId: v.id("leagues") },
+  args: { leagueId: v.id("leagues"), asSpectator: v.optional(v.boolean()) },
   returns: v.union(v.string(), v.id("leagues")),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -660,21 +669,27 @@ export const joinPublicLeague = mutation({
       return "already_joined";
     }
 
+    const isSpectator = args.asSpectator ?? false;
+
     const membershipId = await ctx.db.insert("memberships", {
       userId,
       leagueId: league._id,
       joinDate: Date.now(),
+      isSpectator,
     });
     const membershipDoc = await ctx.db.get(membershipId);
     await membershipsByUser.insert(ctx, membershipDoc!);
     await memberCounter.inc(ctx, league._id);
 
-    await ctx.db.insert("leagueStandings", {
-      leagueId: league._id,
-      userId,
-      totalPoints: 0,
-      totalWins: 0,
-    });
+    // Only create standings entry for non-spectators
+    if (!isSpectator) {
+      await ctx.db.insert("leagueStandings", {
+        leagueId: league._id,
+        userId,
+        totalPoints: 0,
+        totalWins: 0,
+      });
+    }
 
     return league._id;
   },
