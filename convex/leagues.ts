@@ -953,7 +953,7 @@ export const getStatsData = internalQuery({
       .collect();
 
     // Existing user awards
-    const mostWins = standings.sort((a, b) => b.totalWins - a.totalWins);
+    const mostWins = [...standings].sort((a, b) => b.totalWins - a.totalWins);
     const overlord =
       mostWins.length > 0
         ? {
@@ -962,10 +962,30 @@ export const getStatsData = internalQuery({
         }
         : null;
 
-    // Build a map from submissionId => submitter userId for vote aggregation
-    const submissionSubmitterMap = new Map(
-      results.map((r) => [r.submissionId.toString(), r.userId]),
-    );
+    // Build helper maps for submissions and rounds to avoid reloading heavy documents
+    const submissionSubmitterMap = new Map<string, Id<"users">>();
+    const submissionIdMap = new Map<string, Id<"submissions">>();
+    const resultsByRound = new Map<string, Doc<"roundResults">[]>();
+    for (const result of results) {
+      const submissionKey = result.submissionId.toString();
+      submissionSubmitterMap.set(submissionKey, result.userId);
+      submissionIdMap.set(submissionKey, result.submissionId);
+
+      const roundKey = result.roundId.toString();
+      if (!resultsByRound.has(roundKey)) resultsByRound.set(roundKey, []);
+      resultsByRound.get(roundKey)!.push(result);
+    }
+
+    const submissionCache = new Map<string, Doc<"submissions"> | null>();
+    const loadSubmission = async (submissionId: Id<"submissions">) => {
+      const key = submissionId.toString();
+      if (submissionCache.has(key)) {
+        return submissionCache.get(key)!;
+      }
+      const submission = await ctx.db.get(submissionId);
+      submissionCache.set(key, submission ?? null);
+      return submission ?? null;
+    };
 
     const userUpvotes = new Map<string, number>();
     const userDownvotes = new Map<string, number>();
@@ -1043,32 +1063,21 @@ export const getStatsData = internalQuery({
         : null;
 
     // Highest scoring submission (existing topResult)
-    const topResult =
-      results.length > 0
-        ? results.sort((a, b) => b.points - a.points)[0]
-        : null;
-
-    // Get all submissions for these rounds
-    const submissions = (
-      await Promise.all(
-        roundIds.map((roundId) =>
-          ctx.db
-            .query("submissions")
-            .withIndex("by_round_and_user", (q) => q.eq("roundId", roundId))
-            .collect(),
-        ),
-      )
-    ).flat();
+    const topResult = results.reduce<Doc<"roundResults"> | null>((best, cur) => {
+      if (!best) return cur;
+      if (cur.points > best.points) return cur;
+      return best;
+    }, null);
 
     // Genre breakdown (existing)
     const genreCounts: Record<string, number> = {};
     const roundsMap = new Map(finishedRounds.map((r) => [r._id.toString(), r]));
-    submissions.forEach((s) => {
-      const round = roundsMap.get(s.roundId.toString());
-      if (round)
-        round.genres.forEach(
-          (g) => (genreCounts[g] = (genreCounts[g] ?? 0) + 1),
-        );
+    results.forEach((r) => {
+      const round = roundsMap.get(r.roundId.toString());
+      if (!round) return;
+      round.genres.forEach(
+        (g) => (genreCounts[g] = (genreCounts[g] ?? 0) + 1),
+      );
     });
 
     const genreBreakdown = Object.entries(genreCounts).map(([name, value]) => ({
@@ -1085,12 +1094,10 @@ export const getStatsData = internalQuery({
     };
 
     async function formatSongAwardFromSubmissionId(
-      subId: string,
+      subId: Id<"submissions">,
       count: number,
     ) {
-      const submission = await ctx.db.get(
-        submissions.find((s) => s._id.toString() === subId)!._id,
-      );
+      const submission = await loadSubmission(subId);
       if (!submission) return null;
       let albumArtUrl: string | null = null;
       if (submission.submissionType === "file" && submission.albumArtKey)
@@ -1106,12 +1113,6 @@ export const getStatsData = internalQuery({
       };
     }
 
-    async function roundImageUrl(rid: Id<"rounds">) {
-      const rnd = await ctx.db.get(rid);
-      if (rnd?.imageKey) return await r2.getUrl(rnd.imageKey);
-      return null;
-    }
-
     // NEW song-level awards
     const mostUpvotedSongEntry = [...posBySubmission.entries()].sort(
       (a, b) => b[1] - a[1],
@@ -1121,16 +1122,17 @@ export const getStatsData = internalQuery({
     )[0];
 
     // NEW fan favorite: most bookmarks per submission
-    let favorite: { subId: string; count: number } | null = null;
-    for (const s of submissions) {
+    const uniqueSubmissionIds = [...submissionIdMap.values()];
+    let favorite: { subId: Id<"submissions">; count: number } | null = null;
+    for (const submissionId of uniqueSubmissionIds) {
       const count = (
         await ctx.db
           .query("bookmarks")
-          .withIndex("by_submission", (q) => q.eq("submissionId", s._id))
+          .withIndex("by_submission", (q) => q.eq("submissionId", submissionId))
           .collect()
       ).length;
       if (!favorite || count > favorite.count)
-        favorite = { subId: s._id.toString(), count };
+        favorite = { subId: submissionId, count };
     }
 
     // NEW attendance star: most rounds submitted (across all rounds in league)
@@ -1142,11 +1144,11 @@ export const getStatsData = internalQuery({
     const totalRounds = allRoundsInLeague.length;
 
     const submittedRoundsByUser = new Map<string, Set<string>>();
-    submissions.forEach((s) => {
-      const key = s.userId.toString();
+    results.forEach((r) => {
+      const key = r.userId.toString();
       if (!submittedRoundsByUser.has(key))
         submittedRoundsByUser.set(key, new Set());
-      submittedRoundsByUser.get(key)!.add(s.roundId.toString());
+      submittedRoundsByUser.get(key)!.add(r.roundId.toString());
     });
     const attArr = [...submittedRoundsByUser.entries()].map(([uid, set]) => ({
       uid,
@@ -1204,9 +1206,9 @@ export const getStatsData = internalQuery({
 
     // NEW round awards: worst (top-2 upvote share), closest/blowout (points diff)
     function roundUpvoteStats(roundId: Id<"rounds">) {
-      const subs = submissions
-        .filter((s) => s.roundId === roundId)
-        .map((s) => s._id.toString());
+      const subs = (resultsByRound.get(roundId.toString()) ?? []).map((r) =>
+        r.submissionId.toString(),
+      );
       const pos = subs.map((sid) => posBySubmission.get(sid) ?? 0);
       const total = pos.reduce((a, b) => a + b, 0);
       const top2 = [...pos]
@@ -1222,8 +1224,7 @@ export const getStatsData = internalQuery({
     }
 
     function roundPointsDiff(roundId: Id<"rounds">) {
-      const rr = results
-        .filter((r) => r.roundId === roundId)
+      const rr = (resultsByRound.get(roundId.toString()) ?? [])
         .map((r) => r.points)
         .sort((a, b) => b - a);
       if (rr.length < 2) return 0;
@@ -1272,9 +1273,9 @@ export const getStatsData = internalQuery({
     // Format final payload items
     const topSong = await (async () => {
       if (!topResult) return null;
-      const submission = await ctx.db.get(topResult.submissionId);
+      const submission = await loadSubmission(topResult.submissionId);
       if (!submission) return null;
-      const submitter = memberMap.get(submission.userId.toString());
+      const submitter = memberMap.get(topResult.userId.toString());
       let albumArtUrl: string | null = null;
       if (submission.submissionType === "file" && submission.albumArtKey)
         albumArtUrl = await r2.getUrl(submission.albumArtKey);
@@ -1288,32 +1289,38 @@ export const getStatsData = internalQuery({
       };
     })();
 
-    const mostUpvotedSong = mostUpvotedSongEntry
-      ? await formatSongAwardFromSubmissionId(
-        mostUpvotedSongEntry[0],
-        mostUpvotedSongEntry[1],
-      )
-      : null;
+    const mostUpvotedSong =
+      mostUpvotedSongEntry && submissionIdMap.get(mostUpvotedSongEntry[0])
+        ? await formatSongAwardFromSubmissionId(
+          submissionIdMap.get(mostUpvotedSongEntry[0])!,
+          mostUpvotedSongEntry[1],
+        )
+        : null;
 
-    const mostDownvotedSong = mostDownvotedSongEntry
-      ? await formatSongAwardFromSubmissionId(
-        mostDownvotedSongEntry[0],
-        mostDownvotedSongEntry[1],
-      )
-      : null;
+    const mostDownvotedSong =
+      mostDownvotedSongEntry && submissionIdMap.get(mostDownvotedSongEntry[0])
+        ? await formatSongAwardFromSubmissionId(
+          submissionIdMap.get(mostDownvotedSongEntry[0])!,
+          mostDownvotedSongEntry[1],
+        )
+        : null;
 
-    const fanFavoriteSong = favorite
-      ? await formatSongAwardFromSubmissionId(favorite.subId, favorite.count)
+    const fanFavoriteSong =
+      favorite
+        ? await formatSongAwardFromSubmissionId(
+          favorite.subId,
+          favorite.count,
+        )
       : null;
 
     // Calculate top 10 songs
-    const sortedResults = results.sort((a, b) => b.points - a.points);
+    const sortedResults = [...results].sort((a, b) => b.points - a.points);
     const top10Results = sortedResults.slice(0, 10);
     const top10SongsWithNulls = await Promise.all(
       top10Results.map(async (result) => {
-        const submission = await ctx.db.get(result.submissionId);
+        const submission = await loadSubmission(result.submissionId);
         if (!submission) return null;
-        const submitter = memberMap.get(submission.userId.toString());
+        const submitter = memberMap.get(result.userId.toString());
         let albumArtUrl: string | null = null;
         if (submission.submissionType === "file" && submission.albumArtKey)
           albumArtUrl = await r2.getUrl(submission.albumArtKey);
@@ -1335,11 +1342,17 @@ export const getStatsData = internalQuery({
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .collect();
     
+    const votesByRound = new Map<string, number>();
+    votes.forEach((vote) => {
+      const key = vote.roundId.toString();
+      votesByRound.set(key, (votesByRound.get(key) ?? 0) + 1);
+    });
+
     const allRounds = await Promise.all(
       allRoundsInLeagueForSummary.map(async (round) => {
-        const submissionCount = submissions.filter(s => s.roundId.toString() === round._id.toString()).length;
-        const roundVotes = votes.filter(v => v.roundId.toString() === round._id.toString());
-        const totalVotes = roundVotes.length;
+        const submissionCount =
+          resultsByRound.get(round._id.toString())?.length ?? 0;
+        const totalVotes = votesByRound.get(round._id.toString()) ?? 0;
         const imageUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
         
         return {
