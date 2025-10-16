@@ -381,6 +381,18 @@ export const updateRound = mutation({
     submissionsPerUser: v.number(),
     maxPositiveVotes: v.optional(v.union(v.number(), v.null())),
     maxNegativeVotes: v.optional(v.union(v.number(), v.null())),
+    submissionMode: v.optional(
+      v.union(v.literal("single"), v.literal("multi"), v.literal("album")),
+    ),
+    submissionInstructions: v.optional(v.string()),
+    albumConfig: v.optional(
+      v.object({
+        allowPartial: v.optional(v.boolean()),
+        requireReleaseYear: v.optional(v.boolean()),
+        minTracks: v.optional(v.number()),
+        maxTracks: v.optional(v.number()),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     const round = await ctx.db.get(args.roundId);

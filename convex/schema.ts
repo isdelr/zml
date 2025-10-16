@@ -98,6 +98,22 @@ export default defineSchema({
     // Per-round overrides for vote limits; null/undefined means use league defaults
     maxPositiveVotes: v.optional(v.union(v.number(), v.null())),
     maxNegativeVotes: v.optional(v.union(v.number(), v.null())),
+    submissionMode: v.optional(
+      v.union(
+        v.literal("single"),
+        v.literal("multi"),
+        v.literal("album"),
+      ),
+    ),
+    submissionInstructions: v.optional(v.string()),
+    albumConfig: v.optional(
+      v.object({
+        allowPartial: v.optional(v.boolean()),
+        requireReleaseYear: v.optional(v.boolean()),
+        minTracks: v.optional(v.number()),
+        maxTracks: v.optional(v.number()),
+      }),
+    ),
   })
     .index("by_league", ["leagueId"])
     .index("by_league_and_status", ["leagueId", "status"]),
@@ -124,10 +140,21 @@ export default defineSchema({
     markedAsTrollBy: v.optional(v.id("users")),
     markedAsTrollAt: v.optional(v.number()),
     lyrics: v.optional(v.string()),
+    collectionId: v.optional(v.string()),
+    collectionType: v.optional(
+      v.union(v.literal("multi"), v.literal("album")),
+    ),
+    collectionName: v.optional(v.string()),
+    collectionArtist: v.optional(v.string()),
+    collectionNotes: v.optional(v.string()),
+    collectionReleaseYear: v.optional(v.number()),
+    collectionTotalTracks: v.optional(v.number()),
+    trackNumber: v.optional(v.number()),
   })
     .index("by_round_and_user", ["roundId", "userId"])
     .index("by_user_and_league", ["userId", "leagueId"])
     .index("by_league", ["leagueId"])
+    .index("by_collection", ["collectionId"])
     .searchIndex("by_text", {
       searchField: "searchText",
       filterFields: ["leagueId"],

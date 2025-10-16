@@ -7,6 +7,7 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import { SubmissionItem } from "./SubmissionItem";
 import { Song } from "@/types";
 import { toast } from "sonner";
+import { Fragment, useMemo } from "react";
 
 type SubmissionsListPropsSubmissions = Awaited<
   ReturnType<typeof api.submissions.getForRound>
@@ -155,6 +156,34 @@ export function SubmissionsList({
     return () => observer.disconnect();
   }, [onReachYouTube, firstYouTubeIndex]);
 
+  const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+
+  const albumGroupMap = useMemo(() => {
+    if (!submissions || submissions.length === 0) {
+      return new Map<string, Song[]>();
+    }
+    const map = new Map<string, Song[]>();
+    submissions.forEach((submission) => {
+      const extended = submission as unknown as Song;
+      if (extended.collectionType === "album" && extended.collectionId) {
+        const entries = map.get(extended.collectionId) ?? [];
+        entries.push(extended);
+        map.set(extended.collectionId, entries);
+      }
+    });
+    for (const [collectionId, tracks] of map.entries()) {
+      tracks.sort((a, b) => {
+        const aNum = a.trackNumber ?? 0;
+        const bNum = b.trackNumber ?? 0;
+        if (aNum === bNum) {
+          return a.songTitle.localeCompare(b.songTitle);
+        }
+        return aNum - bNum;
+      });
+      map.set(collectionId, tracks);
+    }
+    return map;
+  }, [submissions]);
   const handleBookmark = async (submissionId: Id<"submissions">) => {
     try {
       await toggleBookmark({ submissionId });
@@ -173,7 +202,57 @@ export function SubmissionsList({
       </div>
     );
   }
-  const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+
+  const renderSubmission = (
+    submission: SubmissionsListPropsSubmissions[number],
+    index: number,
+  ) => {
+    const submissionId = submission._id as Id<"submissions">;
+    const submissionKey = submissionId.toString();
+    const isThisSongPlaying = isPlaying && currentTrack?._id === submissionId;
+    const isThisSongCurrent = currentTrack?._id === submissionId;
+    const userIsSubmitter = submission.userId === currentUser?._id;
+    const isCommentsVisible = activeCommentsSubmissionId === submissionId;
+    const listeners = (listenersBySubmission?.[submissionKey] ?? []) as {
+      name?: string | null;
+      image?: string | null;
+      _id: Id<"users">;
+    }[];
+
+    const userVoteOnThisSong = userVotes.find(
+      (v) => v.submissionId === submissionId,
+    );
+    const currentVoteValue = userVoteOnThisSong ? userVoteOnThisSong.vote : 0;
+
+    return (
+      <SubmissionItem
+        key={submissionId}
+        song={submission as unknown as Song}
+        index={index}
+        isThisSongPlaying={isThisSongPlaying}
+        isThisSongCurrent={isThisSongCurrent}
+        isCommentsVisible={isCommentsVisible}
+        userIsSubmitter={userIsSubmitter}
+        currentVoteValue={currentVoteValue}
+        roundStatus={roundStatus}
+        league={league}
+        hasVoted={hasVoted}
+        canVote={canVote}
+        onVoteClick={(delta) => onVoteClick(submissionId, delta)}
+        onBookmark={() => handleBookmark(submissionId)}
+        onPlaySong={() => onPlaySong(submission as unknown as Song, index)}
+        listenProgress={listenProgressMap[submissionKey]}
+        isReadyToVoteOverall={isReadyToVoteOverall}
+        onToggleComments={() =>
+          onToggleComments(isCommentsVisible ? null : submissionId)
+        }
+        listeners={listeners}
+        currentUser={currentUser}
+      />
+    );
+  };
+
+  const seenAlbumIds = new Set<string>();
 
   const formatDurationCompact = (totalSeconds: number) => {
     const s = Math.max(0, Math.floor(totalSeconds || 0));
@@ -199,40 +278,49 @@ export function SubmissionsList({
         </div>
       </div>
 
-      {regularItems.map((song) => {
-        const isThisSongPlaying = isPlaying && currentTrack?._id === song._id;
-        const isThisSongCurrent = currentTrack?._id === song._id;
-        const userIsSubmitter = song.userId === currentUser?._id;
-        const isCommentsVisible = activeCommentsSubmissionId === song._id;
-        const listeners = listenersBySubmission ? listenersBySubmission[song._id] : [];
-        const userVoteOnThisSong = userVotes.find((v) => v.submissionId === song._id);
-        const currentVoteValue = userVoteOnThisSong ? userVoteOnThisSong.vote : 0;
-        const indexInAll = submissions.indexOf(song);
-        return (
-          <Fragment key={song._id}>
-            <SubmissionItem
-              song={song}
-              index={indexInAll}
-              isThisSongPlaying={isThisSongPlaying}
-              isThisSongCurrent={isThisSongCurrent}
-              isCommentsVisible={isCommentsVisible}
-              userIsSubmitter={userIsSubmitter}
-              currentVoteValue={currentVoteValue}
-              roundStatus={roundStatus}
-              hasVoted={hasVoted}
-              league={league}
-              canVote={canVote}
-              onToggleComments={() => onToggleComments(isCommentsVisible ? null : song._id as Id<"submissions">)}
-              onVoteClick={(delta) => onVoteClick(song._id, delta)}
-              onBookmark={() => handleBookmark(song._id)}
-              onPlaySong={() => onPlaySong(song, indexInAll)}
-              listenProgress={listenProgressMap[song._id]}
-              isReadyToVoteOverall={isReadyToVoteOverall}
-              listeners={listeners ?? []}
-              currentUser={currentUser}
-            />
-          </Fragment>
-        );
+      {submissions.map((submission, index) => {
+        const extended = submission as unknown as Song;
+        const elements: React.ReactNode[] = [];
+
+        if (extended.collectionType === "album" && extended.collectionId) {
+          if (!seenAlbumIds.has(extended.collectionId)) {
+            seenAlbumIds.add(extended.collectionId);
+            const tracks = albumGroupMap.get(extended.collectionId) ?? [];
+            elements.push(
+              <div
+                key={`header-${extended.collectionId}`}
+                className="bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+              >
+                <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="font-semibold text-foreground">
+                      {extended.collectionName || extended.songTitle}
+                    </p>
+                    <p>
+                      {extended.collectionArtist || extended.artist}
+                      {extended.collectionReleaseYear
+                        ? ` • ${extended.collectionReleaseYear}`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="text-xs uppercase tracking-wide">
+                    Album Submission • {tracks.length} track
+                    {tracks.length === 1 ? "" : "s"}
+                  </div>
+                </div>
+                {extended.collectionNotes && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {extended.collectionNotes}
+                  </p>
+                )}
+              </div>,
+            );
+          }
+        }
+
+        elements.push(renderSubmission(submission, index));
+
+        return <Fragment key={extended._id as string}>{elements}</Fragment>;
       })}
 
       {roundStatus === "voting" && youtubeItems.length > 0 ? (

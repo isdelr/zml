@@ -21,4 +21,12 @@ export type Song = {
   markedAsTrollBy?: Id<"users">;
   markedAsTrollAt?: number;
   lyrics?: string | null;
+  collectionId?: string | null;
+  collectionType?: "multi" | "album" | null;
+  collectionName?: string | null;
+  collectionArtist?: string | null;
+  collectionNotes?: string | null;
+  collectionReleaseYear?: number | null;
+  collectionTotalTracks?: number | null;
+  trackNumber?: number | null;
 };

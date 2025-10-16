@@ -195,6 +195,18 @@ export const create = mutation({
         submissionsPerUser: v.optional(v.number()),
         imageKey: v.optional(v.string()),
         genres: v.array(v.string()),
+        submissionMode: v.optional(
+          v.union(v.literal("single"), v.literal("multi"), v.literal("album")),
+        ),
+        submissionInstructions: v.optional(v.string()),
+        albumConfig: v.optional(
+          v.object({
+            allowPartial: v.optional(v.boolean()),
+            requireReleaseYear: v.optional(v.boolean()),
+            minTracks: v.optional(v.number()),
+            maxTracks: v.optional(v.number()),
+          }),
+        ),
       }),
     ),
   },
@@ -288,6 +300,9 @@ export const create = mutation({
         status: "submissions",
         submissionDeadline: submissionDeadlineTimestamp,
         votingDeadline: votingDeadlineTimestamp,
+        submissionMode: round.submissionMode ?? "single",
+        submissionInstructions: round.submissionInstructions,
+        albumConfig: round.albumConfig,
       });
 
       // Notify creator that their round is open for submissions
