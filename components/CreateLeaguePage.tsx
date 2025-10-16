@@ -21,6 +21,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -70,10 +77,20 @@ const formSchema = z
               .refine(
                 (file) => !file || file.size <= MAX_ROUND_IMAGE_SIZE_BYTES,
                 `Image must be less than ${MAX_ROUND_IMAGE_SIZE_MB}MB.`,
-          ),
-    }),
-  )
-.min(1, "You must add at least one round."),
+              ),
+            submissionMode: z.enum(["single", "multi", "album"]).default("single"),
+            submissionInstructions: z.string().optional(),
+            albumConfig: z
+              .object({
+                allowPartial: z.boolean().optional(),
+                requireReleaseYear: z.boolean().optional(),
+                minTracks: z.coerce.number().min(1, "Must be at least 1 track.").optional(),
+                maxTracks: z.coerce.number().min(1, "Must be at least 1 track.").optional(),
+              })
+              .optional(),
+          }),
+        )
+        .min(1, "You must add at least one round."),
 })
 .superRefine((data, ctx) => {
   if (data.enforceListenPercentage) {
@@ -108,6 +125,19 @@ const formSchema = z
       });
     }
   }
+  // Validate album config for each round
+  data.rounds.forEach((round, index) => {
+    if (round.submissionMode === "album" && round.albumConfig) {
+      const { minTracks, maxTracks } = round.albumConfig;
+      if (minTracks !== undefined && maxTracks !== undefined && minTracks > maxTracks) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Minimum tracks cannot exceed maximum tracks.",
+          path: ["rounds", index, "albumConfig", "minTracks"],
+        });
+      }
+    }
+  });
 });
 
 export function CreateLeaguePage() {
@@ -131,7 +161,20 @@ export function CreateLeaguePage() {
       maxNegativeVotes: 1,
       limitVotesPerSubmission: false,
       enforceListenPercentage: false,
-      rounds: [{ title: "", description: "", genres: [], submissionsPerUser: 1 }],
+      rounds: [{
+        title: "",
+        description: "",
+        genres: [],
+        submissionsPerUser: 1,
+        submissionMode: "single" as const,
+        submissionInstructions: "",
+        albumConfig: {
+          allowPartial: false,
+          requireReleaseYear: true,
+          minTracks: undefined,
+          maxTracks: undefined,
+        },
+      }],
     },
   });
 
@@ -161,6 +204,9 @@ export function CreateLeaguePage() {
             submissionsPerUser: round.submissionsPerUser,
             genres: round.genres ?? [],
             imageKey: imageKey,
+            submissionMode: round.submissionMode,
+            submissionInstructions: round.submissionInstructions,
+            albumConfig: round.albumConfig,
           };
         }),
       );
@@ -242,7 +288,22 @@ export function CreateLeaguePage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => append({ title: "", description: "", genres: [], submissionsPerUser: 1 })}
+                    onClick={() =>
+                      append({
+                        title: "",
+                        description: "",
+                        genres: [],
+                        submissionsPerUser: 1,
+                        submissionMode: "single" as const,
+                        submissionInstructions: "",
+                        albumConfig: {
+                          allowPartial: false,
+                          requireReleaseYear: true,
+                          minTracks: undefined,
+                          maxTracks: undefined,
+                        },
+                      })
+                    }
                   >
                     <PlusCircle className="mr-2 size-4" />
                     Add Round
@@ -323,6 +384,141 @@ export function CreateLeaguePage() {
                           </FormItem>
                         )}
                       />
+                      <FormField
+                        control={form.control}
+                        name={`rounds.${index}.submissionMode`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Submission Mode</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a submission mode" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="single">Single song per submission</SelectItem>
+                                <SelectItem value="multi">Multiple songs per round (shuffled)</SelectItem>
+                                <SelectItem value="album">Album round (keep track order)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              Choose how submissions should be grouped and presented.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`rounds.${index}.submissionInstructions`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Submission Instructions (Optional)</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="e.g., Submit your favorite 3 tracks from the 90s..."
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Additional guidance shown to participants when submitting.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch(`rounds.${index}.submissionMode`) === "album" && (
+                        <div className="space-y-4 rounded-md border p-4">
+                          <h4 className="text-sm font-semibold uppercase text-muted-foreground">
+                            Album Round Settings
+                          </h4>
+                          <FormField
+                            control={form.control}
+                            name={`rounds.${index}.albumConfig.allowPartial`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                <div className="space-y-0.5">
+                                  <FormLabel>Allow partial albums</FormLabel>
+                                  <FormDescription>
+                                    Participants can submit only a selection of tracks.
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value ?? false}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`rounds.${index}.albumConfig.requireReleaseYear`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                <div className="space-y-0.5">
+                                  <FormLabel>Require album release year</FormLabel>
+                                  <FormDescription>
+                                    Ensure submissions include the album&apos;s release year.
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value ?? true}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <FormField
+                              control={form.control}
+                              name={`rounds.${index}.albumConfig.minTracks`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Minimum Tracks</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      placeholder="Optional"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    Leave blank to allow any length.
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`rounds.${index}.albumConfig.maxTracks`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Maximum Tracks</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      placeholder="Optional"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    Leave blank to allow any length.
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="w-full md:w-52">

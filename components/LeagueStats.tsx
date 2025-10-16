@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -20,6 +20,7 @@ import {
   Scale,
   ListMusic,
   Download,
+  Sparkles,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -30,6 +31,7 @@ import { toSvg } from "jdenticon";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { Pie, PieChart, Tooltip, Legend, Cell } from "recharts";
 import { cn } from "@/lib/utils";
+import html2canvas from "html2canvas";
 
 // Simple number animation hook
 function useCountUp(target: number | null | undefined, duration = 800) {
@@ -110,36 +112,48 @@ function UserRow({
                    desc,
                    user,
                    valueLabel,
+                   highlight = false,
                  }: {
   icon: React.ReactNode;
   title: string;
   desc: string;
   user: UserAward;
   valueLabel?: (u: NonNullable<UserAward>) => string;
+  highlight?: boolean;
 }) {
   return (
-    <Card className="overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-500">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {icon}
+    <Card className={cn(
+      "group relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02]",
+      highlight && "border-primary/50 bg-gradient-to-br from-primary/5 to-transparent"
+    )}>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <div className={cn(
+            "p-2 rounded-lg transition-colors",
+            highlight ? "bg-primary/20" : "bg-muted"
+          )}>
+            {icon}
+          </div>
           {title}
         </CardTitle>
-        <CardDescription>{desc}</CardDescription>
+        <CardDescription className="text-xs">{desc}</CardDescription>
       </CardHeader>
       <CardContent>
         {!user ? (
-          <p className="text-muted-foreground">Not enough data yet.</p>
+          <div className="flex items-center gap-2 py-4">
+            <div className="flex-1 text-sm text-muted-foreground">Not enough data yet.</div>
+          </div>
         ) : (
           <div className="flex items-center gap-4">
-            <Avatar className="size-12">
+            <Avatar className="size-16 ring-2 ring-primary/20 ring-offset-2 ring-offset-background transition-all group-hover:ring-primary/40">
               <AvatarImage src={user.image ?? undefined} />
               <AvatarFallback>
-                <div dangerouslySetInnerHTML={{ __html: toSvg(user.name ?? "anon", 48) }} />
+                <div dangerouslySetInnerHTML={{ __html: toSvg(user.name ?? "anon", 64) }} />
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1">
-              <p className="font-bold text-foreground">{user.name}</p>
-              <p className="text-sm text-muted-foreground">
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-lg truncate">{user.name}</p>
+              <p className="text-sm font-medium text-primary">
                 {valueLabel ? valueLabel(user) : `${user.count}`}
               </p>
             </div>
@@ -156,6 +170,7 @@ function SongRow({
                    desc,
                    song,
                    valueSuffix,
+                   highlight = false,
                  }: {
   icon: React.ReactNode;
   title: string;
@@ -172,38 +187,54 @@ function SongRow({
     | null
     | undefined;
   valueSuffix?: string;
+  highlight?: boolean;
 }) {
   return (
-    <Card className="overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-500">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {icon}
+    <Card className={cn(
+      "group relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02]",
+      highlight && "border-primary/50 bg-gradient-to-br from-primary/5 to-transparent"
+    )}>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <div className={cn(
+            "p-2 rounded-lg transition-colors",
+            highlight ? "bg-primary/20" : "bg-muted"
+          )}>
+            {icon}
+          </div>
           {title}
         </CardTitle>
-        <CardDescription>{desc}</CardDescription>
+        <CardDescription className="text-xs">{desc}</CardDescription>
       </CardHeader>
       <CardContent>
         {!song ? (
-          <p className="text-muted-foreground">Not enough data yet.</p>
+          <div className="flex items-center gap-2 py-4">
+            <div className="flex-1 text-sm text-muted-foreground">Not enough data yet.</div>
+          </div>
         ) : (
           <div className="flex items-center gap-4">
-            <NextImage
-              src={song.albumArtUrl || "/icons/web-app-manifest-192x192.png"}
-              alt={song.songTitle}
-              width={64}
-              height={64}
-              className="rounded-md"
-            />
-            <div className="flex-1">
-              <p className="font-bold">{song.songTitle}</p>
-              <p className="text-sm text-muted-foreground">{song.artist}</p>
-              <p className="text-xs text-muted-foreground">Submitted by {song.submittedBy}</p>
+            <div className="relative group-hover:scale-105 transition-transform">
+              <NextImage
+                src={song.albumArtUrl || "/icons/web-app-manifest-192x192.png"}
+                alt={song.songTitle}
+                width={80}
+                height={80}
+                className="rounded-lg shadow-md"
+              />
             </div>
-            <div className="text-right">
-              <p className="text-lg font-extrabold">
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-base truncate">{song.songTitle}</p>
+              <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
+              <p className="text-xs text-muted-foreground/70 truncate">by {song.submittedBy}</p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <div className={cn(
+                "px-3 py-1 rounded-full font-bold text-lg",
+                highlight ? "bg-primary/20 text-primary" : "bg-muted"
+              )}>
                 {(song.count ?? song.score ?? 0)}
                 {valueSuffix}
-              </p>
+              </div>
             </div>
           </div>
         )}
@@ -238,37 +269,43 @@ function RoundRow({
   metricFormatter?: (x: number) => string;
 }) {
   return (
-    <Card className="overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-500">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {icon}
+    <Card className="group relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02]">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <div className="p-2 rounded-lg bg-muted transition-colors">
+            {icon}
+          </div>
           {title}
         </CardTitle>
-        <CardDescription>{desc}</CardDescription>
+        <CardDescription className="text-xs">{desc}</CardDescription>
       </CardHeader>
       <CardContent>
         {!round ? (
-          <p className="text-muted-foreground">Not enough data yet.</p>
+          <div className="flex items-center gap-2 py-4">
+            <div className="flex-1 text-sm text-muted-foreground">Not enough data yet.</div>
+          </div>
         ) : (
           <div className="flex items-center gap-4">
-            <NextImage
-              src={round.imageUrl || "/icons/web-app-manifest-192x192.png"}
-              alt={round.title}
-              width={64}
-              height={64}
-              className="rounded-md"
-            />
-            <div className="flex-1">
-              <p className="font-bold">{round.title}</p>
+            <div className="relative group-hover:scale-105 transition-transform">
+              <NextImage
+                src={round.imageUrl || "/icons/web-app-manifest-192x192.png"}
+                alt={round.title}
+                width={80}
+                height={80}
+                className="rounded-lg shadow-md"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-base truncate">{round.title}</p>
               <p className="text-sm text-muted-foreground">
                 {round.submissions} songs • {round.totalUpvotes} upvotes
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-lg font-extrabold">
+            <div className="text-right flex-shrink-0">
+              <div className="px-3 py-1 rounded-full bg-muted font-bold text-lg">
                 {metricFormatter ? metricFormatter(round.metric) : round.metric}
                 {metricSuffix}
-              </p>
+              </div>
             </div>
           </div>
         )}
@@ -279,25 +316,71 @@ function RoundRow({
 
 function PodiumBar({
                      user,
-                     heightClass,
+                     rank,
                      points,
                    }: {
   user: { userId: string; name: string; image?: string };
-  heightClass: string;
+  rank: number;
   points: number;
 }) {
   const count = useCountUp(points);
+  
+  const heights = {
+    1: "h-48",
+    2: "h-40", 
+    3: "h-32",
+  };
+  
+  const medalColors = {
+    1: "text-yellow-400",
+    2: "text-gray-400",
+    3: "text-orange-400",
+  };
+  
+  const bgGradients = {
+    1: "bg-gradient-to-b from-yellow-500/20 to-yellow-600/10",
+    2: "bg-gradient-to-b from-gray-500/20 to-gray-600/10",
+    3: "bg-gradient-to-b from-orange-500/20 to-orange-600/10",
+  };
+  
+  const heightClass = heights[rank as keyof typeof heights];
+  const medalColor = medalColors[rank as keyof typeof medalColors];
+  const bgGradient = bgGradients[rank as keyof typeof bgGradients];
+  
   return (
-    <div className="flex flex-col items-center justify-end gap-3">
-      <Avatar className="size-14 ring-4 ring-primary/30">
-        <AvatarImage src={user.image ?? undefined} />
-        <AvatarFallback>
-          <div dangerouslySetInnerHTML={{ __html: toSvg(user.userId, 56) }} />
-        </AvatarFallback>
-      </Avatar>
-      <div className={cn("w-full rounded-t-md bg-primary/15", heightClass)} />
-      <p className="font-bold text-center truncate w-full">{user.name}</p>
-      <p className="text-sm text-muted-foreground">{count} pts</p>
+    <div className="flex flex-col items-center gap-3 animate-in slide-in-from-bottom-4 fade-in duration-700" style={{ animationDelay: `${rank * 100}ms` }}>
+      <div className="relative">
+        <Avatar className={cn(
+          "size-20 ring-4 transition-all duration-300 hover:scale-110",
+          rank === 1 ? "ring-yellow-400/50" : rank === 2 ? "ring-gray-400/50" : "ring-orange-400/50"
+        )}>
+          <AvatarImage src={user.image ?? undefined} />
+          <AvatarFallback>
+            <div dangerouslySetInnerHTML={{ __html: toSvg(user.userId, 80) }} />
+          </AvatarFallback>
+        </Avatar>
+        <div className={cn(
+          "absolute -top-2 -right-2 rounded-full p-2 shadow-lg",
+          rank === 1 ? "bg-yellow-400" : rank === 2 ? "bg-gray-400" : "bg-orange-400"
+        )}>
+          <Medal className={cn("size-5 text-white")} />
+        </div>
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <div className={cn("w-32 rounded-t-xl transition-all duration-500 relative overflow-hidden", heightClass, bgGradient)}>
+          <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent" />
+          <div className="absolute top-4 left-1/2 -translate-x-1/2">
+            <div className={cn("text-4xl font-bold", medalColor)}>
+              {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"}
+            </div>
+          </div>
+        </div>
+        <div className="text-center space-y-1">
+          <p className="font-bold text-base truncate w-32">{user.name}</p>
+          <p className={cn("text-2xl font-extrabold", medalColor)}>{count}</p>
+          <p className="text-xs text-muted-foreground">points</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -311,28 +394,34 @@ function Podium({
 }) {
   if (!standings || standings.length === 0) return null;
   const top3 = standings.slice(0, 3);
+  
+  // Reorder for podium display: 2nd, 1st, 3rd
+  const podiumOrder = top3.length >= 2 ? [top3[1], top3[0], top3[2]].filter(Boolean) : top3;
+  
   return (
-    <Card className="border-primary/30 bg-card/60 animate-in fade-in zoom-in-95 duration-500">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Trophy className="text-yellow-400" />
+    <Card className="relative overflow-hidden border-primary/30 bg-gradient-to-br from-primary/5 via-transparent to-primary/5">
+      <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-transparent to-orange-500/5" />
+      <CardHeader className="relative">
+        <CardTitle className="flex items-center gap-3 text-2xl">
+          <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500">
+            <Trophy className="size-6 text-white" />
+          </div>
           Final Podium
         </CardTitle>
-        <CardDescription>Based on total points across finished rounds</CardDescription>
+        <CardDescription>League champions ranked by total points</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-3 items-end gap-4">
-          {top3.map((p, idx) => {
-            const colOrder = [0, 1, 2];
-            const height = idx === 1 ? "h-24" : idx === 0 ? "h-16" : "h-14";
+      <CardContent className="relative">
+        <div className="flex items-end justify-center gap-8 py-4">
+          {podiumOrder.map((p, displayIdx) => {
+            // Get actual rank (1st, 2nd, 3rd)
+            const actualRank = top3.indexOf(p) + 1;
             return (
-              <div key={p.userId} className={cn("order-" + colOrder[idx])}>
-                <PodiumBar
-                  user={{ userId: p.userId, name: p.name, image: p.image }}
-                  heightClass={height}
-                  points={p.totalPoints}
-                />
-              </div>
+              <PodiumBar
+                key={p.userId}
+                user={{ userId: p.userId, name: p.name, image: p.image }}
+                rank={actualRank}
+                points={p.totalPoints}
+              />
             );
           })}
         </div>
@@ -418,116 +507,40 @@ function buildHighlightsSvg(params: {
 export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
   const stats = useQuery(api.leagues.getLeagueStats, { leagueId });
   const standings = useQuery(api.leagues.getLeagueStandings, { leagueId });
-
-  // Hooks must be called unconditionally (before any early return)
-  const [active, setActive] = useState(0);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   async function onExport() {
-    if (!stats) return;
-    const width = 1200;
-    const height = 675;
-    const svg = buildHighlightsSvg({ width, height, standings: standings?.map(s => ({ name: s.name, totalPoints: s.totalPoints })), stats: stats as LeagueStatsData });
-
-    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
+    if (!exportRef.current || !stats) return;
+    
+    setIsExporting(true);
     try {
-      await new Promise<void>((resolve, reject) => {
-        const img = new window.Image();
-        img.onload = () => {
-          const scale = 2; // 2x for crispness
-          const canvas = document.createElement("canvas");
-          canvas.width = width * scale;
-          canvas.height = height * scale;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            reject(new Error("Canvas not supported"));
-            return;
-          }
-          ctx.scale(scale, scale);
-          ctx.fillStyle = "#0b0b0c";
-          ctx.fillRect(0, 0, width, height);
-          ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob((out) => {
-            if (!out) return reject(new Error("Failed to encode PNG"));
-            const a = document.createElement("a");
-            const outUrl = URL.createObjectURL(out);
-            a.href = outUrl;
-            const ts = new Date().toISOString().replace(/[:.]/g, "-");
-            a.download = `league-highlights-${ts}.png`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(outUrl);
-            resolve();
-          }, "image/png");
-        };
-        img.onerror = () => reject(new Error("Failed to render SVG"));
-        img.src = url;
+      const canvas = await html2canvas(exportRef.current, {
+        backgroundColor: "#000000",
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
       });
+      
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        a.download = `league-awards-${ts}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    } catch (error) {
+      console.error("Failed to export:", error);
     } finally {
-      URL.revokeObjectURL(url);
+      setIsExporting(false);
     }
   }
-
-  const highlights = useMemo(() => {
-    if (!stats) return [];
-    return [
-      {
-        key: "overlord",
-        node: (
-          <UserRow
-            icon={<Crown className="text-yellow-400" />}
-            title="Overlord"
-            desc="Most round wins"
-            user={stats.overlord}
-            valueLabel={(u) => `${u.count} wins`}
-          />
-        ),
-      },
-      {
-        key: "peoples",
-        node: (
-          <UserRow
-            icon={<ThumbsUp className="text-green-400" />}
-            title="People's Champion"
-            desc="Most upvotes received"
-            user={stats.peopleChampion}
-            valueLabel={(u) => `${u.count} upvotes`}
-          />
-        ),
-      },
-      {
-        key: "controversial",
-        node: (
-          <UserRow
-            icon={<ThumbsDown className="text-red-400" />}
-            title="Lightning Rod"
-            desc="Most downvotes received"
-            user={stats.mostControversial}
-            valueLabel={(u) => `${u.count} downvotes`}
-          />
-        ),
-      },
-      {
-        key: "prolific",
-        node: (
-          <UserRow
-            icon={<Medal className="text-blue-400" />}
-            title="Prolific Voter"
-            desc="Most votes cast"
-            user={stats.prolificVoter}
-            valueLabel={(u) => `${u.count} votes`}
-          />
-        ),
-      },
-    ];
-  }, [stats]);
-
-  useEffect(() => {
-    if (highlights.length === 0) return;
-    const id = setInterval(() => setActive((i) => (i + 1) % highlights.length), 3500);
-    return () => clearInterval(id);
-  }, [highlights.length]);
 
   if (stats === undefined) {
     return (
@@ -568,164 +581,226 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
     "hsl(var(--chart-5))",
   ];
 
+  const hasGenreData = stats.genreBreakdown && stats.genreBreakdown.length > 0;
+
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-end">
-        <Button variant="outline" size="sm" onClick={onExport} aria-label="export-league-highlights">
+      {/* Header with export button */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+            <Sparkles className="size-8 text-primary" />
+            League Awards
+          </h2>
+          <p className="text-muted-foreground">Celebrating the best performances and memorable moments</p>
+        </div>
+        <Button 
+          variant="outline" 
+          size="lg" 
+          onClick={onExport} 
+          disabled={isExporting}
+          className="gap-2"
+        >
           <Download className="size-4" />
-          <span className="ml-2">Export highlights (PNG)</span>
+          {isExporting ? "Exporting..." : "Export PNG"}
         </Button>
       </div>
-      <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
-        <div className="space-y-6">
-          {/* Highlights carousel */}
-          <div className="relative">
-            <div className="overflow-hidden rounded-xl border">
-              <div className="p-4 md:p-6 min-h-[172px]">
-                {highlights[active]?.node ?? (
-                  <div className="text-muted-foreground">No highlights yet.</div>
-                )}
-              </div>
-            </div>
-            <div className="absolute right-3 bottom-3 flex gap-2">
-              {highlights.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActive(i)}
-                  className={cn("size-2 rounded-full", i === active ? "bg-primary" : "bg-muted")}
-                  aria-label={"go-to-highlight-" + i}
-                />
-              ))}
-            </div>
-          </div>
 
-          {/* Podium */}
+      <div ref={exportRef} className="space-y-8 bg-background p-4 rounded-lg">
+        {/* Hero Section - Podium and Top Song */}
+        <div className="grid gap-6 lg:grid-cols-2">
           <Podium standings={standings} />
+          
+          <SongRow
+            icon={<Trophy className="text-blue-400" />}
+            title="Top Voted Song"
+            desc="Highest scoring submission in the league"
+            song={stats.topSong ? { ...stats.topSong, count: stats.topSong.score } : null}
+            highlight={true}
+          />
         </div>
 
-        {/* Top voted song wide card */}
-        <SongRow
-          icon={<Trophy className="text-blue-400" />}
-          title="Top Voted Song"
-          desc="Highest scoring submission in the league"
-          song={stats.topSong ? { ...stats.topSong, count: stats.topSong.score } : null}
-        />
-      </div>
+        {/* Spotlight Awards - Key User Achievements */}
+        <div>
+          <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Crown className="size-5 text-yellow-400" />
+            Hall of Fame
+          </h3>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <UserRow
+              icon={<Crown className="text-yellow-400" />}
+              title="Overlord"
+              desc="Most round wins"
+              user={stats.overlord}
+              valueLabel={(u) => `${u.count} wins`}
+              highlight={true}
+            />
+            <UserRow
+              icon={<ThumbsUp className="text-green-400" />}
+              title="People's Champion"
+              desc="Most upvotes received"
+              user={stats.peopleChampion}
+              valueLabel={(u) => `${u.count} upvotes`}
+              highlight={true}
+            />
+            <UserRow
+              icon={<Medal className="text-blue-400" />}
+              title="Prolific Voter"
+              desc="Most votes cast"
+              user={stats.prolificVoter}
+              valueLabel={(u) => `${u.count} votes`}
+            />
+            <UserRow
+              icon={<ThumbsDown className="text-red-400" />}
+              title="Lightning Rod"
+              desc="Most downvotes received"
+              user={stats.mostControversial}
+              valueLabel={(u) => `${u.count} downvotes`}
+            />
+          </div>
+        </div>
 
-      {/* Big award grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <SongRow
-          icon={<ThumbsUp className="text-green-400" />}
-          title="Most Upvoted Song"
-          desc="Highest total upvotes"
-          song={stats.mostUpvotedSong}
-          valueSuffix=""
-        />
-        <SongRow
-          icon={<ThumbsDown className="text-red-400" />}
-          title="Most Downvoted Song"
-          desc="Highest total downvotes"
-          song={stats.mostDownvotedSong}
-          valueSuffix=""
-        />
-        <SongRow
-          icon={<Bookmark className="text-primary" />}
-          title="Fan Favorite"
-          desc="Most bookmarked"
-          song={stats.fanFavoriteSong}
-          valueSuffix=""
-        />
-        <UserRow
-          icon={<Shield className="text-emerald-400" />}
-          title="Attendance Star"
-          desc="Most rounds with a submission"
-          user={stats.attendanceStar}
-          valueLabel={(u) => `${u.count}/${u.meta?.totalRounds ?? "?"} rounds`}
-        />
-        <UserRow
-          icon={<Star className="text-amber-400" />}
-          title="Golden Ears"
-          desc="Highest average points per submission"
-          user={stats.goldenEars}
-          valueLabel={(u) => `${u.count} avg (${u.meta?.rounds ?? 0} rounds)`}
-        />
-        <UserRow
-          icon={<Target className="text-purple-400" />}
-          title="Consistency King"
-          desc="Lowest score variability (σ)"
-          user={stats.consistencyKing}
-          valueLabel={(u) => `σ ${u.count} (avg ${u.meta?.average ?? "?"})`}
-        />
-        <UserRow
-          icon={<Flame className="text-red-500" />}
-          title="Biggest Downvoter"
-          desc="Most downvotes cast"
-          user={stats.biggestDownvoter}
-          valueLabel={(u) => `${u.count} downvotes`}
-        />
-        <RoundRow
-          icon={<Gauge className="text-primary" />}
-          title="Worst Round"
-          desc="Most top-heavy upvotes (top-2 share)"
-          round={stats.worstRound}
-          metricFormatter={(x) => `${Math.round(x * 100)}%`}
-        />
-        <RoundRow
-          icon={<Scale className="text-emerald-400" />}
-          title="Closest Round"
-          desc="Smallest gap between 1st and 2nd"
-          round={stats.closestRound}
-          metricSuffix=" pts"
-        />
-        <RoundRow
-          icon={<Zap className="text-yellow-400" />}
-          title="Blowout Round"
-          desc="Largest gap between 1st and 2nd"
-          round={stats.blowoutRound}
-          metricSuffix=" pts"
-        />
-      </div>
+        {/* Song Awards */}
+        <div>
+          <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Star className="size-5 text-amber-400" />
+            Song Awards
+          </h3>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <SongRow
+              icon={<ThumbsUp className="text-green-400" />}
+              title="Most Upvoted Song"
+              desc="Highest total upvotes"
+              song={stats.mostUpvotedSong}
+              valueSuffix=""
+            />
+            <SongRow
+              icon={<Bookmark className="text-primary" />}
+              title="Fan Favorite"
+              desc="Most bookmarked"
+              song={stats.fanFavoriteSong}
+              valueSuffix=""
+            />
+            <SongRow
+              icon={<ThumbsDown className="text-red-400" />}
+              title="Most Downvoted Song"
+              desc="Highest total downvotes"
+              song={stats.mostDownvotedSong}
+              valueSuffix=""
+            />
+          </div>
+        </div>
 
-      {/* Genre breakdown */}
-      <Card className="animate-in fade-in">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ListMusic />
-            Genre Breakdown
-          </CardTitle>
-          <CardDescription>Distribution of genres across submitted rounds</CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center">
-          {stats.genreBreakdown && stats.genreBreakdown.length > 0 ? (
-            <ChartContainer
-              config={Object.fromEntries(
-                stats.genreBreakdown.map((g, i) => [g.name, { label: g.name, color: COLORS[i % COLORS.length] }]),
-              )}
-              className="mx-auto aspect-square h-[300px]"
-            >
-              <PieChart>
-                <Tooltip cursor={false} content={<ChartTooltipContent />} />
-                <Legend />
-                <Pie
-                  data={stats.genreBreakdown}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  labelLine={false}
+        {/* Performance Awards */}
+        <div>
+          <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Target className="size-5 text-purple-400" />
+            Performance Awards
+          </h3>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <UserRow
+              icon={<Star className="text-amber-400" />}
+              title="Golden Ears"
+              desc="Highest average points per submission"
+              user={stats.goldenEars}
+              valueLabel={(u) => `${u.count} avg (${u.meta?.rounds ?? 0} rounds)`}
+            />
+            <UserRow
+              icon={<Target className="text-purple-400" />}
+              title="Consistency King"
+              desc="Lowest score variability (σ)"
+              user={stats.consistencyKing}
+              valueLabel={(u) => `σ ${u.count} (avg ${u.meta?.average ?? "?"})`}
+            />
+            <UserRow
+              icon={<Shield className="text-emerald-400" />}
+              title="Attendance Star"
+              desc="Most rounds with a submission"
+              user={stats.attendanceStar}
+              valueLabel={(u) => `${u.count}/${u.meta?.totalRounds ?? "?"} rounds`}
+            />
+            <UserRow
+              icon={<Flame className="text-red-500" />}
+              title="Biggest Downvoter"
+              desc="Most downvotes cast"
+              user={stats.biggestDownvoter}
+              valueLabel={(u) => `${u.count} downvotes`}
+            />
+          </div>
+        </div>
+
+        {/* Round Awards */}
+        <div>
+          <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Zap className="size-5 text-yellow-400" />
+            Notable Rounds
+          </h3>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <RoundRow
+              icon={<Zap className="text-yellow-400" />}
+              title="Blowout Round"
+              desc="Largest gap between 1st and 2nd"
+              round={stats.blowoutRound}
+              metricSuffix=" pts"
+            />
+            <RoundRow
+              icon={<Scale className="text-emerald-400" />}
+              title="Closest Round"
+              desc="Smallest gap between 1st and 2nd"
+              round={stats.closestRound}
+              metricSuffix=" pts"
+            />
+            <RoundRow
+              icon={<Gauge className="text-primary" />}
+              title="Most Competitive"
+              desc="Most top-heavy upvotes (top-2 share)"
+              round={stats.worstRound}
+              metricFormatter={(x) => `${Math.round(x * 100)}%`}
+            />
+          </div>
+        </div>
+
+        {/* Genre breakdown - Only show if there's data */}
+        {hasGenreData && (
+          <div>
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <ListMusic className="size-5" />
+              Genre Breakdown
+            </h3>
+            <Card className="bg-gradient-to-br from-primary/5 to-transparent">
+              <CardHeader>
+                <CardDescription>Distribution of genres across all submissions</CardDescription>
+              </CardHeader>
+              <CardContent className="flex justify-center">
+                <ChartContainer
+                  config={Object.fromEntries(
+                    stats.genreBreakdown.map((g, i) => [g.name, { label: g.name, color: COLORS[i % COLORS.length] }]),
+                  )}
+                  className="mx-auto aspect-square h-[300px]"
                 >
-                  {stats.genreBreakdown.map((entry, i) => (
-                    <Cell key={entry.name} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ChartContainer>
-          ) : (
-            <p className="py-10 text-muted-foreground">No genre data available.</p>
-          )}
-        </CardContent>
-      </Card>
+                  <PieChart>
+                    <Tooltip cursor={false} content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Pie
+                      data={stats.genreBreakdown}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      labelLine={false}
+                    >
+                      {stats.genreBreakdown.map((entry, i) => (
+                        <Cell key={entry.name} fill={COLORS[i % COLORS.length]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
