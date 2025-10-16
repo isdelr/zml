@@ -45,7 +45,7 @@ export function ExplorePage({ preloadedLeagues }: ExplorePageProps) {
   }, [leagues, searchTerm, activeTab]);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8">
+    <div className="min-h-full bg-background p-4 text-foreground md:p-8">
       <ExploreHeader 
         searchTerm={searchTerm}
         onSearchChange={(value) => setSearchTerm(value)}

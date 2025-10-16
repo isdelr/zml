@@ -232,7 +232,7 @@ export function CreateLeaguePage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8">
+    <div className="min-h-full bg-background p-4 text-foreground md:p-8">
       <Card className="mx-auto max-w-4xl">
         <CardHeader>
           <CardTitle>Create a New League</CardTitle>

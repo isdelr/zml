@@ -63,7 +63,7 @@ export function BookmarkedPage({ preloadedBookmarkedSongs }: BookmarkedPageProps
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background p-4 text-foreground md:p-8">
+    <div className="min-h-full bg-background p-4 text-foreground md:p-8">
       <BookmarkHeader searchTerm={searchTerm} onSearchChange={(value) => setSearchTerm(value)} />
       <BookmarkList
         bookmarkedSongs={filteredSongs as Song[]}

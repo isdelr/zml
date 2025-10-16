@@ -82,12 +82,7 @@ export function MySubmissionsPage({ preloadedSubmissions }: MySubmissionsPagePro
   }, [filteredSubmissions]);
 
   return (
-    <div
-      className={cn(
-        "flex-1 overflow-y-auto bg-background text-foreground",
-        currentTrackIndex !== null && "pb-32",
-      )}
-    >
+    <div className="min-h-full bg-background text-foreground">
       <div className="p-4 md:p-8">
         <header className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <h1 className="text-4xl font-bold">My Submissions</h1>

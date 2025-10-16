@@ -77,7 +77,7 @@ export function ProfilePage({ userId }: { userId: string }) {
   const { name, image, creationTime, stats, leagues } = profileData;
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-8">
+    <div className="min-h-full p-4 md:p-8">
       <header className="mb-8 flex flex-col items-center gap-4 text-center md:flex-row md:gap-6 md:text-left">
         <Avatar className="size-24 border-4 border-primary">
           <AvatarImage src={image ?? undefined} alt={name ?? "User"} />
