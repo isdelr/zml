@@ -1309,7 +1309,7 @@ export const getStatsData = internalQuery({
     // Calculate top 10 songs
     const sortedResults = results.sort((a, b) => b.points - a.points);
     const top10Results = sortedResults.slice(0, 10);
-    const top10Songs = await Promise.all(
+    const top10SongsWithNulls = await Promise.all(
       top10Results.map(async (result) => {
         const submission = await ctx.db.get(result.submissionId);
         if (!submission) return null;
@@ -1326,7 +1326,8 @@ export const getStatsData = internalQuery({
           submittedBy: submitter?.name ?? "Unknown",
         };
       })
-    ).then((songs) => songs.filter(Boolean));
+    );
+    const top10Songs = top10SongsWithNulls.filter((song): song is NonNullable<typeof song> => song !== null);
 
     // Get all rounds summary
     const allRoundsInLeagueForSummary = await ctx.db
