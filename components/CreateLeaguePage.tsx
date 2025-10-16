@@ -6,7 +6,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { ImagePlus, Loader2, PlusCircle, Trash2, X } from "lucide-react";
+import { ImagePlus, Loader2, PlusCircle, Trash2, X, Info, ChevronRight } from "lucide-react";
 import { genres } from "@/lib/genres";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +41,13 @@ import Image from "next/image";
 import { useUploadFile } from "@convex-dev/r2/react";
 import { Badge } from "./ui/badge";
 import { toSvg } from "jdenticon";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const MAX_ROUND_IMAGE_SIZE_MB = 5;
 const MAX_ROUND_IMAGE_SIZE_BYTES = MAX_ROUND_IMAGE_SIZE_MB * 1024 * 1024;
@@ -230,14 +237,18 @@ export function CreateLeaguePage() {
         <CardHeader>
           <CardTitle>Create a New League</CardTitle>
           <CardDescription>
-            Define your league&apos;s settings and add its initial rounds.
+            Define your league&apos;s settings and add its initial rounds. Start with the basics and expand the advanced sections as needed.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Basic League Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">League Information</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold">Basic Information</h3>
+                  <Badge variant="secondary">Required</Badge>
+                </div>
                 <FormField
                   control={form.control}
                   name="name"
@@ -258,7 +269,7 @@ export function CreateLeaguePage() {
                     <FormItem>
                       <FormLabel>League Description</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="A league for the best rock of the 90s." {...field} />
+                        <Textarea placeholder="Describe what this league is about..." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -268,10 +279,10 @@ export function CreateLeaguePage() {
                   control={form.control}
                   name="isPublic"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border bg-card p-4">
                       <div className="space-y-0.5">
                         <FormLabel>Public League</FormLabel>
-                        <FormDescription>Allow anyone to discover and join this league.</FormDescription>
+                        <FormDescription>Allow anyone to discover and join this league in the explore page.</FormDescription>
                       </div>
                       <FormControl>
                         <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -281,9 +292,15 @@ export function CreateLeaguePage() {
                 />
               </div>
 
-              <div className="space-y-6">
+              <Separator className="my-6" />
+
+              {/* Rounds Section */}
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Initial Rounds</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold">Rounds</h3>
+                    <Badge variant="secondary">Required</Badge>
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
@@ -310,501 +327,587 @@ export function CreateLeaguePage() {
                   </Button>
                 </div>
 
-                {fields.map((field, index) => (
-                  <div key={field.id} className="relative flex flex-col-reverse gap-6 rounded-lg border p-4 md:flex-row">
-                    <div className="flex-1 space-y-4">
-                      <h4 className="font-semibold">Round {index + 1}</h4>
-                      <FormField
-                        control={form.control}
-                        name={`rounds.${index}.title`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Title</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., Guilty Pleasures" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`rounds.${index}.description`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Description</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="Describe the theme of this round." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`rounds.${index}.submissionMode`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Submission Mode</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select a submission mode" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="single">Single song per submission</SelectItem>
-                                <SelectItem value="multi">Multiple songs per round (shuffled)</SelectItem>
-                                <SelectItem value="album">Album round (keep track order)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>
-                              Choose how submissions should be grouped and presented.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`rounds.${index}.submissionsPerUser`}
-                        render={({ field }) => {
-                          const mode = form.watch(`rounds.${index}.submissionMode`);
-                          let description = "";
-                          if (mode === "album") {
-                            description = "Number of albums each participant submits (1 album = multiple tracks kept in order)";
-                          } else if (mode === "multi") {
-                            description = "Number of individual songs each participant submits (all songs shuffled together)";
-                          } else {
-                            description = "Number of individual songs each participant submits";
-                          }
-                          return (
-                            <FormItem>
-                              <FormLabel>
-                                {mode === "album" ? "Albums per User" : "Songs per User"}
-                              </FormLabel>
-                              <FormControl>
-                                <Input type="number" min={1} max={5} {...field} />
-                              </FormControl>
-                              <FormDescription>{description}</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          );
-                        }}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`rounds.${index}.submissionInstructions`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Submission Instructions (Optional)</FormLabel>
-                            <FormControl>
-                              <Textarea
-                                placeholder="e.g., Submit your favorite 3 tracks from the 90s..."
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Additional guidance shown to participants when submitting.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      {form.watch(`rounds.${index}.submissionMode`) === "album" && (
-                        <div className="space-y-4 rounded-md border p-4">
-                          <h4 className="text-sm font-semibold uppercase text-muted-foreground">
-                            Album Round Settings
-                          </h4>
-                          <FormField
-                            control={form.control}
-                            name={`rounds.${index}.albumConfig.allowPartial`}
-                            render={({ field }) => (
-                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                                <div className="space-y-0.5">
-                                  <FormLabel>Allow partial albums</FormLabel>
-                                  <FormDescription>
-                                    Participants can submit only a selection of tracks.
-                                  </FormDescription>
-                                </div>
-                                <FormControl>
-                                  <Switch
-                                    checked={field.value ?? false}
-                                    onCheckedChange={field.onChange}
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name={`rounds.${index}.albumConfig.requireReleaseYear`}
-                            render={({ field }) => (
-                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                                <div className="space-y-0.5">
-                                  <FormLabel>Require album release year</FormLabel>
-                                  <FormDescription>
-                                    Ensure submissions include the album&apos;s release year.
-                                  </FormDescription>
-                                </div>
-                                <FormControl>
-                                  <Switch
-                                    checked={field.value ?? true}
-                                    onCheckedChange={field.onChange}
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-4">
+                  {fields.map((field, index) => (
+                    <Card key={field.id} className="relative">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base">Round {index + 1}</CardTitle>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => remove(index)}
+                            disabled={fields.length <= 1}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex flex-col-reverse gap-6 md:flex-row">
+                          <div className="flex-1 space-y-4">
+                            {/* Basic Round Info */}
                             <FormField
                               control={form.control}
-                              name={`rounds.${index}.albumConfig.minTracks`}
+                              name={`rounds.${index}.title`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Minimum Tracks</FormLabel>
+                                  <FormLabel>Round Title</FormLabel>
                                   <FormControl>
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      placeholder="Optional"
-                                      {...field}
-                                    />
+                                    <Input placeholder="e.g., Guilty Pleasures" {...field} />
                                   </FormControl>
-                                  <FormDescription>
-                                    Leave blank to allow any length.
-                                  </FormDescription>
                                   <FormMessage />
                                 </FormItem>
                               )}
                             />
                             <FormField
                               control={form.control}
-                              name={`rounds.${index}.albumConfig.maxTracks`}
+                              name={`rounds.${index}.description`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Maximum Tracks</FormLabel>
+                                  <FormLabel>Description</FormLabel>
                                   <FormControl>
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      placeholder="Optional"
-                                      {...field}
-                                    />
+                                    <Textarea placeholder="Describe the theme of this round." {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`rounds.${index}.submissionsPerUser`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Songs per Participant</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" min={1} max={5} {...field} value={(field.value as number) || ""} />
                                   </FormControl>
                                   <FormDescription>
-                                    Leave blank to allow any length.
+                                    How many songs each participant can submit (1-5)
                                   </FormDescription>
                                   <FormMessage />
                                 </FormItem>
                               )}
                             />
                           </div>
+
+                          {/* Round Image */}
+                          <div className="w-full md:w-52">
+                            <FormField
+                              control={form.control}
+                              name={`rounds.${index}.imageFile`}
+                              render={({ field: { onChange, ...rest } }) => (
+                                <FormItem>
+                                  <FormLabel>Round Image (Optional)</FormLabel>
+                                  {previews[index] ? (
+                                    <div className="relative">
+                                      <Image
+                                        src={previews[index]}
+                                        alt={`Preview for round ${index + 1}`}
+                                        width={200}
+                                        height={200}
+                                        className="aspect-square w-full rounded-md object-cover"
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        className="absolute -right-2 -top-2 z-10 size-6 rounded-full"
+                                        onClick={() => {
+                                          form.setValue(`rounds.${index}.imageFile`, undefined);
+                                          setPreviews((p) => {
+                                            const newPreviews = { ...p };
+                                            URL.revokeObjectURL(p[index]);
+                                            delete newPreviews[index];
+                                            return newPreviews;
+                                          });
+                                        }}
+                                      >
+                                        <X className="size-4" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div className="relative aspect-square w-full rounded-md bg-muted">
+                                      <div
+                                        className="flex size-full items-center justify-center"
+                                        dangerouslySetInnerHTML={{
+                                          __html: toSvg(
+                                            form.getValues(`rounds.${index}.title`) || `round-${index}`,
+                                            200,
+                                          ),
+                                        }}
+                                      />
+                                      <FormControl>
+                                        <label className="absolute inset-0 flex h-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md bg-black/50 text-white opacity-0 transition-opacity hover:opacity-100">
+                                          <ImagePlus className="size-8" />
+                                          <span className="text-sm font-medium">Upload Image</span>
+                                          <Input
+                                            type="file"
+                                            className="sr-only"
+                                            accept="image/png, image/jpeg, image/gif"
+                                            onChange={(e) => {
+                                              const file = e.target.files?.[0];
+                                              if (file) {
+                                                onChange(file);
+                                                setPreviews((p) => ({
+                                                  ...p,
+                                                  [index]: URL.createObjectURL(file),
+                                                }));
+                                              }
+                                            }}
+                                            name={rest.name}
+                                            onBlur={rest.onBlur}
+                                            ref={rest.ref}
+                                            disabled={rest.disabled}
+                                          />
+                                        </label>
+                                      </FormControl>
+                                    </div>
+                                  )}
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
                         </div>
-                      )}
-                      <FormField
-                        control={form.control}
-                        name={`rounds.${index}.genres`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Genres (Optional)</FormLabel>
-                            <FormDescription>Click on genres to select or unselect them.</FormDescription>
-                            <FormControl>
-                              <div className="flex flex-wrap gap-2">
-                                {genres.map((genre) => (
-                                  <Badge
-                                    key={genre}
-                                    variant={field.value?.includes(genre) ? "default" : "outline"}
-                                    onClick={() => {
-                                      const newValue = field.value ?? [];
-                                      const newSelected = newValue.includes(genre)
-                                        ? newValue.filter((g: string) => g !== genre)
-                                        : [...newValue, genre];
-                                      field.onChange(newSelected);
-                                    }}
-                                    className="cursor-pointer"
-                                  >
-                                    {genre}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
 
-                    <div className="w-full md:w-52">
-                      <FormField
-                        control={form.control}
-                        name={`rounds.${index}.imageFile`}
-                        render={({ field: { onChange, ...rest } }) => (
-                          <FormItem>
-                            <FormLabel>Round Image (Optional)</FormLabel>
-                            {previews[index] ? (
-                              <div className="relative">
-                                <Image
-                                  src={previews[index]}
-                                  alt={`Preview for round ${index + 1}`}
-                                  width={200}
-                                  height={200}
-                                  className="aspect-square w-full rounded-md object-cover"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="icon"
-                                  className="absolute -right-2 -top-2 z-10 size-6 rounded-full"
-                                  onClick={() => {
-                                    form.setValue(`rounds.${index}.imageFile`, undefined);
-                                    setPreviews((p) => {
-                                      const newPreviews = { ...p };
-                                      URL.revokeObjectURL(p[index]);
-                                      delete newPreviews[index];
-                                      return newPreviews;
-                                    });
-                                  }}
-                                >
-                                  <X className="size-4" />
-                                </Button>
+                        {/* Advanced Round Options in Accordion */}
+                        <Accordion type="single" collapsible className="w-full">
+                          <AccordionItem value="advanced" className="border rounded-lg px-4">
+                            <AccordionTrigger className="hover:no-underline">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">Advanced Options</span>
+                                <Badge variant="outline" className="text-xs">Optional</Badge>
                               </div>
-                            ) : (
-                              <div className="relative aspect-square w-full rounded-md bg-muted">
-                                <div
-                                  className="flex size-full items-center justify-center"
-                                  dangerouslySetInnerHTML={{
-                                    __html: toSvg(
-                                      form.getValues(`rounds.${index}.title`) || `round-${index}`,
-                                      200,
-                                    ),
-                                  }}
-                                />
-                                <FormControl>
-                                  <label className="absolute inset-0 flex h-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md bg-black/50 text-white opacity-0 transition-opacity hover:opacity-100">
-                                    <ImagePlus className="size-8" />
-                                    <span className="text-sm font-medium">Upload Image</span>
-                                    <Input
-                                      type="file"
-                                      className="sr-only"
-                                      accept="image/png, image/jpeg, image/gif"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                          onChange(file);
-                                          setPreviews((p) => ({
-                                            ...p,
-                                            [index]: URL.createObjectURL(file),
-                                          }));
-                                        }
-                                      }}
-                                      {...rest}
+                            </AccordionTrigger>
+                            <AccordionContent className="space-y-4 pt-4">
+                              <FormField
+                                control={form.control}
+                                name={`rounds.${index}.submissionMode`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Submission Mode</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select a submission mode" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="single">Single song per submission</SelectItem>
+                                        <SelectItem value="multi">Multiple songs per round (shuffled)</SelectItem>
+                                        <SelectItem value="album">Album round (keep track order)</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormDescription>
+                                      Choose how submissions should be grouped and presented.
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={form.control}
+                                name={`rounds.${index}.submissionInstructions`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Submission Instructions</FormLabel>
+                                    <FormControl>
+                                      <Textarea
+                                        placeholder="e.g., Submit your favorite 3 tracks from the 90s..."
+                                        {...field}
+                                      />
+                                    </FormControl>
+                                    <FormDescription>
+                                      Additional guidance shown to participants when submitting.
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              {form.watch(`rounds.${index}.submissionMode`) === "album" && (
+                                <div className="space-y-4 rounded-md border bg-muted/50 p-4">
+                                  <h4 className="text-sm font-semibold text-muted-foreground">
+                                    Album Round Settings
+                                  </h4>
+                                  <FormField
+                                    control={form.control}
+                                    name={`rounds.${index}.albumConfig.allowPartial`}
+                                    render={({ field }) => (
+                                      <FormItem className="flex flex-row items-center justify-between rounded-lg border bg-card p-3">
+                                        <div className="space-y-0.5">
+                                          <FormLabel>Allow partial albums</FormLabel>
+                                          <FormDescription>
+                                            Participants can submit only a selection of tracks.
+                                          </FormDescription>
+                                        </div>
+                                        <FormControl>
+                                          <Switch
+                                            checked={field.value ?? false}
+                                            onCheckedChange={field.onChange}
+                                          />
+                                        </FormControl>
+                                      </FormItem>
+                                    )}
+                                  />
+                                  <FormField
+                                    control={form.control}
+                                    name={`rounds.${index}.albumConfig.requireReleaseYear`}
+                                    render={({ field }) => (
+                                      <FormItem className="flex flex-row items-center justify-between rounded-lg border bg-card p-3">
+                                        <div className="space-y-0.5">
+                                          <FormLabel>Require album release year</FormLabel>
+                                          <FormDescription>
+                                            Ensure submissions include the album&apos;s release year.
+                                          </FormDescription>
+                                        </div>
+                                        <FormControl>
+                                          <Switch
+                                            checked={field.value ?? true}
+                                            onCheckedChange={field.onChange}
+                                          />
+                                        </FormControl>
+                                      </FormItem>
+                                    )}
+                                  />
+                                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <FormField
+                                      control={form.control}
+                                      name={`rounds.${index}.albumConfig.minTracks`}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Minimum Tracks</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              type="number"
+                                              min={1}
+                                              placeholder="Optional"
+                                              {...field}
+                                              value={(field.value as number) || ""}
+                                            />
+                                          </FormControl>
+                                          <FormDescription>
+                                            Leave blank to allow any length.
+                                          </FormDescription>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
                                     />
-                                  </label>
-                                </FormControl>
-                              </div>
-                            )}
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                                    <FormField
+                                      control={form.control}
+                                      name={`rounds.${index}.albumConfig.maxTracks`}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Maximum Tracks</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              type="number"
+                                              min={1}
+                                              placeholder="Optional"
+                                              {...field}
+                                              value={(field.value as number) || ""}
+                                            />
+                                          </FormControl>
+                                          <FormDescription>
+                                            Leave blank to allow any length.
+                                          </FormDescription>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+                                </div>
+                              )}
 
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute -right-3 -top-3 size-7"
-                      onClick={() => remove(index)}
-                      disabled={fields.length <= 1}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                ))}
+                              <FormField
+                                control={form.control}
+                                name={`rounds.${index}.genres`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Genres (Optional)</FormLabel>
+                                    <FormDescription>Click on genres to select or unselect them.</FormDescription>
+                                    <FormControl>
+                                      <div className="flex flex-wrap gap-2">
+                                        {genres.map((genre) => (
+                                          <Badge
+                                            key={genre}
+                                            variant={field.value?.includes(genre) ? "default" : "outline"}
+                                            onClick={() => {
+                                              const newValue = field.value ?? [];
+                                              const newSelected = newValue.includes(genre)
+                                                ? newValue.filter((g: string) => g !== genre)
+                                                : [...newValue, genre];
+                                              field.onChange(newSelected);
+                                            }}
+                                            className="cursor-pointer"
+                                          >
+                                            {genre}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
                 {form.formState.errors.rounds && (
                   <p className="text-sm font-medium text-destructive">
-                    {(form.formState.errors.rounds).message}
+                    {(form.formState.errors.rounds as { message?: string }).message}
                   </p>
                 )}
               </div>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">League Rules</h3>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="submissionDeadline"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Submission Period (Hours)</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} value={(field.value as number) || ""} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="votingDeadline"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Voting Period (Hours)</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} value={(field.value as number) || ""} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="maxPositiveVotes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Upvotes per Member</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} value={(field.value as number) || ""} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="maxNegativeVotes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Downvotes per Member</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} value={(field.value as number) || ""} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
+              <Separator className="my-6" />
 
-                <div className="space-y-4 pt-4 sm:col-span-2">
-                  <FormField
-                    control={form.control}
-                    name="limitVotesPerSubmission"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel>Limit Votes Per Submission</FormLabel>
-                          <FormDescription>
-                            Set a max for how many times one person can vote on one song.
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  {form.watch("limitVotesPerSubmission") && (
-                    <div className="grid grid-cols-1 gap-6 rounded-lg border p-4 sm:grid-cols-2">
+              {/* League Rules in Accordion */}
+              <Accordion type="multiple" className="w-full">
+                {/* Basic Voting Rules */}
+                <AccordionItem value="voting" className="border rounded-lg px-4 mb-4">
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-semibold">Voting Rules</span>
+                      <Badge variant="secondary">Recommended</Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-4 pt-4">
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                       <FormField
                         control={form.control}
-                        name="maxPositiveVotesPerSubmission"
+                        name="submissionDeadline"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Max Upvotes Per Song</FormLabel>
+                            <FormLabel>Submission Period (Hours)</FormLabel>
                             <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="e.g., 3"
-                                {...field}
-                                value={(field.value as number) || ""}
-                              />
+                              <Input type="number" {...field} value={(field.value as number) || ""} />
                             </FormControl>
+                            <FormDescription>
+                              Default: 7 days (168 hours)
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
-                        name="maxNegativeVotesPerSubmission"
+                        name="votingDeadline"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Max Downvotes Per Song</FormLabel>
+                            <FormLabel>Voting Period (Hours)</FormLabel>
                             <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="e.g., 1"
-                                {...field}
-                                value={(field.value as number) || ""}
-                              />
+                              <Input type="number" {...field} value={(field.value as number) || ""} />
                             </FormControl>
+                            <FormDescription>
+                              Default: 3 days (72 hours)
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="maxPositiveVotes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Upvotes per Member</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} value={(field.value as number) || ""} />
+                            </FormControl>
+                            <FormDescription>
+                              How many upvotes each member gets per round
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="maxNegativeVotes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Downvotes per Member</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} value={(field.value as number) || ""} />
+                            </FormControl>
+                            <FormDescription>
+                              How many downvotes each member gets per round
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
-                  )}
-                </div>
+                  </AccordionContent>
+                </AccordionItem>
 
-                <div className="space-y-4 pt-4 sm:col-span-2">
-                  <FormField
-                    control={form.control}
-                    name="enforceListenPercentage"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel>Enforce Listen Duration</FormLabel>
-                          <FormDescription>
-                            Require participants to listen to a portion of each song before voting.
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  {form.watch("enforceListenPercentage") && (
-                    <div className="grid grid-cols-1 gap-6 rounded-lg border p-4 sm:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="listenPercentage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Listen Percentage (%)</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="e.g., 50"
-                                {...field}
-                                value={(field.value as number) || ""}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="listenTimeLimitMinutes"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Max Time Limit (Minutes)</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="e.g., 30"
-                                {...field}
-                                value={(field.value as number) || ""}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                {/* Advanced Options */}
+                <AccordionItem value="advanced" className="border rounded-lg px-4">
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-semibold">Advanced Options</span>
+                      <Badge variant="outline">Optional</Badge>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="size-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>These settings are optional and add extra rules</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
-                  )}
-                </div>
-              </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-6 pt-4">
+                    {/* Limit Votes Per Submission */}
+                    <div className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="limitVotesPerSubmission"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border bg-card p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel>Limit Votes Per Submission</FormLabel>
+                              <FormDescription>
+                                Prevent members from using all their votes on a single song.
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("limitVotesPerSubmission") && (
+                        <div className="grid grid-cols-1 gap-6 rounded-lg border bg-muted/50 p-4 sm:grid-cols-2">
+                          <FormField
+                            control={form.control}
+                            name="maxPositiveVotesPerSubmission"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Max Upvotes Per Song</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="e.g., 3"
+                                    {...field}
+                                    value={(field.value as number) || ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="maxNegativeVotesPerSubmission"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Max Downvotes Per Song</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="e.g., 1"
+                                    {...field}
+                                    value={(field.value as number) || ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
+                    </div>
 
-              <Separator />
-              <div className="flex justify-end">
+                    <Separator />
+
+                    {/* Enforce Listen Duration */}
+                    <div className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="enforceListenPercentage"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border bg-card p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel>Enforce Listen Duration</FormLabel>
+                              <FormDescription>
+                                Require participants to listen to a portion of each song before voting.
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("enforceListenPercentage") && (
+                        <div className="grid grid-cols-1 gap-6 rounded-lg border bg-muted/50 p-4 sm:grid-cols-2">
+                          <FormField
+                            control={form.control}
+                            name="listenPercentage"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Listen Percentage (%)</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="e.g., 50"
+                                    {...field}
+                                    value={(field.value as number) || ""}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  Percentage of song that must be played
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="listenTimeLimitMinutes"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Max Time Limit (Minutes)</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="e.g., 30"
+                                    {...field}
+                                    value={(field.value as number) || ""}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  Maximum time to count towards listen requirement
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              <Separator className="my-6" />
+              
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="outline" onClick={() => router.back()}>
+                  Cancel
+                </Button>
                 <Button type="submit" disabled={form.formState.isSubmitting} size="lg">
                   {form.formState.isSubmitting ? (
                     <>
@@ -812,7 +915,7 @@ export function CreateLeaguePage() {
                       Creating...
                     </>
                   ) : (
-                    "Create League & Rounds"
+                    "Create League"
                   )}
                 </Button>
               </div>
@@ -823,4 +926,3 @@ export function CreateLeaguePage() {
     </div>
   );
 }
-
