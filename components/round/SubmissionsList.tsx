@@ -7,7 +7,6 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import { SubmissionItem } from "./SubmissionItem";
 import { Song } from "@/types";
 import { toast } from "sonner";
-import { Fragment, useMemo } from "react";
 
 type SubmissionsListPropsSubmissions = Awaited<
   ReturnType<typeof api.submissions.getForRound>
