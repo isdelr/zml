@@ -31,7 +31,7 @@ import { toSvg } from "jdenticon";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { Pie, PieChart, Tooltip, Legend, Cell } from "recharts";
 import { cn } from "@/lib/utils";
-import html2canvas from "html2canvas";
+import { toPng } from "html-to-image";
 
 // Simple number animation hook
 function useCountUp(target: number | null | undefined, duration = 800) {
@@ -515,28 +515,31 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
     
     setIsExporting(true);
     try {
-      const canvas = await html2canvas(exportRef.current, {
-        backgroundColor: "#000000",
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
+      // Wait for any animations to settle
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const dataUrl = await toPng(exportRef.current, {
+        quality: 0.95,
+        pixelRatio: 2,
+        backgroundColor: '#0a0a0a',
+        cacheBust: true,
+        skipAutoScale: true,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left',
+        },
       });
       
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        const ts = new Date().toISOString().replace(/[:.]/g, "-");
-        a.download = `league-awards-${ts}.png`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      }, "image/png");
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
+      a.download = `league-awards-${ts}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (error) {
       console.error("Failed to export:", error);
+      alert("Failed to export image. Please try again or check the console for details.");
     } finally {
       setIsExporting(false);
     }
