@@ -220,6 +220,25 @@ export default defineSchema({
         submittedBy: v.string(),
       }),
     ),
+    top10Songs: v.array(
+      v.object({
+        songTitle: v.string(),
+        artist: v.string(),
+        albumArtUrl: v.union(v.string(), v.null()),
+        score: v.number(),
+        submittedBy: v.string(),
+      }),
+    ),
+    allRounds: v.array(
+      v.object({
+        roundId: v.id("rounds"),
+        title: v.string(),
+        imageUrl: v.union(v.string(), v.null()),
+        status: v.string(),
+        submissionCount: v.number(),
+        totalVotes: v.number(),
+      }),
+    ),
     // NEW song-level awards
     mostUpvotedSong: v.union(
       v.null(),

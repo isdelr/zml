@@ -838,6 +838,15 @@ const topSongValidator = v.object({
   submittedBy: v.string(),
 });
 
+const roundSummaryValidator = v.object({
+  roundId: v.id("rounds"),
+  title: v.string(),
+  imageUrl: v.union(v.string(), v.null()),
+  status: v.string(),
+  submissionCount: v.number(),
+  totalVotes: v.number(),
+});
+
 export const getLeagueMetadata = query({
   args: { id: v.id("leagues") },
   returns: v.union(
@@ -1297,12 +1306,60 @@ export const getStatsData = internalQuery({
       ? await formatSongAwardFromSubmissionId(favorite.subId, favorite.count)
       : null;
 
+    // Calculate top 10 songs
+    const sortedResults = results.sort((a, b) => b.points - a.points);
+    const top10Results = sortedResults.slice(0, 10);
+    const top10Songs = await Promise.all(
+      top10Results.map(async (result) => {
+        const submission = await ctx.db.get(result.submissionId);
+        if (!submission) return null;
+        const submitter = memberMap.get(submission.userId.toString());
+        let albumArtUrl: string | null = null;
+        if (submission.submissionType === "file" && submission.albumArtKey)
+          albumArtUrl = await r2.getUrl(submission.albumArtKey);
+        else albumArtUrl = submission.albumArtUrlValue ?? null;
+        return {
+          songTitle: submission.songTitle,
+          artist: submission.artist,
+          albumArtUrl,
+          score: result.points,
+          submittedBy: submitter?.name ?? "Unknown",
+        };
+      })
+    ).then((songs) => songs.filter(Boolean));
+
+    // Get all rounds summary
+    const allRoundsInLeagueForSummary = await ctx.db
+      .query("rounds")
+      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+      .collect();
+    
+    const allRounds = await Promise.all(
+      allRoundsInLeagueForSummary.map(async (round) => {
+        const submissionCount = submissions.filter(s => s.roundId.toString() === round._id.toString()).length;
+        const roundVotes = votes.filter(v => v.roundId.toString() === round._id.toString());
+        const totalVotes = roundVotes.length;
+        const imageUrl = round.imageKey ? await r2.getUrl(round.imageKey) : null;
+        
+        return {
+          roundId: round._id,
+          title: round.title,
+          imageUrl,
+          status: round.status,
+          submissionCount,
+          totalVotes,
+        };
+      })
+    );
+
     return {
       overlord: formatUserStat(overlord),
       peopleChampion: formatUserStat(peopleChampion),
       mostControversial: formatUserStat(mostControversial),
       prolificVoter: formatUserStat(prolificVoter),
       topSong,
+      top10Songs,
+      allRounds,
       mostUpvotedSong,
       mostDownvotedSong,
       fanFavoriteSong,
@@ -1351,6 +1408,8 @@ export const storeLeagueStats = internalMutation({
       mostControversial: v.union(v.null(), userStatValidator),
       prolificVoter: v.union(v.null(), userStatValidator),
       topSong: v.union(v.null(), topSongValidator),
+      top10Songs: v.array(topSongValidator),
+      allRounds: v.array(roundSummaryValidator),
       mostUpvotedSong: v.union(v.null(), songAwardValidator),
       mostDownvotedSong: v.union(v.null(), songAwardValidator),
       fanFavoriteSong: v.union(v.null(), songAwardValidator),
@@ -1394,6 +1453,8 @@ export const getLeagueStats = query({
       mostControversial: v.union(v.null(), userStatValidator),
       prolificVoter: v.union(v.null(), userStatValidator),
       topSong: v.union(v.null(), topSongValidator),
+      top10Songs: v.array(topSongValidator),
+      allRounds: v.array(roundSummaryValidator),
       mostUpvotedSong: v.union(v.null(), songAwardValidator),
       mostDownvotedSong: v.union(v.null(), songAwardValidator),
       fanFavoriteSong: v.union(v.null(), songAwardValidator),
@@ -1423,6 +1484,8 @@ export const getLeagueStats = query({
       mostControversial: statsDoc.mostControversial ?? null,
       prolificVoter: statsDoc.prolificVoter ?? null,
       topSong: statsDoc.topSong ?? null,
+      top10Songs: statsDoc.top10Songs ?? [],
+      allRounds: statsDoc.allRounds ?? [],
       mostUpvotedSong: statsDoc.mostUpvotedSong ?? null,
       mostDownvotedSong: statsDoc.mostDownvotedSong ?? null,
       fanFavoriteSong: statsDoc.fanFavoriteSong ?? null,

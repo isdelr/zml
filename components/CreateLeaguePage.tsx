@@ -342,50 +342,6 @@ export function CreateLeaguePage() {
                       />
                       <FormField
                         control={form.control}
-                        name={`rounds.${index}.submissionsPerUser`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Submissions per User</FormLabel>
-                            <FormControl>
-                              <Input type="number" min={1} max={5} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`rounds.${index}.genres`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Genres (Optional)</FormLabel>
-                            <FormDescription>Click on genres to select or unselect them.</FormDescription>
-                            <FormControl>
-                              <div className="flex flex-wrap gap-2">
-                                {genres.map((genre) => (
-                                  <Badge
-                                    key={genre}
-                                    variant={field.value?.includes(genre) ? "default" : "outline"}
-                                    onClick={() => {
-                                      const newValue = field.value ?? [];
-                                      const newSelected = newValue.includes(genre)
-                                        ? newValue.filter((g: string) => g !== genre)
-                                        : [...newValue, genre];
-                                      field.onChange(newSelected);
-                                    }}
-                                    className="cursor-pointer"
-                                  >
-                                    {genre}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
                         name={`rounds.${index}.submissionMode`}
                         render={({ field }) => (
                           <FormItem>
@@ -408,6 +364,33 @@ export function CreateLeaguePage() {
                             <FormMessage />
                           </FormItem>
                         )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`rounds.${index}.submissionsPerUser`}
+                        render={({ field }) => {
+                          const mode = form.watch(`rounds.${index}.submissionMode`);
+                          let description = "";
+                          if (mode === "album") {
+                            description = "Number of albums each participant submits (1 album = multiple tracks kept in order)";
+                          } else if (mode === "multi") {
+                            description = "Number of individual songs each participant submits (all songs shuffled together)";
+                          } else {
+                            description = "Number of individual songs each participant submits";
+                          }
+                          return (
+                            <FormItem>
+                              <FormLabel>
+                                {mode === "album" ? "Albums per User" : "Songs per User"}
+                              </FormLabel>
+                              <FormControl>
+                                <Input type="number" min={1} max={5} {...field} />
+                              </FormControl>
+                              <FormDescription>{description}</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
                       />
                       <FormField
                         control={form.control}
@@ -519,6 +502,37 @@ export function CreateLeaguePage() {
                           </div>
                         </div>
                       )}
+                      <FormField
+                        control={form.control}
+                        name={`rounds.${index}.genres`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Genres (Optional)</FormLabel>
+                            <FormDescription>Click on genres to select or unselect them.</FormDescription>
+                            <FormControl>
+                              <div className="flex flex-wrap gap-2">
+                                {genres.map((genre) => (
+                                  <Badge
+                                    key={genre}
+                                    variant={field.value?.includes(genre) ? "default" : "outline"}
+                                    onClick={() => {
+                                      const newValue = field.value ?? [];
+                                      const newSelected = newValue.includes(genre)
+                                        ? newValue.filter((g: string) => g !== genre)
+                                        : [...newValue, genre];
+                                      field.onChange(newSelected);
+                                    }}
+                                    className="cursor-pointer"
+                                  >
+                                    {genre}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
 
                     <div className="w-full md:w-52">

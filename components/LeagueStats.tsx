@@ -4,13 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import Link from "next/link";
 import {
   Bookmark,
   Crown,
-  Flame,
   Gauge,
   Medal,
-  Shield,
   Star,
   ThumbsDown,
   ThumbsUp,
@@ -81,12 +80,22 @@ interface RoundAward {
   totalUpvotes: number;
 }
 interface GenreSlice { name: string; value: number }
+interface RoundSummary {
+  roundId: string;
+  title: string;
+  imageUrl: string | null;
+  status: string;
+  submissionCount: number;
+  totalVotes: number;
+}
 interface LeagueStatsData {
   overlord: UserAward;
   peopleChampion: UserAward;
   mostControversial: UserAward;
   prolificVoter: UserAward;
   topSong: TopSong | null;
+  top10Songs: TopSong[];
+  allRounds: RoundSummary[];
   mostUpvotedSong: SongAward | null;
   mostDownvotedSong: SongAward | null;
   fanFavoriteSong: SongAward | null;
@@ -577,11 +586,14 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
   }
 
   const COLORS = [
-    "hsl(var(--chart-1))",
-    "hsl(var(--chart-2))",
-    "hsl(var(--chart-3))",
-    "hsl(var(--chart-4))",
-    "hsl(var(--chart-5))",
+    "#3b82f6", // blue
+    "#8b5cf6", // purple
+    "#ec4899", // pink
+    "#f59e0b", // amber
+    "#10b981", // emerald
+    "#06b6d4", // cyan
+    "#f97316", // orange
+    "#6366f1", // indigo
   ];
 
   const hasGenreData = stats.genreBreakdown && stats.genreBreakdown.length > 0;
@@ -694,13 +706,68 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
           </div>
         </div>
 
+        {/* Top 10 Songs */}
+        {stats.top10Songs && stats.top10Songs.length > 0 && (
+          <div>
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Trophy className="size-5 text-primary" />
+              Top 10 Most Voted Songs
+            </h3>
+            <div className="grid gap-4">
+              {stats.top10Songs.map((song, index) => (
+                <Card key={index} className={cn(
+                  "group transition-all duration-300 hover:shadow-lg hover:scale-[1.01]",
+                  index === 0 && "border-primary/50 bg-gradient-to-br from-primary/5 to-transparent"
+                )}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "flex size-12 items-center justify-center rounded-lg font-bold text-xl",
+                        index === 0 ? "bg-yellow-400 text-yellow-900" :
+                        index === 1 ? "bg-slate-300 text-slate-700" :
+                        index === 2 ? "bg-amber-600 text-amber-100" :
+                        "bg-muted text-muted-foreground"
+                      )}>
+                        {index + 1}
+                      </div>
+                      {song.albumArtUrl ? (
+                        <div className="relative size-16 shrink-0 overflow-hidden rounded-lg">
+                          <NextImage
+                            src={song.albumArtUrl}
+                            alt={song.songTitle}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="size-16 shrink-0 rounded-lg bg-muted flex items-center justify-center">
+                          <Star className="size-8 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold truncate">{song.songTitle}</h4>
+                        <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
+                        <p className="text-xs text-muted-foreground">by {song.submittedBy}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-primary">{song.score}</div>
+                        <div className="text-xs text-muted-foreground">points</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Performance Awards */}
         <div>
           <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
             <Target className="size-5 text-purple-400" />
             Performance Awards
           </h3>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 md:grid-cols-2">
             <UserRow
               icon={<Star className="text-amber-400" />}
               title="Golden Ears"
@@ -714,20 +781,6 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
               desc="Lowest score variability (σ)"
               user={stats.consistencyKing}
               valueLabel={(u) => `σ ${u.count} (avg ${u.meta?.average ?? "?"})`}
-            />
-            <UserRow
-              icon={<Shield className="text-emerald-400" />}
-              title="Attendance Star"
-              desc="Most rounds with a submission"
-              user={stats.attendanceStar}
-              valueLabel={(u) => `${u.count}/${u.meta?.totalRounds ?? "?"} rounds`}
-            />
-            <UserRow
-              icon={<Flame className="text-red-500" />}
-              title="Biggest Downvoter"
-              desc="Most downvotes cast"
-              user={stats.biggestDownvoter}
-              valueLabel={(u) => `${u.count} downvotes`}
             />
           </div>
         </div>
@@ -763,6 +816,59 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
           </div>
         </div>
 
+        {/* All Rounds Summary */}
+        {stats.allRounds && stats.allRounds.length > 0 && (
+          <div>
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <ListMusic className="size-5 text-primary" />
+              All Rounds & Playlists
+            </h3>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {stats.allRounds.map((round) => (
+                <Link key={round.roundId} href={`/leagues/${leagueId}/round/${round.roundId}`}>
+                  <Card className="group transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer">
+                    <CardContent className="p-4">
+                      <div className="flex gap-3">
+                        {round.imageUrl ? (
+                          <div className="relative size-20 shrink-0 overflow-hidden rounded-lg">
+                            <NextImage
+                              src={round.imageUrl}
+                              alt={round.title}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="size-20 shrink-0 rounded-lg bg-muted flex items-center justify-center">
+                            <ListMusic className="size-10 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold truncate mb-1">{round.title}</h4>
+                          <div className="space-y-1 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <span className={cn(
+                                "inline-block size-2 rounded-full",
+                                round.status === "finished" ? "bg-green-500" :
+                                round.status === "voting" ? "bg-yellow-500" :
+                                round.status === "submissions" ? "bg-blue-500" :
+                                "bg-muted-foreground"
+                              )}></span>
+                              <span className="capitalize">{round.status}</span>
+                            </div>
+                            <div>{round.submissionCount} submissions</div>
+                            <div>{round.totalVotes} votes cast</div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Genre breakdown - Only show if there's data */}
         {hasGenreData && (
           <div>
@@ -777,13 +883,23 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
               <CardContent className="flex justify-center">
                 <ChartContainer
                   config={Object.fromEntries(
-                    stats.genreBreakdown.map((g, i) => [g.name, { label: g.name, color: COLORS[i % COLORS.length] }]),
+                    stats.genreBreakdown.map((g, i) => [
+                      g.name, 
+                      { 
+                        label: g.name, 
+                        color: COLORS[i % COLORS.length] 
+                      }
+                    ]),
                   )}
                   className="mx-auto aspect-square h-[300px]"
                 >
                   <PieChart>
-                    <Tooltip cursor={false} content={<ChartTooltipContent />} />
-                    <Legend />
+                    <Tooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      iconType="circle"
+                    />
                     <Pie
                       data={stats.genreBreakdown}
                       dataKey="value"
@@ -792,9 +908,15 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
                       cy="50%"
                       outerRadius={100}
                       labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     >
                       {stats.genreBreakdown.map((entry, i) => (
-                        <Cell key={entry.name} fill={COLORS[i % COLORS.length]} />
+                        <Cell 
+                          key={entry.name} 
+                          fill={COLORS[i % COLORS.length]}
+                          stroke="hsl(var(--background))"
+                          strokeWidth={2}
+                        />
                       ))}
                     </Pie>
                   </PieChart>
