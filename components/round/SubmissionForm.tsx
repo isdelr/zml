@@ -3,6 +3,8 @@
 "use client";
 
 import { SongSubmissionForm } from "@/components/SongSubmissionForm";
+import { AlbumSubmissionForm } from "@/components/AlbumSubmissionForm";
+import { MultiSongSubmissionForm } from "@/components/MultiSongSubmissionForm";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +44,19 @@ export function SubmissionForm({
   }
 
   const submissionsPerUser = round.submissionsPerUser ?? 1;
-  const canSubmitMore = mySubmissions.length < submissionsPerUser;
+  
+  // For album/multi rounds, count unique collections instead of individual tracks
+  let submissionCount = mySubmissions.length;
+  if (round.submissionMode === "album" || round.submissionMode === "multi") {
+    const uniqueCollections = new Set(
+      mySubmissions
+        .filter(s => s.collectionId)
+        .map(s => s.collectionId)
+    );
+    submissionCount = uniqueCollections.size;
+  }
+  
+  const canSubmitMore = submissionCount < submissionsPerUser;
 
   const canPlay = (s: { submissionType: string; songFileUrl: string | null; songLink?: string | null; }) => {
     if (s.submissionType === "file") return !!s.songFileUrl;
@@ -70,7 +84,7 @@ export function SubmissionForm({
   return (
     <div className="space-y-4">
       <h3 className="text-xl font-semibold">
-        Your Submissions ({mySubmissions.length} / {submissionsPerUser})
+        Your Submissions ({submissionCount} / {submissionsPerUser})
       </h3>
 
       {mySubmissions.map((submission) => (
@@ -119,7 +133,17 @@ export function SubmissionForm({
 
 
       {canSubmitMore && roundStatus === "submissions" && (
-        <SongSubmissionForm roundId={round._id} />
+        round.submissionMode === "album" ? (
+          <AlbumSubmissionForm roundId={round._id} />
+        ) : round.submissionMode === "multi" ? (
+          <MultiSongSubmissionForm 
+            roundId={round._id} 
+            maxSongs={submissionsPerUser} 
+            currentCount={submissionCount} 
+          />
+        ) : (
+          <SongSubmissionForm roundId={round._id} />
+        )
       )}
 
       <Dialog open={!!editingSubmission} onOpenChange={(isOpen) => !isOpen && setEditingSubmission(null)}>

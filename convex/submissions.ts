@@ -79,6 +79,15 @@ export const submitSong = mutation({
     songLink: v.optional(v.string()),
     albumArtUrlValue: v.optional(v.string()),
     duration: v.optional(v.number()),
+    // Collection/Album fields
+    collectionId: v.optional(v.string()),
+    collectionType: v.optional(v.union(v.literal("multi"), v.literal("album"))),
+    collectionName: v.optional(v.string()),
+    collectionArtist: v.optional(v.string()),
+    collectionNotes: v.optional(v.string()),
+    collectionReleaseYear: v.optional(v.number()),
+    collectionTotalTracks: v.optional(v.number()),
+    trackNumber: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -107,8 +116,27 @@ export const submitSong = mutation({
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId).eq("userId", userId))
       .collect();
 
-    if (existingSubmissions.length >= submissionsPerUser) {
-      throw new Error(`You have already submitted the maximum of ${submissionsPerUser} song(s).`);
+    // For album/multi rounds, count unique collections instead of individual tracks
+    let submissionCount = existingSubmissions.length;
+    if (round.submissionMode === "album" || round.submissionMode === "multi") {
+      const uniqueCollections = new Set(
+        existingSubmissions
+          .filter(s => s.collectionId)
+          .map(s => s.collectionId)
+      );
+      submissionCount = uniqueCollections.size;
+      
+      // If submitting a new collection, check if user would exceed limit
+      if (args.collectionId && !uniqueCollections.has(args.collectionId)) {
+        if (submissionCount >= submissionsPerUser) {
+          throw new Error(`You have already submitted the maximum of ${submissionsPerUser} album(s).`);
+        }
+      }
+    } else {
+      // For single song rounds, count individual submissions
+      if (existingSubmissions.length >= submissionsPerUser) {
+        throw new Error(`You have already submitted the maximum of ${submissionsPerUser} song(s).`);
+      }
     }
 
 
@@ -121,6 +149,14 @@ export const submitSong = mutation({
       comment: args.comment,
       duration: args.duration,
       searchText: `${args.songTitle} ${args.artist}`,
+      collectionId: args.collectionId,
+      collectionType: args.collectionType,
+      collectionName: args.collectionName,
+      collectionArtist: args.collectionArtist,
+      collectionNotes: args.collectionNotes,
+      collectionReleaseYear: args.collectionReleaseYear,
+      collectionTotalTracks: args.collectionTotalTracks,
+      trackNumber: args.trackNumber,
     };
 
     let submissionId: Id<"submissions">;
