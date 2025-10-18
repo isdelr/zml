@@ -445,6 +445,15 @@ export const get = query({
           image: v.optional(v.string()),
         }),
       ),
+      spectators: v.array(
+        v.object({
+          _id: v.id("users"),
+          name: v.optional(v.string()),
+          image: v.optional(v.string()),
+        }),
+      ),
+      activeMemberCount: v.number(),
+      spectatorCount: v.number(),
       managers: v.optional(v.array(v.id("users"))),
       enforceListenPercentage: v.optional(v.boolean()),
       listenPercentage: v.optional(v.number()),
@@ -487,13 +496,38 @@ export const get = query({
 
     const memberCount = await memberCounter.count(ctx, league._id);
 
-    const members = memberDocs
-      .filter((u): u is Doc<"users"> => u !== null)
+    // Separate regular members from spectators
+    const regularMemberships = memberships.filter(m => !m.isSpectator);
+    const spectatorMemberships = memberships.filter(m => m.isSpectator);
+    
+    const regularMemberDocs = memberDocs
+      .filter((u): u is Doc<"users"> => {
+        if (!u) return false;
+        const membership = memberships.find(m => m.userId === u._id);
+        return membership && !membership.isSpectator;
+      })
       .map((u) => ({
         _id: u._id,
         name: u.name,
         image: u.image,
       }));
+    
+    const spectatorDocs = memberDocs
+      .filter((u): u is Doc<"users"> => {
+        if (!u) return false;
+        const membership = memberships.find(m => m.userId === u._id);
+        return membership && membership.isSpectator;
+      })
+      .map((u) => ({
+        _id: u._id,
+        name: u.name,
+        image: u.image,
+      }));
+
+    const members = regularMemberDocs;
+    const spectators = spectatorDocs;
+    const activeMemberCount = regularMemberships.length;
+    const spectatorCount = spectatorMemberships.length;
 
     const isOwner = userId === league.creatorId;
     const isMember = !!membership;
@@ -514,12 +548,15 @@ export const get = query({
       creatorName: creator?.name ?? "Unknown",
       creatorImage: creator?.image,
       memberCount: memberCount,
+      activeMemberCount,
+      spectatorCount,
       isOwner,
       canManageLeague,
       isMember,
       isSpectator,
       inviteCode: canManageLeague ? league.inviteCode : undefined,
       members,
+      spectators,
     };
   },
 });
@@ -534,8 +571,16 @@ export const getInviteInfo = query({
       description: v.string(),
       creatorName: v.string(),
       memberCount: v.number(),
+      activeMemberCount: v.number(),
+      spectatorCount: v.number(),
       creatorImage: v.optional(v.string()),
       members: v.array(
+        v.object({
+          name: v.optional(v.string()),
+          image: v.optional(v.string()),
+        }),
+      ),
+      spectators: v.array(
         v.object({
           name: v.optional(v.string()),
           image: v.optional(v.string()),
@@ -562,14 +607,35 @@ export const getInviteInfo = query({
     const memberIds = memberships.map((m) => m.userId);
     const memberDocs = await Promise.all(memberIds.map((id) => ctx.db.get(id)));
 
+    // Separate regular members from spectators
+    const regularMemberships = memberships.filter(m => !m.isSpectator);
+    const spectatorMemberships = memberships.filter(m => m.isSpectator);
+    
     const members = memberDocs
-      .filter((u): u is Doc<"users"> => u !== null)
+      .filter((u): u is Doc<"users"> => {
+        if (!u) return false;
+        const membership = memberships.find(m => m.userId === u._id);
+        return membership && !membership.isSpectator;
+      })
+      .map((u) => ({
+        name: u.name,
+        image: u.image,
+      }));
+    
+    const spectators = memberDocs
+      .filter((u): u is Doc<"users"> => {
+        if (!u) return false;
+        const membership = memberships.find(m => m.userId === u._id);
+        return membership && membership.isSpectator;
+      })
       .map((u) => ({
         name: u.name,
         image: u.image,
       }));
 
     const memberCount = await memberCounter.count(ctx, league._id);
+    const activeMemberCount = regularMemberships.length;
+    const spectatorCount = spectatorMemberships.length;
 
     return {
       _id: league._id,
@@ -578,7 +644,10 @@ export const getInviteInfo = query({
       creatorName: creator?.name ?? "Unknown",
       creatorImage: creator?.image,
       memberCount,
+      activeMemberCount,
+      spectatorCount,
       members,
+      spectators,
     };
   },
 });

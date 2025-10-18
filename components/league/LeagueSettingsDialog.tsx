@@ -421,50 +421,101 @@ function MembersTab({
     );
   };
 
+  const regularMembers = (league.members as Record<string, unknown>[]) || [];
+  const spectators = (league.spectators as Record<string, unknown>[]) || [];
+  
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-muted-foreground">
-          League Members ({(league.members as unknown[]).length})
-        </h3>
+      {/* Regular Members Section */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-muted-foreground">
+            Members ({regularMembers.length})
+          </h3>
+        </div>
+        <div className="max-h-80 space-y-2 overflow-y-auto pr-2">
+          {regularMembers.map((member: Record<string, unknown>) => (
+            <div
+              key={member._id as string}
+              className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-muted/50"
+            >
+              <div className="flex items-center gap-3">
+                <Avatar className="size-10">
+                  <AvatarImage src={member.image as string | undefined} />
+                  <AvatarFallback>
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: toSvg(member._id as string, 40),
+                      }}
+                    />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="font-medium">{member.name as string}</span>
+                  {member._id === league.creatorId && (
+                    <Badge variant="secondary" className="w-fit text-xs">Owner</Badge>
+                  )}
+                </div>
+              </div>
+              {currentUser?._id === league.creatorId &&
+                member._id !== league.creatorId && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleKick(member._id as Id<"users">)}
+                  >
+                    Kick
+                  </Button>
+                )}
+            </div>
+          ))}
+        </div>
       </div>
-      <div className="max-h-80 space-y-2 overflow-y-auto pr-2">
-        {(league.members as Record<string, unknown>[]).map((member: Record<string, unknown>) => (
-          <div
-            key={member._id as string}
-            className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-muted/50"
-          >
-            <div className="flex items-center gap-3">
-              <Avatar className="size-10">
-                <AvatarImage src={member.image as string | undefined} />
-                <AvatarFallback>
-                  <div
-                    dangerouslySetInnerHTML={{
-                      __html: toSvg(member._id as string, 40),
-                    }}
-                  />
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col">
-                <span className="font-medium">{member.name as string}</span>
-                {member._id === league.creatorId && (
-                  <Badge variant="secondary" className="w-fit text-xs">Owner</Badge>
+      
+      {/* Spectators Section */}
+      {spectators.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">
+              Spectators ({spectators.length})
+            </h3>
+          </div>
+          <div className="max-h-80 space-y-2 overflow-y-auto pr-2">
+            {spectators.map((spectator: Record<string, unknown>) => (
+              <div
+                key={spectator._id as string}
+                className="flex items-center justify-between rounded-md border border-dashed p-3 transition-colors hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar className="size-10">
+                    <AvatarImage src={spectator.image as string | undefined} />
+                    <AvatarFallback>
+                      <div
+                        dangerouslySetInnerHTML={{
+                          __html: toSvg(spectator._id as string, 40),
+                        }}
+                      />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{spectator.name as string}</span>
+                    <Badge variant="outline" className="w-fit text-xs">Spectator</Badge>
+                  </div>
+                </div>
+                {currentUser?._id === league.creatorId && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleKick(spectator._id as Id<"users">)}
+                  >
+                    Kick
+                  </Button>
                 )}
               </div>
-            </div>
-            {currentUser?._id === league.creatorId &&
-              member._id !== league.creatorId && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleKick(member._id as Id<"users">)}
-                >
-                  Kick
-                </Button>
-              )}
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

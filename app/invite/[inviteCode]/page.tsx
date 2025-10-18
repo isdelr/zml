@@ -21,12 +21,48 @@ export async function generateMetadata({
     return {
       title: "Invalid Invite",
       description: "This invite link is invalid or has expired.",
+      openGraph: {
+        title: "ZML | Invalid Invite",
+        description: "This invite link is invalid or has expired.",
+        type: "website",
+      },
+      twitter: {
+        card: "summary",
+        title: "ZML | Invalid Invite",
+        description: "This invite link is invalid or has expired.",
+      },
     };
   }
 
+  const title = `You're invited to join ${inviteInfo.name}`;
+  const description = `Accept this invite to join the "${inviteInfo.name}" music league and start competing with ${inviteInfo.activeMemberCount} other ${inviteInfo.activeMemberCount === 1 ? "member" : "members"}.`;
+  const url = `https://zml.app/invite/${params.inviteCode}`;
+  const ogImageUrl = `/api/og/invite?inviteCode=${params.inviteCode}`;
+
   return {
-    title: "You're invited to join ${inviteInfo.name}",
-    description: `Accept this invite to join the "${inviteInfo.name}" music league and start competing with ${inviteInfo.memberCount} other members.`,
+    title,
+    description,
+    openGraph: {
+      title: `ZML | ${title}`,
+      description,
+      type: "website",
+      url,
+      siteName: "ZML",
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `Join ${inviteInfo.name} on ZML`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `ZML | ${title}`,
+      description,
+      images: [ogImageUrl],
+    },
   };
 }
 

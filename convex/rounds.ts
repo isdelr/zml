@@ -76,7 +76,13 @@ export const getForLeague = query({
 
     const league = await ctx.db.get(args.leagueId);
     const leagueName = league?.name ?? "Unknown League";
-    const leagueMemberCount = await memberCounter.count(ctx, args.leagueId);
+    
+    // Count only non-spectator members for submission/voting tracking
+    const allMemberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+      .collect();
+    const leagueMemberCount = allMemberships.filter(m => !m.isSpectator).length;
 
     const roundsWithDetails = await Promise.all(
       paginationResult.page.map(async (round) => {

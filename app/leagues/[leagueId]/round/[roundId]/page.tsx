@@ -20,30 +20,50 @@ export async function generateMetadata({
     return {
       title: "Round Not Found",
       description: "This round does not exist or has been moved.",
+      openGraph: {
+        title: "ZML | Round Not Found",
+        description: "This round does not exist or has been moved.",
+        type: "website",
+      },
+      twitter: {
+        card: "summary",
+        title: "ZML | Round Not Found",
+        description: "This round does not exist or has been moved.",
+      },
     };
   }
 
   const { roundTitle, roundDescription, imageUrl, leagueName } = metadata;
-  const title = `${roundTitle} - A Round in ${leagueName}`;
-  const description = `Current Status: Now open for submissions! | ${roundDescription}`;
+  const title = `${roundTitle}`;
+  const description = `${roundDescription} | A round in ${leagueName} on ZML`;
+  const url = `https://zml.app/leagues/${params.leagueId}/round/${params.roundId}`;
+  const ogImageUrl = imageUrl || `/api/og/round?roundId=${params.roundId}`;
 
   return {
     title,
     description,
     openGraph: {
-      title,
+      title: `ZML | ${title}`,
       description,
-      images: imageUrl ? [{ url: imageUrl }] : [],
       type: "website",
-      url: `/leagues/${params.leagueId}/round/${params.roundId}`,
-},
-  twitter: {
-    card: "summary_large_image",
-      title,
+      url,
+      siteName: "ZML",
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${roundTitle} in ${leagueName}`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `ZML | ${title}`,
       description,
-      images: imageUrl ? [imageUrl] : [],
-  },
-};
+      images: [ogImageUrl],
+    },
+  };
 }
 
 export default async function RoundPage({

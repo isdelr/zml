@@ -68,9 +68,17 @@ export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <span>{leagueData.memberCount} members</span>
-              {leagueData.members && <AvatarStack users={leagueData.members} />}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                {leagueData.members && <AvatarStack users={leagueData.members} />}
+                <span>{leagueData.activeMemberCount ?? leagueData.memberCount} {(leagueData.activeMemberCount ?? leagueData.memberCount) === 1 ? "member" : "members"}</span>
+              </div>
+              {leagueData.spectatorCount > 0 && (
+                <div className="flex items-center gap-2">
+                  {leagueData.spectators && <AvatarStack users={leagueData.spectators} />}
+                  <span>{leagueData.spectatorCount} {leagueData.spectatorCount === 1 ? "spectator" : "spectators"}</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span>Created by</span>

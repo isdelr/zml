@@ -37,6 +37,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://zml.app"),
   title: {
     template: "ZML | %s",
     default: "ZML",
@@ -51,6 +52,29 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "ZML",
+  },
+  openGraph: {
+    title: "ZML - Challenge Your Friends' Musical Tastes",
+    description:
+      "The ultimate platform to challenge your friends' musical tastes. Create leagues, set themed rounds, and vote for the best tracks.",
+    url: "https://zml.app",
+    siteName: "ZML",
+    type: "website",
+    images: [
+      {
+        url: "/api/og/home",
+        width: 1200,
+        height: 630,
+        alt: "ZML - Music League Platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ZML - Challenge Your Friends' Musical Tastes",
+    description:
+      "The ultimate platform to challenge your friends' musical tastes. Create leagues, set themed rounds, and vote for the best tracks.",
+    images: ["/api/og/home"],
   },
 };
 

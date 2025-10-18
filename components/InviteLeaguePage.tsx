@@ -134,8 +134,14 @@ export default function InviteLeaguePage() {
             <div className="flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 {inviteInfo.members && <AvatarStack users={inviteInfo.members} />}
-                <span>{inviteInfo.memberCount} members</span>
+                <span>{inviteInfo.activeMemberCount} {inviteInfo.activeMemberCount === 1 ? "member" : "members"}</span>
               </div>
+              {inviteInfo.spectatorCount > 0 && (
+                <div className="flex items-center gap-2">
+                  {inviteInfo.spectators && <AvatarStack users={inviteInfo.spectators} />}
+                  <span>{inviteInfo.spectatorCount} {inviteInfo.spectatorCount === 1 ? "spectator" : "spectators"}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <span>Created by</span>
                 <Avatar className="size-5">
@@ -191,8 +197,14 @@ export default function InviteLeaguePage() {
             <div className="flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 {inviteInfo.members && <AvatarStack users={inviteInfo.members} />}
-                <span>{inviteInfo.memberCount} members</span>
+                <span>{inviteInfo.activeMemberCount} {inviteInfo.activeMemberCount === 1 ? "member" : "members"}</span>
               </div>
+              {inviteInfo.spectatorCount > 0 && (
+                <div className="flex items-center gap-2">
+                  {inviteInfo.spectators && <AvatarStack users={inviteInfo.spectators} />}
+                  <span>{inviteInfo.spectatorCount} {inviteInfo.spectatorCount === 1 ? "spectator" : "spectators"}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <span>Created by</span>
                 <Avatar className="size-5">

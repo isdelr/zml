@@ -27,13 +27,51 @@ export async function generateMetadata({
       title: "League Not Found",
       description:
         "This league does not exist or you may not have permission to view it.",
+      openGraph: {
+        title: "ZML | League Not Found",
+        description:
+          "This league does not exist or you may not have permission to view it.",
+        type: "website",
+      },
+      twitter: {
+        card: "summary",
+        title: "ZML | League Not Found",
+        description:
+          "This league does not exist or you may not have permission to view it.",
+      },
     };
   }
 
+  const title = leagueMetadata.name;
+  const description = `View the rounds, standings, and stats for the "${leagueMetadata.name}" music league. ${leagueMetadata.memberCount} ${leagueMetadata.memberCount === 1 ? "member" : "members"} competing for musical supremacy.`;
+  const url = `https://zml.app/leagues/${params.leagueId}`;
+  const ogImageUrl = `/api/og/league?leagueId=${params.leagueId}`;
+
   return {
-    title: leagueMetadata.name,
-    description: `View the rounds, standings, and stats for the "${leagueMetadata.name}" music league. Members: ${leagueMetadata.memberCount}.`,
-};
+    title,
+    description,
+    openGraph: {
+      title: `ZML | ${title}`,
+      description,
+      type: "website",
+      url,
+      siteName: "ZML",
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${leagueMetadata.name} on ZML`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `ZML | ${title}`,
+      description,
+      images: [ogImageUrl],
+    },
+  };
 }
 
 export default async function League({

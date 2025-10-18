@@ -27,8 +27,14 @@ export function LeagueInfo({ leagueData }: LeagueInfoProps) {
       <div className="mt-4 flex flex-col items-start gap-3 text-muted-foreground md:flex-row md:items-center md:gap-6">
         <div className="flex items-center gap-2">
           {leagueData.members && <AvatarStack users={leagueData.members} />}
-          <span>{leagueData.memberCount} Members</span>
+          <span>{leagueData.activeMemberCount} {leagueData.activeMemberCount === 1 ? "Member" : "Members"}</span>
         </div>
+        {leagueData.spectatorCount > 0 && (
+          <div className="flex items-center gap-2">
+            {leagueData.spectators && <AvatarStack users={leagueData.spectators} />}
+            <span>{leagueData.spectatorCount} {leagueData.spectatorCount === 1 ? "Spectator" : "Spectators"}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <span>Created by</span>
           <Avatar className="size-6">
