@@ -504,7 +504,7 @@ export const get = query({
       .filter((u): u is Doc<"users"> => {
         if (!u) return false;
         const membership = memberships.find(m => m.userId === u._id);
-        return membership && !membership.isSpectator;
+        return !!membership && !membership.isSpectator;
       })
       .map((u) => ({
         _id: u._id,
@@ -516,7 +516,7 @@ export const get = query({
       .filter((u): u is Doc<"users"> => {
         if (!u) return false;
         const membership = memberships.find(m => m.userId === u._id);
-        return membership && membership.isSpectator;
+        return !!membership && !!membership.isSpectator;
       })
       .map((u) => ({
         _id: u._id,
@@ -615,7 +615,7 @@ export const getInviteInfo = query({
       .filter((u): u is Doc<"users"> => {
         if (!u) return false;
         const membership = memberships.find(m => m.userId === u._id);
-        return membership && !membership.isSpectator;
+        return !!membership && !membership.isSpectator;
       })
       .map((u) => ({
         name: u.name,
@@ -626,7 +626,7 @@ export const getInviteInfo = query({
       .filter((u): u is Doc<"users"> => {
         if (!u) return false;
         const membership = memberships.find(m => m.userId === u._id);
-        return membership && membership.isSpectator;
+        return !!membership && !!membership.isSpectator;
       })
       .map((u) => ({
         name: u.name,
