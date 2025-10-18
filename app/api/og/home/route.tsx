@@ -76,7 +76,7 @@ export async function GET() {
               lineHeight: 1.2,
             }}
           >
-            Challenge Your Friends'
+            Challenge Your Friends&apos;
             <br />
             Musical Tastes
           </h1>

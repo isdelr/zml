@@ -194,7 +194,7 @@ export async function GET(request: NextRequest) {
               fontSize: "24px",
             }}
           >
-            <span>Challenge your friends' musical tastes</span>
+            <span>Challenge your friends&apos; musical tastes</span>
           </div>
         </div>
       ),

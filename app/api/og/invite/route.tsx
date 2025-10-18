@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
                 lineHeight: 1.2,
               }}
             >
-              You're invited to join
+              You&apos;re invited to join
             </h1>
             <div
               style={{
@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
               fontSize: "24px",
             }}
           >
-            <span>Challenge your friends' musical tastes</span>
+            <span>Challenge your friends&apos; musical tastes</span>
           </div>
         </div>
       ),
