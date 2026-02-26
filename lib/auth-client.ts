@@ -40,4 +40,7 @@ export const signInWithDiscord = async (callbackURL = "/explore") => {
 
 export const signOutFromApp = async () => {
   await authClient.signOut();
+  if (typeof window !== "undefined") {
+    window.location.assign("/signin");
+  }
 };
