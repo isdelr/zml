@@ -145,7 +145,7 @@ async function scheduleAvatarRefreshOnLogin(
   ctx: MutationCtx,
   userId: Id<"users">,
 ) {
-  await ctx.scheduler.runAfter(0, internal.users.syncCachedAvatarForUser, {
+  await ctx.scheduler.runAfter(0, internal.userAvatarActions.syncCachedAvatarForUser, {
     userId,
     force: true,
   });

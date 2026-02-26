@@ -747,7 +747,7 @@ export const transitionDueRounds = internalAction({
       now,
     });
     const votingTransitions = await Promise.allSettled(
-      dueForVoting.map((round) =>
+      dueForVoting.map((round: Doc<"rounds">) =>
         ctx.runMutation(internal.rounds.transitionRoundToVoting, {
           roundId: round._id,
         }),
@@ -768,7 +768,7 @@ export const transitionDueRounds = internalAction({
       { now },
     );
     const finishingTransitions = await Promise.allSettled(
-      dueForFinishing.map((round) =>
+      dueForFinishing.map((round: Doc<"rounds">) =>
         ctx.runMutation(internal.rounds.transitionRoundToFinished, {
           roundId: round._id,
         }),

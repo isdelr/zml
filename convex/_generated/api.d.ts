@@ -29,6 +29,7 @@ import type * as presence from "../presence.js";
 import type * as rounds from "../rounds.js";
 import type * as submissions from "../submissions.js";
 import type * as userAvatar from "../userAvatar.js";
+import type * as userAvatarActions from "../userAvatarActions.js";
 import type * as users from "../users.js";
 import type * as votes from "../votes.js";
 import type * as webPush from "../webPush.js";
@@ -62,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   rounds: typeof rounds;
   submissions: typeof submissions;
   userAvatar: typeof userAvatar;
+  userAvatarActions: typeof userAvatarActions;
   users: typeof users;
   votes: typeof votes;
   webPush: typeof webPush;
