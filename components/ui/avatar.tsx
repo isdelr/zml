@@ -6,27 +6,30 @@ import * as AvatarPrimitive from "@radix-ui/react-avatar"
 
 import { cn } from "@/lib/utils"
 
-function buildDiscordDefaultAvatarUrl(src: string): string | null {
+function sanitizeAvatarSrc(
+  src: React.ComponentProps<typeof AvatarPrimitive.Image>["src"],
+): React.ComponentProps<typeof AvatarPrimitive.Image>["src"] {
+  if (!src) {
+    return src
+  }
+
+  if (typeof src !== "string") {
+    return src
+  }
+
   try {
     const url = new URL(src)
-    const isDiscordHost =
+    if (
       url.hostname === "cdn.discordapp.com" ||
       url.hostname === "media.discordapp.net"
-    if (!isDiscordHost) {
-      return null
+    ) {
+      return undefined
     }
-
-    const match = /^\/avatars\/(\d+)\/[^/]+$/u.exec(url.pathname)
-    if (!match) {
-      return null
-    }
-
-    const userId = match[1]
-    const fallbackIndex = Number((BigInt(userId) >> BigInt(22)) % BigInt(6))
-    return `https://cdn.discordapp.com/embed/avatars/${fallbackIndex}.png`
   } catch {
-    return null
+    // Keep non-URL values unchanged.
   }
+
+  return src
 }
 
 function Avatar({
@@ -51,25 +54,14 @@ function AvatarImage({
   onError,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
-  const [resolvedSrc, setResolvedSrc] = React.useState(src)
-  const hasRetriedRef = React.useRef(false)
+  const [resolvedSrc, setResolvedSrc] = React.useState(sanitizeAvatarSrc(src))
 
   React.useEffect(() => {
-    setResolvedSrc(src)
-    hasRetriedRef.current = false
+    setResolvedSrc(sanitizeAvatarSrc(src))
   }, [src])
 
   const handleError: React.ComponentProps<typeof AvatarPrimitive.Image>["onError"] =
     (event) => {
-      if (!hasRetriedRef.current && typeof resolvedSrc === "string") {
-        const discordFallback = buildDiscordDefaultAvatarUrl(resolvedSrc)
-        if (discordFallback && discordFallback !== resolvedSrc) {
-          hasRetriedRef.current = true
-          setResolvedSrc(discordFallback)
-          return
-        }
-      }
-
       onError?.(event)
     }
 

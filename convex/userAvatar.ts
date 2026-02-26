@@ -33,16 +33,11 @@ export async function resolveUserAvatarUrl(
       });
     } catch (error) {
       console.error(`Failed to resolve avatar key "${imageValue}"`, error);
-      return user.providerImageUrl ?? null;
+      return null;
     }
   }
 
-  if (user.providerImageUrl) {
-    return user.providerImageUrl;
-  }
-
-  if (imageValue && !imageValue.startsWith("data:image/")) {
-    return imageValue;
-  }
+  // Only serve avatars that were cached to our own storage.
+  // Never fall back to provider-hosted URLs.
   return null;
 }
