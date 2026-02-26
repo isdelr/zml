@@ -7,7 +7,7 @@ RUN apk add --no-cache libc6-compat ffmpeg
 
 FROM base AS deps
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --include=optional
 
 FROM base AS builder
 ENV NODE_ENV=production
@@ -39,6 +39,6 @@ CMD ["node", "server.js"]
 FROM base AS dev
 ENV NODE_ENV=development
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --include=optional
 COPY . .
 CMD ["npm", "run", "dev"]
