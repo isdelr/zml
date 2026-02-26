@@ -6,7 +6,7 @@ import type { FunctionReference } from "convex/server";
 import type { Id } from "./_generated/dataModel";
 import type { DataModel } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { isAvatarObjectKey } from "./userAvatar";
 
 export type AuthUserDoc = {
@@ -131,6 +131,16 @@ function normalizeProviderImageUrl(image: string | null | undefined) {
   }
 }
 
+async function scheduleAvatarRefreshOnLogin(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+) {
+  await ctx.scheduler.runAfter(0, internal.users.syncCachedAvatarForUser, {
+    userId,
+    force: true,
+  });
+}
+
 export const authComponent = createClient<DataModel>(betterAuthComponent, {
   authFunctions: {
     onCreate: onCreateRef,
@@ -142,12 +152,25 @@ export const authComponent = createClient<DataModel>(betterAuthComponent, {
       onCreate: async (ctx, user) => {
         const appUserId = await upsertAppUser(ctx, user as AuthUserDoc);
         await authComponent.setUserId(ctx, user._id, appUserId);
+        await scheduleAvatarRefreshOnLogin(ctx, appUserId);
       },
       onUpdate: async (ctx, newUser) => {
         await upsertAppUser(ctx, newUser as AuthUserDoc);
       },
       onDelete: async () => {
         // Keep domain data intact if Better Auth user records are deleted.
+      },
+    },
+    session: {
+      onCreate: async (ctx, session) => {
+        const authUser = await authComponent.getAnyUserById(ctx, session.userId);
+        if (!authUser) {
+          return;
+        }
+
+        const appUserId = await upsertAppUser(ctx, authUser as AuthUserDoc);
+        await authComponent.setUserId(ctx, authUser._id, appUserId);
+        await scheduleAvatarRefreshOnLogin(ctx, appUserId);
       },
     },
   },

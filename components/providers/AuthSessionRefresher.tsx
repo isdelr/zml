@@ -1,14 +1,11 @@
 "use client";
 import { useEffect, useRef, useCallback } from "react";
-import { useAction, useConvexAuth } from "convex/react";
-import { api } from "@/lib/convex/api";
+import { useConvexAuth } from "convex/react";
 
 export function AuthSessionRefresher() {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const syncCachedAvatar = useAction(api.users.syncCachedAvatar);
   const intervalRef = useRef<number | null>(null);
   const isRefreshingRef = useRef(false);
-  const isSyncingAvatarRef = useRef(false);
 
   const ping = useCallback(async () => {
     if (isRefreshingRef.current) return;
@@ -34,19 +31,6 @@ export function AuthSessionRefresher() {
     }
   }, []);
 
-  const syncAvatar = useCallback(async () => {
-    if (isSyncingAvatarRef.current) return;
-
-    isSyncingAvatarRef.current = true;
-    try {
-      await syncCachedAvatar({});
-    } catch (error) {
-      console.debug("Avatar sync failed:", error);
-    } finally {
-      isSyncingAvatarRef.current = false;
-    }
-  }, [syncCachedAvatar]);
-
   const setupInterval = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -61,7 +45,6 @@ export function AuthSessionRefresher() {
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       void ping();
-      void syncAvatar();
       setupInterval();
     }
 
@@ -73,7 +56,6 @@ export function AuthSessionRefresher() {
 
         if (!lastPing || now - parseInt(lastPing) > OFFLINE_THRESHOLD) {
           void ping();
-          void syncAvatar();
         }
 
         setupInterval();
@@ -95,7 +77,7 @@ export function AuthSessionRefresher() {
         intervalRef.current = null;
       }
     };
-  }, [isAuthenticated, isLoading, setupInterval, ping, syncAvatar]);
+  }, [isAuthenticated, isLoading, setupInterval, ping]);
 
   return null;
 }

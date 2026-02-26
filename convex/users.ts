@@ -1,14 +1,17 @@
 import { v } from "convex/values";
 import {
   action,
+  internalAction,
   internalMutation,
   internalQuery,
   query,
 } from "./_generated/server";
+import type { ActionCtx } from "./_generated/server";
 import { getAuthUserId } from "./authCore";
 import { membershipsByUser, submissionsByUser } from "./aggregates";
 import { internal } from "./_generated/api";
 import { B2Storage } from "./b2Storage";
+import type { Id } from "./_generated/dataModel";
 import {
   buildAvatarObjectKey,
   isAvatarObjectKey,
@@ -16,6 +19,62 @@ import {
 } from "./userAvatar";
 
 const storage = new B2Storage();
+const MAX_AVATAR_BYTES = 5_000_000;
+
+async function syncCachedAvatarForUserId(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  userId: Id<"users">,
+  options?: { force?: boolean },
+): Promise<boolean> {
+  const user = await ctx.runQuery(internal.users.getAvatarSyncTarget, {
+    userId,
+  });
+
+  if (!user?.providerImageUrl) {
+    return false;
+  }
+
+  if (
+    !options?.force &&
+    isAvatarObjectKey(user.image) &&
+    user.imageCachedFromUrl === user.providerImageUrl
+  ) {
+    return false;
+  }
+
+  const response = await fetch(user.providerImageUrl, {
+    headers: {
+      Accept: "image/webp,image/*;q=0.8,*/*;q=0.5",
+    },
+  });
+  if (!response.ok) {
+    return false;
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.startsWith("image/")) {
+    return false;
+  }
+
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength === 0 || bytes.byteLength > MAX_AVATAR_BYTES) {
+    return false;
+  }
+
+  const avatarKey = buildAvatarObjectKey(userId.toString());
+  await storage.putObject(avatarKey, new Uint8Array(bytes), {
+    contentType: contentType || "image/webp",
+    contentLength: bytes.byteLength,
+  });
+
+  await ctx.runMutation(internal.users.setCachedAvatar, {
+    userId,
+    avatarKey,
+    sourceUrl: user.providerImageUrl,
+  });
+
+  return true;
+}
 
 export const getCurrentUser = query({
   args: {},
@@ -159,52 +218,22 @@ export const syncCachedAvatar = action({
       return { updated: false };
     }
 
-    const user = await ctx.runQuery(internal.users.getAvatarSyncTarget, {
-      userId,
+    const updated = await syncCachedAvatarForUserId(ctx, userId);
+    return { updated };
+  },
+});
+
+export const syncCachedAvatarForUser = internalAction({
+  args: {
+    userId: v.id("users"),
+    force: v.optional(v.boolean()),
+  },
+  returns: v.object({ updated: v.boolean() }),
+  handler: async (ctx, args) => {
+    const updated = await syncCachedAvatarForUserId(ctx, args.userId, {
+      force: args.force ?? false,
     });
-    if (!user?.providerImageUrl) {
-      return { updated: false };
-    }
-
-    if (
-      isAvatarObjectKey(user.image) &&
-      user.imageCachedFromUrl === user.providerImageUrl
-    ) {
-      return { updated: false };
-    }
-
-    const response = await fetch(user.providerImageUrl, {
-      headers: {
-        Accept: "image/webp,image/*;q=0.8,*/*;q=0.5",
-      },
-    });
-    if (!response.ok) {
-      return { updated: false };
-    }
-
-    const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.startsWith("image/")) {
-      return { updated: false };
-    }
-
-    const bytes = await response.arrayBuffer();
-    if (bytes.byteLength === 0 || bytes.byteLength > 5_000_000) {
-      return { updated: false };
-    }
-
-    const avatarKey = buildAvatarObjectKey(userId.toString());
-    await storage.putObject(avatarKey, new Uint8Array(bytes), {
-      contentType: contentType || "image/webp",
-      contentLength: bytes.byteLength,
-    });
-
-    await ctx.runMutation(internal.users.setCachedAvatar, {
-      userId,
-      avatarKey,
-      sourceUrl: user.providerImageUrl,
-    });
-
-    return { updated: true };
+    return { updated };
   },
 });
 
