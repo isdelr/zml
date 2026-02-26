@@ -17,6 +17,31 @@ const MAX_AVATAR_BYTES = 5_000_000;
 const AVATAR_OUTPUT_SIZE = 256;
 const AVATAR_OUTPUT_QUALITY = 92;
 
+function buildDiscordDefaultAvatarUrlFromAvatarUrl(
+  providerImageUrl: string,
+): string | null {
+  try {
+    const url = new URL(providerImageUrl);
+    const isDiscordHost =
+      url.hostname === "cdn.discordapp.com" ||
+      url.hostname === "media.discordapp.net";
+    if (!isDiscordHost) {
+      return null;
+    }
+
+    const match = /^\/avatars\/(\d+)\/[^/]+$/u.exec(url.pathname);
+    if (!match) {
+      return null;
+    }
+
+    const userId = match[1];
+    const fallbackIndex = Number((BigInt(userId) >> BigInt(22)) % BigInt(6));
+    return `https://cdn.discordapp.com/embed/avatars/${fallbackIndex}.png`;
+  } catch {
+    return null;
+  }
+}
+
 async function transcodeAvatarToWebp(
   inputBytes: ArrayBuffer,
 ): Promise<Uint8Array | null> {
@@ -56,6 +81,7 @@ async function syncCachedAvatarForUserId(
   });
 
   if (!user?.providerImageUrl) {
+    console.info("[avatar-sync] skipped: user has no providerImageUrl", { userId });
     return false;
   }
 
@@ -64,43 +90,116 @@ async function syncCachedAvatarForUserId(
     isAvatarObjectKey(user.image) &&
     user.imageCachedFromUrl === user.providerImageUrl
   ) {
+    console.info("[avatar-sync] skipped: already cached for current provider URL", {
+      userId,
+    });
     return false;
   }
 
-  const response = await fetch(user.providerImageUrl, {
+  let downloadUrl = user.providerImageUrl;
+  let response = await fetch(downloadUrl, {
     headers: {
       Accept: "image/webp,image/*;q=0.8,*/*;q=0.5",
     },
   });
+
   if (!response.ok) {
+    const discordFallbackUrl = buildDiscordDefaultAvatarUrlFromAvatarUrl(
+      user.providerImageUrl,
+    );
+    if (response.status === 404 && discordFallbackUrl) {
+      console.warn(
+        "[avatar-sync] provider avatar 404, retrying with discord default avatar",
+        { userId, providerImageUrl: user.providerImageUrl, discordFallbackUrl },
+      );
+      downloadUrl = discordFallbackUrl;
+      response = await fetch(downloadUrl, {
+        headers: {
+          Accept: "image/webp,image/*;q=0.8,*/*;q=0.5",
+        },
+      });
+    }
+  }
+
+  if (!response.ok) {
+    console.warn("[avatar-sync] failed: download response was not ok", {
+      userId,
+      providerImageUrl: user.providerImageUrl,
+      attemptedUrl: downloadUrl,
+      status: response.status,
+    });
     return false;
   }
 
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.startsWith("image/")) {
+    console.warn("[avatar-sync] failed: downloaded content is not an image", {
+      userId,
+      providerImageUrl: user.providerImageUrl,
+      attemptedUrl: downloadUrl,
+      contentType,
+    });
     return false;
   }
 
   const bytes = await response.arrayBuffer();
   if (bytes.byteLength === 0 || bytes.byteLength > MAX_AVATAR_BYTES) {
+    console.warn("[avatar-sync] failed: invalid downloaded avatar size", {
+      userId,
+      providerImageUrl: user.providerImageUrl,
+      attemptedUrl: downloadUrl,
+      bytes: bytes.byteLength,
+    });
     return false;
   }
 
   const webpBytes = await transcodeAvatarToWebp(bytes);
   if (!webpBytes) {
+    console.warn("[avatar-sync] failed: avatar transcode returned null", {
+      userId,
+      providerImageUrl: user.providerImageUrl,
+      attemptedUrl: downloadUrl,
+    });
     return false;
   }
 
   const avatarKey = buildAvatarObjectKey(userId.toString());
-  await storage.putObject(avatarKey, webpBytes, {
-    contentType: "image/webp",
-    contentLength: webpBytes.byteLength,
-  });
+  try {
+    await storage.putObject(avatarKey, webpBytes, {
+      contentType: "image/webp",
+      contentLength: webpBytes.byteLength,
+    });
+  } catch (error) {
+    console.error("[avatar-sync] failed: unable to upload avatar to storage", {
+      userId,
+      avatarKey,
+      error,
+    });
+    return false;
+  }
 
-  await ctx.runMutation(internal.users.setCachedAvatar, {
+  try {
+    await ctx.runMutation(internal.users.setCachedAvatar, {
+      userId,
+      avatarKey,
+      sourceUrl: user.providerImageUrl,
+    });
+  } catch (error) {
+    console.error("[avatar-sync] failed: unable to persist cached avatar metadata", {
+      userId,
+      avatarKey,
+      providerImageUrl: user.providerImageUrl,
+      error,
+    });
+    return false;
+  }
+
+  console.info("[avatar-sync] success", {
     userId,
     avatarKey,
-    sourceUrl: user.providerImageUrl,
+    providerImageUrl: user.providerImageUrl,
+    downloadedFrom: downloadUrl,
+    webpBytes: webpBytes.byteLength,
   });
 
   return true;
