@@ -37,9 +37,12 @@ export async function resolveUserAvatarUrl(
     }
   }
 
+  if (user.providerImageUrl) {
+    return user.providerImageUrl;
+  }
+
   if (imageValue && !imageValue.startsWith("data:image/")) {
     return imageValue;
   }
-
-  return user.providerImageUrl ?? null;
+  return null;
 }

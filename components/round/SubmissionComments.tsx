@@ -51,7 +51,7 @@ export function SubmissionComments({ submissionId }: SubmissionCommentsProps) {
       userId: currentUser._id,
       text,
       authorName: currentUser.name ?? "You",
-      authorImage: currentUser.image ?? currentUser.providerImageUrl ?? null,
+      authorImage: currentUser.image ?? null,
     } as Doc<"comments"> & { authorName: string; authorImage: string | null };
 
     const newComments = [...existingComments, optimisticComment];
@@ -123,11 +123,7 @@ export function SubmissionComments({ submissionId }: SubmissionCommentsProps) {
       {isAuthenticated && (
         <div className="flex items-start gap-3">
           <Avatar className="mt-1 size-8 flex-shrink-0">
-            <AvatarImage
-              src={
-                currentUser?.image ?? currentUser?.providerImageUrl ?? undefined
-              }
-            />
+            <AvatarImage src={currentUser?.image ?? undefined} />
             <AvatarFallback>
               <div
                 dangerouslySetInnerHTML={{

@@ -13,6 +13,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { memberCounter } from "./counters";
 import { membershipsByUser } from "./aggregates";
+import { B2Storage } from "./b2Storage";
 import {
   checkLeagueManagementPermission,
   checkLeagueOwnership,
@@ -21,17 +22,9 @@ import {
 } from "../lib/convex-server/leagues/permissions";
 import { getLeagueMembersSummary } from "../lib/convex-server/leagues/members";
 import { getVoteLimits } from "../lib/convex-server/voteLimits";
-import { isAvatarObjectKey } from "./userAvatar";
+import { resolveUserAvatarUrl } from "./userAvatar";
 
-function resolveDisplayImage(user: Doc<"users"> | null | undefined) {
-  if (!user) {
-    return undefined;
-  }
-  if (isAvatarObjectKey(user.image)) {
-    return user.providerImageUrl ?? undefined;
-  }
-  return user.image ?? user.providerImageUrl ?? undefined;
-}
+const storage = new B2Storage();
 
 const songAwardValidator = v.object({
   songTitle: v.string(),
@@ -540,7 +533,7 @@ export const get = query({
     return {
       ...league,
       creatorName: creator?.name ?? "Unknown",
-      creatorImage: resolveDisplayImage(creator),
+      creatorImage: (await resolveUserAvatarUrl(storage, creator)) ?? undefined,
       memberCount: memberCount,
       activeMemberCount,
       spectatorCount,
@@ -606,7 +599,7 @@ export const getInviteInfo = query({
       name: league.name,
       description: league.description,
       creatorName: creator?.name ?? "Unknown",
-      creatorImage: resolveDisplayImage(creator),
+      creatorImage: (await resolveUserAvatarUrl(storage, creator)) ?? undefined,
       memberCount,
       activeMemberCount,
       spectatorCount,
@@ -878,15 +871,15 @@ export const getLeagueStandings = query({
         .map((user) => [user._id.toString(), user]),
     );
 
-    const standings = standingsDocs.map((standing) => {
+    const standings = await Promise.all(standingsDocs.map(async (standing) => {
       const user = userById.get(standing.userId.toString());
       return {
         userId: standing.userId,
         name: user?.name ?? "Unknown User",
-        image: resolveDisplayImage(user),
+        image: (await resolveUserAvatarUrl(storage, user)) ?? undefined,
         totalPoints: standing.totalPoints,
       };
-    });
+    }));
 
     return standings;
   },

@@ -67,11 +67,7 @@ export function MobileMenuSheet({
               >
                 <Avatar className="size-20 border-4 border-primary">
                   <AvatarImage
-                    src={
-                      currentUser.image ??
-                      currentUser.providerImageUrl ??
-                      undefined
-                    }
+                    src={currentUser.image ?? undefined}
                     alt={currentUser.name ?? "User"}
                   />
                   <AvatarFallback

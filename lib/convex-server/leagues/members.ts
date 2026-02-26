@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import type { QueryCtx } from "../../../convex/_generated/server";
-import { isAvatarObjectKey } from "../../../convex/userAvatar";
+import { B2Storage } from "../../../convex/b2Storage";
+import { resolveUserAvatarUrl } from "../../../convex/userAvatar";
 
 type LeagueMemberView = {
   _id: Id<"users">;
@@ -15,6 +16,8 @@ export type LeagueMembersSummary = {
   members: LeagueMemberView[];
   spectators: LeagueMemberView[];
 };
+
+const storage = new B2Storage();
 
 export async function getLeagueMembersSummary(
   ctx: QueryCtx,
@@ -58,9 +61,7 @@ export async function getLeagueMembersSummary(
       const item: LeagueMemberView = {
         _id: user._id,
         name: user.name,
-        image: isAvatarObjectKey(user.image)
-          ? (user.providerImageUrl ?? undefined)
-          : (user.image ?? user.providerImageUrl),
+        image: (await resolveUserAvatarUrl(storage, user)) ?? undefined,
       };
 
       if (membership.isSpectator) {

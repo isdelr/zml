@@ -77,14 +77,7 @@ export function Sidebar() {
               {currentUser && (
                 <div className="flex items-center gap-2">
                   <Avatar className="size-8">
-                    <AvatarImage
-                      src={
-                        currentUser.image ??
-                        currentUser.providerImageUrl ??
-                        undefined
-                      }
-                      alt={currentUser.name}
-                    />
+                    <AvatarImage src={currentUser.image ?? undefined} alt={currentUser.name} />
                     <AvatarFallback
                       dangerouslySetInnerHTML={{
                         __html: toSvg(currentUser._id, 32),
