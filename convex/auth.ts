@@ -137,6 +137,9 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24 * 14,
     },
+    account: {
+      updateAccountOnSignIn: true,
+    },
     database: authComponent.adapter(ctx),
     socialProviders: {
       discord: {

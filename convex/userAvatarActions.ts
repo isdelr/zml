@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import type { ActionCtx } from "./_generated/server";
 import { getAuthUserId } from "./authCore";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { B2Storage } from "./b2Storage";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -40,6 +40,76 @@ function buildDiscordDefaultAvatarUrlFromAvatarUrl(
   } catch {
     return null;
   }
+}
+
+type DiscordProfile = {
+  id: string;
+  avatar: string | null;
+  discriminator: string;
+};
+
+function resolveDiscordAvatarUrlFromProfile(profile: DiscordProfile): string {
+  if (profile.avatar === null) {
+    const defaultAvatarNumber =
+      profile.discriminator === "0"
+        ? Number((BigInt(profile.id) >> BigInt(22)) % BigInt(6))
+        : Number.parseInt(profile.discriminator, 10) % 5;
+    return `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNumber}.png`;
+  }
+  const format = profile.avatar.startsWith("a_") ? "gif" : "png";
+  return `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.${format}?size=256`;
+}
+
+async function resolveFreshDiscordAvatarUrlFromOAuthAccount(
+  ctx: Pick<ActionCtx, "runQuery">,
+  userId: Id<"users">,
+): Promise<string | null> {
+  const authUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+    model: "user",
+    where: [{ field: "userId", value: userId }],
+  });
+
+  if (!authUser?._id) {
+    return null;
+  }
+
+  const account = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+    model: "account",
+    where: [
+      { field: "providerId", value: "discord" },
+      { field: "userId", value: authUser._id },
+    ],
+  });
+
+  const accessToken =
+    typeof account?.accessToken === "string" && account.accessToken.length > 0
+      ? account.accessToken
+      : null;
+
+  if (!accessToken) {
+    return null;
+  }
+
+  const response = await fetch("https://discord.com/api/users/@me", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    console.warn("[avatar-sync] failed to refresh discord profile using OAuth token", {
+      userId,
+      status: response.status,
+    });
+    return null;
+  }
+
+  const profile = (await response.json()) as DiscordProfile;
+  if (!profile?.id) {
+    return null;
+  }
+
+  return resolveDiscordAvatarUrlFromProfile(profile);
 }
 
 async function transcodeAvatarToWebp(
@@ -97,21 +167,51 @@ async function syncCachedAvatarForUserId(
   }
 
   let downloadUrl = user.providerImageUrl;
+  let sourceUrlForMetadata = user.providerImageUrl;
   let response = await fetch(downloadUrl, {
     headers: {
       Accept: "image/webp,image/*;q=0.8,*/*;q=0.5",
     },
   });
 
-  if (!response.ok) {
-    const discordFallbackUrl = buildDiscordDefaultAvatarUrlFromAvatarUrl(
-      user.providerImageUrl,
+  if (response.status === 404) {
+    const refreshedProviderImageUrl = await resolveFreshDiscordAvatarUrlFromOAuthAccount(
+      ctx,
+      userId,
     );
-    if (response.status === 404 && discordFallbackUrl) {
-      console.warn(
-        "[avatar-sync] provider avatar 404, retrying with discord default avatar",
-        { userId, providerImageUrl: user.providerImageUrl, discordFallbackUrl },
+
+    if (
+      refreshedProviderImageUrl &&
+      refreshedProviderImageUrl !== user.providerImageUrl
+    ) {
+      console.info(
+        "[avatar-sync] provider avatar 404; retrying with fresh discord avatar URL from OAuth account",
+        {
+          userId,
+          previousProviderImageUrl: user.providerImageUrl,
+          refreshedProviderImageUrl,
+        },
       );
+
+      await ctx.runMutation(internal.users.setProviderImageUrlForAvatarSync, {
+        userId,
+        providerImageUrl: refreshedProviderImageUrl,
+      });
+
+      sourceUrlForMetadata = refreshedProviderImageUrl;
+      downloadUrl = refreshedProviderImageUrl;
+      response = await fetch(downloadUrl, {
+        headers: {
+          Accept: "image/webp,image/*;q=0.8,*/*;q=0.5",
+        },
+      });
+    }
+  }
+
+  if (!response.ok && response.status === 404) {
+    const discordFallbackUrl = buildDiscordDefaultAvatarUrlFromAvatarUrl(sourceUrlForMetadata);
+    const isAlreadyDefaultAvatar = discordFallbackUrl === sourceUrlForMetadata;
+    if (discordFallbackUrl && isAlreadyDefaultAvatar) {
       downloadUrl = discordFallbackUrl;
       response = await fetch(downloadUrl, {
         headers: {
@@ -182,13 +282,13 @@ async function syncCachedAvatarForUserId(
     await ctx.runMutation(internal.users.setCachedAvatar, {
       userId,
       avatarKey,
-      sourceUrl: user.providerImageUrl,
+      sourceUrl: sourceUrlForMetadata,
     });
   } catch (error) {
     console.error("[avatar-sync] failed: unable to persist cached avatar metadata", {
       userId,
       avatarKey,
-      providerImageUrl: user.providerImageUrl,
+      providerImageUrl: sourceUrlForMetadata,
       error,
     });
     return false;
@@ -197,7 +297,7 @@ async function syncCachedAvatarForUserId(
   console.info("[avatar-sync] success", {
     userId,
     avatarKey,
-    providerImageUrl: user.providerImageUrl,
+    providerImageUrl: sourceUrlForMetadata,
     downloadedFrom: downloadUrl,
     webpBytes: webpBytes.byteLength,
   });

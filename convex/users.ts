@@ -187,3 +187,22 @@ export const setCachedAvatar = internalMutation({
     });
   },
 });
+
+export const setProviderImageUrlForAvatarSync = internalMutation({
+  args: {
+    userId: v.id("users"),
+    providerImageUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get("users", args.userId);
+    if (!user) {
+      return;
+    }
+
+    await ctx.db.patch(args.userId, {
+      providerImageUrl: args.providerImageUrl,
+      imageCachedFromUrl: undefined,
+      imageCachedAt: undefined,
+    });
+  },
+});
