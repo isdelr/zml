@@ -72,6 +72,7 @@
     "react-hook-form": "^7.71.1",
     "recharts": "^3.7.0",
     "serwist": "^9.5.5",
+    "sharp": "^0.34.5",
     "sonner": "^2.0.6",
     "tailwind-merge": "^3.3.1",
     "waveform-data": "^4.5.2",

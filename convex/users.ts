@@ -20,6 +20,37 @@ import {
 
 const storage = new B2Storage();
 const MAX_AVATAR_BYTES = 5_000_000;
+const AVATAR_OUTPUT_SIZE = 256;
+const AVATAR_OUTPUT_QUALITY = 92;
+
+async function transcodeAvatarToWebp(
+  inputBytes: ArrayBuffer,
+): Promise<Uint8Array | null> {
+  try {
+    const { default: sharp } = await import("sharp");
+    const output = await sharp(Buffer.from(inputBytes), {
+      animated: false,
+      failOn: "none",
+      limitInputPixels: 4096 * 4096,
+    })
+      .rotate()
+      .resize(AVATAR_OUTPUT_SIZE, AVATAR_OUTPUT_SIZE, {
+        fit: "cover",
+        position: "centre",
+      })
+      .webp({ quality: AVATAR_OUTPUT_QUALITY, effort: 4 })
+      .toBuffer();
+
+    if (output.byteLength === 0 || output.byteLength > MAX_AVATAR_BYTES) {
+      return null;
+    }
+
+    return new Uint8Array(output);
+  } catch (error) {
+    console.error("Failed to transcode avatar to webp", error);
+    return null;
+  }
+}
 
 async function syncCachedAvatarForUserId(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
@@ -61,10 +92,15 @@ async function syncCachedAvatarForUserId(
     return false;
   }
 
+  const webpBytes = await transcodeAvatarToWebp(bytes);
+  if (!webpBytes) {
+    return false;
+  }
+
   const avatarKey = buildAvatarObjectKey(userId.toString());
-  await storage.putObject(avatarKey, new Uint8Array(bytes), {
-    contentType: contentType || "image/webp",
-    contentLength: bytes.byteLength,
+  await storage.putObject(avatarKey, webpBytes, {
+    contentType: "image/webp",
+    contentLength: webpBytes.byteLength,
   });
 
   await ctx.runMutation(internal.users.setCachedAvatar, {

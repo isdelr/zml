@@ -68,7 +68,8 @@ const upsertAppUser = async (
 
       await ctx.db.patch(existingMappedUser._id, {
         ...patchData,
-        image: providerImageChanged ? undefined : existingAvatarKey,
+        // Keep serving the cached avatar until the next login-triggered sync refreshes it.
+        image: existingAvatarKey,
         ...(providerImageChanged
           ? { imageCachedFromUrl: undefined, imageCachedAt: undefined }
           : {}),
@@ -92,7 +93,8 @@ const upsertAppUser = async (
 
     await ctx.db.patch(existingByEmail._id, {
       ...patchData,
-      image: providerImageChanged ? undefined : existingAvatarKey,
+      // Keep serving the cached avatar until the next login-triggered sync refreshes it.
+      image: existingAvatarKey,
       ...(providerImageChanged
         ? { imageCachedFromUrl: undefined, imageCachedAt: undefined }
         : {}),
@@ -118,11 +120,19 @@ function normalizeProviderImageUrl(image: string | null | undefined) {
       url.hostname === "media.discordapp.net";
 
     if (isDiscordHost) {
-      // Use Discord's CDN transforms for a high-quality lossy avatar variant.
-      url.hostname = "media.discordapp.net";
-      url.searchParams.set("size", "256");
-      url.searchParams.set("format", "webp");
-      url.searchParams.set("quality", "92");
+      // Normalize Discord avatar URLs to a stable form.
+      // `media.discordapp.net` transform params can intermittently 400.
+      url.hostname = "cdn.discordapp.com";
+      url.searchParams.delete("format");
+      url.searchParams.delete("quality");
+
+      // Keep embed avatar URLs untouched, but normalize regular avatar size.
+      const isEmbedAvatar = /^\/embed\/avatars\/\d+\.png$/u.test(url.pathname);
+      if (isEmbedAvatar) {
+        url.searchParams.delete("size");
+      } else {
+        url.searchParams.set("size", "256");
+      }
     }
 
     return url.toString();
