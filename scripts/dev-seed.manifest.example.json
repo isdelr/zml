@@ -1,0 +1,16 @@
+{
+  "songs": [
+    {
+      "songPath": "/home/isa/Downloads/Radiohead - In Rainbows (2007) [FLAC] {XL Recordings XL1247CDJP}",
+      "coverPath": "/absolute/path/to/covers/track-one.jpg",
+      "songTitle": "Track One",
+      "artist": "Artist",
+      "duration": 203,
+      "comment": "Optional custom comment for seed data",
+      "lyrics": "Optional prefilled lyrics text"
+    },
+    {
+      "songPath": "/absolute/path/to/music/Another Artist - Track Two.flac"
+    }
+  ]
+}

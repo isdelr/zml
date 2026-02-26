@@ -1,0 +1,108 @@
+name: zml-dev
+
+x-convex-backend-required-env: &convex-backend-required-env
+  INSTANCE_SECRET: ${INSTANCE_SECRET:?Set INSTANCE_SECRET in .env.docker.dev}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-convex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-convex_dev_password_change_me}
+      POSTGRES_DB: ${CONVEX_POSTGRES_DB:-zml_dev}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - wal_compression=on
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - max_wal_size=1GB
+      - -c
+      - min_wal_size=256MB
+      - -c
+      - log_min_duration_statement=300ms
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  convex-backend:
+    image: ghcr.io/get-convex/convex-backend:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env.docker.dev
+    environment:
+      <<: *convex-backend-required-env
+      INSTANCE_NAME: ${INSTANCE_NAME:-zml-dev}
+      CONVEX_CLOUD_ORIGIN: ${CONVEX_CLOUD_ORIGIN:-http://127.0.0.1:3210}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-convex}:${POSTGRES_PASSWORD:-convex_dev_password_change_me}@postgres:5432
+      POSTGRES_URL: postgresql://${POSTGRES_USER:-convex}:${POSTGRES_PASSWORD:-convex_dev_password_change_me}@postgres:5432
+      DO_NOT_REQUIRE_SSL: "1"
+      DISABLE_BEACON: "1"
+      DATABASE_UDF_USER_TIMEOUT_SECONDS: ${DATABASE_UDF_USER_TIMEOUT_SECONDS:-2}
+      ISOLATE_MAX_USER_HEAP_SIZE: ${ISOLATE_MAX_USER_HEAP_SIZE:-134217728}
+      ISOLATE_MAX_HEAP_EXTRA_SIZE: ${ISOLATE_MAX_HEAP_EXTRA_SIZE:-67108864}
+    ports:
+      - "3210:3210"
+      - "3211:3211"
+    volumes:
+      - convex_data:/convex/data
+
+  convex-dashboard:
+    image: ghcr.io/get-convex/convex-dashboard:latest
+    restart: unless-stopped
+    depends_on:
+      - convex-backend
+    environment:
+      NEXT_PUBLIC_DEPLOYMENT_URL: http://localhost:3210
+    ports:
+      - "6791:6791"
+
+  app:
+    build:
+      context: .
+      target: dev
+      args:
+        NEXT_PUBLIC_CONVEX_URL: ${NEXT_PUBLIC_CONVEX_URL:-http://localhost:3210}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+        B2_ENDPOINT: ${B2_ENDPOINT:-https://s3.us-east-005.backblazeb2.com}
+    restart: unless-stopped
+    depends_on:
+      - convex-backend
+    env_file:
+      - .env.docker.dev
+    environment:
+      CONVEX_SELF_HOSTED_ADMIN_KEY: ${CONVEX_SELF_HOSTED_ADMIN_KEY:-}
+      CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
+      CONVEX_SITE_URL: http://convex-backend:3211
+      DOCKER_DEV: "1"
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+    command: sh -c "npm ci && npm run dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  convex_data:
+  postgres_data:

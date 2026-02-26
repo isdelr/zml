@@ -1,0 +1,368 @@
+# Convex Refactor Plan
+
+## Goal
+- Refactor the entire `convex/` codebase (excluding `convex/_generated`) to be clean, professional, and aligned with current Convex best practices.
+- Enable large-scale backend changes while keeping frontend references updated in the same workflow.
+
+## Constraints
+- `convex/_generated` is managed by Convex and excluded from manual refactors.
+- Every backend API change must update frontend callsites in the same phase/PR.
+- Prefer typed contracts and codegen-driven safety over ad hoc casts.
+
+## Zero-Data Baseline
+- We are intentionally starting from an empty database.
+- Legacy-data compatibility and historical backfills are out of scope unless re-requested.
+- Destructive schema/contract cleanup is allowed when it improves clarity or performance.
+
+## Phase 0: Baseline (started)
+- [x] Create this refactor plan document.
+- [x] Add an inventory script to map Convex functions and frontend API usage.
+- [x] Generate baseline inventory in `docs/convex-refactor-baseline.md`.
+- [x] Add a repeatable local contract gate command: `npm run check:convex-contract`.
+
+Deliverables:
+- `docs/convex-refactor-plan.md`
+- `docs/convex-refactor-baseline.md`
+- `scripts/convex-refactor-inventory.mjs`
+
+## Phase 1: Contract and Guardrails
+- [x] Build a domain-level frontend contract layer so UI components stop importing `api` directly.
+- [x] Add lint enforcement to block direct `@/convex/_generated/api` imports in UI files.
+- [x] Eliminate unsafe API typing shims (`as never`, `as any`, `as unknown as`) in frontend/backend call paths.
+
+## Progress Log
+- 2026-02-08:
+  - Added baseline automation and initial report (`scripts/convex-refactor-inventory.mjs`, `docs/convex-refactor-baseline.md`).
+  - Added local contract check scripts in `package.json`.
+  - Plan scope confirmed:
+    - Zero-data baseline is the default assumption for schema and contract cleanup.
+  - Completed first cast cleanup in backend-call path by refactoring `lib/storage/useUploadFile.ts` to use typed Convex `FunctionReference`s (removed `as never`/`as unknown as` there).
+  - Completed frontend Convex call-path cast cleanup in `components/MobileMenuSheet.tsx`, `components/Sidebar.tsx`, `components/RoundDetail.tsx`, `components/MySubmissionsPage.tsx`, and `components/round/SubmissionsList.tsx`.
+  - Baseline unsafe patterns reduced from 38 to 28, with no remaining `as any` / `as unknown as` / `as never` occurrences in `app/`, `components/`, `hooks/`, or `lib/`.
+  - Completed backend cast cleanup in `convex/votes.ts`, `convex/rounds.ts`, `convex/listenProgress.ts`, `convex/leagues.ts`, `convex/submissions.ts`, `convex/adminSeed.ts`, `convex/lyrics.ts`, and `convex/aggregates.ts`.
+  - Convex TypeScript compile check passes (`npx tsc --noEmit --project convex/tsconfig.json`).
+  - Replaced remaining `v.any()` usage in `convex/schema.ts` and `convex/notifications.ts` with explicit validators.
+  - Baseline unsafe patterns reduced from 28 to 0 (current report: `docs/convex-refactor-baseline.md`).
+  - Phase 2 module split and cleanup:
+    - Added domain helpers under `lib/convex-server/`:
+      - `lib/convex-server/leagues/permissions.ts`
+      - `lib/convex-server/rounds/permissions.ts`
+      - `lib/convex-server/submissions/youtube.ts`
+      - `lib/convex-server/voteLimits.ts`
+    - Wired shared helpers into oversized modules (`convex/leagues.ts`, `convex/rounds.ts`, `convex/submissions.ts`, `convex/votes.ts`).
+    - Removed legacy demo surface:
+      - `convex/myFunctions.ts`
+      - `app/server/page.tsx`
+      - `app/server/inner.tsx`
+    - Baseline function surface updated to 99 exported functions.
+  - Phase 3 indexing hardening pass:
+    - Added schema indexes for high-traffic query paths:
+      - `rounds.by_status_and_submission_deadline`
+      - `rounds.by_status_and_voting_deadline`
+      - `roundResults.by_round_and_winner`
+      - `notifications.by_user_and_type`
+      - `pushSubscriptions.by_user_and_active`
+      - `pushSubscriptions.by_active`
+      - `pushSubscriptions.by_active_and_deactivated_at`
+    - Replaced filter-driven scans with index-backed queries in:
+      - `convex/rounds.ts` (`getDueForVoting`, `getDueForFinishing`, winner lookup in `getForLeague`, active-round loading)
+      - `convex/webPush.ts` (`getSubscriptionsForUser`, `getAllSubscriptions`, `cleanupSubscriptions`)
+      - `convex/notifications.ts` (dedupe lookup in `create`)
+      - `convex/leagues.ts` (`getLeaguesForUserFiltered` active-round detection)
+    - Validation:
+      - `npx tsc --noEmit --project convex/tsconfig.json` passes.
+      - `npx eslint convex/schema.ts convex/rounds.ts convex/webPush.ts convex/notifications.ts` passes.
+      - `npx convex codegen` is currently blocked in this environment because `CONVEX_DEPLOYMENT` is not set.
+  - Phase 3 follow-up hardening (query contract + bounded reads):
+    - Added `listenProgress.roundId` (optional) and index `listenProgress.by_round_and_user` in `convex/schema.ts`.
+    - Updated `convex/listenProgress.ts`:
+      - `getForRound` now uses `by_round_and_user` first, with a legacy fallback path for old rows without `roundId`.
+      - `updateProgress` and `markCompletedBatch` now persist `roundId` to keep new writes index-ready.
+    - Normalized league query arg naming for consistency:
+      - `convex/leagues.ts`: `get` now accepts `{ leagueId }` (was `{ id }`)
+      - `convex/leagues.ts`: `getLeagueMetadata` now accepts `{ leagueId }` (was `{ id }`)
+      - Updated all impacted callsites in frontend/server routes.
+    - Bounded public-league reads for consistency:
+      - `convex/leagues.ts`: `getPublicLeagues` now accepts optional `{ limit }` (default 100, clamped to 1..200) and uses `.take(limit)`.
+      - Updated preload callsites in `app/page.tsx` and `app/explore/page.tsx` to pass `{ limit: 100 }`.
+      - `convex/leagues.ts`: `searchInLeague` now bounds round scanning (`order("desc").take(...)`) before text filtering, instead of collecting all rounds in a league.
+    - Added explicit public query contract for explore:
+      - `convex/leagues.ts`: `getPublicLeagues` now has a strict `returns` shape (public preview object) and returns only the fields used by explore surfaces.
+      - Added computed `isActive` in `getPublicLeagues` using indexed round-status checks (`by_league_and_status`).
+      - `components/ExplorePage.tsx` and `components/explore/LeagueGrid.tsx` now use typed `FunctionReturnType<typeof api.leagues.getPublicLeagues>` instead of unknown list shapes.
+    - Removed legacy-only listen progress path (DB is empty):
+      - `convex/schema.ts`: `listenProgress.roundId` is now required (no legacy optional rows).
+      - `convex/listenProgress.ts`: `getForRound` now always uses `by_round_and_user` (legacy fallback removed).
+      - Updated seed helpers (`convex/adminSeed.ts`, `convex/devSeed.ts`) to always write/patch `roundId` on listen progress rows.
+    - Notification retention cleanup moved to index-backed path:
+      - `convex/schema.ts`: notifications now include required `createdAt` with index `by_created_at`.
+      - `convex/notifications.ts`: `create`/`createMany` now persist `createdAt`; `deleteOldNotifications` now uses `withIndex("by_created_at", ...)` instead of table-scan filters.
+      - `convex/devSeed.ts` notification inserts now set `createdAt`.
+    - Consistent list/search ordering semantics:
+      - `convex/leagues.ts`: user league lists (`getLeaguesForUser`, `getLeaguesForUserFiltered`) now return deterministic sorted order (name, then creation time).
+      - `convex/rounds.ts`: `getActiveForUser` now sorts by status-appropriate deadline (submission vs voting), not a single field for all statuses.
+      - `convex/leagues.ts`: `searchInLeague` now canonicalizes `searchText` once (trim + empty guard) and uses the normalized value consistently for both round filtering and search-index queries.
+  - Phase 4 side-effect boundary hardening:
+    - Added shared round transition orchestration helper:
+      - `lib/convex-server/rounds/transitions.ts`
+      - `transitionRoundToVotingWithSideEffects(...)`
+      - `transitionRoundToFinishedWithSideEffects(...)`
+    - Rewired duplicated transition paths to shared orchestration:
+      - `convex/rounds.ts`: `manageRoundState.startVoting`, `manageRoundState.endVoting`, `transitionRoundToVoting`, `transitionRoundToFinished`
+      - `convex/votes.ts`: automatic round-finish path in `castVote`
+    - Behavior fix included:
+      - Automatic finish from voting now also schedules `internal.leagues.updateLeagueStats` (previously missing in `votes.castVote` path).
+    - Additional validation for this phase step:
+      - `npx eslint convex/rounds.ts convex/votes.ts lib/convex-server/rounds/transitions.ts` passes.
+    - Notification pipeline deduplication:
+      - `convex/notifications.ts`: added shared internal helpers for the notification side-effect pipeline:
+        - `createNotificationWithSideEffects(...)`
+        - `enqueueNotificationPush(...)`
+      - `create` and `createMany` now use the shared helper path instead of duplicating:
+        - user existence/self-trigger checks
+        - notification insert
+        - unread aggregate insert
+        - push scheduling payload construction
+      - Introduced shared validators to standardize notification contracts:
+        - `notificationTypeValidator`
+        - `pushNotificationOverrideValidator`
+    - Additional validation for notification deduplication step:
+      - `npx eslint convex/notifications.ts lib/convex-server/rounds/transitions.ts convex/rounds.ts convex/votes.ts` passes.
+    - League member/spectator aggregation deduplication:
+      - Added shared helper: `lib/convex-server/leagues/members.ts` (`getLeagueMembersSummary(...)`).
+      - `convex/leagues.ts`: `get` and `getInviteInfo` now share one membership/user resolution path for:
+        - active vs spectator split
+        - member/spectator lists
+        - member counts
+      - Removed duplicated per-user membership scans (`memberships.find(...)` inside filters) from both handlers.
+    - Additional validation for league deduplication step:
+      - `npx eslint convex/leagues.ts lib/convex-server/leagues/members.ts` passes.
+    - Submissions troll-moderation deduplication:
+      - `convex/submissions.ts`: extracted shared helpers:
+        - `updateSubmissionTrollPenalty(...)`
+        - `recalculateAndPatchTrollMembershipStatus(...)`
+      - `markAsTrollSubmission` now reuses these helpers for both mark/unmark paths, removing duplicated membership recount + penalty patch logic.
+      - Behavior hardening:
+        - penalty updates are now handled independently from membership existence checks.
+        - ban threshold and penalty values are centralized constants.
+    - Additional validation for submissions deduplication step:
+      - `npx eslint convex/submissions.ts` passes.
+    - Validation:
+      - `npx tsc --noEmit --project convex/tsconfig.json` passes.
+      - `npx eslint convex/schema.ts convex/listenProgress.ts convex/notifications.ts convex/leagues.ts components/LeaguePage.tsx components/MusicPlayer.tsx app/page.tsx app/explore/page.tsx app/leagues/[leagueId]/page.tsx app/api/og/league/route.tsx` passes.
+      - `npm run convex:inventory` refreshed `docs/convex-refactor-baseline.md`.
+  - Phase 1 frontend contract guardrail hardening:
+    - Added centralized frontend/app Convex contract entrypoint:
+      - `lib/convex/api.ts` (`export const api = generatedApi`).
+    - Migrated frontend/server-app callsites to import from `@/lib/convex/api` instead of `@/convex/_generated/api`.
+    - Added lint enforcement in `eslint.config.mjs`:
+      - `no-restricted-imports` now blocks direct generated API imports for UI/app/frontend-lib files.
+      - Explicit allowlist exception kept for `lib/convex/api.ts` (the contract boundary module itself).
+    - Validation:
+      - `npm run lint` passes (warnings only, no errors).
+  - Phase 4 storage boundary hardening:
+    - `convex/files.ts`: changed upload URL + metadata sync endpoints from `mutation` to `action`:
+      - `generateLeagueImageUploadUrl`
+      - `syncLeagueImageMetadata`
+      - `generateSubmissionFileUploadUrl`
+      - `syncSubmissionFileMetadata`
+    - `lib/storage/useUploadFile.ts`: switched from `useMutation` to `useAction` and updated function reference kinds accordingly.
+    - Validation:
+      - `npx tsc --noEmit --project convex/tsconfig.json` passes.
+      - `npx eslint convex/files.ts lib/storage/useUploadFile.ts` passes.
+      - `npm run convex:inventory` refreshed `docs/convex-refactor-baseline.md`.
+  - Phase 4 mutation/query boundary cleanup:
+    - `convex/submissions.ts`: converted `checkForPotentialDuplicates` from `mutation` to `query` (read-only contract).
+    - `components/SongSubmissionForm.tsx` and `components/EditSubmissionForm.tsx`:
+      - replaced `useMutation(api.submissions.checkForPotentialDuplicates)` with `useConvex().query(...)` calls.
+    - Added shared submission media URL resolver:
+      - `lib/convex-server/submissions/media.ts` (`resolveSubmissionMediaUrls(...)`)
+      - wired into `convex/submissions.ts`, `convex/bookmarks.ts`, `convex/rounds.ts`, and `convex/leagues.ts` to remove duplicated URL-resolution branches.
+    - Query fanout reduction for user-facing reads:
+      - `convex/leagues.ts` (`getPublicLeagues`):
+        - removed per-league active-status round queries and derive `isActive` from already loaded recent rounds.
+      - `convex/bookmarks.ts` (`getBookmarkedSongs`):
+        - replaced per-bookmark `db.get` chains with batched submission/round/league loading maps.
+        - removed fallback `leagueId` cast path; now returns only fully resolvable submission+round+league rows.
+      - `convex/leagues.ts` (`getLeaguesForUser`, `getLeaguesForUserFiltered`):
+        - deduplicated league IDs before loading league docs.
+      - `convex/submissions.ts` (`getMySubmissions`):
+        - replaced per-submission round/league/result lookups with batched round + league maps and round-scoped result loads.
+      - `convex/submissions.ts` (`getForRound`):
+        - removed unused full-round votes scan and deduplicated user fetch IDs before loading users.
+      - `convex/rounds.ts` (`getForLeague`):
+        - batched finished-round winner loading (results + users + submissions) across the paginated page to remove nested per-round/per-winner lookups.
+      - `convex/votes.ts` (`castVote` listen gate):
+        - replaced per-submission listen-progress lookups with one `listenProgress.by_round_and_user` query and in-memory submission map checks.
+      - `convex/listenProgress.ts` (`markCompletedBatch`):
+        - replaced per-submission `db.get`/progress queries with one round-scoped submission load and one round+user progress load, using in-memory maps.
+      - `convex/notifications.ts` (`getForUser`):
+        - replaced per-notification triggering-user lookups with a batched triggering-user preload + map.
+      - `convex/webPush.ts` (`subscribe`):
+        - bounded per-user subscription reads to `MAX_SUBSCRIPTIONS_PER_USER + 1` instead of collecting all subscriptions for the user.
+      - `convex/leagues.ts` (`getStatsData`):
+        - replaced sequential per-submission bookmark-count queries with parallelized loads.
+        - added cached loaders for round image URLs and submission media URLs to avoid repeated signing work within a single stats run.
+        - removed duplicate league-round list query by reusing the previously loaded round set for summary output.
+    - Duplicate-detection hardening (index-backed + normalized fields):
+      - Added shared normalization helpers:
+        - `lib/convex-server/submissions/normalize.ts`
+          - `normalizeSubmissionSongTitle(...)`
+          - `normalizeSubmissionArtist(...)`
+          - `buildSubmissionSearchText(...)`
+      - `convex/schema.ts`: added normalized submission fields and indexes:
+        - `submissions.normalizedSongTitle`
+        - `submissions.normalizedArtist`
+        - `submissions.by_league_and_normalized_song_title`
+        - `submissions.by_league_and_normalized_artist`
+      - `convex/submissions.ts`: submit/edit paths now persist normalized fields; duplicate check now uses normalized indexes and bounded search-index candidates instead of league-wide `.collect()` scans.
+        - Includes bounded title and artist search-index fallback for fuzzy match quality.
+      - `convex/devSeed.ts` and `convex/adminSeed.ts`: seed inserts now populate normalized fields for new data.
+      - Zero-data hardening:
+        - `convex/schema.ts`: `normalizedSongTitle` and `normalizedArtist` are now required (no legacy optional path).
+        - `convex/submissions.ts`: removed fallback normalization logic that handled missing normalized fields.
+        - `lib/convex-server/submissions/media.ts`: removed file-media fallback-to-link behavior (`fallbackToLinkFieldsForFile`) so file submissions resolve media strictly from storage keys.
+    - Validation:
+      - `npx tsc --noEmit --project convex/tsconfig.json` passes.
+      - `npx eslint convex/schema.ts convex/submissions.ts convex/bookmarks.ts convex/rounds.ts convex/leagues.ts convex/devSeed.ts convex/adminSeed.ts components/SongSubmissionForm.tsx components/EditSubmissionForm.tsx lib/convex-server/submissions/media.ts lib/convex-server/submissions/normalize.ts` passes.
+      - `npm run convex:inventory` refreshed `docs/convex-refactor-baseline.md`.
+  - Phase 5 migration scope adjustment for zero-data reset:
+    - Removed normalized-fields backfill migration path from `convex/migrations.ts` (legacy data backfill intentionally skipped).
+    - Removed additional legacy-only schema/data migrations from `convex/migrations.ts`:
+      - `backfillSubmissionType`
+      - `backfillSearchText`
+      - `convertLeagueDeadlinesToHours`
+    - Kept aggregate backfills and migration runner wiring.
+    - Validation:
+      - `npx tsc --noEmit --project convex/tsconfig.json` passes.
+      - `npx eslint convex/migrations.ts convex/schema.ts convex/submissions.ts convex/devSeed.ts convex/adminSeed.ts lib/convex-server/submissions/normalize.ts` passes.
+  - Phase 4 notifications bulk-create optimization:
+    - `convex/notifications.ts`:
+      - `createMany` now preloads unique recipient users once and reuses that set across notification writes.
+      - `createForLeague` now forwards `triggeringUserId` into created notifications for consistent UI attribution.
+      - `getForUser` enrichment map is now synchronous after batched user preloading.
+    - Validation:
+      - `npx tsc --noEmit --project convex/tsconfig.json` passes.
+      - `npx eslint convex/notifications.ts` passes.
+      - `npm run convex:inventory` refreshed `docs/convex-refactor-baseline.md`.
+  - Phase 3/4 leagues performance pass:
+    - `convex/leagues.ts`:
+      - `getLeagueMetadata` now uses `memberCounter.count(...)` instead of loading all memberships.
+      - `getLeagueStandings` now batches user loading through a deduplicated user-id map.
+      - `getStatsData` now parallelizes round results/votes + membership/standing loads and deduplicates member-id user fetches.
+      - `calculateAndStoreResults` now:
+        - deletes old `roundResults` in parallel
+        - inserts new `roundResults` in parallel
+        - preloads league standings once and applies insert/patch writes without per-user standing lookup queries
+    - Validation:
+      - `npx tsc --noEmit --project convex/tsconfig.json` passes.
+      - `npx eslint convex/leagues.ts` passes.
+      - `npm run convex:inventory` refreshed `docs/convex-refactor-baseline.md`.
+  - Phase 3/4 submissions + rounds performance pass:
+    - `convex/submissions.ts`:
+      - `checkForPotentialDuplicates` now bounds exact normalized-index reads with `.take(...)`.
+      - duplicate detection now uses shared constants for exact/fuzzy candidate limits.
+      - `getCommentsForSubmission` now batch-loads comment authors by unique user IDs.
+    - `convex/rounds.ts`:
+      - `getActiveForUser` now deduplicates league IDs and parallelizes per-league active-round + art resolution.
+      - `manageRoundState.endVoting` now uses indexed `.first()` existence checks for submissions/votes instead of full collections.
+      - `updateRound` submission reset path now parallelizes comment cleanup + submission deletes/counter updates.
+      - `transitionDueRounds` now processes due transitions in parallel batches (`Promise.allSettled`) with per-round error logging.
+    - Validation:
+      - `npx tsc --noEmit --project convex/tsconfig.json` passes.
+      - `npx eslint convex/submissions.ts convex/rounds.ts` passes.
+      - `npm run convex:inventory` refreshed `docs/convex-refactor-baseline.md`.
+  - Phase 7 documentation handover:
+    - Added:
+      - `docs/convex-architecture-notes.md`
+      - `docs/convex-migration-runbook.md`
+      - `docs/convex-contract-workflow.md`
+    - Captures current backend boundaries, migration policy/runbook, and backend/frontend contract workflow.
+  - Codegen status check:
+    - `npx convex codegen` still blocked in this environment (`No CONVEX_DEPLOYMENT set`).
+  - Local-first Convex sync/codegen flow enabled:
+    - Standardized scripts in `package.json`:
+      - `dev`
+      - `dev:frontend`
+      - `dev:backend`
+      - `convex:sync`
+      - `convex:codegen`
+    - Removed Docker-only wrappers and container guard-script dependencies.
+    - Validation:
+      - `npm run dev` starts local frontend/backend dev loops.
+      - `npm run convex:codegen` regenerates Convex bindings in local development.
+  - Phase 7 dead-code sweep:
+    - Removed unused backend helper export:
+      - `lib/convex-server/leagues/permissions.ts`: `hasLeagueManagementPermission` is now file-private (no unused public export).
+    - Removed unused web-push internal surfaces not referenced by any scheduler/action path:
+      - `convex/webPush.ts`:
+        - `getAllSubscriptions`
+        - `deactivateSubscription`
+        - `cleanupSubscriptions`
+        - `getSubscriptionStats`
+      - `convex/webPushActions.ts`:
+        - `sendToAll`
+    - Minor cleanup:
+      - `convex/auth.config.ts` now exports a named config object (removes anonymous-default lint warning).
+    - Validation:
+      - `npx tsc --noEmit --project convex/tsconfig.json` passes.
+      - `npx eslint convex/webPush.ts convex/webPushActions.ts convex/*.ts lib/convex-server/**/*.ts lib/convex/api.ts` passes.
+      - `npm run convex:inventory` refreshed `docs/convex-refactor-baseline.md`.
+  - Phase 6 Convex critical-path test coverage:
+    - Added Convex integration test:
+      - `scripts/convex-integration.test.mjs`
+      - `npm run test:convex`
+    - Test validates:
+      - auth/authorization boundaries
+      - league membership role transitions
+      - vote constraints
+      - notification read/unread flows
+    - Validation:
+      - `npm run test:convex` passes against the local Convex backend.
+
+## Phase 2: Convex File/Module Restructure
+- [x] Split oversized backend modules into domain submodules with clear responsibility boundaries.
+- [x] Remove legacy/demo backend files that are not part of product flows (`convex/myFunctions.ts` after frontend migration).
+- [x] Introduce shared backend utilities:
+  - auth/permission guards
+  - shared validators
+  - standardized error helpers
+  - date/time helpers
+
+## Phase 3: Schema, Queries, and Indexing Hardening
+- [x] Audit schema field types and narrow `v.any()` usage where practical.
+- [x] Validate each high-traffic query uses an index-backed pattern.
+- [x] Normalize function naming and argument/result shape conventions.
+- [x] Review pagination and search consistency across domains.
+
+## Phase 4: Actions, Internal APIs, and Side Effects
+- [x] Keep external I/O in actions and orchestration layers.
+- [x] Keep state transitions in mutations/internal mutations.
+- [x] Standardize scheduler usage and internal function boundaries.
+- [x] Reduce duplicated logic across notifications, submissions, rounds, and leagues.
+
+## Phase 5: Migrations and Type Hygiene
+- [x] Remove legacy backfill migrations not needed for zero-data startup.
+- [x] Keep only migrations that are required for active schema transforms.
+- [x] Ensure aggregate/component typing is regenerated cleanly.
+
+## Phase 6: Testing
+- [x] Add Convex-focused tests for critical paths:
+  - auth and authorization
+  - league membership/role transitions
+  - submissions and vote constraints
+  - notifications and unread aggregates
+- [x] Maintain local validation loop each pass:
+  - inventory generation
+  - lint
+  - typecheck
+
+## Phase 7: Cleanup and Handover
+- [x] Remove deprecated adapters and dead code.
+- [x] Publish backend architecture notes and migration runbook.
+- [x] Document ongoing team workflow for backend/frontend contract updates.
+
+## Convex References
+- Best practices (`withIndex` over query `.filter`, avoid large `.collect`): https://docs.convex.dev/understanding/best-practices
+- Index/query performance model: https://docs.convex.dev/database/reading-data/indexes/indexes-and-query-perf
+- Pagination patterns (`paginationOptsValidator`, `.paginate`): https://docs.convex.dev/database/pagination

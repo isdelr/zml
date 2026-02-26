@@ -1,0 +1,282 @@
+# Convex Refactor Baseline
+
+Generated: 2026-02-08T15:12:27.567Z
+
+## Summary
+- Convex exported functions: 94
+- Convex public functions: 72
+- Convex internal functions: 22
+- Unique frontend API references: 62
+- Total frontend API usage sites: 135
+- Potential missing frontend refs (not found in public exports): 0
+- Unsafe pattern findings: 0
+
+## Function Kinds
+- action: 8
+- internalAction: 5
+- internalMutation: 11
+- internalQuery: 6
+- mutation: 32
+- query: 32
+
+## Top Frontend API References
+- adminSeed.reset: 1
+- adminSeed.seed: 1
+- bookmarks.getBookmarkedSongs: 10
+- bookmarks.toggleBookmark: 3
+- files.generateLeagueImageUploadUrl: 1
+- files.generateSubmissionFileUploadUrl: 4
+- files.syncLeagueImageMetadata: 1
+- files.syncSubmissionFileMetadata: 4
+- leagues.create: 1
+- leagues.get: 6
+- leagues.getInviteInfo: 3
+- leagues.getLeagueMetadata: 2
+- leagues.getLeaguesForUserFiltered: 2
+- leagues.getLeagueStandings: 2
+- leagues.getLeagueStats: 1
+- leagues.getPublicLeagues: 6
+- leagues.joinPublicLeague: 1
+- leagues.joinWithInviteCode: 1
+- leagues.kickMember: 1
+- leagues.manageInviteCode: 1
+- leagues.searchInLeague: 1
+- leagues.updateLeague: 1
+- listenProgress.getForRound: 2
+- listenProgress.markCompletedBatch: 1
+- listenProgress.updateProgress: 1
+- lyrics.getForSubmission: 2
+- notifications.getForUser: 2
+- notifications.getUnreadCount: 4
+- notifications.markAllAsRead: 1
+- notifications.markAsRead: 1
+- presence.listForRound: 1
+- presence.update: 1
+- rounds.adjustRoundTime: 1
+- rounds.get: 3
+- rounds.getActiveForUser: 2
+- rounds.getForLeague: 1
+- rounds.getRoundMetadata: 3
+- rounds.getVoteSummary: 1
+- rounds.manageRoundState: 1
+- rounds.rollbackRoundToSubmissions: 1
+
+## Potential Missing Frontend API References
+- none
+
+## Unsafe Patterns
+- none
+
+## Unsafe Pattern Locations
+- none
+
+## Public Convex Exports
+- adminSeed.reset (mutation) - convex/adminSeed.ts:63
+- adminSeed.seed (mutation) - convex/adminSeed.ts:33
+- bookmarks.getBookmarkedSongs (query) - convex/bookmarks.ts:37
+- bookmarks.toggleBookmark (mutation) - convex/bookmarks.ts:9
+- devSeed.listUsers (query) - convex/devSeed.ts:624
+- devSeed.resetNamespace (mutation) - convex/devSeed.ts:641
+- devSeed.seedNamespace (mutation) - convex/devSeed.ts:651
+- devSeed.simulateNamespace (mutation) - convex/devSeed.ts:1387
+- files.generateLeagueImageUploadUrl (action) - convex/files.ts:15
+- files.generateSubmissionFileUploadUrl (action) - convex/files.ts:32
+- files.syncLeagueImageMetadata (action) - convex/files.ts:23
+- files.syncSubmissionFileMetadata (action) - convex/files.ts:40
+- leagues.addLeagueManager (mutation) - convex/leagues.ts:88
+- leagues.create (mutation) - convex/leagues.ts:143
+- leagues.get (query) - convex/leagues.ts:413
+- leagues.getInviteInfo (query) - convex/leagues.ts:524
+- leagues.getLeagueMetadata (query) - convex/leagues.ts:876
+- leagues.getLeaguesForUser (query) - convex/leagues.ts:341
+- leagues.getLeaguesForUserFiltered (query) - convex/leagues.ts:366
+- leagues.getLeagueStandings (query) - convex/leagues.ts:814
+- leagues.getLeagueStats (query) - convex/leagues.ts:1501
+- leagues.getPublicLeagues (query) - convex/leagues.ts:291
+- leagues.joinPublicLeague (mutation) - convex/leagues.ts:646
+- leagues.joinWithInviteCode (mutation) - convex/leagues.ts:591
+- leagues.kickMember (mutation) - convex/leagues.ts:777
+- leagues.leaveLeague (mutation) - convex/leagues.ts:1873
+- leagues.manageInviteCode (mutation) - convex/leagues.ts:744
+- leagues.removeLeagueManager (mutation) - convex/leagues.ts:120
+- leagues.searchInLeague (query) - convex/leagues.ts:1559
+- leagues.updateLeague (mutation) - convex/leagues.ts:703
+- listenProgress.getForRound (query) - convex/listenProgress.ts:12
+- listenProgress.markCompletedBatch (mutation) - convex/listenProgress.ts:169
+- listenProgress.updateProgress (mutation) - convex/listenProgress.ts:34
+- lyrics.getForSubmission (action) - convex/lyrics.ts:354
+- notifications.getForUser (query) - convex/notifications.ts:228
+- notifications.getUnreadCount (query) - convex/notifications.ts:280
+- notifications.markAllAsRead (mutation) - convex/notifications.ts:311
+- notifications.markAsRead (mutation) - convex/notifications.ts:290
+- presence.list (query) - convex/presence.ts:45
+- presence.listForRound (query) - convex/presence.ts:65
+- presence.update (mutation) - convex/presence.ts:12
+- rounds.adjustRoundTime (mutation) - convex/rounds.ts:327
+- rounds.get (query) - convex/rounds.ts:22
+- rounds.getActiveForUser (query) - convex/rounds.ts:235
+- rounds.getForLeague (query) - convex/rounds.ts:59
+- rounds.getRoundMetadata (query) - convex/rounds.ts:29
+- rounds.getVoteSummary (query) - convex/rounds.ts:508
+- rounds.manageRoundState (mutation) - convex/rounds.ts:285
+- rounds.rollbackRoundToSubmissions (mutation) - convex/rounds.ts:363
+- rounds.updateRound (mutation) - convex/rounds.ts:406
+- submissions.addComment (mutation) - convex/submissions.ts:505
+- submissions.checkForPotentialDuplicates (query) - convex/submissions.ts:654
+- submissions.editSong (mutation) - convex/submissions.ts:266
+- submissions.getCommentsForSubmission (query) - convex/submissions.ts:553
+- submissions.getForRound (query) - convex/submissions.ts:339
+- submissions.getMySubmissions (query) - convex/submissions.ts:406
+- submissions.getPresignedAlbumArtUrl (action) - convex/submissions.ts:640
+- submissions.getPresignedSongUrl (action) - convex/submissions.ts:626
+- submissions.getSongMetadataFromLink (action) - convex/submissions.ts:88
+- submissions.getWaveform (query) - convex/submissions.ts:611
+- submissions.markAsTrollSubmission (mutation) - convex/submissions.ts:764
+- submissions.storeWaveform (mutation) - convex/submissions.ts:583
+- submissions.submitSong (mutation) - convex/submissions.ts:138
+- users.getCurrentUser (query) - convex/users.ts:6
+- users.getProfile (query) - convex/users.ts:21
+- votes.castVote (mutation) - convex/votes.ts:84
+- votes.getForRound (query) - convex/votes.ts:10
+- votes.getForUserInRound (query) - convex/votes.ts:18
+- votes.getVotersForRound (query) - convex/votes.ts:46
+- webPush.getMySubscriptions (query) - convex/webPush.ts:133
+- webPush.subscribe (mutation) - convex/webPush.ts:13
+- webPush.unsubscribe (mutation) - convex/webPush.ts:80
+
+## Frontend API Usage Sites
+- adminSeed.reset - components/AdminSeedPage.tsx:14
+- adminSeed.seed - components/AdminSeedPage.tsx:13
+- bookmarks.getBookmarkedSongs - app/bookmarked/page.tsx:14
+- bookmarks.getBookmarkedSongs - components/BookMarkedPage.tsx:19
+- bookmarks.getBookmarkedSongs - components/BookMarkedPage.tsx:29
+- bookmarks.getBookmarkedSongs - components/BookMarkedPage.tsx:32
+- bookmarks.getBookmarkedSongs - components/MusicPlayer.tsx:190
+- bookmarks.getBookmarkedSongs - components/MusicPlayer.tsx:202
+- bookmarks.getBookmarkedSongs - components/round/SubmissionsList.tsx:18
+- bookmarks.getBookmarkedSongs - components/round/SubmissionsList.tsx:108
+- bookmarks.getBookmarkedSongs - components/round/SubmissionsList.tsx:119
+- bookmarks.getBookmarkedSongs - components/round/SubmissionsList.tsx:128
+- bookmarks.toggleBookmark - components/BookMarkedPage.tsx:27
+- bookmarks.toggleBookmark - components/MusicPlayer.tsx:167
+- bookmarks.toggleBookmark - components/round/SubmissionsList.tsx:82
+- files.generateLeagueImageUploadUrl - components/CreateLeaguePage.tsx:153
+- files.generateSubmissionFileUploadUrl - components/AlbumSubmissionForm.tsx:90
+- files.generateSubmissionFileUploadUrl - components/EditSubmissionForm.tsx:95
+- files.generateSubmissionFileUploadUrl - components/MultiSongSubmissionForm.tsx:87
+- files.generateSubmissionFileUploadUrl - components/SongSubmissionForm.tsx:106
+- files.syncLeagueImageMetadata - components/CreateLeaguePage.tsx:154
+- files.syncSubmissionFileMetadata - components/AlbumSubmissionForm.tsx:91
+- files.syncSubmissionFileMetadata - components/EditSubmissionForm.tsx:96
+- files.syncSubmissionFileMetadata - components/MultiSongSubmissionForm.tsx:88
+- files.syncSubmissionFileMetadata - components/SongSubmissionForm.tsx:107
+- leagues.create - components/CreateLeaguePage.tsx:151
+- leagues.get - components/LeaguePage.tsx:67
+- leagues.get - components/MusicPlayer.tsx:74
+- leagues.get - components/player/PlayerProgress.tsx:23
+- leagues.get - components/round/SubmissionItem.tsx:56
+- leagues.get - components/round/SubmissionsList.tsx:32
+- leagues.get - components/RoundDetail.tsx:55
+- leagues.getInviteInfo - app/api/og/invite/route.tsx:21
+- leagues.getInviteInfo - app/invite/[inviteCode]/page.tsx:19
+- leagues.getInviteInfo - components/InviteLeaguePage.tsx:61
+- leagues.getLeagueMetadata - app/api/og/league/route.tsx:22
+- leagues.getLeagueMetadata - app/leagues/[leagueId]/page.tsx:24
+- leagues.getLeaguesForUserFiltered - components/MobileMenuSheet.tsx:31
+- leagues.getLeaguesForUserFiltered - components/Sidebar.tsx:48
+- leagues.getLeagueStandings - components/LeagueStats.tsx:518
+- leagues.getLeagueStandings - components/Standings.tsx:47
+- leagues.getLeagueStats - components/LeagueStats.tsx:517
+- leagues.getPublicLeagues - app/explore/page.tsx:15
+- leagues.getPublicLeagues - app/page.tsx:28
+- leagues.getPublicLeagues - components/explore/LeagueGrid.tsx:19
+- leagues.getPublicLeagues - components/explore/LeagueGrid.tsx:20
+- leagues.getPublicLeagues - components/ExplorePage.tsx:14
+- leagues.getPublicLeagues - components/ExplorePage.tsx:17
+- leagues.joinPublicLeague - components/league/LeagueJoinCard.tsx:32
+- leagues.joinWithInviteCode - components/InviteLeaguePage.tsx:62
+- leagues.kickMember - components/league/LeagueSettingsDialog.tsx:411
+- leagues.manageInviteCode - components/league/LeagueSettingsDialog.tsx:524
+- leagues.searchInLeague - components/LeaguePage.tsx:82
+- leagues.updateLeague - components/league/LeagueSettingsDialog.tsx:138
+- listenProgress.getForRound - components/MusicPlayer.tsx:80
+- listenProgress.getForRound - components/RoundDetail.tsx:83
+- listenProgress.markCompletedBatch - components/RoundDetail.tsx:473
+- listenProgress.updateProgress - components/MusicPlayer.tsx:109
+- lyrics.getForSubmission - components/LyricsDisplay.tsx:17
+- lyrics.getForSubmission - components/NowPlayingView.tsx:24
+- notifications.getForUser - components/GlobalNotificationHandler.tsx:20
+- notifications.getForUser - components/NotificationsPage.tsx:35
+- notifications.getUnreadCount - components/BottomNavbar.tsx:21
+- notifications.getUnreadCount - components/MobileMenuSheet.tsx:34
+- notifications.getUnreadCount - components/MobileTopBar.tsx:14
+- notifications.getUnreadCount - components/Sidebar.tsx:51
+- notifications.markAllAsRead - components/NotificationsPage.tsx:40
+- notifications.markAsRead - components/NotificationsPage.tsx:39
+- presence.listForRound - components/RoundDetail.tsx:80
+- presence.update - components/MusicPlayer.tsx:215
+- rounds.adjustRoundTime - components/round/RoundAdminControls.tsx:50
+- rounds.get - components/AlbumSubmissionForm.tsx:94
+- rounds.get - components/MultiSongSubmissionForm.tsx:91
+- rounds.get - components/SongSubmissionForm.tsx:110
+- rounds.getActiveForUser - app/active-rounds/page.tsx:14
+- rounds.getActiveForUser - components/ActiveRoundsPage.tsx:27
+- rounds.getForLeague - components/LeaguePage.tsx:76
+- rounds.getRoundMetadata - app/api/og/round/route.tsx:22
+- rounds.getRoundMetadata - app/leagues/[leagueId]/round/[roundId]/page.tsx:18
+- rounds.getRoundMetadata - components/EditSubmissionForm.tsx:92
+- rounds.getVoteSummary - components/round/RoundVoteSummary.tsx:52
+- rounds.manageRoundState - components/round/RoundAdminControls.tsx:49
+- rounds.rollbackRoundToSubmissions - components/round/RoundAdminControls.tsx:52
+- rounds.updateRound - components/round/EditRoundDialog.tsx:84
+- submissions.addComment - components/round/SubmissionComments.tsx:32
+- submissions.checkForPotentialDuplicates - components/EditSubmissionForm.tsx:72
+- submissions.checkForPotentialDuplicates - components/EditSubmissionForm.tsx:264
+- submissions.checkForPotentialDuplicates - components/SongSubmissionForm.tsx:95
+- submissions.checkForPotentialDuplicates - components/SongSubmissionForm.tsx:220
+- submissions.editSong - components/EditSubmissionForm.tsx:88
+- submissions.getCommentsForSubmission - components/MusicPlayer.tsx:291
+- submissions.getCommentsForSubmission - components/round/SubmissionComments.tsx:27
+- submissions.getCommentsForSubmission - components/round/SubmissionComments.tsx:35
+- submissions.getCommentsForSubmission - components/round/SubmissionComments.tsx:54
+- submissions.getForRound - components/BookMarkedPage.tsx:35
+- submissions.getForRound - components/BookMarkedPage.tsx:41
+- submissions.getForRound - components/MusicPlayer.tsx:170
+- submissions.getForRound - components/MusicPlayer.tsx:180
+- submissions.getForRound - components/round/SubmissionsList.tsx:13
+- submissions.getForRound - components/round/SubmissionsList.tsx:87
+- submissions.getForRound - components/round/SubmissionsList.tsx:99
+- submissions.getForRound - components/RoundDetail.tsx:86
+- submissions.getMySubmissions - app/my-submissions/page.tsx:14
+- submissions.getMySubmissions - components/MySubmissionsPage.tsx:50
+- submissions.getMySubmissions - components/MySubmissionsPage.tsx:53
+- submissions.getPresignedAlbumArtUrl - components/player/PlayerTrackInfo.tsx:17
+- submissions.getPresignedSongUrl - components/MusicPlayer.tsx:108
+- submissions.getSongMetadataFromLink - components/AlbumSubmissionForm.tsx:88
+- submissions.getSongMetadataFromLink - components/EditSubmissionForm.tsx:90
+- submissions.getSongMetadataFromLink - components/MultiSongSubmissionForm.tsx:85
+- submissions.getSongMetadataFromLink - components/SongSubmissionForm.tsx:104
+- submissions.getWaveform - components/MusicPlayer.tsx:333
+- submissions.markAsTrollSubmission - components/round/SubmissionItem.tsx:93
+- submissions.storeWaveform - components/MusicPlayer.tsx:331
+- submissions.submitSong - components/AlbumSubmissionForm.tsx:87
+- submissions.submitSong - components/MultiSongSubmissionForm.tsx:84
+- submissions.submitSong - components/SongSubmissionForm.tsx:103
+- users.getCurrentUser - components/AdminSeedPage.tsx:12
+- users.getCurrentUser - components/LeaguePage.tsx:88
+- users.getCurrentUser - components/MobileMenuSheet.tsx:29
+- users.getCurrentUser - components/round/SubmissionComments.tsx:30
+- users.getCurrentUser - components/RoundDetail.tsx:79
+- users.getCurrentUser - components/Sidebar.tsx:46
+- users.getCurrentUser - hooks/useBrowserNotifier.ts:23
+- users.getProfile - app/profile/[userId]/page.tsx:22
+- users.getProfile - components/ProfilePage.tsx:61
+- votes.castVote - components/RoundDetail.tsx:89
+- votes.getForRound - components/RoundDetail.tsx:157
+- votes.getForUserInRound - components/round/SubmissionsList.tsx:16
+- votes.getForUserInRound - components/RoundDetail.tsx:97
+- votes.getForUserInRound - components/RoundDetail.tsx:147
+- votes.getForUserInRound - components/RoundDetail.tsx:153
+- votes.getVotersForRound - components/RoundDetail.tsx:156
+- webPush.subscribe - app/actions.ts:16
+- webPush.unsubscribe - app/actions.ts:35
