@@ -11,6 +11,7 @@
 import type * as adminSeed from "../adminSeed.js";
 import type * as aggregates from "../aggregates.js";
 import type * as auth from "../auth.js";
+import type * as authAdmin from "../authAdmin.js";
 import type * as authCore from "../authCore.js";
 import type * as b2Storage from "../b2Storage.js";
 import type * as bookmarks from "../bookmarks.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   adminSeed: typeof adminSeed;
   aggregates: typeof aggregates;
   auth: typeof auth;
+  authAdmin: typeof authAdmin;
   authCore: typeof authCore;
   b2Storage: typeof b2Storage;
   bookmarks: typeof bookmarks;
