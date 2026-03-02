@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/lib/convex/api";
@@ -33,6 +33,7 @@ export function useRoundVoting({
     delta: null,
   });
   const [confirmText, setConfirmText] = useState("");
+  const voteQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const userVoteStatus = useQuery(
     api.votes.getForUserInRound,
@@ -112,15 +113,16 @@ export function useRoundVoting({
 
   const submitVoteDelta = useCallback(
     (submissionId: Id<"submissions">, delta: 1 | -1) => {
-      castVote({ submissionId, delta })
-        .then((result) => {
+      voteQueueRef.current = voteQueueRef.current.then(async () => {
+        try {
+          const result = await castVote({ submissionId, delta });
           if (result.isFinal) {
             toast.success(result.message);
           }
-        })
-        .catch((error: unknown) => {
+        } catch (error: unknown) {
           toast.error(toErrorMessage(error, "Failed to save vote."));
-        });
+        }
+      });
     },
     [castVote],
   );
