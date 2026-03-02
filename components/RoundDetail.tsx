@@ -298,7 +298,21 @@ export function RoundDetail({
 
   const youtubeData = getRoundYouTubeEntries(sortedSubmissions);
   const youtubeVideoIds = youtubeData.map((entry) => entry.videoId);
-  const youtubeSubmissionIds = youtubeData.map((entry) => entry.submissionId);
+  const youtubeSubmissionIds = useMemo(() => {
+    if (!sortedSubmissions) return [] as Id<"submissions">[];
+    return sortedSubmissions
+      .filter(
+        (submission) =>
+          submission.submissionType === "youtube" &&
+          Boolean(submission.songLink) &&
+          Boolean(
+            submission.songLink
+              ? extractYouTubeVideoId(submission.songLink)
+              : null,
+          ),
+      )
+      .map((submission) => submission._id);
+  }, [sortedSubmissions]);
   const totalYouTubeDurationSec = youtubeData.reduce(
     (sum, entry) => sum + entry.duration,
     0,

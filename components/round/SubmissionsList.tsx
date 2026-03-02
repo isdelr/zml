@@ -136,18 +136,18 @@ export function SubmissionsList({
   const hasVoted = userVoteStatus?.hasVoted ?? false;
   const canVote = userVoteStatus?.canVote ?? false;
 
-  // Determine the first YouTube submission index for observer
-  const firstYouTubeIndex = useMemo(() => {
-    if (!submissions || submissions.length === 0) return -1;
-    return submissions.findIndex(
-      (s) => s.submissionType === "youtube" && !!s.songLink,
+  const youtubeItems = useMemo(() => {
+    if (!submissions || submissions.length === 0) return [] as Submission[];
+    return submissions.filter(
+      (submission) =>
+        submission.submissionType === "youtube" && Boolean(submission.songLink),
     );
   }, [submissions]);
 
   const ytSentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!onReachYouTube) return;
-    if (firstYouTubeIndex === -1) return;
+    if (youtubeItems.length === 0) return;
     const el = ytSentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -163,7 +163,7 @@ export function SubmissionsList({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [onReachYouTube, firstYouTubeIndex]);
+  }, [onReachYouTube, youtubeItems.length]);
 
   const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
 
@@ -267,8 +267,6 @@ export function SubmissionsList({
     return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
   };
 
-  const youtubeItems = firstYouTubeIndex === -1 ? [] : submissions.slice(firstYouTubeIndex);
-
   return (
     <div className="flex flex-col rounded-lg border mt-3">
       <div className="hidden border-b border-border text-xs font-semibold uppercase text-muted-foreground md:block">
@@ -282,6 +280,9 @@ export function SubmissionsList({
       </div>
 
       {submissions.map((submission, index) => {
+        if (submission.submissionType === "youtube" && submission.songLink) {
+          return null;
+        }
         const extended = submission;
         const elements: React.ReactNode[] = [];
 
