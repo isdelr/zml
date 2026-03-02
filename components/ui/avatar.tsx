@@ -6,6 +6,37 @@ import * as AvatarPrimitive from "@radix-ui/react-avatar"
 
 import { cn } from "@/lib/utils"
 
+const stablePresignedAvatarUrls = new Map<string, string>()
+const MAX_STABLE_AVATAR_URLS = 500
+
+function rememberStableAvatarSrc(cacheKey: string, src: string) {
+  if (!stablePresignedAvatarUrls.has(cacheKey) && stablePresignedAvatarUrls.size >= MAX_STABLE_AVATAR_URLS) {
+    const oldestCacheKey = stablePresignedAvatarUrls.keys().next().value
+    if (oldestCacheKey !== undefined) {
+      stablePresignedAvatarUrls.delete(oldestCacheKey)
+    }
+  }
+  stablePresignedAvatarUrls.set(cacheKey, src)
+}
+
+function getPresignedAvatarCacheKey(src: string): string | null {
+  try {
+    const url = new URL(src)
+    if (!url.searchParams.has("X-Amz-Signature")) {
+      return null
+    }
+
+    const avatarPath = /\/avatars\/[^/?#]+$/u.exec(url.pathname)?.[0]
+    if (!avatarPath) {
+      return null
+    }
+
+    return `${url.origin}${avatarPath}`
+  } catch {
+    return null
+  }
+}
+
 function sanitizeAvatarSrc(
   src: React.ComponentProps<typeof AvatarPrimitive.Image>["src"],
 ): React.ComponentProps<typeof AvatarPrimitive.Image>["src"] {
@@ -32,6 +63,28 @@ function sanitizeAvatarSrc(
   return src
 }
 
+function resolveStableAvatarSrc(
+  src: React.ComponentProps<typeof AvatarPrimitive.Image>["src"],
+): React.ComponentProps<typeof AvatarPrimitive.Image>["src"] {
+  const sanitized = sanitizeAvatarSrc(src)
+  if (typeof sanitized !== "string") {
+    return sanitized
+  }
+
+  const cacheKey = getPresignedAvatarCacheKey(sanitized)
+  if (!cacheKey) {
+    return sanitized
+  }
+
+  const cachedSrc = stablePresignedAvatarUrls.get(cacheKey)
+  if (cachedSrc) {
+    return cachedSrc
+  }
+
+  rememberStableAvatarSrc(cacheKey, sanitized)
+  return sanitized
+}
+
 function Avatar({
   className,
   ...props
@@ -54,15 +107,30 @@ function AvatarImage({
   onError,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
-  const [resolvedSrc, setResolvedSrc] = React.useState(sanitizeAvatarSrc(src))
+  const [resolvedSrc, setResolvedSrc] = React.useState(() =>
+    resolveStableAvatarSrc(src)
+  )
 
   React.useEffect(() => {
-    setResolvedSrc(sanitizeAvatarSrc(src))
+    setResolvedSrc(resolveStableAvatarSrc(src))
   }, [src])
 
   const handleError: React.ComponentProps<typeof AvatarPrimitive.Image>["onError"] =
     (event) => {
       onError?.(event)
+
+      const latestSanitizedSrc = sanitizeAvatarSrc(src)
+      if (typeof latestSanitizedSrc !== "string") {
+        setResolvedSrc(latestSanitizedSrc)
+        return
+      }
+
+      const cacheKey = getPresignedAvatarCacheKey(latestSanitizedSrc)
+      if (cacheKey) {
+        rememberStableAvatarSrc(cacheKey, latestSanitizedSrc)
+      }
+
+      setResolvedSrc(latestSanitizedSrc)
     }
 
   return (
