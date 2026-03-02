@@ -4,6 +4,7 @@ import { RefObject, useEffect, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { getNextProgressSecondsToSync } from "@/lib/music/listen-progress";
 
 type UseListenProgressSyncArgs = {
   audioRef: RefObject<HTMLAudioElement | null>;
@@ -33,16 +34,19 @@ export function useListenProgressSync({
         lastSyncedProgressRef.current = 0;
       }
 
-      const progressSeconds = Math.floor(audioRef.current.currentTime);
-      if (progressSeconds <= 0) {
+      const desiredProgressSeconds = Math.floor(audioRef.current.currentTime);
+      if (desiredProgressSeconds <= 0) {
         return;
       }
-      const audioDuration = Number.isFinite(audioRef.current.duration)
+      const durationSeconds = Number.isFinite(audioRef.current.duration)
         ? Math.floor(audioRef.current.duration)
         : 0;
-      const progressedEnough = progressSeconds - lastSyncedProgressRef.current >= 15;
-      const nearEnd = audioDuration > 0 && audioDuration - progressSeconds <= 5;
-      if (!progressedEnough && !nearEnd) {
+      const progressSeconds = getNextProgressSecondsToSync({
+        desiredProgressSeconds,
+        lastSyncedProgressSeconds: lastSyncedProgressRef.current,
+        durationSeconds,
+      });
+      if (progressSeconds === null) {
         return;
       }
 

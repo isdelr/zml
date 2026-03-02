@@ -4,6 +4,10 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "./authCore";
 import { Doc } from "./_generated/dataModel";
+import {
+  getAllowedProgressJumpSeconds,
+  getCappedProgressSeconds,
+} from "../lib/music/listen-progress";
 
 /**
  * Return all listen progress docs for the current user within a round.
@@ -27,7 +31,7 @@ export const getForRound = query({
 /**
  * Updates a user's listening progress for a specific submission.
  * - Robust input validation and clamping
- * - Server-side guards against tampering (disallow large jumps)
+ * - Server-side guards against tampering (bound large jumps)
  * - Only updates when there's meaningful change
  * - Ignores non-file submissions and disabled listen rules
  */
@@ -120,24 +124,19 @@ export const updateProgress = mutation({
       return;
     }
 
-    // Anti-tampering: Disallow unnaturally large jumps forward between updates.
+    // Anti-tampering: Bound unnaturally large jumps forward between updates.
     // Use a bounded allowance that scales gently with track length.
     // - Minimum allowance: 15s (network hiccups, tab throttling)
     // - Maximum allowance: 60s (prevent huge leaps)
     // - Also consider up to 10% of track length for very short tracks.
-    const allowedJumpSec = Math.min(
-      60,
-      Math.max(15, Math.floor(durationSec * 0.1)),
-    );
+    const allowedJumpSec = getAllowedProgressJumpSeconds(durationSec);
 
     if (existing) {
-      const delta = reported - existing.progressSeconds;
-      if (delta > allowedJumpSec) {
-        // Likely a manual seek far ahead — ignore this update.
-        return;
-      }
-
-      const newProgress = existing.progressSeconds + delta; // equals 'reported'
+      const newProgress = getCappedProgressSeconds(
+        existing.progressSeconds,
+        reported,
+        durationSec,
+      );
       const completed = newProgress >= requiredListenTime;
 
       // Only write if something actually changed.
@@ -149,10 +148,9 @@ export const updateProgress = mutation({
         });
       }
     } else {
-      // First record: accept as-is (already clamped), but still apply anti-tamper
-      // for extremely large initial reports (e.g., direct jump near the end).
-      // For first update, allow up to allowedJumpSec; otherwise, start at reported if small.
-      const initialProgress = reported > allowedJumpSec ? 0 : reported;
+      // First record: bound the initial write to the same anti-tamper jump window
+      // instead of dropping to 0, so progress cannot get stuck after throttled ticks.
+      const initialProgress = Math.min(reported, allowedJumpSec);
 
       await ctx.db.insert("listenProgress", {
         userId,
