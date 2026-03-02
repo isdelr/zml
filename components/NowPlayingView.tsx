@@ -14,6 +14,17 @@ import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toErrorMessage } from "@/lib/errors";
 
+const FRIENDLY_LYRICS_ERROR =
+  "Lyrics are unavailable for this song right now. Please try again later.";
+
+function toLyricsErrorMessage(error: unknown): string {
+  const raw = toErrorMessage(error, "").toLowerCase();
+  if (raw.includes("no hits") || raw.includes("lyrics not found")) {
+    return "No lyrics were found for this song.";
+  }
+  return FRIENDLY_LYRICS_ERROR;
+}
+
 export function NowPlayingView() {
   const { currentTrackIndex, queue, actions, isContextViewOpen } =
     useMusicPlayerStore();
@@ -48,7 +59,7 @@ export function NowPlayingView() {
       } catch (error) {
         if (cancelled) return;
         console.error("Failed to fetch lyrics", error);
-        setLyricsError(toErrorMessage(error, "Could not load lyrics."));
+        setLyricsError(toLyricsErrorMessage(error));
       } finally {
         if (!cancelled) setIsLyricsLoading(false);
       }
