@@ -141,10 +141,6 @@ export function RoundDetail({
     api.votes.getVotersForRound,
     round.status === "voting" ? { roundId: round._id } : "skip",
   );
-  const votes = useQuery(
-    api.votes.getForRound,
-    canManageLeague ? { roundId: round._id } : "skip",
-  );
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -362,7 +358,6 @@ export function RoundDetail({
         <RoundAdminControls
           round={round}
           submissions={submissions}
-          votes={votes}
         />
       )}
 

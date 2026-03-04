@@ -37,37 +37,44 @@ export async function getLeagueMembersSummary(
     .withIndex("by_league", (q) => q.eq("leagueId", leagueId))
     .collect();
 
-  const membershipByUserId = new Map<string, Doc<"memberships">>();
+  let activeMemberCount = 0;
+  let spectatorCount = 0;
   for (const membership of memberships) {
-    membershipByUserId.set(membership.userId.toString(), membership);
+    if (membership.isSpectator) {
+      spectatorCount += 1;
+    } else {
+      activeMemberCount += 1;
+    }
   }
 
   const members: LeagueMemberView[] = [];
   const spectators: LeagueMemberView[] = [];
 
   if (includeUserProfiles) {
-    const membershipIdsForProfiles = memberships
-      .slice(0, includeUserProfilesLimit)
-      .map((membership) => membership.userId);
-    const memberDocs = await Promise.all(
-      membershipIdsForProfiles.map((userId) => ctx.db.get("users", userId)),
+    const membershipsForProfiles = memberships.slice(0, includeUserProfilesLimit);
+    const memberViews = await Promise.all(
+      membershipsForProfiles.map(async (membership) => {
+        const user = await ctx.db.get("users", membership.userId);
+        if (!user) {
+          return null;
+        }
+        const image = await resolveUserAvatarUrl(storage, user);
+        return {
+          isSpectator: Boolean(membership.isSpectator),
+          item: {
+            _id: user._id,
+            name: user.name,
+            image: image ?? undefined,
+          },
+        };
+      }),
     );
-
-    for (const user of memberDocs) {
-      if (!user) continue;
-      const membership = membershipByUserId.get(user._id.toString());
-      if (!membership) continue;
-
-      const item: LeagueMemberView = {
-        _id: user._id,
-        name: user.name,
-        image: (await resolveUserAvatarUrl(storage, user)) ?? undefined,
-      };
-
-      if (membership.isSpectator) {
-        spectators.push(item);
+    for (const view of memberViews) {
+      if (!view) continue;
+      if (view.isSpectator) {
+        spectators.push(view.item);
       } else {
-        members.push(item);
+        members.push(view.item);
       }
     }
   } else {
@@ -86,8 +93,6 @@ export async function getLeagueMembersSummary(
     }
   }
 
-  const activeMemberCount = memberships.filter((m) => !m.isSpectator).length;
-  const spectatorCount = memberships.filter((m) => !!m.isSpectator).length;
   const memberCount = memberships.length;
 
   return {

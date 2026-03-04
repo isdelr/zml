@@ -9,6 +9,69 @@ import {
   getCappedProgressSeconds,
 } from "../lib/music/listen-progress";
 
+type SubmissionDurationInfo = {
+  durationSec: number;
+  derivedFromWaveform: boolean;
+};
+
+function getDurationFromWaveform(waveformJson: string | undefined): number | null {
+  if (!waveformJson) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(waveformJson);
+    if (typeof parsed !== "object" || parsed === null) return null;
+
+    const record = parsed as Record<string, unknown>;
+    const length = Number(record.length);
+    const samplesPerPixel = Number(record.samples_per_pixel);
+    const sampleRate = Number(record.sample_rate);
+
+    if (!Number.isFinite(length) || !Number.isFinite(samplesPerPixel) || !Number.isFinite(sampleRate)) {
+      return null;
+    }
+    if (length <= 0 || samplesPerPixel <= 0 || sampleRate <= 0) return null;
+
+    const durationSec = Math.floor((length * samplesPerPixel) / sampleRate);
+    return durationSec > 0 ? durationSec : null;
+  } catch {
+    return null;
+  }
+}
+
+function getSubmissionDurationInfo(
+  submission: Doc<"submissions">,
+): SubmissionDurationInfo | null {
+  const hasFiniteDuration =
+    submission.duration !== undefined &&
+    submission.duration !== null &&
+    Number.isFinite(submission.duration);
+  if (hasFiniteDuration) {
+    return {
+      durationSec: Math.max(0, Math.floor(submission.duration as number)),
+      derivedFromWaveform: false,
+    };
+  }
+
+  if (submission.submissionType === "file") {
+    const waveformDurationSec = getDurationFromWaveform(submission.waveform);
+    if (waveformDurationSec !== null) {
+      return {
+        durationSec: waveformDurationSec,
+        derivedFromWaveform: true,
+      };
+    }
+  }
+
+  if (submission.submissionType === "youtube") {
+    return {
+      durationSec: 180,
+      derivedFromWaveform: false,
+    };
+  }
+
+  return null;
+}
+
 /**
  * Return all listen progress docs for the current user within a round.
  * Uses a round+user index.
@@ -57,22 +120,18 @@ export const updateProgress = mutation({
       return;
     }
 
-    // Derive a reliable duration value for server-side calculations.
-    // - Use actual submission.duration when available (clamped to integer seconds)
-    // - For YouTube links lacking duration, fallback to 180s
-    const isYoutube = submission.submissionType === "youtube";
-    const hasFiniteDuration =
-      submission.duration !== undefined &&
-      submission.duration !== null &&
-      Number.isFinite(submission.duration);
-    const durationSec: number | null = hasFiniteDuration
-      ? Math.max(0, Math.floor(submission.duration as number))
-      : isYoutube
-      ? 180
-      : null;
+    const durationInfo = getSubmissionDurationInfo(submission);
 
     // If we still don't have a usable duration (e.g., malformed file submission), skip.
-    if (durationSec === null) return;
+    if (!durationInfo) return;
+    const { durationSec, derivedFromWaveform } = durationInfo;
+
+    if (
+      derivedFromWaveform &&
+      (submission.duration === undefined || submission.duration === null)
+    ) {
+      await ctx.db.patch("submissions", submission._id, { duration: durationSec });
+    }
 
     const league = await ctx.db.get("leagues", submission.leagueId);
     if (!league || !league.enforceListenPercentage) {

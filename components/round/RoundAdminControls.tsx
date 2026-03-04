@@ -40,14 +40,12 @@ import { EditRoundDialog } from "./EditRoundDialog";
 interface RoundAdminControlsProps {
   round: Doc<"rounds">;
   submissions: FunctionReturnType<typeof api.submissions.getForRound> | undefined;
-  votes: FunctionReturnType<typeof api.votes.getForRound> | undefined;
 }
 
 export function RoundAdminControls({
-                                     round,
-                                     submissions,
-                                     votes,
-                                   }: RoundAdminControlsProps) {
+  round,
+  submissions,
+}: RoundAdminControlsProps) {
   const manageRoundState = useMutation(api.rounds.manageRoundState);
   const adjustRoundTime = useMutation(api.rounds.adjustRoundTime);
   const rollbackRoundToSubmissions = useMutation(
@@ -67,8 +65,7 @@ export function RoundAdminControls({
     });
   };
 
-  const canEndVoting =
-    submissions && submissions.length > 0 && votes && votes.length > 0;
+  const canEndVoting = submissions && submissions.length > 0;
   const canEditRound = round.status !== "finished";
 
   return (
@@ -121,7 +118,7 @@ export function RoundAdminControls({
                   disabled={!canEndVoting}
                   title={
                     !canEndVoting
-                      ? "Requires at least 1 submission and 1 vote."
+                      ? "Requires at least 1 submission."
                       : ""
                   }
                 >

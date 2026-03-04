@@ -8,6 +8,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const DEFAULT_URL_EXPIRY_SECONDS = 15 * 60;
 type PutObjectBody = NonNullable<ConstructorParameters<typeof PutObjectCommand>[0]["Body"]>;
+const SIGNED_URL_CACHE_TTL_MS = 60 * 1000;
+const SIGNED_URL_CACHE_MAX_ENTRIES = 2000;
 
 type StorageConfig = {
   bucket: string;
@@ -42,6 +44,7 @@ function loadStorageConfig(): StorageConfig {
 
 let cachedConfig: StorageConfig | null = null;
 let cachedClient: S3Client | null = null;
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 function getStorageConfig(): StorageConfig {
   if (!cachedConfig) {
@@ -66,6 +69,44 @@ function getStorageClient(): S3Client {
   return cachedClient;
 }
 
+function signedUrlCacheKey(bucket: string, key: string, expiresIn: number) {
+  return `${bucket}:${key}:${expiresIn}`;
+}
+
+function getCachedSignedUrl(cacheKey: string) {
+  const entry = signedUrlCache.get(cacheKey);
+  if (!entry) {
+    return null;
+  }
+  if (Date.now() >= entry.expiresAt) {
+    signedUrlCache.delete(cacheKey);
+    return null;
+  }
+  return entry.url;
+}
+
+function setCachedSignedUrl(cacheKey: string, url: string) {
+  if (signedUrlCache.size >= SIGNED_URL_CACHE_MAX_ENTRIES) {
+    const oldestKey = signedUrlCache.keys().next().value;
+    if (oldestKey) {
+      signedUrlCache.delete(oldestKey);
+    }
+  }
+  signedUrlCache.set(cacheKey, {
+    url,
+    expiresAt: Date.now() + SIGNED_URL_CACHE_TTL_MS,
+  });
+}
+
+function clearCachedSignedUrlsForKey(bucket: string, key: string) {
+  const keyPrefix = `${bucket}:${key}:`;
+  for (const cacheKey of signedUrlCache.keys()) {
+    if (cacheKey.startsWith(keyPrefix)) {
+      signedUrlCache.delete(cacheKey);
+    }
+  }
+}
+
 export class B2Storage {
   async putObject(
     key: string,
@@ -73,6 +114,7 @@ export class B2Storage {
     options?: { contentType?: string; contentLength?: number },
   ) {
     const config = getStorageConfig();
+    clearCachedSignedUrlsForKey(config.bucket, key);
     await getStorageClient().send(
       new PutObjectCommand({
         Bucket: config.bucket,
@@ -86,11 +128,19 @@ export class B2Storage {
 
   async getUrl(key: string, options?: { expiresIn?: number }) {
     const config = getStorageConfig();
-    return getSignedUrl(
+    const expiresIn = options?.expiresIn ?? DEFAULT_URL_EXPIRY_SECONDS;
+    const cacheKey = signedUrlCacheKey(config.bucket, key, expiresIn);
+    const cachedUrl = getCachedSignedUrl(cacheKey);
+    if (cachedUrl) {
+      return cachedUrl;
+    }
+    const url = await getSignedUrl(
       getStorageClient(),
       new GetObjectCommand({ Bucket: config.bucket, Key: key }),
-      { expiresIn: options?.expiresIn ?? DEFAULT_URL_EXPIRY_SECONDS },
+      { expiresIn },
     );
+    setCachedSignedUrl(cacheKey, url);
+    return url;
   }
 
   async generateUploadUrl(customKey?: string) {
@@ -105,6 +155,7 @@ export class B2Storage {
 
   async deleteObject(key: string) {
     const config = getStorageConfig();
+    clearCachedSignedUrlsForKey(config.bucket, key);
     await getStorageClient().send(
       new DeleteObjectCommand({
         Bucket: config.bucket,
