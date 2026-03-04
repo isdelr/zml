@@ -7,6 +7,7 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
 import type { LeagueData } from "@/lib/convex/types";
 import { SubmissionItem } from "./SubmissionItem";
+import { AvatarStack } from "@/components/AvatarStack";
 import { Song } from "@/types";
 import { toast } from "sonner";
 import { toErrorMessage } from "@/lib/errors";
@@ -42,6 +43,7 @@ interface SubmissionsListProps {
   activeCommentsSubmissionId: Id<"submissions"> | null;
   onToggleComments: (submissionId: Id<"submissions"> | null) => void;
   listenersBySubmission: Record<string, SubmissionListener[]> | undefined;
+  playlistListeners: SubmissionListener[] | undefined;
   onReachYouTube?: () => void;
   ytInfo?: {
     running: boolean;
@@ -70,6 +72,7 @@ export function SubmissionsList({
                                   activeCommentsSubmissionId,
                                   onToggleComments,
                                   listenersBySubmission,
+                                  playlistListeners,
                                   onReachYouTube,
                                 ytInfo,
                                 }: SubmissionsListProps) {
@@ -166,6 +169,10 @@ export function SubmissionsList({
   }, [onReachYouTube, youtubeItems.length]);
 
   const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+  const visiblePlaylistListeners = useMemo(() => {
+    if (!playlistListeners) return [] as SubmissionListener[];
+    return playlistListeners.filter((listener) => listener._id !== currentUser?._id);
+  }, [playlistListeners, currentUser?._id]);
 
   const albumGroupMap = useMemo(() => {
     if (!submissions || submissions.length === 0) {
@@ -340,16 +347,21 @@ export function SubmissionsList({
                 <span className="ml-2">{ytInfo?.videoCount ?? youtubeItems.length} YouTube track{(ytInfo?.videoCount ?? youtubeItems.length) !== 1 ? "s" : ""}, total {formatDurationCompact(ytInfo?.totalDurationSec ?? 0)} — pending</span>
               )}
             </div>
-            {ytInfo && (
-              <button
-                type="button"
-                className="inline-flex items-center rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium hover:bg-primary/20"
-                onClick={ytInfo.onOpen}
-                title="Open playlist in a new tab"
-              >
-                Open playlist
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {visiblePlaylistListeners.length > 0 ? (
+                <AvatarStack users={visiblePlaylistListeners} max={6} />
+              ) : null}
+              {ytInfo && (
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium hover:bg-primary/20"
+                  onClick={ytInfo.onOpen}
+                  title="Open playlist in a new tab"
+                >
+                  Open playlist
+                </button>
+              )}
+            </div>
           </div>
 
           <div ref={ytSentinelRef} aria-hidden className="h-1" />

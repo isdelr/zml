@@ -18,8 +18,9 @@ const PRESENCE_STALE_MS = 90_000;
 export const update = mutation({
   args: {
     listeningTo: presenceLocation,
+    roundId: v.optional(v.id("rounds")),
   },
-  handler: async (ctx, { listeningTo }) => {
+  handler: async (ctx, { listeningTo, roundId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       return;
@@ -52,6 +53,24 @@ export const update = mutation({
           roundId: roundId,
           updated: now,
           data: { source: "player", tick: now },
+        },
+      });
+    } else if (roundId) {
+      const isSamePresence =
+        existingPresence?.location === null &&
+        existingPresence?.roundId === roundId;
+      if (
+        isSamePresence &&
+        now - existingPresence.updated < PRESENCE_HEARTBEAT_SKIP_MS
+      ) {
+        return;
+      }
+      await ctx.db.patch("users", userId, {
+        presence: {
+          location: null,
+          roundId,
+          updated: now,
+          data: { source: "youtubePlaylist", tick: now },
         },
       });
     } else {
@@ -124,6 +143,31 @@ export const listForRound = query({
       }
     }
     return listenersBySubmission;
+  },
+});
+
+export const listPlaylistForRound = query({
+  args: { roundId: v.id("rounds") },
+  handler: async (ctx, { roundId }) => {
+    const listeners = await ctx.db
+      .query("users")
+      .withIndex("by_presence_round", (q) => q.eq("presence.roundId", roundId))
+      .collect();
+    const staleCutoff = Date.now() - PRESENCE_STALE_MS;
+    const activePlaylistListeners = listeners.filter(
+      (user) =>
+        user.presence &&
+        user.presence.location === null &&
+        user.presence.updated >= staleCutoff,
+    );
+
+    return Promise.all(
+      activePlaylistListeners.map(async (user) => ({
+        _id: user._id,
+        name: user.name,
+        image: await resolveUserAvatarUrl(storage, user),
+      })),
+    );
   },
 });
 

@@ -37,6 +37,7 @@ export function useRoundYouTubePlaylist({
   openPlaylistAndStart: (orderedIds?: string[]) => void;
 } {
   const markCompletedBatch = useMutation(api.listenProgress.markCompletedBatch);
+  const updatePresence = useMutation(api.presence.update);
 
   const sessionKey = useMemo(() => `ytPlaylist:${roundId}`, [roundId]);
   const sessionOpenedKey = `${sessionKey}:opened`;
@@ -48,6 +49,16 @@ export function useRoundYouTubePlaylist({
   const [ytTimerRunning, setYtTimerRunning] = useState<boolean>(false);
   const [ytTimerDone, setYtTimerDone] = useState<boolean>(false);
   const timerRef = useRef<number | null>(null);
+
+  const updatePlaylistPresence = useCallback(
+    (active: boolean) => {
+      const args = active ? { listeningTo: null, roundId } : { listeningTo: null };
+      void updatePresence(args).catch((error: unknown) => {
+        console.warn("[presence:youtube-playlist] non-fatal failure", error);
+      });
+    },
+    [roundId, updatePresence],
+  );
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -61,6 +72,7 @@ export function useRoundYouTubePlaylist({
     setYtTimerRunning(false);
     setYtTimerRemainingSec(0);
     setYtTimerDone(true);
+    updatePlaylistPresence(false);
     try {
       if (youtubeSubmissionIds.length > 0) {
         await markCompletedBatch({ roundId, submissionIds: youtubeSubmissionIds });
@@ -84,6 +96,7 @@ export function useRoundYouTubePlaylist({
     sessionEndAtKey,
     sessionDurationKey,
     sessionDoneKey,
+    updatePlaylistPresence,
   ]);
 
   const startPlaylistTimer = useCallback(
@@ -195,6 +208,7 @@ export function useRoundYouTubePlaylist({
       const ids = orderedIds && orderedIds.length > 0 ? orderedIds : youtubeVideoIds;
       if (ids.length === 0) return;
       openYouTubePlaylist(ids);
+      updatePlaylistPresence(true);
       if (!ytTimerDone) {
         startPlaylistTimer(totalYouTubeDurationSec);
       }
@@ -209,6 +223,7 @@ export function useRoundYouTubePlaylist({
       startPlaylistTimer,
       totalYouTubeDurationSec,
       sessionOpenedKey,
+      updatePlaylistPresence,
     ],
   );
 
@@ -221,6 +236,7 @@ export function useRoundYouTubePlaylist({
       sessionStorage.setItem(sessionOpenedKey, "1");
     } catch {}
     openYouTubePlaylist(youtubeVideoIds);
+    updatePlaylistPresence(true);
     startPlaylistTimer(totalYouTubeDurationSec);
   }, [
     youtubeVideoIds,
@@ -230,7 +246,22 @@ export function useRoundYouTubePlaylist({
     openYouTubePlaylist,
     startPlaylistTimer,
     totalYouTubeDurationSec,
+    updatePlaylistPresence,
   ]);
+
+  useEffect(() => {
+    if (!ytTimerRunning) {
+      return;
+    }
+    updatePlaylistPresence(true);
+    const heartbeat = window.setInterval(() => {
+      updatePlaylistPresence(true);
+    }, 30_000);
+
+    return () => {
+      window.clearInterval(heartbeat);
+    };
+  }, [ytTimerRunning, updatePlaylistPresence]);
 
   return {
     ytInfo: {

@@ -105,6 +105,9 @@ export function RoundDetail({
     api.presence.listForRound,
     { roundId: round._id },
   );
+  const playlistListeners = useQuery(api.presence.listPlaylistForRound, {
+    roundId: round._id,
+  });
   const listenProgressData = useQuery(
     api.listenProgress.getForRound,
     league.enforceListenPercentage ? { roundId: round._id } : "skip",
@@ -441,6 +444,7 @@ export function RoundDetail({
             activeCommentsSubmissionId={activeCommentsSubmissionId}
             onToggleComments={setActiveCommentsSubmissionId}
             listenersBySubmission={listenersBySubmission}
+            playlistListeners={playlistListeners}
             onReachYouTube={ensureAutoOpenOnce}
             ytInfo={ytInfo}
           />
