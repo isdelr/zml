@@ -103,7 +103,7 @@ export function RoundDetail({
   const currentUser = useQuery(api.users.getCurrentUser);
   const listenersBySubmission = useQuery(
     api.presence.listForRound,
-    isPlaying ? { roundId: round._id } : "skip",
+    { roundId: round._id },
   );
   const listenProgressData = useQuery(
     api.listenProgress.getForRound,
