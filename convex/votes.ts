@@ -10,6 +10,8 @@ import { B2Storage } from "./b2Storage";
 import { resolveUserAvatarUrl } from "./userAvatar";
 
 const storage = new B2Storage();
+const FINAL_VOTE_CONFIRMATION_REQUIRED_ERROR =
+  "Final vote confirmation is required to lock your votes.";
 
 async function canViewLeague(
   ctx: Pick<QueryCtx, "db">,
@@ -220,6 +222,7 @@ export const castVote = mutation({
   args: {
     submissionId: v.id("submissions"),
     delta: v.union(v.literal(1), v.literal(-1)),
+    confirmFinal: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -366,12 +369,16 @@ export const castVote = mutation({
     );
     const newPosUsed = otherPos + Math.max(0, newVote);
     const newNegUsed = otherNeg + Math.abs(Math.min(0, newVote));
+    const willFinalizeVotes = newPosUsed === maxUp && newNegUsed === maxDown;
 
     if (args.delta === 1 && newPosUsed > maxUp) {
       throw new Error("No upvotes remaining.");
     }
     if (args.delta === -1 && newNegUsed > maxDown) {
       throw new Error("No downvotes remaining.");
+    }
+    if (willFinalizeVotes && args.confirmFinal !== true) {
+      throw new Error(FINAL_VOTE_CONFIRMATION_REQUIRED_ERROR);
     }
 
     if (existingVote) {
