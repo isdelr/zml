@@ -7,7 +7,6 @@ import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import {
   useRouter,
   useSearchParams,
-  usePathname,
   useParams,
 } from "next/navigation";
 import { dynamicImport } from "@/components/ui/dynamic-import";
@@ -15,6 +14,11 @@ import { RoundDetail } from "@/components/RoundDetail";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  buildLeagueRoundHref,
+  buildLeagueTabHref,
+  getPreferredRoundId,
+} from "@/lib/leagues/navigation";
 
 const LeagueHeader = dynamicImport(() =>
   import("@/components/league/LeagueHeader").then((mod) => ({
@@ -53,7 +57,6 @@ interface LeaguePageProps {
 
 export function LeaguePage({ leagueId }: LeaguePageProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const params = useParams();
   const { isLoading: isAuthLoading } = useConvexAuth();
@@ -115,6 +118,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
 
   const isLeagueFinished =
     rounds && rounds.length > 0 && rounds.every((r) => r.status === "finished");
+  const preferredRoundId = getPreferredRoundId(rounds);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -131,40 +135,55 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   }, [searchContainerRef]);
 
   const handleTabChange = (newTab: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", newTab);
-    if (newTab !== "rounds") {
-      params.delete("round");
-    }
-    router.replace(`${pathname}?${params.toString()}`);
+    router.replace(
+      buildLeagueTabHref({
+        leagueId,
+        tab: newTab,
+        searchParams,
+        selectedRoundId,
+        fallbackRoundId: preferredRoundId,
+      }),
+    );
   };
 
   const handleRoundSelect = (roundId: Id<"rounds">) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", "rounds");
-    params.set("round", roundId);
     router.push(
-      `/leagues/${leagueId}/round/${roundId}?${searchParams.toString()}`,
+      buildLeagueRoundHref({
+        leagueId,
+        roundId,
+        searchParams,
+      }),
     );
   };
 
   useEffect(() => {
     if (
+      activeTab === "rounds" &&
       (status === "CanLoadMore" || status === "Exhausted") &&
       rounds &&
       rounds.length > 0 &&
       !selectedRoundId
     ) {
-      const roundToSelect =
-        rounds.find((r) => r.status === "voting") ??
-        rounds.find((r) => r.status === "submissions") ??
-        rounds[0] ??
-        null;
-      if (roundToSelect) {
-        router.replace(`/leagues/${leagueId}/round/${roundToSelect._id}`);
+      if (preferredRoundId) {
+        router.replace(
+          buildLeagueRoundHref({
+            leagueId,
+            roundId: preferredRoundId,
+            searchParams,
+          }),
+        );
       }
     }
-  }, [status, rounds, selectedRoundId, leagueId, router]);
+  }, [
+    activeTab,
+    leagueId,
+    preferredRoundId,
+    rounds,
+    router,
+    searchParams,
+    selectedRoundId,
+    status,
+  ]);
 
   const selectedRound = rounds?.find((r) => r._id === selectedRoundId);
 

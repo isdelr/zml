@@ -43,6 +43,7 @@ const variablesToSync = [
   "GENIUS_ACCESS_TOKEN",
   "DEV_SEED_ENABLED",
   "INSTANCE_SECRET",
+  "AUDIO_MIGRATION_SECRET",
 ];
 
 function validateJwksDocArray(raw) {

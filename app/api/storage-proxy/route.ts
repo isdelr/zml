@@ -18,7 +18,7 @@ const allowedStorageEndpoint = parseEndpoint(storageEndpoint);
 
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
+async function proxyStorageRequest(request: NextRequest, method: "GET" | "HEAD") {
   const encodedUrl = request.nextUrl.searchParams.get("url");
   if (!encodedUrl) {
     return NextResponse.json(
@@ -53,8 +53,15 @@ export async function GET(request: NextRequest) {
 
   let upstream: Response;
   try {
+    const upstreamHeaders = new Headers();
+    const range = request.headers.get("range");
+    const ifRange = request.headers.get("if-range");
+    if (range) upstreamHeaders.set("Range", range);
+    if (ifRange) upstreamHeaders.set("If-Range", ifRange);
+
     upstream = await fetch(targetUrl.toString(), {
-      method: "GET",
+      method,
+      headers: upstreamHeaders,
       cache: "no-store",
       redirect: "follow",
     });
@@ -68,17 +75,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (!upstream.ok) {
-    return NextResponse.json(
-      { error: "Upstream storage request failed", status: upstream.status },
-      { status: upstream.status },
-    );
-  }
-
   const headers = new Headers();
   const contentType = upstream.headers.get("content-type");
   const contentLength = upstream.headers.get("content-length");
   const acceptRanges = upstream.headers.get("accept-ranges");
+  const contentRange = upstream.headers.get("content-range");
   const etag = upstream.headers.get("etag");
   const lastModified = upstream.headers.get("last-modified");
 
@@ -86,11 +87,20 @@ export async function GET(request: NextRequest) {
   if (contentType) headers.set("Content-Type", contentType);
   if (contentLength) headers.set("Content-Length", contentLength);
   if (acceptRanges) headers.set("Accept-Ranges", acceptRanges);
+  if (contentRange) headers.set("Content-Range", contentRange);
   if (etag) headers.set("ETag", etag);
   if (lastModified) headers.set("Last-Modified", lastModified);
 
-  return new NextResponse(upstream.body, {
-    status: 200,
+  return new NextResponse(method === "HEAD" ? null : upstream.body, {
+    status: upstream.status,
     headers,
   });
+}
+
+export async function GET(request: NextRequest) {
+  return proxyStorageRequest(request, "GET");
+}
+
+export async function HEAD(request: NextRequest) {
+  return proxyStorageRequest(request, "HEAD");
 }

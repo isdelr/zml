@@ -142,6 +142,7 @@ export default defineSchema({
     artist: v.string(),
     albumArtKey: v.optional(v.string()),
     songFileKey: v.optional(v.string()),
+    songFileLegacyKey: v.optional(v.string()),
     comment: v.optional(v.string()),
     submissionType: v.union(v.literal("file"), v.literal("youtube")),
     songLink: v.optional(v.string()),

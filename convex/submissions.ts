@@ -5,7 +5,9 @@ import {
   mutation,
   query,
   action,
+  internalAction,
   internalQuery,
+  internalMutation,
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
@@ -23,12 +25,37 @@ import {
   normalizeSubmissionArtist,
   normalizeSubmissionSongTitle,
 } from "../lib/convex-server/submissions/normalize";
+import { firstNonEmpty } from "../lib/env";
 
 const storage = new B2Storage();
 const TROLL_SUBMISSION_BAN_THRESHOLD = 2;
 const TROLL_SUBMISSION_POINTS_PENALTY = 10;
 const EXACT_DUPLICATE_MATCH_LIMIT = 50;
 const FUZZY_DUPLICATE_MATCH_LIMIT = 30;
+const DEFAULT_AUDIO_MIGRATION_BATCH_SIZE = 25;
+const MAX_AUDIO_MIGRATION_BATCH_SIZE = 100;
+
+type AudioMigrationCandidate = {
+  submissionId: Id<"submissions">;
+  songFileKey: string;
+};
+
+type AudioMigrationResultItem = {
+  submissionId: Id<"submissions">;
+  key: string;
+};
+
+type AudioMigrationFailureItem = {
+  submissionId: Id<"submissions">;
+  error: string;
+};
+
+type AudioMigrationRunResult = {
+  processed: number;
+  migrated: AudioMigrationResultItem[];
+  failed: AudioMigrationFailureItem[];
+  remaining: number;
+};
 
 async function canViewLeague(
   ctx: Pick<QueryCtx, "db">,
@@ -351,6 +378,7 @@ export const editSong = mutation({
     const { submissionId } = args;
     const previousAlbumArtKey = submission.albumArtKey ?? null;
     const previousSongFileKey = submission.songFileKey ?? null;
+    const previousSongFileLegacyKey = submission.songFileLegacyKey ?? null;
     const previousSongLink = submission.songLink ?? null;
 
     let nextAlbumArtKey: string | null = previousAlbumArtKey;
@@ -381,6 +409,7 @@ export const editSong = mutation({
     }
     if (args.songFileKey !== undefined) {
       updates.songFileKey = args.songFileKey ?? undefined;
+      updates.songFileLegacyKey = undefined;
     }
     if (args.songLink !== undefined) {
       updates.songLink = args.songLink ?? undefined;
@@ -402,6 +431,7 @@ export const editSong = mutation({
     } else {
       updates.albumArtKey = undefined;
       updates.songFileKey = undefined;
+      updates.songFileLegacyKey = undefined;
       nextAlbumArtKey = null;
       nextSongFileKey = null;
     }
@@ -426,6 +456,12 @@ export const editSong = mutation({
     }
     if (previousSongFileKey && previousSongFileKey !== nextSongFileKey) {
       keysToDelete.add(previousSongFileKey);
+    }
+    if (
+      previousSongFileLegacyKey &&
+      (args.songFileKey !== undefined || args.submissionType !== "file")
+    ) {
+      keysToDelete.add(previousSongFileLegacyKey);
     }
     for (const key of keysToDelete) {
       try {
@@ -808,6 +844,61 @@ export const getSubmissionById = internalQuery({
   },
 });
 
+export const listAudioMigrationCandidates = internalQuery({
+  args: { limit: v.number() },
+  handler: async (ctx, args) => {
+    const submissions = await ctx.db.query("submissions").collect();
+    return submissions
+      .filter(
+        (submission) =>
+          submission.submissionType === "file" &&
+          typeof submission.songFileKey === "string" &&
+          submission.songFileKey.endsWith(".opus"),
+      )
+      .slice(0, args.limit)
+      .map((submission) => ({
+        submissionId: submission._id,
+        songFileKey: submission.songFileKey!,
+      }));
+  },
+});
+
+export const countAudioMigrationCandidates = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const submissions = await ctx.db.query("submissions").collect();
+    return submissions.filter(
+      (submission) =>
+        submission.submissionType === "file" &&
+        typeof submission.songFileKey === "string" &&
+        submission.songFileKey.endsWith(".opus"),
+    ).length;
+  },
+});
+
+export const applyAudioMigration = internalMutation({
+  args: {
+    submissionId: v.id("submissions"),
+    newSongFileKey: v.string(),
+    oldSongFileKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const submission = await ctx.db.get("submissions", args.submissionId);
+    if (!submission || submission.submissionType !== "file") {
+      throw new Error("Submission is not a file upload.");
+    }
+    if (submission.songFileKey !== args.oldSongFileKey) {
+      throw new Error("Submission audio key changed during migration.");
+    }
+
+    await ctx.db.patch(args.submissionId, {
+      songFileKey: args.newSongFileKey,
+      songFileLegacyKey:
+        submission.songFileLegacyKey ?? args.oldSongFileKey,
+    });
+  },
+});
+
 export const getPresignedSongUrl = action({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args): Promise<string | null> => {
@@ -828,6 +919,90 @@ export const getPresignedSongUrl = action({
       return null;
     }
     return await storage.getUrl(submission.songFileKey);
+  },
+});
+
+export const migrateStoredSongsToAac = internalAction({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<AudioMigrationRunResult> => {
+    const expectedSecret = process.env.AUDIO_MIGRATION_SECRET;
+    if (!expectedSecret) {
+      throw new Error("AUDIO_MIGRATION_SECRET is not configured.");
+    }
+
+    const siteUrl = firstNonEmpty(process.env.SITE_URL, "http://localhost:3000");
+    if (!siteUrl) {
+      throw new Error("SITE_URL is required for audio migration.");
+    }
+
+    const limit = Math.max(
+      1,
+      Math.min(
+        args.limit ?? DEFAULT_AUDIO_MIGRATION_BATCH_SIZE,
+        MAX_AUDIO_MIGRATION_BATCH_SIZE,
+      ),
+    );
+
+    const candidates: AudioMigrationCandidate[] = await ctx.runQuery(
+      internal.submissions.listAudioMigrationCandidates,
+      { limit },
+    );
+
+    const migrated: AudioMigrationResultItem[] = [];
+    const failed: AudioMigrationFailureItem[] = [];
+
+    for (const candidate of candidates) {
+      try {
+        const response = await fetch(
+          `${siteUrl}/api/submissions/migrate-song-file`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-audio-migration-secret": expectedSecret,
+            },
+            body: JSON.stringify({ songFileKey: candidate.songFileKey }),
+          },
+        );
+        const payload = (await response.json()) as {
+          key?: string;
+          error?: string;
+          message?: string;
+        };
+        if (!response.ok || !payload.key) {
+          throw new Error(
+            payload.message ??
+              payload.error ??
+              `Migration route failed with status ${response.status}.`,
+          );
+        }
+
+        await ctx.runMutation(internal.submissions.applyAudioMigration, {
+          submissionId: candidate.submissionId,
+          newSongFileKey: payload.key,
+          oldSongFileKey: candidate.songFileKey,
+        });
+        migrated.push({ submissionId: candidate.submissionId, key: payload.key });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown migration error.";
+        failed.push({ submissionId: candidate.submissionId, error: message });
+      }
+    }
+
+    const remaining: number = await ctx.runQuery(
+      internal.submissions.countAudioMigrationCandidates,
+      {},
+    );
+
+    return {
+      processed: candidates.length,
+      migrated,
+      failed,
+      remaining,
+    };
   },
 });
 
