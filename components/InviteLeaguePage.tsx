@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toSvg } from "jdenticon";
 import { Eye } from "lucide-react";
 import { signInWithDiscord } from "@/lib/auth-client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function InviteLeaguePage() {
   const params = useParams();
@@ -59,7 +60,23 @@ export default function InviteLeaguePage() {
   };
 
   if (isAuthLoading || inviteInfo === undefined) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Skeleton className="mx-auto h-8 w-48" />
+            <Skeleton className="mx-auto h-6 w-36" />
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <Skeleton className="h-16 w-full" />
+            <div className="space-y-3">
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-11 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (inviteInfo === null) {

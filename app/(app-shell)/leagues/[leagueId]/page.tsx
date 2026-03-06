@@ -1,23 +1,15 @@
-import { dynamicImport } from "@/components/ui/dynamic-import";
-import { PageLayout } from "@/components/layout/PageLayout";
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { ConvexHttpClient } from "convex/browser";
 import type { Metadata } from "next";
-
-const LeaguePage = dynamicImport(() =>
-  import("@/components/LeaguePage").then((mod) => ({
-    default: mod.LeaguePage,
-  })),
-);
 
 const convex = new ConvexHttpClient(
   (process.env.CONVEX_SELF_HOSTED_URL || process.env.NEXT_PUBLIC_CONVEX_URL)!,
 );
 
 export async function generateMetadata({
-                                         params,
-                                       }: {
+  params,
+}: {
   params: Promise<{ leagueId: string }>;
 }): Promise<Metadata> {
   const { leagueId } = await params;
@@ -84,14 +76,10 @@ export async function generateMetadata({
 }
 
 export default async function League({
-                                       params,
-                                     }: {
+  params,
+}: {
   params: Promise<{ leagueId: string }>;
 }) {
-  const { leagueId } = await params;
-  return (
-    <PageLayout>
-      <LeaguePage leagueId={leagueId} />
-    </PageLayout>
-  );
+  await params;
+  return null;
 }

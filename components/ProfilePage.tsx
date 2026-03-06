@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { Button } from "./ui/button";
 import { toSvg } from "jdenticon";
+import { Skeleton } from "./ui/skeleton";
 
 const StatCard = ({
                     icon,
@@ -44,7 +45,37 @@ export function ProfilePage({ userId }: { userId: string }) {
   });
 
   if (profileData === undefined) {
-    return null;
+    return (
+      <div className="min-h-full p-4 md:p-8">
+        <header className="mb-8 flex flex-col items-center gap-4 text-center md:flex-row md:gap-6 md:text-left">
+          <Skeleton className="size-24 rounded-full" />
+          <div className="space-y-3">
+            <Skeleton className="h-10 w-56" />
+            <Skeleton className="h-5 w-40" />
+          </div>
+        </header>
+        <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Card key={index}>
+              <CardHeader className="space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-16" />
+              </CardHeader>
+            </Card>
+          ))}
+        </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>League History</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-16 rounded-md" />
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (profileData === null) {

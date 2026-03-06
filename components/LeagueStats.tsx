@@ -24,6 +24,7 @@ import { TopSongsList } from "@/components/league/stats/TopSongsList";
 import { AllRoundsGrid } from "@/components/league/stats/AllRoundsGrid";
 import { GenreBreakdownChart } from "@/components/league/stats/GenreBreakdownChart";
 import { useLeagueStatsExport } from "@/hooks/useLeagueStatsExport";
+import { Skeleton } from "./ui/skeleton";
 export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
   const stats = useQuery(api.leagues.getLeagueStats, { leagueId });
   const standings = useQuery(api.leagues.getLeagueStandings, { leagueId });
@@ -32,7 +33,26 @@ export function LeagueStats({ leagueId }: { leagueId: Id<"leagues"> }) {
   });
 
   if (stats === undefined) {
-    return null;
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-56" />
+            <Skeleton className="h-5 w-80 max-w-full" />
+          </div>
+          <Skeleton className="h-11 w-32" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Skeleton className="h-72 rounded-lg" />
+          <Skeleton className="h-72 rounded-lg" />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-44 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (stats === null) {

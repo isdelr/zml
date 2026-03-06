@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { usePaginatedQuery, useQuery } from "convex/react";
+import { useConvexAuth, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
@@ -14,6 +14,7 @@ import { dynamicImport } from "@/components/ui/dynamic-import";
 import { RoundDetail } from "@/components/RoundDetail";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const LeagueHeader = dynamicImport(() =>
   import("@/components/league/LeagueHeader").then((mod) => ({
@@ -55,6 +56,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const params = useParams();
+  const { isLoading: isAuthLoading } = useConvexAuth();
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const activeTab = searchParams.get("tab") || "rounds";
   const selectedRoundId = (
@@ -73,9 +75,10 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
     }
   };
 
-  const leagueData = useQuery(api.leagues.get, {
-    leagueId: parsedLeagueId,
-  });
+  const leagueData = useQuery(
+    api.leagues.get,
+    isAuthLoading ? "skip" : { leagueId: parsedLeagueId },
+  );
 
   const {
     results: rounds,
@@ -104,7 +107,10 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
       : "skip",
   );
 
-  const currentUser = useQuery(api.users.getCurrentUser);
+  const currentUser = useQuery(
+    api.users.getCurrentUser,
+    isAuthLoading ? "skip" : {},
+  );
   const { actions: playerActions } = useMusicPlayerStore();
 
   const isLeagueFinished =
@@ -162,7 +168,34 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
 
   const selectedRound = rounds?.find((r) => r._id === selectedRoundId);
 
-  if (leagueData === undefined) return null;
+  if (leagueData === undefined) {
+    return (
+      <div className="p-4 md:p-8">
+        <div className="space-y-4">
+          <Skeleton className="h-12 w-64" />
+          <Skeleton className="h-6 w-full max-w-2xl" />
+        </div>
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-28 rounded-lg" />
+          ))}
+        </div>
+        <div className="mt-8">
+          <Skeleton className="h-10 w-full rounded-lg" />
+        </div>
+        <div className="mt-8 space-y-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-16 rounded-lg" />
+          ))}
+        </div>
+        <div className="my-12 border-b border-border" />
+        <div className="space-y-4">
+          <Skeleton className="h-12 w-72" />
+          <Skeleton className="h-64 rounded-lg" />
+        </div>
+      </div>
+    );
+  }
 
   if (leagueData === null) {
     return (

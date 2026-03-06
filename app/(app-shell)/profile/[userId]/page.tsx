@@ -1,12 +1,13 @@
 import { dynamicImport } from "@/components/ui/dynamic-import";
-import { PageLayout } from "@/components/layout/PageLayout";
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { ConvexHttpClient } from "convex/browser";
 import type { Metadata } from "next";
 
 const ProfilePage = dynamicImport(() =>
-  import("@/components/ProfilePage").then((mod) => ({ default: mod.ProfilePage })),
+  import("@/components/ProfilePage").then((mod) => ({
+    default: mod.ProfilePage,
+  })),
 );
 
 const convex = new ConvexHttpClient(
@@ -14,8 +15,8 @@ const convex = new ConvexHttpClient(
 );
 
 export async function generateMetadata({
-                                         params,
-                                       }: {
+  params,
+}: {
   params: Promise<{ userId: string }>;
 }): Promise<Metadata> {
   const { userId } = await params;
@@ -59,14 +60,11 @@ export async function generateMetadata({
 }
 
 export default async function Profile({
-                                        params,
-                                      }: {
+  params,
+}: {
   params: Promise<{ userId: string }>;
 }) {
   const { userId } = await params;
-  return (
-    <PageLayout>
-      <ProfilePage userId={userId} />
-    </PageLayout>
-  );
+
+  return <ProfilePage userId={userId} />;
 }

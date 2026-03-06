@@ -1,5 +1,3 @@
-import { PageLayout } from "@/components/layout/PageLayout";
-import { LeaguePage } from "@/components/LeaguePage";
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { ConvexHttpClient } from "convex/browser";
@@ -81,10 +79,6 @@ export default async function RoundPage({
 }: {
   params: Promise<{ leagueId: string; roundId: string }>;
 }) {
-  const { leagueId } = await params;
-  return (
-    <PageLayout>
-      <LeaguePage leagueId={leagueId} />
-    </PageLayout>
-  );
+  await params;
+  return null;
 }

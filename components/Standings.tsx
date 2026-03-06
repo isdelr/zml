@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Crown, TrendingDown, TrendingUp, Medal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toSvg } from "jdenticon";
+import { Skeleton } from "./ui/skeleton";
 
 interface StandingsProps {
   leagueId: Id<"leagues">;
@@ -23,7 +24,33 @@ export function Standings({ leagueId }: StandingsProps) {
   const standings = useQuery(api.leagues.getLeagueStandings, { leagueId });
 
   if (standings === undefined) {
-    return null;
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>League Standings</CardTitle>
+          <CardDescription>
+            The leaderboard based on points from finished rounds.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between gap-4 rounded-md p-2"
+              >
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-6 w-6" />
+                  <Skeleton className="size-10 rounded-full" />
+                  <Skeleton className="h-5 w-36" />
+                </div>
+                <Skeleton className="h-8 w-20 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   if (standings.length === 0) {

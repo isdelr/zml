@@ -2,6 +2,7 @@
 import { RoundListItem } from "./RoundListItem";
 import { Id } from "@/convex/_generated/dataModel";
 import type { RoundForLeague } from "@/lib/convex/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface LeagueRoundsProps {
   rounds: RoundForLeague[];
@@ -15,9 +16,31 @@ export function LeagueRounds({
                                hasLoaded,
                                selectedRoundId,
                                leagueId,
-                             }: LeagueRoundsProps) {
+}: LeagueRoundsProps) {
   if (!hasLoaded) {
-    return null;
+    return (
+      <div className="flex flex-col gap-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-lg border p-3"
+          >
+            <div className="flex items-center gap-4 md:hidden">
+              <Skeleton className="size-4 rounded-full" />
+              <Skeleton className="h-5 flex-1" />
+              <Skeleton className="h-5 w-16" />
+            </div>
+            <div className="hidden items-center gap-4 md:grid md:grid-cols-[auto_2fr_1.5fr_1.5fr_auto]">
+              <Skeleton className="h-5 w-28" />
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-5 w-2/3" />
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-5 w-14" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (rounds.length === 0) {

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bell, MessageSquare, PlayCircle, Vote, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const notificationIcons = {
   new_comment: <MessageSquare className="size-5 text-info" />,
@@ -58,6 +59,22 @@ export default function NotificationsPage() {
           )}
         </CardHeader>
         <CardContent>
+          {status === "LoadingFirstPage" && (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="flex items-start gap-4 rounded-lg p-4"
+                >
+                  <Skeleton className="size-10 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-full max-w-lg" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {status !== "LoadingFirstPage" &&
             notifications &&
             notifications.length === 0 && (
