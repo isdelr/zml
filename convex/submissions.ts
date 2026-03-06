@@ -927,11 +927,6 @@ export const migrateStoredSongsToAac = internalAction({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<AudioMigrationRunResult> => {
-    const expectedSecret = process.env.AUDIO_MIGRATION_SECRET;
-    if (!expectedSecret) {
-      throw new Error("AUDIO_MIGRATION_SECRET is not configured.");
-    }
-
     const siteUrl = firstNonEmpty(process.env.SITE_URL, "http://localhost:3000");
     if (!siteUrl) {
       throw new Error("SITE_URL is required for audio migration.");
@@ -961,7 +956,6 @@ export const migrateStoredSongsToAac = internalAction({
             method: "POST",
             headers: {
               "content-type": "application/json",
-              "x-audio-migration-secret": expectedSecret,
             },
             body: JSON.stringify({ songFileKey: candidate.songFileKey }),
           },

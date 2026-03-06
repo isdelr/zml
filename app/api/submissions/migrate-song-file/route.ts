@@ -13,7 +13,6 @@ import {
 } from "@/lib/submission/audio-transcode";
 
 const storage = new B2Storage();
-const migrationSecret = process.env.AUDIO_MIGRATION_SECRET;
 
 type MigrationPayload = {
   songFileKey?: string;
@@ -33,18 +32,6 @@ async function writeResponseToDisk(response: Response, filePath: string) {
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  if (!migrationSecret) {
-    return NextResponse.json(
-      { error: "AUDIO_MIGRATION_SECRET is not configured." },
-      { status: 500 },
-    );
-  }
-
-  const providedSecret = request.headers.get("x-audio-migration-secret");
-  if (providedSecret !== migrationSecret) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-
   let payload: MigrationPayload;
   try {
     payload = (await request.json()) as MigrationPayload;
