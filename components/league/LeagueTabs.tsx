@@ -42,14 +42,14 @@ export function LeagueTabs({
           <TabsTrigger value="awards">Awards</TabsTrigger>
         )}
       </TabsList>
-      <TabsContent value="rounds" forceMount>
+      <TabsContent value="rounds">
         {children}
       </TabsContent>
-      <TabsContent value="standings" forceMount>
+      <TabsContent value="standings">
         <Standings leagueId={leagueId} />
       </TabsContent>
       {isLeagueFinished && (
-        <TabsContent value="awards" forceMount>
+        <TabsContent value="awards">
           <LeagueStats leagueId={leagueId} />
         </TabsContent>
       )}
