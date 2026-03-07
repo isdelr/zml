@@ -960,16 +960,23 @@ export const migrateStoredSongsToAac = internalAction({
             body: JSON.stringify({ songFileKey: candidate.songFileKey }),
           },
         );
-        const payload = (await response.json()) as {
+        const responseText = await response.text();
+        let payload: {
           key?: string;
           error?: string;
           message?: string;
         };
+        try {
+          payload = JSON.parse(responseText) as typeof payload;
+        } catch {
+          payload = {};
+        }
         if (!response.ok || !payload.key) {
           throw new Error(
             payload.message ??
               payload.error ??
-              `Migration route failed with status ${response.status}.`,
+              (responseText ||
+                `Migration route failed with status ${response.status}.`),
           );
         }
 
