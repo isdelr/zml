@@ -1,8 +1,7 @@
 "use client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { formatDeadline } from "@/lib/utils";
-import { cn } from "@/lib/utils";
-import { Clock, Crown, Music, Send, Vote } from "lucide-react";
+import { cn, formatShortDateTime } from "@/lib/utils";
+import { Clock, Crown, Send, Vote } from "lucide-react";
 import Link from "next/link";
 import { AvatarStack } from "../AvatarStack";
 import type { RoundForLeague } from "@/lib/convex/types";
@@ -37,59 +36,57 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
           textColor: "text-muted-foreground",
         };
 
-  const renderMobileSecondaryInfo = () => (
-    <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-      {round.status === "submissions" && (
-        <>
-          <div className="flex items-center gap-1.5">
-            <Clock className="size-3" /> Ends {formatDeadline(round.submissionDeadline)}
-          </div>
-          <div className="flex items-center gap-1.5">
-            {submitterCount}/{round.leagueMemberCount} submitted
-          </div>
-        </>
-      )}
-      {round.status === "voting" && (
-        <>
-          <div className="flex items-center gap-1.5">
-            <Clock className="size-3" /> Ends {formatDeadline(round.votingDeadline)}
-          </div>
-          <div className="flex items-center gap-1.5">
-            {round.voterCount}/{round.leagueMemberCount} voted
-          </div>
-        </>
-      )}
-      {round.status === "finished" && (
-        round.winners && round.winners.length > 1 ? (
-          <div className="flex items-center gap-2 truncate">
-            <Crown className="size-3 text-amber-500 flex-shrink-0" />
-            <AvatarStack users={round.winners.map(w => ({ name: w.name, image: w.image }))} />
-            <p className="font-semibold text-foreground/80 truncate">Tie: {round.winners.map(w => w.name).join(", ")}</p>
-          </div>
-        ) : (
-          round.winner && (
-            <div className="flex items-center gap-2 truncate">
-              <Crown className="size-3 text-amber-500 flex-shrink-0" />
-              <Avatar className="size-4 flex-shrink-0">
-                <AvatarImage src={round.winner.image ?? undefined} />
-                <AvatarFallback>{round.winner.name.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <p className="font-semibold text-foreground/80 truncate">{round.winner.name}</p>
-              <span className="truncate">- “{round.winner.songTitle}”</span>
-            </div>
-          )
-        )
-      )}
-    </div>
+  const renderWinnerPoints = (points: number) => (
+    <span className="text-xs font-semibold uppercase tracking-[0.08em] text-amber-500">
+      {points} pts
+    </span>
   );
 
-  // Derive an estimated submitter count from counters to avoid heavy server reads
-  const requiredPerUser = round.leagueMemberCount > 0 && round.expectedTrackCount
-    ? round.expectedTrackCount / round.leagueMemberCount
-    : 1;
-  const submitterCount = Math.min(
-    round.leagueMemberCount,
-    Math.floor(round.submissionCount / (requiredPerUser || 1)),
+  const renderFinishedSummary = (isMobile: boolean) =>
+    round.winners && round.winners.length > 1 ? (
+      <div className="flex min-w-0 items-center gap-2 truncate">
+        <Crown className="size-3.5 shrink-0 text-amber-500" />
+        {renderWinnerPoints(round.winners[0]?.points ?? 0)}
+        <AvatarStack users={round.winners.map((winner) => ({ name: winner.name, image: winner.image }))} />
+        <p className="truncate font-semibold text-foreground/80">
+          Tie: {round.winners.map((winner) => winner.name).join(", ")}
+        </p>
+      </div>
+    ) : (
+      round.winner && (
+        <div className="flex min-w-0 items-center gap-2 truncate">
+          <Crown className="size-3.5 shrink-0 text-amber-500" />
+          {renderWinnerPoints(round.winner.points)}
+          <Avatar className="size-4 shrink-0">
+            <AvatarImage src={round.winner.image ?? undefined} />
+            <AvatarFallback>{round.winner.name.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <p className="truncate font-semibold text-foreground/80">
+            {round.winner.name}
+          </p>
+          <span className={cn("truncate text-muted-foreground", !isMobile && "hidden lg:inline")}>
+            - &quot;{round.winner.songTitle}&quot;
+          </span>
+        </div>
+      )
+    );
+
+  const renderMobileSecondaryInfo = () => (
+    <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+      {round.status === "submissions" && (
+        <div className="flex items-center gap-1.5">
+          <Clock className="size-3" />
+          <span>Ends {formatShortDateTime(round.submissionDeadline)}</span>
+        </div>
+      )}
+      {round.status === "voting" && (
+        <div className="flex items-center gap-1.5">
+          <Clock className="size-3" />
+          <span>Ends {formatShortDateTime(round.votingDeadline)}</span>
+        </div>
+      )}
+      {round.status === "finished" && renderFinishedSummary(true)}
+    </div>
   );
 
   return (
@@ -114,77 +111,28 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
         {renderMobileSecondaryInfo()}
       </div>
 
-      <div className="hidden md:grid md:grid-cols-[auto_2fr_1.5fr_1.5fr_auto] items-center gap-4">
+      <div className="hidden md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-4">
         <div className="flex items-center gap-3">
           {statusInfo.icon}
           <span className={cn("font-semibold", statusInfo.textColor)}>{statusInfo.label}</span>
         </div>
         <div>
-          <p className="font-semibold truncate">{round.title}</p>
+          <p className="truncate font-semibold">{round.title}</p>
         </div>
-        <div className="flex items-center text-sm text-muted-foreground">
+        <div className="flex min-w-0 items-center text-sm text-muted-foreground">
           {round.status === "submissions" && (
             <>
               <Clock className="mr-2 size-4" />
-              <span>Ends {formatDeadline(round.submissionDeadline)}</span>
+              <span>Ends {formatShortDateTime(round.submissionDeadline)}</span>
             </>
           )}
           {round.status === "voting" && (
             <>
               <Clock className="mr-2 size-4" />
-              <span>Ends {formatDeadline(round.votingDeadline)}</span>
+              <span>Ends {formatShortDateTime(round.votingDeadline)}</span>
             </>
           )}
-          {round.status === "finished" && (
-            round.winners && round.winners.length > 1 ? (
-              <div className="flex items-center gap-2 truncate">
-                <Crown className="size-4 text-amber-500 flex-shrink-0" />
-                <AvatarStack users={round.winners.map(w => ({ name: w.name, image: w.image }))} />
-                <p className="font-semibold text-foreground truncate">Tie: {round.winners.map(w => w.name).join(", ")}</p>
-              </div>
-            ) : (
-              round.winner && (
-                <div className="flex items-center gap-2 truncate">
-                  <Crown className="size-4 text-amber-500 flex-shrink-0" />
-                  <Avatar className="size-5 flex-shrink-0">
-                    <AvatarImage src={round.winner.image ?? undefined} />
-                    <AvatarFallback>{round.winner.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <p className="font-semibold text-foreground truncate">{round.winner.name}</p>
-                  <span className="truncate hidden lg:inline">- “{round.winner.songTitle}”</span>
-                </div>
-              )
-            )
-          )}
-        </div>
-        <div className="flex items-center justify-start">
-          {(round.status === "submissions" || round.status === "voting") && (
-            <div className="flex items-center gap-2">
-              <AvatarStack
-                users={(round.status === "submissions" ? round.submitters : round.voters) ?? []}
-              />
-              <span className="text-sm font-medium">
-{round.status === "submissions"
-  ? `${submitterCount}/${round.leagueMemberCount}`
-  : `${round.voterCount}/${round.leagueMemberCount}`}
-</span>
-            </div>
-          )}
-          {round.status === "finished" && (
-            round.winners && round.winners.length > 1 ? (
-              <div className="flex items-center gap-1.5 text-sm font-bold">
-                <Music className="size-4 text-muted-foreground" />
-                <span>{round.winners[0]?.points ?? 0} pts · tie</span>
-              </div>
-            ) : (
-              round.winner && (
-                <div className="flex items-center gap-1.5 text-sm font-bold">
-                  <Music className="size-4 text-muted-foreground" />
-                  <span>{round.winner.points} pts</span>
-                </div>
-              )
-            )
-          )}
+          {round.status === "finished" && renderFinishedSummary(false)}
         </div>
       </div>
     </Link>

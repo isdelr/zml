@@ -12,10 +12,10 @@ interface LeagueRoundsProps {
 }
 
 export function LeagueRounds({
-                               rounds,
-                               hasLoaded,
-                               selectedRoundId,
-                               leagueId,
+  rounds,
+  hasLoaded,
+  selectedRoundId,
+  leagueId,
 }: LeagueRoundsProps) {
   if (!hasLoaded) {
     return (
@@ -30,12 +30,10 @@ export function LeagueRounds({
               <Skeleton className="h-5 flex-1" />
               <Skeleton className="h-5 w-16" />
             </div>
-            <div className="hidden items-center gap-4 md:grid md:grid-cols-[auto_2fr_1.5fr_1.5fr_auto]">
+            <div className="hidden items-center gap-4 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)]">
               <Skeleton className="h-5 w-28" />
               <Skeleton className="h-5 w-3/4" />
               <Skeleton className="h-5 w-2/3" />
-              <Skeleton className="h-5 w-24" />
-              <Skeleton className="h-5 w-14" />
             </div>
           </div>
         ))}

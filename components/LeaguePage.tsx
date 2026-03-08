@@ -226,22 +226,36 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
         playerActions={playerActions}
       />
       <LeagueInfo leagueData={leagueData} />
-      <div className="mb-12">
-        <Standings leagueId={parsedLeagueId} />
+      <div className="mb-12 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
+        <section className="overflow-hidden rounded-2xl border bg-card/60">
+          <div className="border-b px-4 py-3">
+            <h2 className="text-lg font-semibold">Standings</h2>
+          </div>
+          <div className="px-4 py-3 lg:h-[34rem] lg:overflow-y-auto lg:pr-3">
+            <Standings leagueId={parsedLeagueId} />
+          </div>
+        </section>
+        <section className="overflow-hidden rounded-2xl border bg-card/60">
+          <div className="border-b px-4 py-3">
+            <h2 className="text-lg font-semibold">Rounds</h2>
+          </div>
+          <div className="px-4 py-3 lg:h-[34rem] lg:overflow-y-auto lg:pr-3">
+            <LeagueRounds
+              rounds={rounds || []}
+              hasLoaded={status !== "LoadingFirstPage"}
+              selectedRoundId={selectedRoundId}
+              leagueId={leagueId}
+            />
+          </div>
+          {status === "CanLoadMore" && (
+            <div className="border-t px-4 py-3">
+              <Button onClick={() => loadMore(10)} variant="outline" className="w-full">
+                Load More Rounds
+              </Button>
+            </div>
+          )}
+        </section>
       </div>
-      <LeagueRounds
-        rounds={rounds || []}
-        hasLoaded={status !== "LoadingFirstPage"}
-        selectedRoundId={selectedRoundId}
-        leagueId={leagueId}
-      />
-      {status === "CanLoadMore" && (
-        <div className="mt-8 flex justify-center">
-          <Button onClick={() => loadMore(10)} variant="outline">
-            Load More Rounds
-          </Button>
-        </div>
-      )}
       {selectedRound && leagueData ? (
         <div className="mt-8">
           <RoundDetail

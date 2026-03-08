@@ -12,3 +12,10 @@ export function formatDeadline(deadline: number): string {
   }
   return format(new Date(deadline), "MMM d, yyyy 'at' h:mm a");
 }
+
+export function formatShortDateTime(value: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
