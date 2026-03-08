@@ -2,6 +2,10 @@
 "use client";
 
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import {
+  createMobileTopBarScrollState,
+  updateMobileTopBarScrollState,
+} from "@/lib/layout/mobile-top-bar-scroll";
 import { cn } from "@/lib/utils";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Sidebar } from "../Sidebar";
@@ -22,7 +26,8 @@ export function PageLayout({ children }: PageLayoutProps) {
   const { actions } = useMusicPlayerStore();
   const pathname = usePathname();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const lastScrollTopRef = useRef(0);
+  const mobileTopBarScrollStateRef = useRef(createMobileTopBarScrollState());
+  const isMobileTopBarHiddenRef = useRef(false);
   const [isMobileTopBarHidden, setIsMobileTopBarHidden] = useState(false);
 
   useEffect(() => {
@@ -30,26 +35,31 @@ export function PageLayout({ children }: PageLayoutProps) {
   }, [pathname, actions]);
 
   useEffect(() => {
+    isMobileTopBarHiddenRef.current = isMobileTopBarHidden;
+  }, [isMobileTopBarHidden]);
+
+  useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) {
       return;
     }
 
-    lastScrollTopRef.current = container.scrollTop;
+    mobileTopBarScrollStateRef.current = createMobileTopBarScrollState(
+      container.scrollTop,
+    );
 
     const handleScroll = () => {
-      const currentScrollTop = container.scrollTop;
-      const scrollDelta = currentScrollTop - lastScrollTopRef.current;
+      const nextScrollState = updateMobileTopBarScrollState(
+        mobileTopBarScrollStateRef.current,
+        container.scrollTop,
+        Date.now(),
+      );
 
-      if (currentScrollTop <= 8) {
-        setIsMobileTopBarHidden(false);
-      } else if (scrollDelta > 8) {
-        setIsMobileTopBarHidden(true);
-      } else if (scrollDelta < -8) {
-        setIsMobileTopBarHidden(false);
+      mobileTopBarScrollStateRef.current = nextScrollState;
+
+      if (nextScrollState.hidden !== isMobileTopBarHiddenRef.current) {
+        setIsMobileTopBarHidden(nextScrollState.hidden);
       }
-
-      lastScrollTopRef.current = currentScrollTop;
     };
 
     container.addEventListener("scroll", handleScroll, { passive: true });
@@ -60,10 +70,11 @@ export function PageLayout({ children }: PageLayoutProps) {
 
   useEffect(() => {
     setIsMobileTopBarHidden(false);
+    isMobileTopBarHiddenRef.current = false;
     const container = scrollContainerRef.current;
-    if (container) {
-      lastScrollTopRef.current = container.scrollTop;
-    }
+    mobileTopBarScrollStateRef.current = createMobileTopBarScrollState(
+      container?.scrollTop ?? 0,
+    );
   }, [pathname]);
 
   return (
