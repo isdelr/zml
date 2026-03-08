@@ -297,6 +297,8 @@ export function SubmissionsList({
   };
 
   const showVotingStatusStrip = roundStatus === "voting" && !league.isSpectator;
+  const showVotingYouTubeSection =
+    roundStatus === "voting" && youtubeItems.length > 0;
   const desktopGridClass =
     roundStatus === "finished"
       ? "grid grid-cols-[auto_4fr_3fr_3fr_2fr_auto] items-center gap-4 px-4 py-2"
@@ -310,10 +312,10 @@ export function SubmissionsList({
             <div
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
                 hasVoted
-                  ? "border-success/30 bg-success/10 text-success"
+                  ? "text-success"
                   : canVote
-                    ? "border-primary/30 bg-primary/10 text-primary"
-                    : "border-border bg-background text-muted-foreground"
+                    ? "text-primary"
+                    : "text-muted-foreground"
               }`}
             >
               {hasVoted ? (
@@ -340,11 +342,6 @@ export function SubmissionsList({
                   <ArrowDown className="size-3.5 text-destructive" />
                   <span>{negativeVotesRemaining} down left</span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {hasVoted
-                    ? `Locked at +${effectiveMaxUp} / -${effectiveMaxDown}.`
-                    : "Votes save automatically."}
-                </p>
               </>
             ) : (
               <p className="text-xs text-muted-foreground">
@@ -368,7 +365,11 @@ export function SubmissionsList({
       </div>
 
       {submissions.map((submission, index) => {
-        if (submission.submissionType === "youtube" && submission.songLink) {
+        if (
+          showVotingYouTubeSection &&
+          submission.submissionType === "youtube" &&
+          submission.songLink
+        ) {
           return null;
         }
         const extended = submission;
@@ -415,7 +416,7 @@ export function SubmissionsList({
         return <Fragment key={extended._id}>{elements}</Fragment>;
       })}
 
-      {roundStatus === "voting" && youtubeItems.length > 0 ? (
+      {showVotingYouTubeSection ? (
         <div className="m-2 rounded-lg border border-primary/30 bg-primary/5">
           <div className="flex items-center justify-between gap-2 border-b border-primary/20 px-3 py-2">
             <div className="text-xs text-muted-foreground">
@@ -502,55 +503,7 @@ export function SubmissionsList({
             );
           })}
         </div>
-      ) : (
-        // Non-voting phases: render YouTube items as regular list items without the wrapper/header
-        <>
-          {youtubeItems.map((song) => {
-            const isThisSongPlaying =
-              isPlaying && currentTrack?._id === song._id;
-            const isThisSongCurrent = currentTrack?._id === song._id;
-            const userIsSubmitter = song.userId === currentUser?._id;
-            const isCommentsVisible = activeCommentsSubmissionId === song._id;
-            const listeners = listenersBySubmission
-              ? listenersBySubmission[song._id.toString()]
-              : [];
-            const voteSummary = voteSummaryBySubmission[song._id.toString()];
-            const userVoteOnThisSong = userVotes.find(
-              (v) => v.submissionId === song._id,
-            );
-            const currentVoteValue = userVoteOnThisSong
-              ? userVoteOnThisSong.vote
-              : 0;
-            const indexInAll = submissions.indexOf(song);
-            return (
-              <SubmissionItem
-                key={song._id}
-                song={toSong(song)}
-                index={indexInAll}
-                isThisSongPlaying={isThisSongPlaying}
-                isThisSongCurrent={isThisSongCurrent}
-                isCommentsVisible={isCommentsVisible}
-                userIsSubmitter={userIsSubmitter}
-                currentVoteValue={currentVoteValue}
-                roundStatus={roundStatus}
-                hasVoted={hasVoted}
-                league={league}
-                canVote={canVote}
-                onToggleComments={() =>
-                  onToggleComments(isCommentsVisible ? null : song._id)
-                }
-                onVoteClick={(delta) => onVoteClick(song._id, delta)}
-                onBookmark={() => handleBookmark(song._id)}
-                onPlaySong={() => onPlaySong(toSong(song), indexInAll)}
-                listenProgress={listenProgressMap[song._id.toString()]}
-                listeners={listeners ?? []}
-                voteDetails={voteSummary?.votes}
-                currentUser={currentUser}
-              />
-            );
-          })}
-        </>
-      )}
+      ) : null}
     </div>
   );
 }

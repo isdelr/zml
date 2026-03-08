@@ -13,7 +13,7 @@ interface LeagueInfoProps {
 
 export function LeagueInfo({ leagueData }: LeagueInfoProps) {
   return (
-    <div className="mb-12">
+    <div className="mb-8">
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="text-4xl font-bold md:text-6xl">{leagueData.name}</h1>
         {leagueData.isSpectator && (
@@ -26,12 +26,20 @@ export function LeagueInfo({ leagueData }: LeagueInfoProps) {
       <div className="mt-4 flex flex-col items-start gap-3 text-muted-foreground md:flex-row md:items-center md:gap-6">
         <div className="flex items-center gap-2">
           {leagueData.members && <AvatarStack users={leagueData.members} />}
-          <span>{leagueData.activeMemberCount} {leagueData.activeMemberCount === 1 ? "Member" : "Members"}</span>
+          <span>
+            {leagueData.activeMemberCount}{" "}
+            {leagueData.activeMemberCount === 1 ? "Member" : "Members"}
+          </span>
         </div>
         {leagueData.spectatorCount > 0 && (
           <div className="flex items-center gap-2">
-            {leagueData.spectators && <AvatarStack users={leagueData.spectators} />}
-            <span>{leagueData.spectatorCount} {leagueData.spectatorCount === 1 ? "Spectator" : "Spectators"}</span>
+            {leagueData.spectators && (
+              <AvatarStack users={leagueData.spectators} />
+            )}
+            <span>
+              {leagueData.spectatorCount}{" "}
+              {leagueData.spectatorCount === 1 ? "Spectator" : "Spectators"}
+            </span>
           </div>
         )}
         <div className="flex items-center gap-2">
@@ -42,16 +50,14 @@ export function LeagueInfo({ leagueData }: LeagueInfoProps) {
               alt={leagueData.creatorName}
             />
             <AvatarFallback>
-                  <div
+              <div
                 dangerouslySetInnerHTML={{
                   __html: toSvg(String(leagueData.creatorId), 24),
                 }}
               />
             </AvatarFallback>
           </Avatar>
-          <strong className="text-foreground">
-            {leagueData.creatorName}
-          </strong>
+          <strong className="text-foreground">{leagueData.creatorName}</strong>
         </div>
       </div>
       {leagueData.description && (

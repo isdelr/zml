@@ -42,7 +42,10 @@ export function Standings({ leagueId }: StandingsProps) {
   return (
     <div className="space-y-1">
       {standings.map((player, index) => (
-        <div key={player.userId} className="flex items-center gap-3 py-1.5 text-left">
+        <div
+          key={player.userId}
+          className="flex items-center gap-3 py-1.5 text-left"
+        >
           <div className="flex w-5 items-center justify-center text-sm font-semibold text-muted-foreground">
             {index === 0 ? (
               <Crown className="size-4 text-warning" />
@@ -60,13 +63,15 @@ export function Standings({ leagueId }: StandingsProps) {
               dangerouslySetInnerHTML={{ __html: toSvg(player.userId, 32) }}
             />
           </Avatar>
+          <p className="min-w-0 truncate text-sm font-semibold">
+            {player.name}
+          </p>
           <div
             className={cn(
               "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold",
               player.totalPoints > 0 && "bg-success/10 text-success",
               player.totalPoints < 0 && "bg-destructive/10 text-destructive",
-              player.totalPoints === 0 &&
-                "bg-secondary text-muted-foreground",
+              player.totalPoints === 0 && "bg-secondary text-muted-foreground",
             )}
           >
             {player.totalPoints > 0 && <TrendingUp className="size-3.5" />}
@@ -74,7 +79,6 @@ export function Standings({ leagueId }: StandingsProps) {
             {player.totalPoints === 0 && <Medal className="size-3.5" />}
             <span>{player.totalPoints} pts</span>
           </div>
-          <p className="min-w-0 truncate text-sm font-semibold">{player.name}</p>
         </div>
       ))}
     </div>

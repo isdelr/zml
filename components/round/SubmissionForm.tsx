@@ -279,7 +279,7 @@ export function SubmissionForm({
       submissionType: submission.submissionType,
       songLink:
         submission.submissionType !== "file"
-          ? submission.songLink ?? null
+          ? (submission.songLink ?? null)
           : null,
       leagueId: submission.leagueId,
       roundId: submission.roundId,
@@ -354,11 +354,8 @@ export function SubmissionForm({
               <div className="hidden border-y border-border bg-muted/20 text-xs font-semibold uppercase text-muted-foreground md:block">
                 <div className="grid grid-cols-[auto_4fr_2fr_auto] items-center gap-4 px-4 py-2">
                   <span className="w-10 text-center">#</span>
-                  <span>Track</span>
+                  <span>Your Submitted Track(s)</span>
                   <span>Status</span>
-                  <span className="text-right">
-                    {roundStatus === "submissions" ? "Actions" : "Listen"}
-                  </span>
                 </div>
               </div>
 

@@ -53,9 +53,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   const { isLoading: isAuthLoading } = useConvexAuth();
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const selectedRoundId = (
-    typeof params.roundId === "string"
-      ? params.roundId
-      : null
+    typeof params.roundId === "string" ? params.roundId : null
   ) as Id<"rounds"> | null;
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -228,7 +226,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
         playerActions={playerActions}
       />
       <LeagueInfo leagueData={leagueData} />
-      <div className="mb-8">
+      <div className="mb-12">
         <Standings leagueId={parsedLeagueId} />
       </div>
       <LeagueRounds
