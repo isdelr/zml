@@ -13,6 +13,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 const PWA_PROMPT_DISMISSED_KEY = "pwa-prompt-dismissed-timestamp";
 const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
+const MOBILE_INSTALL_BANNER_QUERY = "(max-width: 767px)";
 
 export function usePWAInstall() {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
@@ -37,25 +38,50 @@ export function usePWAInstall() {
     }
     return isStillDismissed;
   });
+  const [canShowCustomBanner, setCanShowCustomBanner] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return window.matchMedia(MOBILE_INSTALL_BANNER_QUERY).matches;
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
+    const mobileBannerMediaQuery = window.matchMedia(MOBILE_INSTALL_BANNER_QUERY);
+    const handleBannerViewportChange = (event: MediaQueryListEvent) => {
+      setCanShowCustomBanner(event.matches);
+    };
     const handleBeforeInstallPrompt = (e: Event) => {
+      const shouldDeferPrompt =
+        canShowCustomBanner && !isTemporarilyDismissed && !isAppInstalled;
+      if (!shouldDeferPrompt) {
+        setPromptEvent(null);
+        return;
+      }
       e.preventDefault();
       setPromptEvent(e as BeforeInstallPromptEvent);
     };
     const handleAppInstalled = () => {
       setIsAppInstalled(true);
     };
+    mobileBannerMediaQuery.addEventListener("change", handleBannerViewportChange);
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("appinstalled", handleAppInstalled);
     return () => {
+      mobileBannerMediaQuery.removeEventListener("change", handleBannerViewportChange);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
-  }, []);
+  }, [canShowCustomBanner, isAppInstalled, isTemporarilyDismissed]);
+
+  useEffect(() => {
+    if (canShowCustomBanner && !isTemporarilyDismissed && !isAppInstalled) {
+      return;
+    }
+    setPromptEvent(null);
+  }, [canShowCustomBanner, isAppInstalled, isTemporarilyDismissed]);
 
   const isBannerVisible = useMemo(() => {
     return !isAppInstalled && !!promptEvent && !isTemporarilyDismissed;
