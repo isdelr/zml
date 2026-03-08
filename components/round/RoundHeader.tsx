@@ -68,9 +68,6 @@ export function RoundHeader({
       <div className="flex flex-1 flex-col justify-between gap-6">
         <div className="flex flex-col justify-end gap-2">
           <div>
-            <p className="text-sm font-bold uppercase">
-              {round.status === "submissions" ? "Submissions Open" : "Viewing Round"}
-            </p>
             <h1 className="text-4xl font-bold text-foreground md:text-5xl">
               {round.title}
             </h1>

@@ -351,7 +351,7 @@ export function SubmissionForm({
 
           {(!hasMultipleTracks || isExpanded) && (
             <>
-              <div className="hidden border-y border-border bg-muted/20 text-xs font-semibold uppercase text-muted-foreground md:block">
+              <div className="hidden border-b border-border bg-muted/20 text-xs font-semibold uppercase text-muted-foreground md:block">
                 <div className="grid grid-cols-[auto_4fr_2fr_auto] items-center gap-4 px-4 py-2">
                   <span className="w-10 text-center">#</span>
                   <span>Your Submitted Track(s)</span>
