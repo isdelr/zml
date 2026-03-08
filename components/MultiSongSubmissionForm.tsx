@@ -52,6 +52,10 @@ export function MultiSongSubmissionForm({
   const [trackPreviews, setTrackPreviews] = useState<MultiTrackPreviews>({});
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{
+    title: string;
+    description?: string;
+  } | null>(null);
 
   const form = useForm<
     MultiSongSubmissionFormInput,
@@ -66,6 +70,7 @@ export function MultiSongSubmissionForm({
     control: form.control,
     name: "tracks",
   });
+  const submissionType = form.watch("submissionType");
 
   const remainingSongs = maxSongs - currentCount;
 
@@ -81,6 +86,11 @@ export function MultiSongSubmissionForm({
         for (const [i, track] of values.tracks.entries()) {
           if (!track.songFile || !track.albumArtFile) continue;
 
+          setUploadStatus({
+            title: `Uploading track ${i + 1} of ${totalTracks}`,
+            description:
+              "Uploading the file now. We will finish getting it ready after the upload ends.",
+          });
           setUploadProgress(Math.round(((i + 0.5) / totalTracks) * 100));
 
           const [albumArtKey, songFileKey] = await Promise.all([
@@ -101,6 +111,11 @@ export function MultiSongSubmissionForm({
             collectionType: "multi",
           });
 
+          setUploadStatus({
+            title: `Uploaded track ${i + 1} of ${totalTracks}`,
+            description:
+              "That track is uploaded. You do not need to keep the page open after the rest finish uploading.",
+          });
           setUploadProgress(Math.round(((i + 1) / totalTracks) * 100));
         }
       } else if (values.submissionType === "link") {
@@ -128,16 +143,23 @@ export function MultiSongSubmissionForm({
         }
       }
 
-      toast.success(`Successfully submitted ${values.tracks.length} song(s)!`, {
-        id: toastId,
-      });
+      toast.success(
+        values.submissionType === "manual"
+          ? `Uploaded ${values.tracks.length} song(s). We are getting them ready in the background.`
+          : `Successfully submitted ${values.tracks.length} song(s)!`,
+        {
+          id: toastId,
+        },
+      );
       form.reset(defaultMultiSongSubmissionFormValues);
       setTrackPreviews({});
       setUploadProgress(0);
+      setUploadStatus(null);
     } catch (error) {
       const errorMessage = toErrorMessage(error);
       toast.error(`Submission failed: ${errorMessage}`, { id: toastId });
       console.error(error);
+      setUploadStatus(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -221,7 +243,15 @@ export function MultiSongSubmissionForm({
             </TabsContent>
           </Tabs>
 
-          <UploadProgressStatus progress={uploadProgress} isSubmitting={isSubmitting} />
+          <UploadProgressStatus
+            isVisible={isSubmitting && uploadProgress > 0}
+            title={
+              uploadStatus?.title ??
+              "Uploading songs"
+            }
+            description={uploadStatus?.description}
+            progress={uploadProgress}
+          />
 
           <Button
             type="submit"
@@ -232,11 +262,14 @@ export function MultiSongSubmissionForm({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
-                Uploading... {uploadProgress}%
+                {submissionType === "manual"
+                  ? `Uploading... ${uploadProgress}%`
+                  : `Submitting... ${uploadProgress}%`}
               </>
             ) : (
               <>
-                Submit {fields.length} Song{fields.length !== 1 ? "s" : ""}
+                {submissionType === "manual" ? "Upload" : "Submit"} {fields.length} Song
+                {fields.length !== 1 ? "s" : ""}
               </>
             )}
           </Button>

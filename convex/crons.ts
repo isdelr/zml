@@ -18,4 +18,11 @@ crons.interval(
   internal.presence.keepalive
 );
 
+crons.interval(
+  "Process queued submission audio",
+  { minutes: 1 },
+  internal.submissions.processPendingSubmissionAudioQueue,
+  { limit: 10 },
+);
+
 export default crons;

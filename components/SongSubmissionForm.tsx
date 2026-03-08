@@ -24,6 +24,7 @@ import { PotentialDuplicateDialog } from "@/components/submission/PotentialDupli
 import { SongManualTab } from "@/components/submission/song/SongManualTab";
 import { SongLinkTab } from "@/components/submission/song/SongLinkTab";
 import { SongCommentField } from "@/components/submission/song/SongCommentField";
+import { UploadProgressStatus } from "@/components/submission/UploadProgressStatus";
 import { toErrorMessage } from "@/lib/errors";
 
 interface SongSubmissionFormProps {
@@ -42,6 +43,11 @@ export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
   const uploadSubmissionSongFile = useUploadSubmissionSongFile();
 
   const [albumArtPreview, setAlbumArtPreview] = useState<string>("");
+  const [uploadState, setUploadState] = useState<{
+    title: string;
+    description?: string;
+    progress?: number | null;
+  } | null>(null);
   const [warningState, setWarningState] = useState<{
     isOpen: boolean;
     data: DuplicateSubmissionWarning | null;
@@ -52,6 +58,7 @@ export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
     resolver: zodResolver(songSubmissionFormSchema),
     defaultValues: defaultSongSubmissionFormValues,
   });
+  const submissionType = form.watch("submissionType");
 
   const handleFinalSubmit = async (values: SongSubmissionFormValues) => {
     const toastId = toast.loading("Submitting your masterpiece...");
@@ -63,11 +70,31 @@ export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
         values.albumArtFile &&
         values.songFile
       ) {
+        setUploadState({
+          title: "Uploading song",
+          description:
+            "Uploading your file now. We will finish getting it ready after the upload ends.",
+          progress: 0,
+        });
         const [albumArtKey, songFileKey] = await Promise.all([
           uploadFile(values.albumArtFile),
-          uploadSubmissionSongFile(values.songFile),
+          uploadSubmissionSongFile(values.songFile, {
+            onProgress: (progress) =>
+              setUploadState({
+                title: "Uploading song",
+                description:
+                  "Uploading your file now. We will finish getting it ready after the upload ends.",
+                progress,
+              }),
+          }),
         ]);
 
+        setUploadState({
+          title: "Upload complete",
+          description:
+            "Your file is uploaded. You can close the browser while we finish getting it ready in the background.",
+          progress: null,
+        });
         await submitSong({
           roundId,
           submissionType: "file",
@@ -93,13 +120,20 @@ export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
         });
       }
 
-      toast.success("Song submitted successfully!", { id: toastId });
+      toast.success(
+        values.submissionType === "manual"
+          ? "Song uploaded. We are getting it ready in the background."
+          : "Song submitted successfully!",
+        { id: toastId },
+      );
       form.reset(defaultSongSubmissionFormValues);
       setAlbumArtPreview("");
+      setUploadState(null);
     } catch (error) {
       const errorMessage = toErrorMessage(error);
       toast.error(`Submission failed: ${errorMessage}`, { id: toastId });
       console.error(error);
+      setUploadState(null);
     }
   };
 
@@ -197,6 +231,13 @@ export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
 
             <SongCommentField form={form} />
 
+            <UploadProgressStatus
+              isVisible={uploadState !== null}
+              title={uploadState?.title ?? ""}
+              description={uploadState?.description}
+              progress={uploadState?.progress}
+            />
+
             <Button
               type="submit"
               className="w-full"
@@ -206,7 +247,13 @@ export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
               {form.formState.isSubmitting ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />
               ) : null}
-              Submit Song
+              {form.formState.isSubmitting
+                ? submissionType === "manual"
+                  ? "Uploading Song"
+                  : "Submitting Song"
+                : submissionType === "manual"
+                  ? "Upload Song"
+                  : "Submit Song"}
             </Button>
           </form>
         </Form>

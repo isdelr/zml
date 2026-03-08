@@ -49,6 +49,10 @@ export function AlbumSubmissionForm({ round }: AlbumSubmissionFormProps) {
     useState<string>("");
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{
+    title: string;
+    description?: string;
+  } | null>(null);
 
   const form = useForm<AlbumSubmissionFormInput, unknown, AlbumSubmissionFormOutput>({
     resolver: zodResolver(albumSubmissionFormSchema),
@@ -59,6 +63,7 @@ export function AlbumSubmissionForm({ round }: AlbumSubmissionFormProps) {
     control: form.control,
     name: "tracks",
   });
+  const submissionType = form.watch("submissionType");
 
   const handleFinalSubmit = async (values: AlbumSubmissionFormOutput) => {
     setIsSubmitting(true);
@@ -71,6 +76,11 @@ export function AlbumSubmissionForm({ round }: AlbumSubmissionFormProps) {
       const totalTracks = values.tracks.length;
 
       if (values.submissionType === "manual" && values.albumArtFile) {
+        setUploadStatus({
+          title: "Uploading album art",
+          description:
+            "Uploading the artwork and song files now so we can finish getting them ready in the background.",
+        });
         setUploadProgress(5);
         const albumArtKey = await uploadFile(values.albumArtFile);
         setUploadProgress(10);
@@ -78,6 +88,11 @@ export function AlbumSubmissionForm({ round }: AlbumSubmissionFormProps) {
         for (const [i, track] of values.tracks.entries()) {
           if (!track.songFile) continue;
 
+          setUploadStatus({
+            title: `Uploading track ${i + 1} of ${totalTracks}`,
+            description:
+              "Each track uploads first. We will finish getting it ready after that.",
+          });
           const trackProgress = 10 + Math.round(((i + 0.5) / totalTracks) * 90);
           setUploadProgress(trackProgress);
 
@@ -102,6 +117,11 @@ export function AlbumSubmissionForm({ round }: AlbumSubmissionFormProps) {
             trackNumber: track.trackNumber,
           });
 
+          setUploadStatus({
+            title: `Uploaded track ${i + 1} of ${totalTracks}`,
+            description:
+              "That track is uploaded. You can leave once the rest of the album finishes uploading.",
+          });
           const completedProgress =
             10 + Math.round(((i + 1) / totalTracks) * 90);
           setUploadProgress(completedProgress);
@@ -141,16 +161,20 @@ export function AlbumSubmissionForm({ round }: AlbumSubmissionFormProps) {
 
       setUploadProgress(100);
       toast.success(
-        `Album with ${values.tracks.length} track(s) submitted successfully!`,
+        values.submissionType === "manual"
+          ? `Album uploaded. We are getting ${values.tracks.length} track(s) ready in the background.`
+          : `Album with ${values.tracks.length} track(s) submitted successfully!`,
         { id: toastId },
       );
       form.reset(defaultAlbumSubmissionFormValues);
       setAlbumArtPreview("");
       setUploadProgress(0);
+      setUploadStatus(null);
     } catch (error) {
       const errorMessage = toErrorMessage(error);
       toast.error(`Submission failed: ${errorMessage}`, { id: toastId });
       console.error(error);
+      setUploadStatus(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -244,16 +268,26 @@ export function AlbumSubmissionForm({ round }: AlbumSubmissionFormProps) {
             </TabsContent>
           </Tabs>
 
-          <UploadProgressStatus progress={uploadProgress} isSubmitting={isSubmitting} />
+          <UploadProgressStatus
+            isVisible={isSubmitting && uploadProgress > 0}
+            title={uploadStatus?.title ?? "Uploading songs"}
+            description={uploadStatus?.description}
+            progress={uploadProgress}
+          />
 
           <Button type="submit" className="w-full" disabled={isSubmitting} size="lg">
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
-                Uploading... {uploadProgress}%
+                {submissionType === "manual"
+                  ? `Uploading... ${uploadProgress}%`
+                  : `Submitting... ${uploadProgress}%`}
               </>
             ) : (
-              <>Submit Album ({fields.length} track{fields.length !== 1 ? "s" : ""})</>
+              <>
+                {submissionType === "manual" ? "Upload" : "Submit"} Album ({fields.length} track
+                {fields.length !== 1 ? "s" : ""})
+              </>
             )}
           </Button>
         </form>

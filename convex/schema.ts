@@ -142,7 +142,20 @@ export default defineSchema({
     artist: v.string(),
     albumArtKey: v.optional(v.string()),
     songFileKey: v.optional(v.string()),
+    originalSongFileKey: v.optional(v.string()),
     songFileLegacyKey: v.optional(v.string()),
+    fileProcessingStatus: v.optional(
+      v.union(
+        v.literal("queued"),
+        v.literal("converting"),
+        v.literal("ready"),
+        v.literal("failed"),
+      ),
+    ),
+    fileProcessingError: v.optional(v.string()),
+    fileProcessingQueuedAt: v.optional(v.number()),
+    fileProcessingStartedAt: v.optional(v.number()),
+    fileProcessingCompletedAt: v.optional(v.number()),
     comment: v.optional(v.string()),
     submissionType: v.union(v.literal("file"), v.literal("youtube")),
     songLink: v.optional(v.string()),
@@ -168,6 +181,7 @@ export default defineSchema({
     .index("by_round_and_user", ["roundId", "userId"])
     .index("by_user_and_league", ["userId", "leagueId"])
     .index("by_league", ["leagueId"])
+    .index("by_file_processing_status", ["fileProcessingStatus"])
     .index("by_league_and_normalized_song_title", [
       "leagueId",
       "normalizedSongTitle",

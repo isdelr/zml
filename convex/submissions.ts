@@ -34,6 +34,19 @@ const EXACT_DUPLICATE_MATCH_LIMIT = 50;
 const FUZZY_DUPLICATE_MATCH_LIMIT = 30;
 const DEFAULT_AUDIO_MIGRATION_BATCH_SIZE = 25;
 const MAX_AUDIO_MIGRATION_BATCH_SIZE = 100;
+const DEFAULT_PENDING_AUDIO_PROCESSING_BATCH_SIZE = 10;
+const MAX_PENDING_AUDIO_PROCESSING_BATCH_SIZE = 25;
+const SUBMISSION_AUDIO_PROCESSING_STALE_MS = 15 * 60 * 1000;
+
+export const submissionFileProcessingStatusValues = [
+  "queued",
+  "converting",
+  "ready",
+  "failed",
+] as const;
+
+type SubmissionFileProcessingStatus =
+  (typeof submissionFileProcessingStatusValues)[number];
 
 type AudioMigrationCandidate = {
   submissionId: Id<"submissions">;
@@ -56,6 +69,44 @@ type AudioMigrationRunResult = {
   failed: AudioMigrationFailureItem[];
   remaining: number;
 };
+
+type PendingSubmissionAudioCandidate = {
+  submissionId: Id<"submissions">;
+  originalSongFileKey: string;
+};
+
+type PendingSubmissionAudioQueueRunResult = {
+  requeued: number;
+  attempted: number;
+};
+
+function getSubmissionFileProcessingStatus(
+  submission: Pick<
+    Doc<"submissions">,
+    "submissionType" | "songFileKey" | "fileProcessingStatus"
+  >,
+): SubmissionFileProcessingStatus {
+  if (submission.submissionType !== "file") {
+    return "ready";
+  }
+  if (submission.fileProcessingStatus) {
+    return submission.fileProcessingStatus;
+  }
+  return submission.songFileKey ? "ready" : "queued";
+}
+
+async function scheduleSubmissionAudioProcessing(
+  ctx: Pick<MutationCtx, "scheduler">,
+  submissionId: Id<"submissions">,
+) {
+  await ctx.scheduler.runAfter(
+    0,
+    internal.submissions.processQueuedSubmissionAudio,
+    {
+      submissionId,
+    },
+  );
+}
 
 async function canViewLeague(
   ctx: Pick<QueryCtx, "db">,
@@ -233,6 +284,11 @@ export const submitSong = mutation({
     if (!round) throw new Error("Round not found.");
     if (round.status !== "submissions")
       throw new Error("Submissions are not open.");
+    if (round.submissionDeadline <= Date.now()) {
+      throw new Error(
+        "The submission deadline has passed. Recent uploads are still finishing in the background.",
+      );
+    }
 
     // Check if user is banned from this league or is a spectator
     const membership = await ctx.db
@@ -317,11 +373,14 @@ export const submitSong = mutation({
       if (!args.albumArtKey || !args.songFileKey) {
         throw new Error("File keys are required for manual submission.");
       }
+      const now = Date.now();
       submissionId = await ctx.db.insert("submissions", {
         ...baseSubmissionData,
         submissionType: "file",
         albumArtKey: args.albumArtKey,
-        songFileKey: args.songFileKey,
+        originalSongFileKey: args.songFileKey,
+        fileProcessingStatus: "queued",
+        fileProcessingQueuedAt: now,
       });
     } else {
       if (!args.songLink || !args.albumArtUrlValue) {
@@ -334,12 +393,16 @@ export const submitSong = mutation({
         submissionType: args.submissionType,
         songLink: args.songLink,
         albumArtUrlValue: args.albumArtUrlValue,
+        fileProcessingStatus: "ready",
       });
     }
 
     await submissionCounter.inc(ctx, args.roundId);
     const submissionDoc = await ctx.db.get("submissions", submissionId);
     await submissionsByUser.insert(ctx, submissionDoc!);
+    if (args.submissionType === "file") {
+      await scheduleSubmissionAudioProcessing(ctx, submissionId);
+    }
   },
 });
 
@@ -378,6 +441,7 @@ export const editSong = mutation({
     const { submissionId } = args;
     const previousAlbumArtKey = submission.albumArtKey ?? null;
     const previousSongFileKey = submission.songFileKey ?? null;
+    const previousOriginalSongFileKey = submission.originalSongFileKey ?? null;
     const previousSongFileLegacyKey = submission.songFileLegacyKey ?? null;
     const previousSongLink = submission.songLink ?? null;
 
@@ -387,8 +451,10 @@ export const editSong = mutation({
     }
 
     let nextSongFileKey: string | null = previousSongFileKey;
+    let nextOriginalSongFileKey: string | null = previousOriginalSongFileKey;
     if (args.songFileKey !== undefined) {
-      nextSongFileKey = args.songFileKey;
+      nextSongFileKey = null;
+      nextOriginalSongFileKey = args.songFileKey;
     }
 
     let nextSongLink: string | null = previousSongLink;
@@ -408,8 +474,14 @@ export const editSong = mutation({
       updates.albumArtKey = args.albumArtKey ?? undefined;
     }
     if (args.songFileKey !== undefined) {
-      updates.songFileKey = args.songFileKey ?? undefined;
+      updates.songFileKey = undefined;
+      updates.originalSongFileKey = args.songFileKey ?? undefined;
       updates.songFileLegacyKey = undefined;
+      updates.fileProcessingStatus = args.songFileKey ? "queued" : undefined;
+      updates.fileProcessingError = undefined;
+      updates.fileProcessingQueuedAt = args.songFileKey ? Date.now() : undefined;
+      updates.fileProcessingStartedAt = undefined;
+      updates.fileProcessingCompletedAt = undefined;
     }
     if (args.songLink !== undefined) {
       updates.songLink = args.songLink ?? undefined;
@@ -428,12 +500,25 @@ export const editSong = mutation({
       updates.songLink = undefined;
       updates.albumArtUrlValue = undefined;
       nextSongLink = null;
+      if (args.songFileKey === undefined) {
+        nextSongFileKey = previousSongFileKey;
+        nextOriginalSongFileKey = previousOriginalSongFileKey;
+      }
+      if (!submission.fileProcessingStatus && previousSongFileKey) {
+        updates.fileProcessingStatus = "ready";
+      }
     } else {
       updates.albumArtKey = undefined;
       updates.songFileKey = undefined;
+      updates.originalSongFileKey = undefined;
       updates.songFileLegacyKey = undefined;
+      updates.fileProcessingStatus = "ready";
+      updates.fileProcessingError = undefined;
+      updates.fileProcessingStartedAt = undefined;
+      updates.fileProcessingCompletedAt = Date.now();
       nextAlbumArtKey = null;
       nextSongFileKey = null;
+      nextOriginalSongFileKey = null;
     }
 
     const shouldInvalidateLyrics =
@@ -458,6 +543,12 @@ export const editSong = mutation({
       keysToDelete.add(previousSongFileKey);
     }
     if (
+      previousOriginalSongFileKey &&
+      previousOriginalSongFileKey !== nextOriginalSongFileKey
+    ) {
+      keysToDelete.add(previousOriginalSongFileKey);
+    }
+    if (
       previousSongFileLegacyKey &&
       (args.songFileKey !== undefined || args.submissionType !== "file")
     ) {
@@ -469,6 +560,14 @@ export const editSong = mutation({
       } catch (error) {
         console.error(`Failed to delete stale submission file "${key}"`, error);
       }
+    }
+
+    if (
+      args.submissionType === "file" &&
+      typeof args.songFileKey === "string" &&
+      args.songFileKey.length > 0
+    ) {
+      await scheduleSubmissionAudioProcessing(ctx, submissionId);
     }
 
     return "Submission updated successfully.";
@@ -841,6 +940,389 @@ export const getSubmissionById = internalQuery({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args) => {
     return await ctx.db.get("submissions", args.submissionId);
+  },
+});
+
+export const listPendingSubmissionAudioCandidates = internalQuery({
+  args: {
+    status: v.union(
+      v.literal("queued"),
+      v.literal("converting"),
+      v.literal("failed"),
+    ),
+    limit: v.number(),
+    staleBefore: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const submissions = await ctx.db
+      .query("submissions")
+      .withIndex("by_file_processing_status", (q) =>
+        q.eq("fileProcessingStatus", args.status),
+      )
+      .take(Math.max(args.limit * 2, args.limit));
+
+    return submissions
+      .filter((submission) => {
+        if (
+          submission.submissionType !== "file" ||
+          !submission.originalSongFileKey
+        ) {
+          return false;
+        }
+        if (typeof args.staleBefore === "number") {
+          return (submission.fileProcessingStartedAt ?? 0) <= args.staleBefore;
+        }
+        return true;
+      })
+      .slice(0, args.limit)
+      .map((submission) => ({
+        submissionId: submission._id,
+        originalSongFileKey: submission.originalSongFileKey!,
+      }));
+  },
+});
+
+export const startQueuedSubmissionAudioProcessing = internalMutation({
+  args: {
+    submissionId: v.id("submissions"),
+    expectedSourceKey: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const submission = await ctx.db.get("submissions", args.submissionId);
+    if (
+      !submission ||
+      submission.submissionType !== "file" ||
+      submission.originalSongFileKey !== args.expectedSourceKey
+    ) {
+      return false;
+    }
+
+    const status = getSubmissionFileProcessingStatus(submission);
+    if (
+      status === "converting" &&
+      (submission.fileProcessingStartedAt ?? 0) >
+        Date.now() - SUBMISSION_AUDIO_PROCESSING_STALE_MS
+    ) {
+      return false;
+    }
+    if (status === "ready" && !submission.originalSongFileKey) {
+      return false;
+    }
+
+    const oldDoc = submission;
+    await ctx.db.patch("submissions", args.submissionId, {
+      fileProcessingStatus: "converting",
+      fileProcessingError: undefined,
+      fileProcessingStartedAt: Date.now(),
+    });
+    const newDoc = await ctx.db.get("submissions", args.submissionId);
+    if (newDoc) {
+      await submissionsByUser.replace(ctx, oldDoc, newDoc);
+    }
+    return true;
+  },
+});
+
+export const requeueStaleSubmissionAudioProcessing = internalMutation({
+  args: {
+    submissionId: v.id("submissions"),
+    expectedSourceKey: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const submission = await ctx.db.get("submissions", args.submissionId);
+    if (
+      !submission ||
+      submission.submissionType !== "file" ||
+      submission.fileProcessingStatus !== "converting" ||
+      submission.originalSongFileKey !== args.expectedSourceKey
+    ) {
+      return false;
+    }
+
+    const oldDoc = submission;
+    await ctx.db.patch("submissions", args.submissionId, {
+      fileProcessingStatus: "queued",
+      fileProcessingError: undefined,
+      fileProcessingQueuedAt: Date.now(),
+      fileProcessingStartedAt: undefined,
+    });
+    const newDoc = await ctx.db.get("submissions", args.submissionId);
+    if (newDoc) {
+      await submissionsByUser.replace(ctx, oldDoc, newDoc);
+    }
+    return true;
+  },
+});
+
+export const completeQueuedSubmissionAudioProcessing = internalMutation({
+  args: {
+    submissionId: v.id("submissions"),
+    expectedSourceKey: v.string(),
+    convertedSongFileKey: v.string(),
+  },
+  returns: v.object({
+    applied: v.boolean(),
+    sourceKeyToDelete: v.union(v.string(), v.null()),
+    previousSongFileKeyToDelete: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const submission = await ctx.db.get("submissions", args.submissionId);
+    if (
+      !submission ||
+      submission.submissionType !== "file" ||
+      submission.originalSongFileKey !== args.expectedSourceKey
+    ) {
+      return {
+        applied: false,
+        sourceKeyToDelete: null,
+        previousSongFileKeyToDelete: null,
+      };
+    }
+
+    const oldDoc = submission;
+    const previousSongFileKeyToDelete =
+      submission.songFileKey &&
+      submission.songFileKey !== args.convertedSongFileKey
+        ? submission.songFileKey
+        : null;
+
+    await ctx.db.patch("submissions", args.submissionId, {
+      songFileKey: args.convertedSongFileKey,
+      originalSongFileKey: undefined,
+      fileProcessingStatus: "ready",
+      fileProcessingError: undefined,
+      fileProcessingCompletedAt: Date.now(),
+    });
+    const newDoc = await ctx.db.get("submissions", args.submissionId);
+    if (newDoc) {
+      await submissionsByUser.replace(ctx, oldDoc, newDoc);
+    }
+
+    return {
+      applied: true,
+      sourceKeyToDelete: args.expectedSourceKey,
+      previousSongFileKeyToDelete,
+    };
+  },
+});
+
+export const failQueuedSubmissionAudioProcessing = internalMutation({
+  args: {
+    submissionId: v.id("submissions"),
+    expectedSourceKey: v.string(),
+    errorMessage: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const submission = await ctx.db.get("submissions", args.submissionId);
+    if (
+      !submission ||
+      submission.submissionType !== "file" ||
+      submission.originalSongFileKey !== args.expectedSourceKey
+    ) {
+      return false;
+    }
+
+    const oldDoc = submission;
+    await ctx.db.patch("submissions", args.submissionId, {
+      fileProcessingStatus: "failed",
+      fileProcessingError: args.errorMessage,
+      fileProcessingCompletedAt: Date.now(),
+    });
+    const newDoc = await ctx.db.get("submissions", args.submissionId);
+    if (newDoc) {
+      await submissionsByUser.replace(ctx, oldDoc, newDoc);
+    }
+    return true;
+  },
+});
+
+export const processQueuedSubmissionAudio = internalAction({
+  args: {
+    submissionId: v.id("submissions"),
+  },
+  handler: async (ctx, args) => {
+    const submission = await ctx.runQuery(internal.submissions.getSubmissionById, {
+      submissionId: args.submissionId,
+    });
+    if (
+      !submission ||
+      submission.submissionType !== "file" ||
+      !submission.originalSongFileKey
+    ) {
+      return { processed: false };
+    }
+
+    const sourceKey = submission.originalSongFileKey;
+    const didStart = await ctx.runMutation(
+      internal.submissions.startQueuedSubmissionAudioProcessing,
+      {
+        submissionId: args.submissionId,
+        expectedSourceKey: sourceKey,
+      },
+    );
+    if (!didStart) {
+      return { processed: false };
+    }
+
+    const siteUrl = firstNonEmpty(process.env.SITE_URL, "http://localhost:3000");
+    if (!siteUrl) {
+      throw new Error("SITE_URL is required for queued submission processing.");
+    }
+
+    let convertedSongFileKey: string | null = null;
+
+    try {
+      const response = await fetch(`${siteUrl}/api/submissions/migrate-song-file`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ songFileKey: sourceKey }),
+      });
+      const responseText = await response.text();
+      let payload: {
+        key?: string;
+        error?: string;
+        message?: string;
+      };
+      try {
+        payload = JSON.parse(responseText) as typeof payload;
+      } catch {
+        payload = {};
+      }
+      if (!response.ok || !payload.key) {
+        throw new Error(
+          payload.message ??
+            payload.error ??
+            (responseText ||
+              `Queued submission processing failed with status ${response.status}.`),
+        );
+      }
+
+      convertedSongFileKey = payload.key;
+      const completionResult = await ctx.runMutation(
+        internal.submissions.completeQueuedSubmissionAudioProcessing,
+        {
+          submissionId: args.submissionId,
+          expectedSourceKey: sourceKey,
+          convertedSongFileKey,
+        },
+      );
+
+      const keysToDelete = [
+        completionResult.sourceKeyToDelete,
+        completionResult.previousSongFileKeyToDelete,
+      ].filter((key): key is string => Boolean(key));
+
+      if (!completionResult.applied) {
+        if (convertedSongFileKey) {
+          try {
+            await storage.deleteObject(convertedSongFileKey);
+          } catch (error) {
+            console.error(
+              `Failed to delete orphaned converted submission file "${convertedSongFileKey}"`,
+              error,
+            );
+          }
+        }
+        return { processed: false };
+      }
+
+      for (const key of keysToDelete) {
+        try {
+          await storage.deleteObject(key);
+        } catch (error) {
+          console.error(`Failed to delete processed submission file "${key}"`, error);
+        }
+      }
+
+      return { processed: true, convertedSongFileKey };
+    } catch (error) {
+      if (convertedSongFileKey) {
+        try {
+          await storage.deleteObject(convertedSongFileKey);
+        } catch (deleteError) {
+          console.error(
+            `Failed to delete failed converted submission file "${convertedSongFileKey}"`,
+            deleteError,
+          );
+        }
+      }
+      const message =
+        error instanceof Error ? error.message : "Unknown conversion failure.";
+      await ctx.runMutation(internal.submissions.failQueuedSubmissionAudioProcessing, {
+        submissionId: args.submissionId,
+        expectedSourceKey: sourceKey,
+        errorMessage: message,
+      });
+      return { processed: false, error: message };
+    }
+  },
+});
+
+export const processPendingSubmissionAudioQueue = internalAction({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<PendingSubmissionAudioQueueRunResult> => {
+    const limit = Math.max(
+      1,
+      Math.min(
+        args.limit ?? DEFAULT_PENDING_AUDIO_PROCESSING_BATCH_SIZE,
+        MAX_PENDING_AUDIO_PROCESSING_BATCH_SIZE,
+      ),
+    );
+
+    const staleCandidates: PendingSubmissionAudioCandidate[] = await ctx.runQuery(
+      internal.submissions.listPendingSubmissionAudioCandidates,
+      {
+        status: "converting",
+        limit,
+        staleBefore: Date.now() - SUBMISSION_AUDIO_PROCESSING_STALE_MS,
+      },
+    );
+    for (const candidate of staleCandidates) {
+      await ctx.runMutation(
+        internal.submissions.requeueStaleSubmissionAudioProcessing,
+        {
+          submissionId: candidate.submissionId,
+          expectedSourceKey: candidate.originalSongFileKey,
+        },
+      );
+    }
+
+    const queuedCandidates: PendingSubmissionAudioCandidate[] =
+      await ctx.runQuery(
+      internal.submissions.listPendingSubmissionAudioCandidates,
+      {
+        status: "queued",
+        limit,
+      },
+    );
+
+    for (const candidate of queuedCandidates) {
+      try {
+        await ctx.runAction(internal.submissions.processQueuedSubmissionAudio, {
+          submissionId: candidate.submissionId,
+        });
+      } catch (error) {
+        console.error(
+          `Failed to process queued submission audio for ${candidate.submissionId}:`,
+          error,
+        );
+      }
+    }
+
+    return {
+      requeued: staleCandidates.length,
+      attempted: queuedCandidates.length,
+    };
   },
 });
 

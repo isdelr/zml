@@ -24,6 +24,7 @@ import {
 import { resolveSubmissionMediaUrls } from "../lib/convex-server/submissions/media";
 import { B2Storage } from "./b2Storage";
 import { resolveUserAvatarUrl } from "./userAvatar";
+import { getSubmissionFileProcessingStatus } from "../lib/submission/file-processing";
 
 const storage = new B2Storage();
 
@@ -53,6 +54,23 @@ async function canViewLeague(
     .first();
 
   return { league, canView: Boolean(membership) };
+}
+
+async function hasIncompleteFileSubmissions(
+  ctx: Pick<QueryCtx, "db">,
+  roundId: Id<"rounds">,
+) {
+  const submissions = await ctx.db
+    .query("submissions")
+    .withIndex("by_round_and_user", (q) => q.eq("roundId", roundId))
+    .collect();
+
+  return submissions.some((submission) => {
+    if (submission.submissionType !== "file") {
+      return false;
+    }
+    return getSubmissionFileProcessingStatus(submission) !== "ready";
+  });
 }
 
 export const get = query({
@@ -422,6 +440,11 @@ export const manageRoundState = mutation({
       case "startVoting":
         if (round.status !== "submissions")
           throw new Error("Round is not in submission phase.");
+        if (await hasIncompleteFileSubmissions(ctx, args.roundId)) {
+          throw new Error(
+            "Cannot start voting while some file uploads are still being prepared or need attention.",
+          );
+        }
         await transitionRoundToVotingWithSideEffects(
           ctx,
           round,
@@ -816,6 +839,7 @@ export const transitionRoundToVoting = internalMutation({
     const round = await ctx.db.get("rounds", roundId);
     if (!round || round.status !== "submissions") return;
     if (round.submissionDeadline > Date.now()) return;
+    if (await hasIncompleteFileSubmissions(ctx, roundId)) return;
 
     const league = await ctx.db.get("leagues", round.leagueId);
     if (league) {

@@ -19,6 +19,8 @@ import { useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
 import type { FunctionReturnType } from "convex/server";
 import { YouTubeIcon } from "@/components/icons/BrandIcons";
+import { SubmissionProcessingStatus } from "@/components/submission/SubmissionProcessingStatus";
+import { isSubmissionPlayable } from "@/lib/submission/file-processing";
 
 const getResultIcon = (result: { type: string; points: number }) => {
   switch (result.type) {
@@ -169,6 +171,9 @@ export function MySubmissionsPage() {
                               <p className="text-sm text-muted-foreground">
                                 {submission.artist}
                               </p>
+                              <div className="mt-2">
+                                <SubmissionProcessingStatus submission={submission} compact />
+                              </div>
                             </div>
                           </div>
                           <div className="hidden text-sm md:block md:text-base">
@@ -210,6 +215,15 @@ export function MySubmissionsPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="opacity-0 transition-opacity group-hover:opacity-100"
+                                disabled={
+                                  !isSubmissionPlayable({
+                                    submissionType: submission.submissionType,
+                                    songFileKey: submission.songFileKey ?? null,
+                                    songLink: submission.songLink ?? null,
+                                    fileProcessingStatus:
+                                      submission.fileProcessingStatus,
+                                  })
+                                }
                                 onClick={() => playerActions.playSong(toSong(submission))}
                               >
                                 <Play className="size-4" />

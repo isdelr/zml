@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { useState } from "react";
 import { EditRoundDialog } from "./EditRoundDialog";
+import { getSubmissionFileProcessingStatus } from "@/lib/submission/file-processing";
 
 interface RoundAdminControlsProps {
   round: Doc<"rounds">;
@@ -67,6 +68,16 @@ export function RoundAdminControls({
 
   const canEndVoting = submissions && submissions.length > 0;
   const canEditRound = round.status !== "finished";
+  const pendingSubmissionCount =
+    submissions?.filter((submission) =>
+      submission.submissionType === "file" &&
+      getSubmissionFileProcessingStatus({
+        submissionType: submission.submissionType,
+        songFileKey: submission.songFileKey ?? null,
+        fileProcessingStatus: submission.fileProcessingStatus,
+      }) !== "ready",
+    ).length ?? 0;
+  const canStartVoting = pendingSubmissionCount === 0;
 
   return (
     <Card className="mb-8 border-primary/20 bg-secondary/30">
@@ -81,7 +92,16 @@ export function RoundAdminControls({
         {round.status === "submissions" && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button>Start Voting Now</Button>
+              <Button
+                disabled={!canStartVoting}
+                title={
+                  !canStartVoting
+                    ? `${pendingSubmissionCount} file submission(s) are not ready yet.`
+                    : ""
+                }
+              >
+                Start Voting Now
+              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -96,6 +116,7 @@ export function RoundAdminControls({
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
+                  disabled={!canStartVoting}
                   onClick={() =>
                     handleAction(
                       manageRoundState,
@@ -261,6 +282,11 @@ export function RoundAdminControls({
             This round is finished. No further actions can be taken.
           </p>
         )}
+        {round.status === "submissions" && !canStartVoting ? (
+          <p className="text-sm text-muted-foreground">
+            Voting is blocked until every file submission is finished and ready.
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

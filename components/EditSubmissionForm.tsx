@@ -25,6 +25,7 @@ import { EditBasicsFields } from "@/components/submission/edit/EditBasicsFields"
 import { EditCommentField } from "@/components/submission/edit/EditCommentField";
 import { EditFileTab } from "@/components/submission/edit/EditFileTab";
 import { EditLinkTab } from "@/components/submission/edit/EditLinkTab";
+import { UploadProgressStatus } from "@/components/submission/UploadProgressStatus";
 import { toErrorMessage } from "@/lib/errors";
 
 type SubmissionFull = Doc<"submissions"> & {
@@ -66,6 +67,11 @@ export function EditSubmissionForm({
     data: DuplicateSubmissionWarning | null;
     valuesToSubmit: EditSubmissionFormValues | null;
   }>({ isOpen: false, data: null, valuesToSubmit: null });
+  const [uploadState, setUploadState] = useState<{
+    title: string;
+    description?: string;
+    progress?: number | null;
+  } | null>(null);
 
   const [isFetchingLinkMeta, setIsFetchingLinkMeta] = useState(false);
   const fetchLinkDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -168,7 +174,27 @@ export function EditSubmissionForm({
 
         let songFileKey: string | undefined;
         if (values.songFile && values.songFile.size > 0) {
-          songFileKey = await uploadSubmissionSongFile(values.songFile);
+          setUploadState({
+            title: "Uploading replacement file",
+            description:
+              "Uploading the new file now. We will finish getting it ready after the upload ends.",
+            progress: 0,
+          });
+          songFileKey = await uploadSubmissionSongFile(values.songFile, {
+            onProgress: (progress) =>
+              setUploadState({
+                title: "Uploading replacement file",
+                description:
+                  "Uploading the new file now. We will finish getting it ready after the upload ends.",
+                progress,
+              }),
+          });
+          setUploadState({
+            title: "Upload complete",
+            description:
+              "The replacement file is uploaded. We will finish getting it ready in the background.",
+            progress: null,
+          });
         }
 
         const isAlbumArtMissing =
@@ -200,11 +226,18 @@ export function EditSubmissionForm({
         await editSong(patchPayload);
       }
 
-      toast.success("Submission updated successfully!", { id: toastId });
+      toast.success(
+        values.submissionType === "file" && values.songFile
+          ? "Submission updated. We are getting the new file ready in the background."
+          : "Submission updated successfully!",
+        { id: toastId },
+      );
+      setUploadState(null);
       onSubmitted();
     } catch (error) {
       const errorMessage = toErrorMessage(error);
       toast.error(`Update failed: ${errorMessage}`, { id: toastId });
+      setUploadState(null);
     }
   };
 
@@ -297,6 +330,13 @@ export function EditSubmissionForm({
             </Tabs>
 
             <EditCommentField form={form} />
+
+            <UploadProgressStatus
+              isVisible={uploadState !== null}
+              title={uploadState?.title ?? ""}
+              description={uploadState?.description}
+              progress={uploadState?.progress}
+            />
 
             <Button
               type="submit"
