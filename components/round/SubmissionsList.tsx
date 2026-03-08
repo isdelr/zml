@@ -305,12 +305,12 @@ export function SubmissionsList({
       : "grid grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 px-4 py-2";
 
   return (
-    <div className="mt-3 flex flex-col rounded-lg border">
+    <>
       {showVotingStatusStrip ? (
-        <div className="border-b border-border bg-muted/20 px-3 py-2 md:px-4">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <div
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
                 hasVoted
                   ? "text-success"
                   : canVote
@@ -334,12 +334,12 @@ export function SubmissionsList({
 
             {canVote ? (
               <>
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground">
-                  <ArrowUp className="size-3.5 text-success" />
+                <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-success">
+                  <ArrowUp className="size-3.5" />
                   <span>{positiveVotesRemaining} up left</span>
                 </div>
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground">
-                  <ArrowDown className="size-3.5 text-destructive" />
+                <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-destructive">
+                  <ArrowDown className="size-3.5" />
                   <span>{negativeVotesRemaining} down left</span>
                 </div>
               </>
@@ -352,158 +352,162 @@ export function SubmissionsList({
         </div>
       ) : null}
 
-      <div className="hidden border-b border-border text-xs font-semibold uppercase text-muted-foreground md:block">
-        <div className={desktopGridClass}>
-          <span className="w-10 text-center">#</span>
-          <span>Track</span>
-          <span>{roundStatus === "voting" ? "Comment" : "Submitted By"}</span>
-          {roundStatus === "finished" ? <span>Votes</span> : null}
-          {roundStatus === "finished" ? (
-            <span className="text-right">Points</span>
-          ) : null}
-        </div>
-      </div>
-
-      {submissions.map((submission, index) => {
-        if (
-          showVotingYouTubeSection &&
-          submission.submissionType === "youtube" &&
-          submission.songLink
-        ) {
-          return null;
-        }
-        const extended = submission;
-        const elements: React.ReactNode[] = [];
-
-        if (extended.collectionType === "album" && extended.collectionId) {
-          if (!seenAlbumIds.has(extended.collectionId)) {
-            seenAlbumIds.add(extended.collectionId);
-            const tracks = albumGroupMap.get(extended.collectionId) ?? [];
-            elements.push(
-              <div
-                key={`header-${extended.collectionId}`}
-                className="bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
-              >
-                <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="font-semibold text-foreground">
-                      {extended.collectionName || extended.songTitle}
-                    </p>
-                    <p>
-                      {extended.collectionArtist || extended.artist}
-                      {extended.collectionReleaseYear
-                        ? ` • ${extended.collectionReleaseYear}`
-                        : ""}
-                    </p>
-                  </div>
-                  <div className="text-xs uppercase tracking-wide">
-                    Album Submission • {tracks.length} track
-                    {tracks.length === 1 ? "" : "s"}
-                  </div>
-                </div>
-                {extended.collectionNotes && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {extended.collectionNotes}
-                  </p>
-                )}
-              </div>,
-            );
-          }
-        }
-
-        elements.push(renderSubmission(submission, index));
-
-        return <Fragment key={extended._id}>{elements}</Fragment>;
-      })}
-
-      {showVotingYouTubeSection ? (
-        <div className="m-2 rounded-lg border border-primary/30 bg-primary/5">
-          <div className="flex items-center justify-between gap-2 border-b border-primary/20 px-3 py-2">
-            <div className="text-xs text-muted-foreground">
-              <span className="font-medium">YouTube playlist</span>
-              {ytInfo?.done ? (
-                <span className="ml-2 text-success">Completed ✓</span>
-              ) : ytInfo?.running ? (
-                <span className="ml-2">
-                  Timer running: {ytInfo.videoCount} video
-                  {ytInfo.videoCount !== 1 ? "s" : ""} —{" "}
-                  <strong>{formatDurationCompact(ytInfo.remainingSec)}</strong>{" "}
-                  left
-                </span>
-              ) : (
-                <span className="ml-2">
-                  {ytInfo?.videoCount ?? youtubeItems.length} YouTube track
-                  {(ytInfo?.videoCount ?? youtubeItems.length) !== 1 ? "s" : ""}
-                  , total {formatDurationCompact(ytInfo?.totalDurationSec ?? 0)}{" "}
-                  — pending
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {visiblePlaylistListeners.length > 0 ? (
-                <AvatarStack users={visiblePlaylistListeners} max={6} />
-              ) : null}
-              {ytInfo && (
-                <button
-                  type="button"
-                  className="inline-flex items-center rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium hover:bg-primary/20"
-                  onClick={ytInfo.onOpen}
-                  title="Open playlist in a new tab"
-                >
-                  Open playlist
-                </button>
-              )}
-            </div>
+      <div className="mt-3 flex flex-col rounded-lg border">
+        <div className="hidden border-b border-border text-xs font-semibold uppercase text-muted-foreground md:block">
+          <div className={desktopGridClass}>
+            <span className="w-10 text-center">#</span>
+            <span>Track</span>
+            <span>{roundStatus === "voting" ? "Comment" : "Submitted By"}</span>
+            {roundStatus === "finished" ? <span>Votes</span> : null}
+            {roundStatus === "finished" ? (
+              <span className="text-right">Points</span>
+            ) : null}
           </div>
-
-          <div ref={ytSentinelRef} aria-hidden className="h-1" />
-
-          {youtubeItems.map((song) => {
-            const isThisSongPlaying =
-              isPlaying && currentTrack?._id === song._id;
-            const isThisSongCurrent = currentTrack?._id === song._id;
-            const userIsSubmitter = song.userId === currentUser?._id;
-            const isCommentsVisible = activeCommentsSubmissionId === song._id;
-            const listeners = listenersBySubmission
-              ? listenersBySubmission[song._id.toString()]
-              : [];
-            const voteSummary = voteSummaryBySubmission[song._id.toString()];
-            const userVoteOnThisSong = userVotes.find(
-              (v) => v.submissionId === song._id,
-            );
-            const currentVoteValue = userVoteOnThisSong
-              ? userVoteOnThisSong.vote
-              : 0;
-            const indexInAll = submissions.indexOf(song);
-            return (
-              <SubmissionItem
-                key={song._id}
-                song={toSong(song)}
-                index={indexInAll}
-                isThisSongPlaying={isThisSongPlaying}
-                isThisSongCurrent={isThisSongCurrent}
-                isCommentsVisible={isCommentsVisible}
-                userIsSubmitter={userIsSubmitter}
-                currentVoteValue={currentVoteValue}
-                roundStatus={roundStatus}
-                hasVoted={hasVoted}
-                league={league}
-                canVote={canVote}
-                onToggleComments={() =>
-                  onToggleComments(isCommentsVisible ? null : song._id)
-                }
-                onVoteClick={(delta) => onVoteClick(song._id, delta)}
-                onBookmark={() => handleBookmark(song._id)}
-                onPlaySong={() => onPlaySong(toSong(song), indexInAll)}
-                listenProgress={listenProgressMap[song._id.toString()]}
-                listeners={listeners ?? []}
-                voteDetails={voteSummary?.votes}
-                currentUser={currentUser}
-              />
-            );
-          })}
         </div>
-      ) : null}
-    </div>
+
+        {submissions.map((submission, index) => {
+          if (
+            showVotingYouTubeSection &&
+            submission.submissionType === "youtube" &&
+            submission.songLink
+          ) {
+            return null;
+          }
+          const extended = submission;
+          const elements: React.ReactNode[] = [];
+
+          if (extended.collectionType === "album" && extended.collectionId) {
+            if (!seenAlbumIds.has(extended.collectionId)) {
+              seenAlbumIds.add(extended.collectionId);
+              const tracks = albumGroupMap.get(extended.collectionId) ?? [];
+              elements.push(
+                <div
+                  key={`header-${extended.collectionId}`}
+                  className="bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+                >
+                  <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="font-semibold text-foreground">
+                        {extended.collectionName || extended.songTitle}
+                      </p>
+                      <p>
+                        {extended.collectionArtist || extended.artist}
+                        {extended.collectionReleaseYear
+                          ? ` • ${extended.collectionReleaseYear}`
+                          : ""}
+                      </p>
+                    </div>
+                    <div className="text-xs uppercase tracking-wide">
+                      Album Submission • {tracks.length} track
+                      {tracks.length === 1 ? "" : "s"}
+                    </div>
+                  </div>
+                  {extended.collectionNotes && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {extended.collectionNotes}
+                    </p>
+                  )}
+                </div>
+              );
+            }
+          }
+
+          elements.push(renderSubmission(submission, index));
+
+          return <Fragment key={extended._id}>{elements}</Fragment>;
+        })}
+
+        {showVotingYouTubeSection ? (
+          <div className="m-2 rounded-lg border border-primary/30 bg-primary/5">
+            <div className="flex items-center justify-between gap-2 border-b border-primary/20 px-3 py-2">
+              <div className="text-xs text-muted-foreground">
+                <span className="font-medium">YouTube playlist</span>
+                {ytInfo?.done ? (
+                  <span className="ml-2 text-success">Completed ✓</span>
+                ) : ytInfo?.running ? (
+                  <span className="ml-2">
+                    Timer running: {ytInfo.videoCount} video
+                    {ytInfo.videoCount !== 1 ? "s" : ""} —{" "}
+                    <strong>{formatDurationCompact(ytInfo.remainingSec)}</strong>{" "}
+                    left
+                  </span>
+                ) : (
+                  <span className="ml-2">
+                    {ytInfo?.videoCount ?? youtubeItems.length} YouTube track
+                    {(ytInfo?.videoCount ?? youtubeItems.length) !== 1
+                      ? "s"
+                      : ""}
+                    , total {formatDurationCompact(ytInfo?.totalDurationSec ?? 0)}{" "}
+                    — pending
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {visiblePlaylistListeners.length > 0 ? (
+                  <AvatarStack users={visiblePlaylistListeners} max={6} />
+                ) : null}
+                {ytInfo && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium hover:bg-primary/20"
+                    onClick={ytInfo.onOpen}
+                    title="Open playlist in a new tab"
+                  >
+                    Open playlist
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div ref={ytSentinelRef} aria-hidden className="h-1" />
+
+            {youtubeItems.map((song) => {
+              const isThisSongPlaying =
+                isPlaying && currentTrack?._id === song._id;
+              const isThisSongCurrent = currentTrack?._id === song._id;
+              const userIsSubmitter = song.userId === currentUser?._id;
+              const isCommentsVisible = activeCommentsSubmissionId === song._id;
+              const listeners = listenersBySubmission
+                ? listenersBySubmission[song._id.toString()]
+                : [];
+              const voteSummary = voteSummaryBySubmission[song._id.toString()];
+              const userVoteOnThisSong = userVotes.find(
+                (v) => v.submissionId === song._id,
+              );
+              const currentVoteValue = userVoteOnThisSong
+                ? userVoteOnThisSong.vote
+                : 0;
+              const indexInAll = submissions.indexOf(song);
+              return (
+                <SubmissionItem
+                  key={song._id}
+                  song={toSong(song)}
+                  index={indexInAll}
+                  isThisSongPlaying={isThisSongPlaying}
+                  isThisSongCurrent={isThisSongCurrent}
+                  isCommentsVisible={isCommentsVisible}
+                  userIsSubmitter={userIsSubmitter}
+                  currentVoteValue={currentVoteValue}
+                  roundStatus={roundStatus}
+                  hasVoted={hasVoted}
+                  league={league}
+                  canVote={canVote}
+                  onToggleComments={() =>
+                    onToggleComments(isCommentsVisible ? null : song._id)
+                  }
+                  onVoteClick={(delta) => onVoteClick(song._id, delta)}
+                  onBookmark={() => handleBookmark(song._id)}
+                  onPlaySong={() => onPlaySong(toSong(song), indexInAll)}
+                  listenProgress={listenProgressMap[song._id.toString()]}
+                  listeners={listeners ?? []}
+                  voteDetails={voteSummary?.votes}
+                  currentUser={currentUser}
+                />
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }
