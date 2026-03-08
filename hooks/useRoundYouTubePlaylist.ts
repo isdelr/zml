@@ -25,6 +25,14 @@ type YouTubeInfo = {
   onOpen: () => void;
 };
 
+type PlaylistSessionState = {
+  active: boolean;
+  done: boolean;
+  readyToComplete: boolean;
+  endAt: number | null;
+  remainingSec: number;
+};
+
 export function useRoundYouTubePlaylist({
   roundId,
   roundStatus,
@@ -107,34 +115,11 @@ export function useRoundYouTubePlaylist({
     youtubeSubmissionIds,
   ]);
 
-  useEffect(() => {
-    if (!serverSession) {
-      return;
-    }
-
-    if (serverSession.done) {
-      clearTimer();
-      setYtTimerDone(true);
-      setYtTimerRunning(false);
-      setYtTimerRemainingSec(0);
-      updatePlaylistPresence(false);
-      return;
-    }
-
-    if (serverSession.readyToComplete) {
-      clearTimer();
-      setYtTimerDone(false);
-      setYtTimerRunning(false);
-      setYtTimerRemainingSec(0);
-      void completeYouTubeListening();
-      return;
-    }
-
-    if (serverSession.active && serverSession.endAt) {
-      const endAt = serverSession.endAt;
+  const startLocalTimer = useCallback(
+    (endAt: number, initialRemainingSec: number) => {
       setYtTimerDone(false);
       setYtTimerRunning(true);
-      setYtTimerRemainingSec(serverSession.remainingSec);
+      setYtTimerRemainingSec(Math.max(0, initialRemainingSec));
       clearTimer();
       timerRef.current = window.setInterval(() => {
         const remainingSec = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
@@ -144,14 +129,55 @@ export function useRoundYouTubePlaylist({
           void completeYouTubeListening();
         }
       }, 1000);
-      return;
-    }
+    },
+    [clearTimer, completeYouTubeListening],
+  );
 
-    clearTimer();
-    setYtTimerDone(false);
-    setYtTimerRunning(false);
-    setYtTimerRemainingSec(0);
-  }, [clearTimer, completeYouTubeListening, serverSession, updatePlaylistPresence]);
+  const syncLocalSessionState = useCallback(
+    (session: PlaylistSessionState | null | undefined) => {
+      if (!session) {
+        return;
+      }
+
+      if (session.done) {
+        clearTimer();
+        setYtTimerDone(true);
+        setYtTimerRunning(false);
+        setYtTimerRemainingSec(0);
+        updatePlaylistPresence(false);
+        return;
+      }
+
+      if (session.readyToComplete) {
+        clearTimer();
+        setYtTimerDone(false);
+        setYtTimerRunning(false);
+        setYtTimerRemainingSec(0);
+        void completeYouTubeListening();
+        return;
+      }
+
+      if (session.active && session.endAt) {
+        startLocalTimer(session.endAt, session.remainingSec);
+        return;
+      }
+
+      clearTimer();
+      setYtTimerDone(false);
+      setYtTimerRunning(false);
+      setYtTimerRemainingSec(0);
+    },
+    [
+      clearTimer,
+      completeYouTubeListening,
+      startLocalTimer,
+      updatePlaylistPresence,
+    ],
+  );
+
+  useEffect(() => {
+    syncLocalSessionState(serverSession);
+  }, [serverSession, syncLocalSessionState]);
 
   useEffect(() => {
     return () => clearTimer();
@@ -181,8 +207,13 @@ export function useRoundYouTubePlaylist({
           }
         }
 
+        syncLocalSessionState(nextSession);
+
         if (nextSession?.readyToComplete) {
-          await completeYouTubeListening();
+          return;
+        }
+
+        if (nextSession?.done) {
           return;
         }
 
@@ -191,11 +222,11 @@ export function useRoundYouTubePlaylist({
       })();
     },
     [
-      completeYouTubeListening,
       openYouTubePlaylist,
       roundId,
       serverSession,
       startPlaylistSession,
+      syncLocalSessionState,
       totalYouTubeDurationSec,
       updatePlaylistPresence,
       youtubeVideoIds,
