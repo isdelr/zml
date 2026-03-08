@@ -122,7 +122,8 @@ self.addEventListener("message", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  if (!event.data) return;
+  const eventData = event.data;
+  if (!eventData) return;
 
   event.waitUntil((async () => {
     const clientsArr = await self.clients.matchAll({
@@ -140,7 +141,7 @@ self.addEventListener("push", (event) => {
       return;
     }
 
-    const data = event.data.json() as {
+    const data = eventData.json() as {
       title?: string;
       body?: string;
       icon?: string;

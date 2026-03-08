@@ -1,4 +1,4 @@
-import type { Doc } from "@/convex/_generated/dataModel";
+import type { Doc } from "../../convex/_generated/dataModel";
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -22,7 +22,7 @@ type ActiveRoundStatus = Extract<Doc<"rounds">["status"], "submissions" | "votin
 
 type ActiveRoundReminderShape = Pick<
   Doc<"rounds">,
-  "_id" | "status" | "submissionDeadline" | "votingDeadline"
+  "status" | "submissionDeadline" | "votingDeadline"
 >;
 
 export type RoundDeadlineReminderWindow =

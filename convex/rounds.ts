@@ -766,10 +766,14 @@ export const transitionDueRounds = internalAction({
     );
 
     const notificationsToCreate = deadlineReminderContexts.flatMap((context) => {
+      const status = context.status;
+      if (status !== "submissions" && status !== "voting") {
+        return [];
+      }
+
       const reminderCandidates = getRoundDeadlineReminderCandidates(
         {
-          _id: context.roundId,
-          status: context.status,
+          status,
           submissionDeadline: context.submissionDeadline,
           votingDeadline: context.votingDeadline,
         },
@@ -778,7 +782,7 @@ export const transitionDueRounds = internalAction({
 
       return reminderCandidates.flatMap((candidate) => {
         const message = buildRoundDeadlineReminderMessage({
-          status: context.status,
+          status,
           roundTitle: context.roundTitle,
           leagueName: context.leagueName,
           label: candidate.window.label,
@@ -792,14 +796,14 @@ export const transitionDueRounds = internalAction({
           metadata: {
             source: buildRoundDeadlineReminderSource({
               roundId: context.roundId,
-              status: context.status,
+              status,
               deadline: candidate.deadline,
               windowKey: candidate.window.key,
             }),
           },
           pushNotificationOverride: {
             title: buildRoundDeadlineReminderTitle({
-              status: context.status,
+              status,
               label: candidate.window.label,
             }),
             body: message,
