@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Play, Pause, ListMusic } from "lucide-react";
 import { Button } from "./ui/button";
 import { Song } from "@/types";
+import { OverflowText } from "@/components/ui/overflow-text";
 
 interface MusicQueueProps {
   isOpen: boolean;
@@ -65,8 +66,14 @@ export function MusicQueue({ isOpen, onOpenChange }: MusicQueueProps) {
                         {isThisSongPlaying ? <Pause className="size-5 fill-white" /> : <Play className="size-5 fill-white" />}
                       </Button>
                     </div>
-                    <div className="flex-1 truncate">
-                      <p className={cn("truncate font-semibold", isThisSongCurrent && "text-primary")}>{song.songTitle}</p>
+                    <div className="min-w-0 flex-1">
+                      <OverflowText
+                        as="p"
+                        marquee={isThisSongPlaying}
+                        className={cn("font-semibold", isThisSongCurrent && "text-primary")}
+                      >
+                        {song.songTitle}
+                      </OverflowText>
                       <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
                     </div>
                     {isThisSongPlaying && (

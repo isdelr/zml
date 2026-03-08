@@ -34,6 +34,7 @@ import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { toErrorMessage } from "@/lib/errors";
 import { YouTubeIcon } from "@/components/icons/BrandIcons";
+import { OverflowText } from "@/components/ui/overflow-text";
 
 // A new component for the animated equalizer
 const EqualizerIcon = () => (
@@ -170,26 +171,29 @@ export function SubmissionItem({
 
   const songPoints = song.points ?? 0;
   const pointsColor = songPoints > 0 ? "text-success" : songPoints < 0 ? "text-destructive" : "text-muted-foreground";
+  const votingComment = song.comment?.trim() ? song.comment.trim() : "-";
 
   const renderSubmitterInfo = () => (
-    <div className="flex items-center gap-2 text-sm">
-      <Avatar className="size-6">
-        <AvatarImage src={roundStatus === "voting" ? undefined : song.submittedByImage ?? undefined} />
-        <AvatarFallback
-          dangerouslySetInnerHTML={{
-            __html: toSvg(
-              String(
-                roundStatus === "voting"
-                  ? song._id
-                  : song.submittedBy ?? song.userId ?? song._id,
+    roundStatus === "voting" ? (
+      <p className="line-clamp-3 text-xs leading-4 text-muted-foreground [overflow-wrap:anywhere]">
+        {votingComment}
+      </p>
+    ) : (
+      <div className="flex items-center gap-2 text-sm">
+        <Avatar className="size-6">
+          <AvatarImage src={song.submittedByImage ?? undefined} />
+          <AvatarFallback
+            dangerouslySetInnerHTML={{
+              __html: toSvg(
+                String(song.submittedBy ?? song.userId ?? song._id),
+                24,
               ),
-              24,
-            ),
-          }}
-        />
-      </Avatar>
-      <span className="text-muted-foreground">{roundStatus === "voting" ? "Anonymous" : song.submittedBy}</span>
-    </div>
+            }}
+          />
+        </Avatar>
+        <span className="text-muted-foreground">{song.submittedBy}</span>
+      </div>
+    )
   );
 
   const renderVoteButtonGroup = () => (
@@ -242,13 +246,19 @@ export function SubmissionItem({
               </div>
             </div>
             <div className="min-w-0 flex-1 cursor-pointer" onClick={onPlaySong}>
-              <p className={cn("truncate font-semibold", isThisSongCurrent && "text-primary")}>
-                {song.songTitle}
+              <div className="flex min-w-0 items-center gap-1.5">
+                <OverflowText
+                  as="p"
+                  marquee={isThisSongPlaying}
+                  className={cn("font-semibold", isThisSongCurrent && "text-primary")}
+                >
+                  {song.songTitle}
+                </OverflowText>
                 {showListenRequirementIndicator && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Headphones className="ml-1.5 inline-block size-4 text-primary" />
+                        <Headphones className="size-4 shrink-0 text-primary" />
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>You still need to listen to this song to vote.</p>
@@ -256,7 +266,7 @@ export function SubmissionItem({
                     </Tooltip>
                   </TooltipProvider>
                 )}
-              </p>
+              </div>
               <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
             </div>
             {isThisSongPlaying ? <EqualizerIcon /> : roundStatus === 'finished' ? <div className={cn("text-right text-sm font-bold", pointsColor)}>{songPoints} pts</div> : null}
@@ -322,14 +332,20 @@ export function SubmissionItem({
                 </div>
               )}
             </div>
-            <div className="truncate">
-              <p className={cn("truncate font-semibold flex items-center", isThisSongCurrent && "text-primary")}>
-                {song.songTitle}
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <OverflowText
+                  as="p"
+                  marquee={isThisSongPlaying}
+                  className={cn("font-semibold", isThisSongCurrent && "text-primary")}
+                >
+                  {song.songTitle}
+                </OverflowText>
                 {showListenRequirementIndicator && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Headphones className="ml-1.5 inline-block size-4 text-primary" />
+                        <Headphones className="size-4 shrink-0 text-primary" />
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>You still need to listen to this song to vote.</p>
@@ -337,7 +353,7 @@ export function SubmissionItem({
                     </Tooltip>
                   </TooltipProvider>
                 )}
-              </p>
+              </div>
               <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
             </div>
           </div>

@@ -156,7 +156,7 @@ export function MySubmissionsPage() {
 <span className="hidden w-4 text-center text-muted-foreground md:block">
 {index + 1}
 </span>
-                          <div className="flex items-center gap-4">
+                          <div className="flex min-w-0 items-center gap-4">
                             <Image
                               src={submission.albumArtUrl || "/icons/web-app-manifest-192x192.png"}
                               alt={submission.songTitle}
@@ -164,11 +164,11 @@ export function MySubmissionsPage() {
                               height={40}
                               className="aspect-square rounded object-cover"
                             />
-                            <div>
-                              <p className="font-semibold text-foreground">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-foreground whitespace-normal break-words [overflow-wrap:anywhere] md:truncate md:whitespace-nowrap">
                                 {submission.songTitle}
                               </p>
-                              <p className="text-sm text-muted-foreground">
+                              <p className="truncate text-sm text-muted-foreground">
                                 {submission.artist}
                               </p>
                               <div className="mt-2">

@@ -176,12 +176,28 @@
     }
   }
 
+  @keyframes overflow-marquee {
+    0%,
+    12% {
+      transform: translateX(0);
+    }
+    88%,
+    100% {
+      transform: translateX(var(--overflow-marquee-distance, 0));
+    }
+  }
+
   .animate-accordion-down {
     animation: accordion-down 0.2s ease-out;
   }
 
   .animate-accordion-up {
     animation: accordion-up 0.2s ease-out;
+  }
+
+  .animate-overflow-marquee {
+    animation: overflow-marquee var(--overflow-marquee-duration, 8s) linear
+      infinite alternate;
   }
 }
 

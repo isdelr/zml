@@ -280,7 +280,7 @@ export function SubmissionsList({
         <div className="grid grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 px-4 py-2">
           <span className="w-10 text-center">#</span>
           <span>Track</span>
-          <span>Submitted By</span>
+          <span>{roundStatus === "voting" ? "Comment" : "Submitted By"}</span>
           <span className="text-right">Points</span>
           <span className="w-44 text-center">Actions</span>
         </div>
