@@ -140,6 +140,7 @@ export default defineSchema({
     userId: v.id("users"),
     songTitle: v.string(),
     artist: v.string(),
+    albumName: v.optional(v.string()),
     albumArtKey: v.optional(v.string()),
     songFileKey: v.optional(v.string()),
     originalSongFileKey: v.optional(v.string()),

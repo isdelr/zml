@@ -19,6 +19,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import type { LeagueData, LeagueSearchResults } from "@/lib/convex/types";
 import type { Song } from "@/types";
 import { toErrorMessage } from "@/lib/errors";
+import { buildTrackMetadataText } from "@/lib/music/submission-display";
 
 interface LeagueHeaderProps {
   leagueData: LeagueData;
@@ -208,7 +209,9 @@ export function LeagueHeader({
                           </Avatar>
                           <div className="min-w-0">
                             <p className="font-semibold truncate">{song.songTitle}</p>
-                            <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {buildTrackMetadataText(song.artist, song.albumName)}
+                            </p>
                           </div>
                         </Button>
                       ))}

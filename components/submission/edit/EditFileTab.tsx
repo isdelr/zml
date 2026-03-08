@@ -145,6 +145,11 @@ export function EditFileTab({
                               shouldValidate: true,
                             });
                           }
+                          if (metadata.album) {
+                            form.setValue("albumName", metadata.album, {
+                              shouldValidate: true,
+                            });
+                          }
                           if (metadata.coverArtFile) {
                             form.setValue(
                               "albumArtFile",

@@ -1,3 +1,5 @@
+import { formatArtistNames } from "../../music/submission-display";
+
 const BRACKETED_SEGMENTS_REGEX = /\(.*?\)|\[.*?\]/g;
 const MULTI_WHITESPACE_REGEX = /\s+/g;
 
@@ -11,13 +13,20 @@ export function normalizeSubmissionSongTitle(songTitle: string): string {
 }
 
 export function normalizeSubmissionArtist(artist: string): string {
-  return artist
+  return formatArtistNames(artist)
     .trim()
     .toLowerCase()
     .replace(MULTI_WHITESPACE_REGEX, " ")
     .trim();
 }
 
-export function buildSubmissionSearchText(songTitle: string, artist: string): string {
-  return `${songTitle} ${artist}`.trim();
+export function buildSubmissionSearchText(
+  songTitle: string,
+  artist: string,
+  albumName?: string | null,
+): string {
+  return [songTitle, formatArtistNames(artist), albumName?.trim()]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
 }

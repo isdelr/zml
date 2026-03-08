@@ -13,6 +13,7 @@ export const songSubmissionFormSchema = z
     submissionType: z.enum(["manual", "link"]),
     songTitle: z.string().optional(),
     artist: z.string().optional(),
+    albumName: z.string().optional(),
     albumArtFile: z
       .instanceof(File)
       .optional()
@@ -58,6 +59,7 @@ export const defaultSongSubmissionFormValues: SongSubmissionFormValues = {
   submissionType: "manual",
   songTitle: "",
   artist: "",
+  albumName: "",
   songLink: "",
   comment: "",
 };

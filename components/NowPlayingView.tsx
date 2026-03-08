@@ -13,6 +13,7 @@ import { useAction } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toErrorMessage } from "@/lib/errors";
+import { buildTrackMetadataText } from "@/lib/music/submission-display";
 
 const FRIENDLY_LYRICS_ERROR =
   "Lyrics are unavailable for this song right now. Please try again later.";
@@ -129,12 +130,13 @@ export function NowPlayingView() {
 
   if (!track) return null;
 
-  const { songTitle, artist, albumArtUrl, submittedBy, roundTitle, leagueName, leagueId, comment } =
+  const { songTitle, artist, albumName, albumArtUrl, submittedBy, roundTitle, leagueName, leagueId, comment } =
     track;
+  const metadataText = buildTrackMetadataText(artist, albumName);
   const canRevealSubmitter = track.roundStatus === "finished";
   const visibleSubmittedBy = canRevealSubmitter ? submittedBy : null;
   const hasTrackInformation = Boolean(
-    visibleSubmittedBy || roundTitle || leagueName,
+    visibleSubmittedBy || roundTitle || leagueName || albumName,
   );
 
   const NowPlayingContent = () => (
@@ -152,6 +154,9 @@ export function NowPlayingView() {
         <div>
           <h3 className="text-2xl font-bold">{songTitle}</h3>
           <p className="text-lg text-muted-foreground">{artist}</p>
+          {albumName ? (
+            <p className="text-sm text-muted-foreground/80">{albumName}</p>
+          ) : null}
         </div>
       </div>
       {comment && (
@@ -176,6 +181,12 @@ export function NowPlayingView() {
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Round</span>
                   <span className="text-right">{roundTitle}</span>
+                </div>
+              )}
+              {albumName && (
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Album</span>
+                  <span className="text-right">{albumName}</span>
                 </div>
               )}
               {leagueName ? (
@@ -259,7 +270,7 @@ export function NowPlayingView() {
       {!isMobile && (
         <aside className={cn("hidden md:flex flex-col w-96 bg-sidebar p-4 text-sidebar-foreground border-l border-sidebar-border h-screen overflow-y-auto pb-28")}>
           <div className="flex justify-between items-center mb-4">
-            <p className="font-semibold">{artist}</p>
+            <p className="truncate font-semibold">{metadataText}</p>
             <Button variant="ghost" size="icon" onClick={actions.closeContextView}>
               <X className="size-5" />
             </Button>
@@ -273,7 +284,7 @@ export function NowPlayingView() {
           <SheetContent side="bottom" className="h-[90dvh] flex flex-col p-0 ">
             <SheetHeader className="p-4 border-b flex-shrink-0">
               <SheetTitle className="text-center">{songTitle}</SheetTitle>
-              <p className="text-sm text-muted-foreground text-center">{artist}</p>
+              <p className="text-sm text-muted-foreground text-center">{metadataText}</p>
             </SheetHeader>
             <div className="overflow-y-auto p-4 space-y-6">
               <NowPlayingContent />

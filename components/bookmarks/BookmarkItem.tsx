@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Id } from "@/convex/_generated/dataModel";
 import type { BookmarkedSong } from "@/lib/convex/types";
 import { YouTubeIcon } from "@/components/icons/BrandIcons";
+import { buildTrackMetadataText } from "@/lib/music/submission-display";
 
 interface BookmarkItemProps {
   song: BookmarkedSong;
@@ -21,6 +22,8 @@ export function BookmarkItem({
                                onBookmarkToggle,
                                onPlaySong,
                              }: BookmarkItemProps) {
+  const metadataText = buildTrackMetadataText(song.artist, song.albumName);
+
   return (
     <div
       key={song._id}
@@ -39,7 +42,7 @@ export function BookmarkItem({
         />
         <div>
           <p className="font-semibold text-foreground">{song.songTitle}</p>
-          <p className="text-sm text-muted-foreground">{song.artist}</p>
+          <p className="text-sm text-muted-foreground">{metadataText}</p>
         </div>
       </div>
       <div className="hidden text-sm text-muted-foreground md:block md:text-base">

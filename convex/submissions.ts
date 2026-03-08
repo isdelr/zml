@@ -26,6 +26,7 @@ import {
   normalizeSubmissionSongTitle,
 } from "../lib/convex-server/submissions/normalize";
 import { firstNonEmpty } from "../lib/env";
+import { formatArtistNames } from "../lib/music/submission-display";
 
 const storage = new B2Storage();
 const TROLL_SUBMISSION_BAN_THRESHOLD = 2;
@@ -260,6 +261,7 @@ export const submitSong = mutation({
     submissionType: v.union(v.literal("file"), v.literal("youtube")),
     songTitle: v.string(),
     artist: v.string(),
+    albumName: v.optional(v.string()),
     comment: v.optional(v.string()),
     albumArtKey: v.optional(v.string()),
     songFileKey: v.optional(v.string()),
@@ -346,17 +348,25 @@ export const submitSong = mutation({
       }
     }
 
+    const formattedArtist = formatArtistNames(args.artist);
+    const albumName = args.albumName?.trim() || args.collectionName?.trim() || undefined;
+
     const baseSubmissionData = {
       leagueId: round.leagueId,
       roundId: args.roundId,
       userId,
       songTitle: args.songTitle,
-      artist: args.artist,
+      artist: formattedArtist,
+      albumName,
       comment: args.comment,
       duration: args.duration,
-      searchText: buildSubmissionSearchText(args.songTitle, args.artist),
+      searchText: buildSubmissionSearchText(
+        args.songTitle,
+        formattedArtist,
+        albumName,
+      ),
       normalizedSongTitle: normalizeSubmissionSongTitle(args.songTitle),
-      normalizedArtist: normalizeSubmissionArtist(args.artist),
+      normalizedArtist: normalizeSubmissionArtist(formattedArtist),
       collectionId: args.collectionId,
       collectionType: args.collectionType,
       collectionName: args.collectionName,
@@ -411,6 +421,7 @@ export const editSong = mutation({
     submissionId: v.id("submissions"),
     songTitle: v.string(),
     artist: v.string(),
+    albumName: v.optional(v.string()),
     submissionType: v.union(v.literal("file"), v.literal("youtube")),
     comment: v.optional(v.string()),
     albumArtKey: v.optional(v.union(v.string(), v.null())),
@@ -462,9 +473,13 @@ export const editSong = mutation({
       nextSongLink = args.songLink;
     }
 
+    const formattedArtist = formatArtistNames(args.artist);
+    const albumName = args.albumName?.trim() || undefined;
+
     const updates: Partial<Doc<"submissions">> = {
       songTitle: args.songTitle,
-      artist: args.artist,
+      artist: formattedArtist,
+      albumName,
       submissionType: args.submissionType,
       comment: args.comment,
       duration: args.duration,
@@ -491,8 +506,13 @@ export const editSong = mutation({
     }
 
     const newTitle = args.songTitle ?? submission.songTitle;
-    const newArtist = args.artist ?? submission.artist;
-    updates.searchText = buildSubmissionSearchText(newTitle, newArtist);
+    const newArtist = formattedArtist || submission.artist;
+    const newAlbumName = albumName ?? submission.albumName;
+    updates.searchText = buildSubmissionSearchText(
+      newTitle,
+      newArtist,
+      newAlbumName,
+    );
     updates.normalizedSongTitle = normalizeSubmissionSongTitle(newTitle);
     updates.normalizedArtist = normalizeSubmissionArtist(newArtist);
 

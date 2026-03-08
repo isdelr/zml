@@ -21,6 +21,7 @@ import type { FunctionReturnType } from "convex/server";
 import { YouTubeIcon } from "@/components/icons/BrandIcons";
 import { SubmissionProcessingStatus } from "@/components/submission/SubmissionProcessingStatus";
 import { isSubmissionPlayable } from "@/lib/submission/file-processing";
+import { buildTrackMetadataText } from "@/lib/music/submission-display";
 
 const getResultIcon = (result: { type: string; points: number }) => {
   switch (result.type) {
@@ -73,6 +74,9 @@ export function MySubmissionsPage() {
         submission &&
         (submission.songTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
           submission.artist.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (submission.albumName ?? "")
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
           submission.roundTitle.toLowerCase().includes(searchTerm.toLowerCase())),
     );
   }, [mySubmissions, searchTerm]);
@@ -148,114 +152,121 @@ export function MySubmissionsPage() {
                       <span className="w-24"></span>
                     </div>
                     <div>
-                      {submissions.map((submission, index) => (
-                        <div
-                          key={submission._id}
-                          className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b p-3 transition-colors last:border-b-0 hover:bg-accent md:grid-cols-[auto_4fr_3fr_2fr_auto] md:gap-4"
-                        >
+                      {submissions.map((submission, index) => {
+                        const metadataText = buildTrackMetadataText(
+                          submission.artist,
+                          submission.albumName,
+                        );
+
+                        return (
+                          <div
+                            key={submission._id}
+                            className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b p-3 transition-colors last:border-b-0 hover:bg-accent md:grid-cols-[auto_4fr_3fr_2fr_auto] md:gap-4"
+                          >
 <span className="hidden w-4 text-center text-muted-foreground md:block">
 {index + 1}
 </span>
-                          <div className="flex min-w-0 items-center gap-4">
-                            <Image
-                              src={submission.albumArtUrl || "/icons/web-app-manifest-192x192.png"}
-                              alt={submission.songTitle}
-                              width={40}
-                              height={40}
-                              className="aspect-square rounded object-cover"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-foreground whitespace-normal break-words [overflow-wrap:anywhere] md:truncate md:whitespace-nowrap">
-                                {submission.songTitle}
-                              </p>
-                              <p className="truncate text-sm text-muted-foreground">
-                                {submission.artist}
-                              </p>
-                              <div className="mt-2">
-                                <SubmissionProcessingStatus submission={submission} compact />
+                            <div className="flex min-w-0 items-center gap-4">
+                              <Image
+                                src={submission.albumArtUrl || "/icons/web-app-manifest-192x192.png"}
+                                alt={submission.songTitle}
+                                width={40}
+                                height={40}
+                                className="aspect-square rounded object-cover"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-foreground whitespace-normal break-words [overflow-wrap:anywhere] md:truncate md:whitespace-nowrap">
+                                  {submission.songTitle}
+                                </p>
+                                <p className="truncate text-sm text-muted-foreground">
+                                  {metadataText}
+                                </p>
+                                <div className="mt-2">
+                                  <SubmissionProcessingStatus submission={submission} compact />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          <div className="hidden text-sm md:block md:text-base">
-                            <p className="font-medium">{submission.roundTitle}</p>
-                            <p className="text-muted-foreground capitalize">
-                              {submission.status.replace(/_/g, " ")}
-                            </p>
-                          </div>
-                          <div className="flex justify-center">
-                            {submission.result.type !== "pending" ? (
-                              <div
-                                className={cn(
-                                  "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
-                                  getResultColor(submission.result),
-                                )}
-                              >
-                                {getResultIcon(submission.result)}
-                                <span>
+                            <div className="hidden text-sm md:block md:text-base">
+                              <p className="font-medium">{submission.roundTitle}</p>
+                              <p className="text-muted-foreground capitalize">
+                                {submission.status.replace(/_/g, " ")}
+                              </p>
+                            </div>
+                            <div className="flex justify-center">
+                              {submission.result.type !== "pending" ? (
+                                <div
+                                  className={cn(
+                                    "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
+                                    getResultColor(submission.result),
+                                  )}
+                                >
+                                  {getResultIcon(submission.result)}
+                                  <span>
 {submission.result.type === "winner"
   ? "Winner"
   : `${submission.result.points} pts`}
 </span>
-                              </div>
-                            ) : (
-                              <div
-                                className={cn(
-                                  "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
-                                  getResultColor(submission.result),
-                                )}
-                              >
-                                <Medal className="size-4" />
-                                <span>Pending</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex w-auto justify-end gap-1 md:w-24">
-                            {submission.submissionType === "file" ? (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="opacity-0 transition-opacity group-hover:opacity-100"
-                                disabled={
-                                  !isSubmissionPlayable({
-                                    submissionType: submission.submissionType,
-                                    songFileKey: submission.songFileKey ?? null,
-                                    songLink: submission.songLink ?? null,
-                                    fileProcessingStatus:
-                                      submission.fileProcessingStatus,
-                                  })
-                                }
-                                onClick={() => playerActions.playSong(toSong(submission))}
-                              >
-                                <Play className="size-4" />
-                              </Button>
-                            ) : (
-                              <a href={submission.songLink!} target="_blank" rel="noopener noreferrer">
+                                </div>
+                              ) : (
+                                <div
+                                  className={cn(
+                                    "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
+                                    getResultColor(submission.result),
+                                  )}
+                                >
+                                  <Medal className="size-4" />
+                                  <span>Pending</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex w-auto justify-end gap-1 md:w-24">
+                              {submission.submissionType === "file" ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="opacity-0 transition-opacity group-hover:opacity-100"
+                                  disabled={
+                                    !isSubmissionPlayable({
+                                      submissionType: submission.submissionType,
+                                      songFileKey: submission.songFileKey ?? null,
+                                      songLink: submission.songLink ?? null,
+                                      fileProcessingStatus:
+                                        submission.fileProcessingStatus,
+                                    })
+                                  }
+                                  onClick={() => playerActions.playSong(toSong(submission))}
+                                >
+                                  <Play className="size-4" />
+                                </Button>
+                              ) : (
+                                <a href={submission.songLink!} target="_blank" rel="noopener noreferrer">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="opacity-0 transition-opacity group-hover:opacity-100"
+                                  >
+                                    {submission.submissionType === "youtube" && (
+                                      <YouTubeIcon className="size-4 text-red-500" />
+                                    )}
+                                  </Button>
+                                </a>
+                              )}
+                              <Link href={`/leagues/${submission.leagueId}`}>
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   className="opacity-0 transition-opacity group-hover:opacity-100"
                                 >
-                                  {submission.submissionType === "youtube" && (
-                                    <YouTubeIcon className="size-4 text-red-500" />
-                                  )}
+                                  <ListMusic className="size-4" />
                                 </Button>
-                              </a>
-                            )}
-                            <Link href={`/leagues/${submission.leagueId}`}>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="opacity-0 transition-opacity group-hover:opacity-100"
-                              >
-                                <ListMusic className="size-4" />
-                              </Button>
-                            </Link>
+                              </Link>
+                            </div>
+                            <div className="col-span-1 -mt-2 pl-[56px] text-sm text-muted-foreground md:hidden">
+                              <p className="font-medium">{submission.roundTitle}</p>
+                            </div>
                           </div>
-                          <div className="col-span-1 -mt-2 pl-[56px] text-sm text-muted-foreground md:hidden">
-                            <p className="font-medium">{submission.roundTitle}</p>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </section>

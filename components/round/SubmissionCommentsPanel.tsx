@@ -11,6 +11,7 @@ import { Pause, Play } from "lucide-react";
 import { SubmissionComments } from "./SubmissionComments";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { cn } from "@/lib/utils";
+import { buildTrackMetadataText } from "@/lib/music/submission-display";
 
 interface SubmissionCommentsPanelProps {
   submission: Song | null; // Changed from submissionId to the full object
@@ -30,6 +31,9 @@ export function SubmissionCommentsPanel({
 
   const { isPlaying, currentTrackIndex, queue } = useMusicPlayerStore();
   const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+  const metadataText = submission
+    ? buildTrackMetadataText(submission.artist, submission.albumName)
+    : "";
 
   return (
     <Sheet open={!!submission} onOpenChange={onOpenChange}>
@@ -54,7 +58,7 @@ export function SubmissionCommentsPanel({
                   />
                   <div className="truncate">
                     <p className="text-lg font-bold truncate">{submission.songTitle}</p>
-                    <p className="text-sm text-muted-foreground truncate">{submission.artist}</p>
+                    <p className="text-sm text-muted-foreground truncate">{metadataText}</p>
                   </div>
                 </div>
                 <Button size="icon" variant="outline" className="flex-shrink-0" onClick={() => onPlaySong(submission)}>

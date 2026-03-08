@@ -7,6 +7,7 @@ export const editSubmissionFormSchema = z
     submissionType: z.enum(["file", "link"]),
     songTitle: z.string().min(1, { message: "Title is required." }),
     artist: z.string().min(1, { message: "Artist is required." }),
+    albumName: z.string().optional(),
     comment: z.string().optional(),
     albumArtFile: z.instanceof(File).optional(),
     songFile: z.instanceof(File).optional(),

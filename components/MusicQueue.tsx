@@ -7,6 +7,7 @@ import { Play, Pause, ListMusic } from "lucide-react";
 import { Button } from "./ui/button";
 import { Song } from "@/types";
 import { OverflowText } from "@/components/ui/overflow-text";
+import { buildTrackMetadataText } from "@/lib/music/submission-display";
 
 interface MusicQueueProps {
   isOpen: boolean;
@@ -44,6 +45,10 @@ export function MusicQueue({ isOpen, onOpenChange }: MusicQueueProps) {
               {queue.map((song, index) => {
                 const isThisSongPlaying = isPlaying && currentTrackIndex === index;
                 const isThisSongCurrent = currentTrackIndex === index;
+                const metadataText = buildTrackMetadataText(
+                  song.artist,
+                  song.albumName,
+                );
                 return (
                   <div
                     key={`${song._id}-${index}`}
@@ -74,7 +79,7 @@ export function MusicQueue({ isOpen, onOpenChange }: MusicQueueProps) {
                       >
                         {song.songTitle}
                       </OverflowText>
-                      <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
+                      <p className="truncate text-sm text-muted-foreground">{metadataText}</p>
                     </div>
                     {isThisSongPlaying && (
                       <div className="flex items-center gap-1">

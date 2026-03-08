@@ -564,6 +564,7 @@ export const searchInLeague = query({
         _id: v.id("submissions"),
         songTitle: v.string(),
         artist: v.string(),
+        albumName: v.optional(v.string()),
         albumArtUrl: v.union(v.string(), v.null()),
         songFileUrl: v.union(v.string(), v.null()),
         submissionType: v.union(
@@ -655,6 +656,7 @@ export const searchInLeague = query({
           _id: sub._id,
           songTitle: sub.songTitle,
           artist: sub.artist,
+          albumName: sub.albumName,
           albumArtUrl,
           songFileUrl,
           submissionType: sub.submissionType,

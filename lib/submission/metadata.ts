@@ -1,4 +1,5 @@
 import { parseBlob } from "music-metadata";
+import { formatArtistNames } from "@/lib/music/submission-display";
 
 export type ParsedAudioFileMetadata = {
   durationSeconds?: number;
@@ -42,17 +43,25 @@ export async function parseAudioFileMetadata(
     }
   }
 
+  const artistList =
+    metadata.common.artists?.length
+      ? metadata.common.artists
+      : metadata.common.artist
+        ? [metadata.common.artist]
+        : [];
+  const artist = formatArtistNames(artistList.join(", "));
+  const albumArtist = formatArtistNames(metadata.common.albumartist);
+
   return {
     durationSeconds: metadata.format.duration
       ? Math.round(metadata.format.duration)
       : undefined,
     title: metadata.common.title || undefined,
-    artist: metadata.common.artist || undefined,
+    artist: artist || undefined,
     album: metadata.common.album || undefined,
-    albumArtist: metadata.common.albumartist || undefined,
+    albumArtist: albumArtist || undefined,
     year: metadata.common.year || undefined,
     coverArtFile,
     coverArtTooLarge,
   };
 }
-

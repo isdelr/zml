@@ -24,6 +24,7 @@ describe("submission form schemas", () => {
       submissionType: "manual",
       songTitle: "",
       artist: "",
+      albumName: "",
       songLink: "",
       comment: "",
     });

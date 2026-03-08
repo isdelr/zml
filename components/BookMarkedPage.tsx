@@ -49,6 +49,7 @@ export function BookmarkedPage() {
       (song) =>
         song.songTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
         song.artist.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (song.albumName ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         song.roundTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
         song.leagueName.toLowerCase().includes(searchTerm.toLowerCase()),
     );

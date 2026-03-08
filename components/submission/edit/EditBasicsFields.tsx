@@ -4,6 +4,7 @@ import { UseFormReturn } from "react-hook-form";
 
 import {
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -18,7 +19,7 @@ interface EditBasicsFieldsProps {
 
 export function EditBasicsFields({ form }: EditBasicsFieldsProps) {
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
       <FormField
         control={form.control}
         name="songTitle"
@@ -39,7 +40,23 @@ export function EditBasicsFields({ form }: EditBasicsFieldsProps) {
           <FormItem>
             <FormLabel>Artist</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder="Artist 1, Artist 2" {...field} />
+            </FormControl>
+            <FormDescription>
+              Use commas when a track has multiple artists.
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="albumName"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Album</FormLabel>
+            <FormControl>
+              <Input placeholder="Album name" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>

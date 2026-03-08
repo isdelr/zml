@@ -7,6 +7,7 @@ export type Song = {
   leagueId: Id<"leagues">;
   songTitle: string;
   artist: string;
+  albumName?: string | null;
   albumArtUrl: string | null;
   songFileUrl: string | null;
   songLink: string | null;

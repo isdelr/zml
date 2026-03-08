@@ -27,6 +27,7 @@ import {
   hasPendingSubmissionProcessing,
   isSubmissionPlayable,
 } from "@/lib/submission/file-processing";
+import { buildTrackMetadataText } from "@/lib/music/submission-display";
 
 type SubmissionWithUrls = Doc<"submissions"> & { albumArtUrl: string | null; songFileUrl: string | null; };
 const EMPTY_SUBMISSIONS: SubmissionWithUrls[] = [];
@@ -120,6 +121,7 @@ export function SubmissionForm({
       _id: submission._id,
       songTitle: submission.songTitle,
       artist: submission.artist,
+      albumName: submission.albumName ?? null,
       albumArtUrl: submission.albumArtUrl ?? "/icons/web-app-manifest-192x192.png",
       songFileUrl: submission.submissionType === "file" ? submission.songFileUrl : null,
       submissionType: submission.submissionType,
@@ -173,7 +175,10 @@ export function SubmissionForm({
                 <div className="min-w-0">
                   <p className="font-semibold truncate">{submission.songTitle}</p>
                   <p className="text-sm text-muted-foreground truncate">
-                    {submission.artist}
+                    {buildTrackMetadataText(
+                      submission.artist,
+                      submission.albumName,
+                    )}
                   </p>
                 </div>
               </div>

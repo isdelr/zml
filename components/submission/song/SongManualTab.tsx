@@ -43,7 +43,7 @@ export function SongManualTab({
   return (
     <TabsContent value="manual" className="mt-6">
       <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <FormField
             control={form.control}
             name="songTitle"
@@ -64,7 +64,23 @@ export function SongManualTab({
               <FormItem>
                 <FormLabel>Artist</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., Queen" {...field} />
+                  <Input placeholder="e.g., Artist 1, Artist 2" {...field} />
+                </FormControl>
+                <FormDescription>
+                  Use commas when a track has multiple artists.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="albumName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Album</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., A Night at the Opera" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -194,6 +210,11 @@ export function SongManualTab({
                           }
                           if (metadata.artist) {
                             form.setValue("artist", metadata.artist, {
+                              shouldValidate: true,
+                            });
+                          }
+                          if (metadata.album) {
+                            form.setValue("albumName", metadata.album, {
                               shouldValidate: true,
                             });
                           }

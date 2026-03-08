@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Song } from "@/types";
+import { buildTrackMetadataText } from "@/lib/music/submission-display";
 
 interface PlayerTrackInfoProps {
   currentTrack: Song;
@@ -96,6 +97,10 @@ export function PlayerTrackInfo({ currentTrack }: PlayerTrackInfoProps) {
   if (!currentTrack) return null;
 
   const src = effectiveUrl ?? currentTrack.albumArtUrl;
+  const metadataText = buildTrackMetadataText(
+    currentTrack.artist,
+    currentTrack.albumName,
+  );
 
   return (
     <div className="flex w-full min-w-0 items-center gap-3 md:w-1/4">
@@ -110,7 +115,7 @@ export function PlayerTrackInfo({ currentTrack }: PlayerTrackInfoProps) {
       ) : null}
       <div className="truncate">
         <p className="truncate text-sm font-semibold">{currentTrack.songTitle}</p>
-        <p className="truncate text-xs text-muted-foreground">{currentTrack.artist}</p>
+        <p className="truncate text-xs text-muted-foreground">{metadataText}</p>
       </div>
     </div>
   );

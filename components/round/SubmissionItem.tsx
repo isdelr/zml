@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { toErrorMessage } from "@/lib/errors";
 import { YouTubeIcon } from "@/components/icons/BrandIcons";
 import { OverflowText } from "@/components/ui/overflow-text";
+import { buildTrackMetadataText } from "@/lib/music/submission-display";
 
 // A new component for the animated equalizer
 const EqualizerIcon = () => (
@@ -172,6 +173,7 @@ export function SubmissionItem({
   const songPoints = song.points ?? 0;
   const pointsColor = songPoints > 0 ? "text-success" : songPoints < 0 ? "text-destructive" : "text-muted-foreground";
   const votingComment = song.comment?.trim() ? song.comment.trim() : "-";
+  const metadataText = buildTrackMetadataText(song.artist, song.albumName);
 
   const renderSubmitterInfo = () => (
     roundStatus === "voting" ? (
@@ -267,7 +269,7 @@ export function SubmissionItem({
                   </TooltipProvider>
                 )}
               </div>
-              <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
+              <p className="truncate text-sm text-muted-foreground">{metadataText}</p>
             </div>
             {isThisSongPlaying ? <EqualizerIcon /> : roundStatus === 'finished' ? <div className={cn("text-right text-sm font-bold", pointsColor)}>{songPoints} pts</div> : null}
           </div>
@@ -354,7 +356,7 @@ export function SubmissionItem({
                   </TooltipProvider>
                 )}
               </div>
-              <p className="truncate text-sm text-muted-foreground">{song.artist}</p>
+              <p className="truncate text-sm text-muted-foreground">{metadataText}</p>
             </div>
           </div>
           <div>
