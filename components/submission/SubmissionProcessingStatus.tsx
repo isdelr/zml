@@ -20,10 +20,6 @@ export function SubmissionProcessingStatus({
   submission,
   compact = false,
 }: SubmissionProcessingStatusProps) {
-  if (submission.submissionType !== "file") {
-    return null;
-  }
-
   const status = getSubmissionFileProcessingStatus(submission);
   const copy = getSubmissionProcessingCopy(status);
 

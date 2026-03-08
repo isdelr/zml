@@ -15,8 +15,6 @@ import { extractYouTubeVideoId } from "@/lib/youtube";
 import { useRoundYouTubePlaylist } from "@/hooks/useRoundYouTubePlaylist";
 import { useRoundVoting } from "@/hooks/useRoundVoting";
 import { RoundStatusAlerts } from "./round/RoundStatusAlerts";
-import { RoundSubmissionProgressCard } from "./round/RoundSubmissionProgressCard";
-import { RoundVotingProgressCard } from "./round/RoundVotingProgressCard";
 import { FinalVoteConfirmationDialog } from "./round/FinalVoteConfirmationDialog";
 
 const RoundAdminControls = dynamicImport(() =>
@@ -209,8 +207,6 @@ export function RoundDetail({
     closeConfirmation,
     handleConfirmFinalVote,
     handleVoteClick,
-    upvotesUsed,
-    downvotesUsed,
     effectiveMaxUp,
     effectiveMaxDown,
     positiveVotesRemaining,
@@ -341,7 +337,7 @@ export function RoundDetail({
 
   const submissionsPerUser = round.submissionsPerUser ?? 1;
 
-  const { completedSubmitters, missingSubmitters, totalMembers } = useMemo(
+  const { completedSubmitters, missingSubmitters } = useMemo(
     () =>
       getRoundSubmitterSummary(
         league.members ?? [],
@@ -350,6 +346,78 @@ export function RoundDetail({
       ),
     [league.members, submissions, submissionsPerUser],
   );
+
+  const votingSummary = useMemo(() => {
+    const finalizedVoters =
+      voters?.map((voter) => ({
+        _id: voter._id.toString(),
+        name: voter.name ?? null,
+        image: voter.image ?? null,
+      })) ?? [];
+
+    const finalizedVoterIds = new Set(
+      finalizedVoters.map((voter) => voter._id ?? ""),
+    );
+
+    const missingVoters =
+      (league.members ?? [])
+        .filter((member) => !finalizedVoterIds.has(member._id.toString()))
+        .map((member) => ({
+          _id: member._id.toString(),
+          name: member.name ?? null,
+          image: member.image ?? null,
+        })) ?? [];
+
+    return {
+      finalizedVoters,
+      missingVoters,
+    };
+  }, [league.members, voters]);
+
+  const participationGroups = useMemo(() => {
+    if (round.status === "submissions" && !league.isSpectator) {
+      return [
+        {
+          label: "Submitted",
+          users: completedSubmitters.map((member, index) => ({
+            _id: `submitted-${index}-${member.name ?? "member"}`,
+            name: member.name,
+            image: member.image,
+          })),
+        },
+        {
+          label: "Not submitted",
+          users: missingSubmitters.map((member, index) => ({
+            _id: `missing-${index}-${member.name ?? "member"}`,
+            name: member.name,
+            image: member.image,
+          })),
+        },
+      ];
+    }
+
+    if (round.status === "voting") {
+      return [
+        {
+          label: "Voted",
+          users: votingSummary.finalizedVoters,
+        },
+        {
+          label: "Not voted",
+          users: votingSummary.missingVoters,
+        },
+      ];
+    }
+
+    return undefined;
+  }, [
+    completedSubmitters,
+    league.isSpectator,
+    missingSubmitters,
+    round.status,
+    votingSummary.finalizedVoters,
+    votingSummary.missingVoters,
+  ]);
 
   const formatDuration = (totalSeconds: number) => {
     if (!totalSeconds || totalSeconds <= 0) return null;
@@ -388,17 +456,13 @@ export function RoundDetail({
         onPlayAll={(songs, startIndex) =>
           playerActions.playRound(songs, startIndex)
         }
-        positiveVotesRemaining={positiveVotesRemaining}
-        negativeVotesRemaining={negativeVotesRemaining}
-        hasVoted={isVoteFinal}
-        upvotesUsed={upvotesUsed}
-        downvotesUsed={downvotesUsed}
         totalDuration={formatDuration(totalDurationSeconds)}
         usesCustomLimits={usesCustomLimits}
         effectiveMaxUp={effectiveMaxUp}
         effectiveMaxDown={effectiveMaxDown}
         leagueMaxUp={league.maxPositiveVotes}
         leagueMaxDown={league.maxNegativeVotes}
+        participationGroups={participationGroups}
       />
 
       {!league.isSpectator && (
@@ -410,13 +474,6 @@ export function RoundDetail({
             mySubmissions={mySubmissions}
             leagueName={league.name}
           />
-          {round.status === "submissions" ? (
-            <RoundSubmissionProgressCard
-              completedSubmitters={completedSubmitters}
-              missingSubmitters={missingSubmitters}
-              totalMembers={totalMembers}
-            />
-          ) : null}
         </div>
       )}
 
@@ -424,9 +481,6 @@ export function RoundDetail({
 
       {(round.status === "voting" || round.status === "finished") && (
         <>
-          {round.status === "voting" && voters ? (
-            <RoundVotingProgressCard voters={voters} />
-          ) : null}
           <SubmissionsList
             submissions={sortedSubmissions}
             userVoteStatus={
@@ -454,6 +508,11 @@ export function RoundDetail({
             onToggleComments={setActiveCommentsSubmissionId}
             listenersBySubmission={listenersBySubmission}
             playlistListeners={playlistListeners}
+            positiveVotesRemaining={positiveVotesRemaining}
+            negativeVotesRemaining={negativeVotesRemaining}
+            isVoteFinal={isVoteFinal}
+            effectiveMaxUp={effectiveMaxUp}
+            effectiveMaxDown={effectiveMaxDown}
             onReachYouTube={ensureAutoOpenOnce}
             ytInfo={ytInfo}
           />

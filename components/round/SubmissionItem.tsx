@@ -6,6 +6,7 @@ import {
   ArrowUp,
   Bookmark,
   MessageSquare,
+  MoreHorizontal,
   Play,
   Pause,
   Ban,
@@ -36,6 +37,12 @@ import { toErrorMessage } from "@/lib/errors";
 import { YouTubeIcon } from "@/components/icons/BrandIcons";
 import { OverflowText } from "@/components/ui/overflow-text";
 import { buildTrackMetadataText } from "@/lib/music/submission-display";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // A new component for the animated equalizer
 const EqualizerIcon = () => (
@@ -166,6 +173,10 @@ export function SubmissionItem({
   const pointsColor = songPoints > 0 ? "text-success" : songPoints < 0 ? "text-destructive" : "text-muted-foreground";
   const votingComment = song.comment?.trim() ? song.comment.trim() : "-";
   const metadataText = buildTrackMetadataText(song.artist, song.albumName);
+  const compactMobileActionButtonClass = "size-10 md:size-8";
+  const compactMobileVoteButtonClass = "size-10 rounded-full md:size-8";
+  const compactMobileIconClass = "size-4 md:size-5";
+  const showMobileOverflowAccent = song.isBookmarked || isCommentsVisible;
 
   const renderSubmitterInfo = () => (
     roundStatus === "voting" ? (
@@ -195,19 +206,19 @@ export function SubmissionItem({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-8 rounded-full" aria-label="Upvote" onClick={(e) => { e.stopPropagation(); onVoteClick(1); }} disabled={!!upvoteDisabledReason}>
-              <ArrowUp className={cn("size-5", currentVoteValue > 0 && "fill-success/20 text-success")} />
+            <Button variant="ghost" size="icon" className={cn(compactMobileVoteButtonClass)} aria-label="Upvote" onClick={(e) => { e.stopPropagation(); onVoteClick(1); }} disabled={!!upvoteDisabledReason}>
+              <ArrowUp className={cn(compactMobileIconClass, currentVoteValue > 0 && "fill-success/20 text-success")} />
             </Button>
           </TooltipTrigger>
           {upvoteDisabledReason && <TooltipContent><p>{upvoteDisabledReason}</p></TooltipContent>}
         </Tooltip>
-        <span className={cn("w-6 text-center text-sm font-bold", currentVoteValue > 0 ? "text-success" : currentVoteValue < 0 ? "text-destructive" : "text-muted-foreground")}>
+        <span className={cn("w-5 text-center text-xs font-bold md:w-6 md:text-sm", currentVoteValue > 0 ? "text-success" : currentVoteValue < 0 ? "text-destructive" : "text-muted-foreground")}>
             {currentVoteValue !== 0 && (currentVoteValue > 0 ? `+${currentVoteValue}` : currentVoteValue)}
         </span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-8 rounded-full" aria-label="Downvote" onClick={(e) => { e.stopPropagation(); onVoteClick(-1); }} disabled={!!downvoteDisabledReason}>
-              <ArrowDown className={cn("size-5", currentVoteValue < 0 && "fill-destructive/20 text-destructive")} />
+            <Button variant="ghost" size="icon" className={cn(compactMobileVoteButtonClass)} aria-label="Downvote" onClick={(e) => { e.stopPropagation(); onVoteClick(-1); }} disabled={!!downvoteDisabledReason}>
+              <ArrowDown className={cn(compactMobileIconClass, currentVoteValue < 0 && "fill-destructive/20 text-destructive")} />
             </Button>
           </TooltipTrigger>
           {downvoteDisabledReason && <TooltipContent><p>{downvoteDisabledReason}</p></TooltipContent>}
@@ -265,17 +276,10 @@ export function SubmissionItem({
             </div>
             {isThisSongPlaying ? <EqualizerIcon /> : roundStatus === 'finished' ? <div className={cn("text-right text-sm font-bold", pointsColor)}>{songPoints} pts</div> : null}
           </div>
-          <div className="mt-3 flex items-center justify-between">
+          <div className="mt-3 flex items-center justify-between gap-2">
             {renderSubmitterInfo()}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               {roundStatus === 'voting' && renderVoteButtonGroup()}
-              {roundStatus !== 'submissions' && song.submissionType === 'file' && song.songFileUrl && (
-                <a href={song.songFileUrl} download onClick={(e) => e.stopPropagation()} title="Download audio file">
-                  <Button variant="ghost" size="icon" className="size-8">
-                    <Download className="size-5" />
-                  </Button>
-                </a>
-              )}
               {canMarkTrollSubmissions && (
                 <TooltipProvider>
                   <Tooltip>
@@ -283,10 +287,11 @@ export function SubmissionItem({
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="size-8" 
+                        className={compactMobileActionButtonClass}
+                        aria-label={song.isTrollSubmission ? "Unmark as troll submission" : "Mark as troll submission"}
                         onClick={(e) => { e.stopPropagation(); handleTrollSubmissionToggle(); }}
                       >
-                        <AlertTriangle className={cn("size-5", song.isTrollSubmission && "text-destructive")} />
+                        <AlertTriangle className={cn(compactMobileIconClass, song.isTrollSubmission && "text-destructive")} />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -295,8 +300,37 @@ export function SubmissionItem({
                   </Tooltip>
                 </TooltipProvider>
               )}
-              <Button variant="ghost" size="icon" className="size-8" onClick={(e) => { e.stopPropagation(); onBookmark(); }}><Bookmark className={cn("size-5", song.isBookmarked && "fill-primary text-primary")} /></Button>
-              <Button variant="ghost" size="icon" className="size-8" onClick={(e) => { e.stopPropagation(); onToggleComments(); }}><MessageSquare className={cn("size-5", isCommentsVisible && "fill-accent")} /></Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={compactMobileActionButtonClass}
+                    aria-label="More actions"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreHorizontal className={cn(compactMobileIconClass, showMobileOverflowAccent && "text-primary")} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44" onClick={(e) => e.stopPropagation()}>
+                  {roundStatus !== 'submissions' && song.submissionType === 'file' && song.songFileUrl && (
+                    <DropdownMenuItem asChild>
+                      <a href={song.songFileUrl} download onClick={(e) => e.stopPropagation()}>
+                        <Download className="size-4" />
+                        Download audio
+                      </a>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onSelect={() => onBookmark()}>
+                    <Bookmark className={cn("size-4", song.isBookmarked && "fill-primary text-primary")} />
+                    {song.isBookmarked ? "Remove bookmark" : "Bookmark song"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onToggleComments()}>
+                    <MessageSquare className={cn("size-4", isCommentsVisible && "fill-accent")} />
+                    {isCommentsVisible ? "Hide comments" : "Show comments"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>

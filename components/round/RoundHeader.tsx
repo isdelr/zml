@@ -5,17 +5,19 @@ import { Play } from "lucide-react";
 import Image from "next/image";
 import { toSvg } from "jdenticon";
 import { Song } from "@/types";
-import { cn, formatDeadline } from "@/lib/utils";
+import { formatDeadline } from "@/lib/utils";
+import { RoundParticipationSummary } from "@/components/round/RoundParticipationSummary";
+
+type Participant = {
+  _id?: string;
+  name?: string | null;
+  image?: string | null;
+};
 
 interface RoundHeaderProps {
   round: Doc<"rounds"> & { art: string | null; submissionCount: number };
   submissions: Song[] | undefined;
   onPlayAll: (submissions: Song[], startIndex: number) => void;
-  positiveVotesRemaining: number;
-  negativeVotesRemaining: number;
-  hasVoted: boolean;
-  upvotesUsed: number;
-  downvotesUsed: number;
   totalDuration: string | null;
   // UI clarity for custom per-round vote limits
   usesCustomLimits?: boolean;
@@ -23,24 +25,29 @@ interface RoundHeaderProps {
   effectiveMaxDown?: number;
   leagueMaxUp?: number;
   leagueMaxDown?: number;
+  participationGroups?: {
+    label: string;
+    users: Participant[];
+  }[];
 }
 
 export function RoundHeader({
-                              round,
-                              submissions,
-                              onPlayAll,
-                              positiveVotesRemaining,
-                              negativeVotesRemaining,
-                              hasVoted,
-                              upvotesUsed,
-                              downvotesUsed,
-                              totalDuration,
-                              usesCustomLimits,
-                              effectiveMaxUp,
-                              effectiveMaxDown,
-                              leagueMaxUp,
-                              leagueMaxDown,
-                            }: RoundHeaderProps) {
+  round,
+  submissions,
+  onPlayAll,
+  totalDuration,
+  usesCustomLimits,
+  effectiveMaxUp,
+  effectiveMaxDown,
+  leagueMaxUp,
+  leagueMaxDown,
+  participationGroups,
+}: RoundHeaderProps) {
+  const showPlayAll =
+    round.status !== "submissions" && submissions && submissions.length > 0;
+  const showParticipationSummary =
+    participationGroups && participationGroups.length > 0;
+
   return (
     <div className="mb-8 flex flex-col gap-6 md:flex-row md:gap-8">
       {round.art ? (
@@ -95,55 +102,24 @@ export function RoundHeader({
               </span>
             )}
           </div>
-          {round.status !== "submissions" && submissions && (submissions).length > 0 && (
-            <Button
-              onClick={() => onPlayAll(submissions as Song[], 0)}
-              size="lg"
-              className="mt-4 w-full bg-primary text-primary-foreground md:w-fit"
-            >
-              <Play className="mr-2 size-5" />
-              Play All
-            </Button>
+          {(showPlayAll || showParticipationSummary) && (
+            <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
+              {showPlayAll && (
+                <Button
+                  onClick={() => onPlayAll(submissions as Song[], 0)}
+                  size="lg"
+                  className="w-full bg-primary text-primary-foreground md:w-fit"
+                >
+                  <Play className="mr-2 size-5" />
+                  Play All
+                </Button>
+              )}
+              {showParticipationSummary && (
+                <RoundParticipationSummary groups={participationGroups} />
+              )}
+            </div>
           )}
         </div>
-
-        {round.status === "voting" && (
-          <div
-            className={cn(
-              "flex flex-col items-start gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between",
-              hasVoted ? "border-success/50 bg-success/10" : "bg-card",
-            )}
-          >
-            <div>
-              <h3 className="font-semibold text-foreground">
-                {hasVoted ? "Your Vote is Final" : "Your Vote Budget"}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {hasVoted
-                  ? "Your votes are locked in and cannot be changed."
-                  : "Votes are saved automatically. You must use all votes to avoid a penalty."}
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-center">
-                <p className="text-lg font-bold text-success">
-                  {hasVoted ? upvotesUsed : positiveVotesRemaining}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {hasVoted ? "Upvotes Cast" : "Upvotes Left"}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-lg font-bold text-destructive">
-                  {hasVoted ? downvotesUsed : negativeVotesRemaining}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {hasVoted ? "Downvotes Cast" : "Downvotes Left"}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

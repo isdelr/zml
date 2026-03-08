@@ -2,6 +2,13 @@
 
 import { useEffect, useMemo, useRef, Fragment } from "react";
 import { useMutation } from "convex/react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  CheckCircle2,
+  Lock,
+} from "lucide-react";
 import { api } from "@/lib/convex/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
@@ -43,6 +50,11 @@ interface SubmissionsListProps {
   onToggleComments: (submissionId: Id<"submissions"> | null) => void;
   listenersBySubmission: Record<string, SubmissionListener[]> | undefined;
   playlistListeners: SubmissionListener[] | undefined;
+  positiveVotesRemaining: number;
+  negativeVotesRemaining: number;
+  isVoteFinal: boolean;
+  effectiveMaxUp: number;
+  effectiveMaxDown: number;
   onReachYouTube?: () => void;
   ytInfo?: {
     running: boolean;
@@ -63,14 +75,19 @@ export function SubmissionsList({
   league,
   currentTrackIndex,
   isPlaying,
-                                  queue,
-                                  onPlaySong,
-                                  onVoteClick,
-                                  listenProgressMap,
-                                  activeCommentsSubmissionId,
-                                  onToggleComments,
-                                  listenersBySubmission,
+  queue,
+  onPlaySong,
+  onVoteClick,
+  listenProgressMap,
+  activeCommentsSubmissionId,
+  onToggleComments,
+  listenersBySubmission,
   playlistListeners,
+  positiveVotesRemaining,
+  negativeVotesRemaining,
+  isVoteFinal,
+  effectiveMaxUp,
+  effectiveMaxDown,
   onReachYouTube,
   ytInfo,
 }: SubmissionsListProps) {
@@ -133,7 +150,7 @@ export function SubmissionsList({
     }
   });
 
-  const hasVoted = userVoteStatus?.hasVoted ?? false;
+  const hasVoted = isVoteFinal || (userVoteStatus?.hasVoted ?? false);
   const canVote = userVoteStatus?.canVote ?? false;
 
   const youtubeItems = useMemo(() => {
@@ -272,8 +289,61 @@ export function SubmissionsList({
     return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
   };
 
+  const showVotingStatusStrip = roundStatus === "voting" && !league.isSpectator;
+
   return (
-    <div className="flex flex-col rounded-lg border mt-3">
+    <div className="mt-3 flex flex-col rounded-lg border">
+      {showVotingStatusStrip ? (
+        <div className="border-b border-border bg-muted/20 px-3 py-2 md:px-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                hasVoted
+                  ? "border-success/30 bg-success/10 text-success"
+                  : canVote
+                    ? "border-primary/30 bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground"
+              }`}
+            >
+              {hasVoted ? (
+                <CheckCircle2 className="size-3.5" />
+              ) : canVote ? (
+                <ArrowUpDown className="size-3.5" />
+              ) : (
+                <Lock className="size-3.5" />
+              )}
+              {hasVoted
+                ? "Done Voting"
+                : canVote
+                  ? "Voting Open"
+                  : "Voting Locked"}
+            </div>
+
+            {canVote ? (
+              <>
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground">
+                  <ArrowUp className="size-3.5 text-success" />
+                  <span>{positiveVotesRemaining} up left</span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground">
+                  <ArrowDown className="size-3.5 text-destructive" />
+                  <span>{negativeVotesRemaining} down left</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {hasVoted
+                    ? `Locked at +${effectiveMaxUp} / -${effectiveMaxDown}.`
+                    : "Votes save automatically."}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Submit a song to unlock voting for this round.
+              </p>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       <div className="hidden border-b border-border text-xs font-semibold uppercase text-muted-foreground md:block">
         <div className="grid grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 px-4 py-2">
           <span className="w-10 text-center">#</span>
