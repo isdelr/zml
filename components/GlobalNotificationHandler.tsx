@@ -42,8 +42,7 @@ export function GlobalNotificationHandler() {
   useEffect(() => {
     // Only show notifications if:
     // 1. The browser tab is currently visible. The service worker handles background notifications.
-    // 2. The user has granted notification permissions for the site.
-    // 3. The notifications data has been loaded.
+    // 2. The notifications data has been loaded.
     if (!isVisible || !notifications) {
       return;
     }

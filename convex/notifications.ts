@@ -220,27 +220,26 @@ export const createManyUniqueBySource = internalMutation({
     );
 
     const sourceCache = new Set<string>();
-    const userTypePairs = [
-      ...new Set(
-        args.notifications.map(
-          (notification) => `${notification.userId}:${notification.type}`,
-        ),
-      ),
-    ];
-
-    for (const pair of userTypePairs) {
-      const [userIdRaw, type] = pair.split(":");
-      const matchingUserId = uniqueUserIds.find(
-        (userId) => userId.toString() === userIdRaw,
-      );
-      if (!matchingUserId) {
-        continue;
+    const userTypePairs = new Map<string, {
+      userId: Id<"users">;
+      type: NotificationType;
+    }>();
+    for (const notification of args.notifications) {
+      const pairKey = `${notification.userId}:${notification.type}`;
+      if (!userTypePairs.has(pairKey)) {
+        userTypePairs.set(pairKey, {
+          userId: notification.userId,
+          type: notification.type,
+        });
       }
+    }
+
+    for (const { userId, type } of userTypePairs.values()) {
 
       const recentNotifications = await ctx.db
         .query("notifications")
         .withIndex("by_user_and_type", (q) =>
-          q.eq("userId", matchingUserId).eq("type", type as NotificationType),
+          q.eq("userId", userId).eq("type", type),
         )
         .order("desc")
         .take(200);
