@@ -118,28 +118,6 @@ export function RoundDetail({
   const shouldLoadVoteStatus =
     !league.isSpectator &&
     (round.status === "voting" || round.status === "finished");
-  const {
-    userVoteStatus,
-    confirmationState,
-    confirmText,
-    setConfirmText,
-    closeConfirmation,
-    handleConfirmFinalVote,
-    handleVoteClick,
-    upvotesUsed,
-    downvotesUsed,
-    effectiveMaxUp,
-    effectiveMaxDown,
-    positiveVotesRemaining,
-    negativeVotesRemaining,
-    isVoteFinal,
-    usesCustomLimits,
-  } = useRoundVoting({
-    round,
-    league,
-    currentUserId: currentUser?._id,
-    enabled: shouldLoadVoteStatus,
-  });
   const voters = useQuery(
     api.votes.getVotersForRound,
     round.status === "voting" ? { roundId: round._id } : "skip",
@@ -196,7 +174,7 @@ export function RoundDetail({
     listenProgressMap,
   ]);
 
-  const isReadyToVoteOverall = useMemo(() => {
+  const canFinalizeVotes = useMemo(() => {
     if (!league.enforceListenPercentage || !submissions || !currentUser)
       return true;
     const requiredSubs = submissions.filter(
@@ -215,6 +193,38 @@ export function RoundDetail({
     currentUser,
     listenProgressMap,
   ]);
+
+  const finalizationBlockedReason = useMemo(() => {
+    if (!league.enforceListenPercentage || songsLeftToListen.length === 0) {
+      return "Finish listening to every required song before submitting your final vote.";
+    }
+    return `Listen to the remaining ${songsLeftToListen.length} song${songsLeftToListen.length === 1 ? "" : "s"} before submitting your final vote.`;
+  }, [league.enforceListenPercentage, songsLeftToListen.length]);
+
+  const {
+    userVoteStatus,
+    confirmationState,
+    confirmText,
+    setConfirmText,
+    closeConfirmation,
+    handleConfirmFinalVote,
+    handleVoteClick,
+    upvotesUsed,
+    downvotesUsed,
+    effectiveMaxUp,
+    effectiveMaxDown,
+    positiveVotesRemaining,
+    negativeVotesRemaining,
+    isVoteFinal,
+    usesCustomLimits,
+  } = useRoundVoting({
+    round,
+    league,
+    currentUserId: currentUser?._id,
+    enabled: shouldLoadVoteStatus,
+    canFinalizeVotes,
+    finalizationBlockedReason,
+  });
 
   const roundWithArt = useMemo(
     () => ({
@@ -440,7 +450,6 @@ export function RoundDetail({
             onPlaySong={handlePlaySong}
             onVoteClick={handleVoteClick}
             listenProgressMap={listenProgressMap}
-            isReadyToVoteOverall={isReadyToVoteOverall}
             activeCommentsSubmissionId={activeCommentsSubmissionId}
             onToggleComments={setActiveCommentsSubmissionId}
             listenersBySubmission={listenersBySubmission}

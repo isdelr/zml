@@ -24,6 +24,8 @@ type UseRoundVotingArgs = {
   league: LeagueData;
   currentUserId: Id<"users"> | null | undefined;
   enabled?: boolean;
+  canFinalizeVotes?: boolean;
+  finalizationBlockedReason?: string;
 };
 
 export function useRoundVoting({
@@ -31,6 +33,8 @@ export function useRoundVoting({
   league,
   currentUserId,
   enabled = true,
+  canFinalizeVotes = true,
+  finalizationBlockedReason = "Finish listening to every required song before submitting your final vote.",
 }: UseRoundVotingArgs) {
   const [confirmationState, setConfirmationState] = useState<ConfirmationState>({
     isOpen: false,
@@ -172,6 +176,11 @@ export function useRoundVoting({
       notifyLocked("Please wait for your previous vote to finish saving.");
       return;
     }
+    if (!canFinalizeVotes) {
+      toast.error(finalizationBlockedReason);
+      closeConfirmation();
+      return;
+    }
     if (confirmText.trim().toLowerCase() !== FINAL_CONFIRM_TEXT) {
       toast.error('Type "confirm" to submit your final vote.');
       return;
@@ -184,7 +193,15 @@ export function useRoundVoting({
       );
     }
     closeConfirmation();
-  }, [confirmationState, submitVoteDelta, closeConfirmation, confirmText, notifyLocked]);
+  }, [
+    canFinalizeVotes,
+    confirmationState,
+    submitVoteDelta,
+    closeConfirmation,
+    confirmText,
+    finalizationBlockedReason,
+    notifyLocked,
+  ]);
 
   const handleVoteClick = useCallback(
     (submissionId: Id<"submissions">, delta: 1 | -1) => {
@@ -233,6 +250,10 @@ export function useRoundVoting({
         nextDownvotesUsed === effectiveMaxDownClick;
 
       if (willBeFinal) {
+        if (!canFinalizeVotes) {
+          toast.error(finalizationBlockedReason);
+          return;
+        }
         confirmationLockRef.current = true;
         setConfirmationState({
           isOpen: true,
@@ -244,7 +265,15 @@ export function useRoundVoting({
 
       submitVoteDelta(submissionId, deltaToSend as 1 | -1);
     },
-    [userVoteStatus, league, round, submitVoteDelta, notifyLocked],
+    [
+      canFinalizeVotes,
+      finalizationBlockedReason,
+      userVoteStatus,
+      league,
+      round,
+      submitVoteDelta,
+      notifyLocked,
+    ],
   );
 
   const upvotesUsed = userVoteStatus?.upvotesUsed ?? 0;

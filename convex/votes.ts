@@ -12,6 +12,10 @@ import { resolveUserAvatarUrl } from "./userAvatar";
 const storage = new B2Storage();
 const FINAL_VOTE_CONFIRMATION_REQUIRED_ERROR =
   "Final vote confirmation is required to lock your votes.";
+const FINAL_VOTE_LISTEN_REQUIREMENT_ERROR =
+  "You must listen to the required portion of all submissions before submitting your final vote. For YouTube links, use the Play button to open the link so your listening can be tracked.";
+const SUBMISSION_LISTEN_REQUIREMENT_ERROR =
+  "You must listen to the required portion of this submission before voting. For YouTube links, use the Play button to open the link so your listening can be tracked.";
 
 async function canViewLeague(
   ctx: Pick<QueryCtx, "db">,
@@ -277,44 +281,6 @@ export const castVote = mutation({
       );
     }
 
-    if (league.enforceListenPercentage) {
-      const allSubs = await ctx.db
-        .query("submissions")
-        .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
-        .collect();
-      const requiredSubs = allSubs.filter(
-        (s) =>
-          ["file", "youtube"].includes(s.submissionType) &&
-          s.userId !== userId &&
-          !s.isTrollSubmission,
-      );
-      if (requiredSubs.length > 0) {
-        const progressDocs = await ctx.db
-          .query("listenProgress")
-          .withIndex("by_round_and_user", (q) =>
-            q.eq("roundId", round._id).eq("userId", userId),
-          )
-          .collect();
-        const progressBySubmissionId = new Map(
-          progressDocs.map((progress) => [
-            progress.submissionId.toString(),
-            progress,
-          ]),
-        );
-        const allCompleted = requiredSubs.every((submissionDoc) => {
-          const progressDoc = progressBySubmissionId.get(
-            submissionDoc._id.toString(),
-          );
-          return progressDoc !== undefined && progressDoc.isCompleted;
-        });
-        if (!allCompleted) {
-          throw new Error(
-            "You must listen to the required portion of all submissions before voting. For YouTube links, use the Play button to open the link so your listening can be tracked.",
-          );
-        }
-      }
-    }
-
     const allUserVotesInRound = await ctx.db
       .query("votes")
       .withIndex("by_round_and_user", (q) =>
@@ -377,6 +343,55 @@ export const castVote = mutation({
     if (args.delta === -1 && newNegUsed > maxDown) {
       throw new Error("No downvotes remaining.");
     }
+
+    if (league.enforceListenPercentage) {
+      const shouldCheckSubmissionListen =
+        newVote !== 0 && ["file", "youtube"].includes(submission.submissionType);
+      if (shouldCheckSubmissionListen || willFinalizeVotes) {
+        const progressDocs = await ctx.db
+          .query("listenProgress")
+          .withIndex("by_round_and_user", (q) =>
+            q.eq("roundId", round._id).eq("userId", userId),
+          )
+          .collect();
+        const progressBySubmissionId = new Map(
+          progressDocs.map((progress) => [
+            progress.submissionId.toString(),
+            progress,
+          ]),
+        );
+
+        if (
+          shouldCheckSubmissionListen &&
+          progressBySubmissionId.get(args.submissionId.toString())?.isCompleted !==
+            true
+        ) {
+          throw new Error(SUBMISSION_LISTEN_REQUIREMENT_ERROR);
+        }
+
+        if (willFinalizeVotes) {
+          const allSubs = await ctx.db
+            .query("submissions")
+            .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+            .collect();
+          const requiredSubs = allSubs.filter(
+            (s) =>
+              ["file", "youtube"].includes(s.submissionType) &&
+              s.userId !== userId &&
+              !s.isTrollSubmission,
+          );
+          const allCompleted = requiredSubs.every(
+            (submissionDoc) =>
+              progressBySubmissionId.get(submissionDoc._id.toString())
+                ?.isCompleted === true,
+          );
+          if (!allCompleted) {
+            throw new Error(FINAL_VOTE_LISTEN_REQUIREMENT_ERROR);
+          }
+        }
+      }
+    }
+
     if (willFinalizeVotes && args.confirmFinal !== true) {
       throw new Error(FINAL_VOTE_CONFIRMATION_REQUIRED_ERROR);
     }

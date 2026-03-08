@@ -38,7 +38,6 @@ interface SubmissionsListProps {
   queue: Song[];
   onPlaySong: (song: Song, index: number) => void;
   onVoteClick: (submissionId: Id<"submissions">, delta: 1 | -1) => void;
-  isReadyToVoteOverall: boolean;
   listenProgressMap: Record<string, Doc<"listenProgress">>;
   activeCommentsSubmissionId: Id<"submissions"> | null;
   onToggleComments: (submissionId: Id<"submissions"> | null) => void;
@@ -56,29 +55,29 @@ interface SubmissionsListProps {
 }
 
 export function SubmissionsList({
-                                  submissions,
-                                  userVoteStatus,
-                                  userVotes,
-                                  currentUser,
-                                  roundStatus,
-                                  league,
-                                  currentTrackIndex,
-                                  isPlaying,
+  submissions,
+  userVoteStatus,
+  userVotes,
+  currentUser,
+  roundStatus,
+  league,
+  currentTrackIndex,
+  isPlaying,
                                   queue,
                                   onPlaySong,
                                   onVoteClick,
                                   listenProgressMap,
-                                  isReadyToVoteOverall,
                                   activeCommentsSubmissionId,
                                   onToggleComments,
                                   listenersBySubmission,
-                                  playlistListeners,
-                                  onReachYouTube,
-                                ytInfo,
-                                }: SubmissionsListProps) {
+  playlistListeners,
+  onReachYouTube,
+  ytInfo,
+}: SubmissionsListProps) {
   const toSong = (submission: Submission): Song => ({
     ...submission,
-    albumArtUrl: submission.albumArtUrl ?? "/icons/web-app-manifest-192x192.png",
+    albumArtUrl:
+      submission.albumArtUrl ?? "/icons/web-app-manifest-192x192.png",
     songFileUrl: submission.songFileUrl ?? null,
     songLink: submission.songLink ?? null,
   });
@@ -102,7 +101,8 @@ export function SubmissionsList({
       });
       if (!updated) continue;
       localStore.setQuery(api.submissions.getForRound, args, newSubs);
-      const changedSubmission = newSubs.find((s) => s._id === submissionId) ?? null;
+      const changedSubmission =
+        newSubs.find((s) => s._id === submissionId) ?? null;
       if (changedSubmission) {
         updatedSong = changedSubmission;
         newBookmarkState = changedSubmission.isBookmarked;
@@ -127,14 +127,11 @@ export function SubmissionsList({
           ]);
         }
       } else {
-        const filtered = bookmarkedSongs.filter(
-          (s) => s._id !== submissionId,
-        );
+        const filtered = bookmarkedSongs.filter((s) => s._id !== submissionId);
         localStore.setQuery(api.bookmarks.getBookmarkedSongs, args, filtered);
       }
     }
   });
-
 
   const hasVoted = userVoteStatus?.hasVoted ?? false;
   const canVote = userVoteStatus?.canVote ?? false;
@@ -158,7 +155,9 @@ export function SubmissionsList({
         const entry = entries[0];
         if (!entry) return;
         if (entry.isIntersecting) {
-          try { onReachYouTube(); } catch {}
+          try {
+            onReachYouTube();
+          } catch {}
           observer.disconnect();
         }
       },
@@ -168,10 +167,13 @@ export function SubmissionsList({
     return () => observer.disconnect();
   }, [onReachYouTube, youtubeItems.length]);
 
-  const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+  const currentTrack =
+    currentTrackIndex !== null ? queue[currentTrackIndex] : null;
   const visiblePlaylistListeners = useMemo(() => {
     if (!playlistListeners) return [] as SubmissionListener[];
-    return playlistListeners.filter((listener) => listener._id !== currentUser?._id);
+    return playlistListeners.filter(
+      (listener) => listener._id !== currentUser?._id,
+    );
   }, [playlistListeners, currentUser?._id]);
 
   const albumGroupMap = useMemo(() => {
@@ -218,10 +220,7 @@ export function SubmissionsList({
     );
   }
 
-  const renderSubmission = (
-    submission: Submission,
-    index: number,
-  ) => {
+  const renderSubmission = (submission: Submission, index: number) => {
     const submissionId = submission._id;
     const submissionKey = submissionId.toString();
     const isThisSongPlaying = isPlaying && currentTrack?._id === submissionId;
@@ -253,7 +252,6 @@ export function SubmissionsList({
         onBookmark={() => handleBookmark(submissionId)}
         onPlaySong={() => onPlaySong(toSong(submission), index)}
         listenProgress={listenProgressMap[submissionKey]}
-        isReadyToVoteOverall={isReadyToVoteOverall}
         onToggleComments={() =>
           onToggleComments(isCommentsVisible ? null : submissionId)
         }
@@ -281,8 +279,6 @@ export function SubmissionsList({
           <span className="w-10 text-center">#</span>
           <span>Track</span>
           <span>{roundStatus === "voting" ? "Comment" : "Submitted By"}</span>
-          <span className="text-right">Points</span>
-          <span className="w-44 text-center">Actions</span>
         </div>
       </div>
 
@@ -342,9 +338,19 @@ export function SubmissionsList({
               {ytInfo?.done ? (
                 <span className="ml-2 text-success">Completed ✓</span>
               ) : ytInfo?.running ? (
-                <span className="ml-2">Timer running: {ytInfo.videoCount} video{ytInfo.videoCount !== 1 ? "s" : ""} — <strong>{formatDurationCompact(ytInfo.remainingSec)}</strong> left</span>
+                <span className="ml-2">
+                  Timer running: {ytInfo.videoCount} video
+                  {ytInfo.videoCount !== 1 ? "s" : ""} —{" "}
+                  <strong>{formatDurationCompact(ytInfo.remainingSec)}</strong>{" "}
+                  left
+                </span>
               ) : (
-                <span className="ml-2">{ytInfo?.videoCount ?? youtubeItems.length} YouTube track{(ytInfo?.videoCount ?? youtubeItems.length) !== 1 ? "s" : ""}, total {formatDurationCompact(ytInfo?.totalDurationSec ?? 0)} — pending</span>
+                <span className="ml-2">
+                  {ytInfo?.videoCount ?? youtubeItems.length} YouTube track
+                  {(ytInfo?.videoCount ?? youtubeItems.length) !== 1 ? "s" : ""}
+                  , total {formatDurationCompact(ytInfo?.totalDurationSec ?? 0)}{" "}
+                  — pending
+                </span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -367,15 +373,20 @@ export function SubmissionsList({
           <div ref={ytSentinelRef} aria-hidden className="h-1" />
 
           {youtubeItems.map((song) => {
-            const isThisSongPlaying = isPlaying && currentTrack?._id === song._id;
+            const isThisSongPlaying =
+              isPlaying && currentTrack?._id === song._id;
             const isThisSongCurrent = currentTrack?._id === song._id;
             const userIsSubmitter = song.userId === currentUser?._id;
             const isCommentsVisible = activeCommentsSubmissionId === song._id;
             const listeners = listenersBySubmission
               ? listenersBySubmission[song._id.toString()]
               : [];
-            const userVoteOnThisSong = userVotes.find((v) => v.submissionId === song._id);
-            const currentVoteValue = userVoteOnThisSong ? userVoteOnThisSong.vote : 0;
+            const userVoteOnThisSong = userVotes.find(
+              (v) => v.submissionId === song._id,
+            );
+            const currentVoteValue = userVoteOnThisSong
+              ? userVoteOnThisSong.vote
+              : 0;
             const indexInAll = submissions.indexOf(song);
             return (
               <SubmissionItem
@@ -391,12 +402,13 @@ export function SubmissionsList({
                 hasVoted={hasVoted}
                 league={league}
                 canVote={canVote}
-                onToggleComments={() => onToggleComments(isCommentsVisible ? null : song._id)}
+                onToggleComments={() =>
+                  onToggleComments(isCommentsVisible ? null : song._id)
+                }
                 onVoteClick={(delta) => onVoteClick(song._id, delta)}
                 onBookmark={() => handleBookmark(song._id)}
                 onPlaySong={() => onPlaySong(toSong(song), indexInAll)}
                 listenProgress={listenProgressMap[song._id.toString()]}
-                isReadyToVoteOverall={isReadyToVoteOverall}
                 listeners={listeners ?? []}
                 currentUser={currentUser}
               />
@@ -407,15 +419,20 @@ export function SubmissionsList({
         // Non-voting phases: render YouTube items as regular list items without the wrapper/header
         <>
           {youtubeItems.map((song) => {
-            const isThisSongPlaying = isPlaying && currentTrack?._id === song._id;
+            const isThisSongPlaying =
+              isPlaying && currentTrack?._id === song._id;
             const isThisSongCurrent = currentTrack?._id === song._id;
             const userIsSubmitter = song.userId === currentUser?._id;
             const isCommentsVisible = activeCommentsSubmissionId === song._id;
             const listeners = listenersBySubmission
               ? listenersBySubmission[song._id.toString()]
               : [];
-            const userVoteOnThisSong = userVotes.find((v) => v.submissionId === song._id);
-            const currentVoteValue = userVoteOnThisSong ? userVoteOnThisSong.vote : 0;
+            const userVoteOnThisSong = userVotes.find(
+              (v) => v.submissionId === song._id,
+            );
+            const currentVoteValue = userVoteOnThisSong
+              ? userVoteOnThisSong.vote
+              : 0;
             const indexInAll = submissions.indexOf(song);
             return (
               <SubmissionItem
@@ -431,12 +448,13 @@ export function SubmissionsList({
                 hasVoted={hasVoted}
                 league={league}
                 canVote={canVote}
-                onToggleComments={() => onToggleComments(isCommentsVisible ? null : song._id)}
+                onToggleComments={() =>
+                  onToggleComments(isCommentsVisible ? null : song._id)
+                }
                 onVoteClick={(delta) => onVoteClick(song._id, delta)}
                 onBookmark={() => handleBookmark(song._id)}
                 onPlaySong={() => onPlaySong(toSong(song), indexInAll)}
                 listenProgress={listenProgressMap[song._id.toString()]}
-                isReadyToVoteOverall={isReadyToVoteOverall}
                 listeners={listeners ?? []}
                 currentUser={currentUser}
               />

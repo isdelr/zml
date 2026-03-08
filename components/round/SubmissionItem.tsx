@@ -64,7 +64,6 @@ interface SubmissionItemProps {
   onBookmark: () => void;
   onPlaySong: () => void;
   listenProgress: Doc<"listenProgress"> | undefined;
-  isReadyToVoteOverall: boolean;
   listeners: { name?: string | null; image?: string | null; _id: Id<"users"> }[];
   currentUser: Doc<"users"> | null | undefined;
 }
@@ -85,7 +84,6 @@ export function SubmissionItem({
                                  onBookmark,
                                  onPlaySong,
                                  listenProgress,
-                                 isReadyToVoteOverall,
                                  onToggleComments,
                                  listeners,
                                  currentUser,
@@ -142,13 +140,10 @@ export function SubmissionItem({
       if (["file", "youtube"].includes(song.submissionType) && !isListenRequirementMetForThisSong) {
         return `You must listen to ${league.listenPercentage}% of this song to vote.`;
       }
-      if (!isReadyToVoteOverall) {
-        return "You must meet the listening requirements for all songs before you can vote.";
-      }
     }
 
     return null;
-  }, [roundStatus, userIsSubmitter, canVote, hasVoted, league, currentVoteValue, isReadyToVoteOverall, song, isListenRequirementMetForThisSong]);
+  }, [roundStatus, userIsSubmitter, canVote, hasVoted, league, currentVoteValue, song, isListenRequirementMetForThisSong]);
 
   const downvoteDisabledReason = useMemo(() => {
     if (roundStatus !== "voting") return "Voting is not currently open.";
@@ -162,13 +157,10 @@ export function SubmissionItem({
       if (["file", "youtube"].includes(song.submissionType) && !isListenRequirementMetForThisSong) {
         return `You must listen to ${league.listenPercentage}% of this song to vote.`;
       }
-      if (!isReadyToVoteOverall) {
-        return "You must meet the listening requirements for all songs before you can vote.";
-      }
     }
 
     return null;
-  }, [roundStatus, userIsSubmitter, canVote, hasVoted, league, currentVoteValue, isReadyToVoteOverall, song, isListenRequirementMetForThisSong]);
+  }, [roundStatus, userIsSubmitter, canVote, hasVoted, league, currentVoteValue, song, isListenRequirementMetForThisSong]);
 
   const songPoints = song.points ?? 0;
   const pointsColor = songPoints > 0 ? "text-success" : songPoints < 0 ? "text-destructive" : "text-muted-foreground";

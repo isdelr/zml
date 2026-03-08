@@ -65,8 +65,9 @@ export function RoundStatusAlerts({
                 <span className="font-bold">
                   {songsLeftToListenCount > 1 ? "songs" : "song"}
                 </span>{" "}
-                left to listen to, before you can vote. Unlistened file
-                submissions are marked with a
+                left to listen to before you can submit your final vote. You
+                can keep saving votes on completed songs in the meantime.
+                Unlistened file submissions are marked with a
               </span>
               <Headphones className="inline-block size-4" />
             </div>

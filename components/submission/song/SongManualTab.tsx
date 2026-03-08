@@ -66,9 +66,6 @@ export function SongManualTab({
                 <FormControl>
                   <Input placeholder="e.g., Artist 1, Artist 2" {...field} />
                 </FormControl>
-                <FormDescription>
-                  Use commas when a track has multiple artists.
-                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
