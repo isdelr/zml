@@ -11,6 +11,7 @@ type UseListenProgressSyncArgs = {
   isPlaying: boolean;
   submissionId: Id<"submissions"> | null;
   enabled: boolean;
+  serverProgressSeconds?: number;
 };
 
 export function useListenProgressSync({
@@ -18,10 +19,35 @@ export function useListenProgressSync({
   isPlaying,
   submissionId,
   enabled,
+  serverProgressSeconds = 0,
 }: UseListenProgressSyncArgs) {
   const updateDbProgress = useMutation(api.listenProgress.updateProgress);
   const lastSyncedSubmissionRef = useRef<string | null>(null);
   const lastSyncedProgressRef = useRef(0);
+
+  useEffect(() => {
+    if (!submissionId) {
+      lastSyncedSubmissionRef.current = null;
+      lastSyncedProgressRef.current = 0;
+      return;
+    }
+
+    const submissionKey = submissionId.toString();
+    const normalizedServerProgress = Math.max(
+      0,
+      Math.floor(serverProgressSeconds),
+    );
+
+    if (lastSyncedSubmissionRef.current !== submissionKey) {
+      lastSyncedSubmissionRef.current = submissionKey;
+      lastSyncedProgressRef.current = normalizedServerProgress;
+      return;
+    }
+
+    if (normalizedServerProgress > lastSyncedProgressRef.current) {
+      lastSyncedProgressRef.current = normalizedServerProgress;
+    }
+  }, [submissionId, serverProgressSeconds]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -31,7 +57,10 @@ export function useListenProgressSync({
       const submissionKey = submissionId.toString();
       if (lastSyncedSubmissionRef.current !== submissionKey) {
         lastSyncedSubmissionRef.current = submissionKey;
-        lastSyncedProgressRef.current = 0;
+        lastSyncedProgressRef.current = Math.max(
+          0,
+          Math.floor(serverProgressSeconds),
+        );
       }
 
       const desiredProgressSeconds = Math.floor(audioRef.current.currentTime);
@@ -54,12 +83,22 @@ export function useListenProgressSync({
         submissionId,
         progressSeconds,
       })
-        .then(() => {
-          lastSyncedProgressRef.current = progressSeconds;
+        .then((result) => {
+          lastSyncedProgressRef.current = Math.max(
+            lastSyncedProgressRef.current,
+            result?.progressSeconds ?? progressSeconds,
+          );
         })
         .catch(console.error);
     }, 5000);
 
     return () => clearInterval(intervalId);
-  }, [enabled, isPlaying, submissionId, audioRef, updateDbProgress]);
+  }, [
+    audioRef,
+    enabled,
+    isPlaying,
+    serverProgressSeconds,
+    submissionId,
+    updateDbProgress,
+  ]);
 }

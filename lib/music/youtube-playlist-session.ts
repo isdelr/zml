@@ -188,9 +188,5 @@ export function markRoundYouTubePlaylistDone(
 export function openUrlInNewTabWithFallback(url: string) {
   if (typeof window === "undefined") return false;
   const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
-  if (openedWindow) {
-    return true;
-  }
-  window.location.assign(url);
-  return false;
+  return Boolean(openedWindow);
 }

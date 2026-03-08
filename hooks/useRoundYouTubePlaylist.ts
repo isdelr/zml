@@ -1,17 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/lib/convex/api";
 import { buildYouTubeWatchVideosUrl } from "@/lib/youtube";
-import {
-  YOUTUBE_PLAYLIST_SESSION_EVENT,
-  getRoundYouTubePlaylistSessionSnapshot,
-  markRoundYouTubePlaylistDone,
-  openUrlInNewTabWithFallback,
-  startRoundYouTubePlaylistSession,
-} from "@/lib/music/youtube-playlist-session";
+import { openUrlInNewTabWithFallback } from "@/lib/music/youtube-playlist-session";
 
 type UseRoundYouTubePlaylistArgs = {
   roundId: Id<"rounds">;
@@ -43,13 +37,22 @@ export function useRoundYouTubePlaylist({
   ensureAutoOpenOnce: () => void;
   openPlaylistAndStart: (orderedIds?: string[]) => void;
 } {
-  const markCompletedBatch = useMutation(api.listenProgress.markCompletedBatch);
+  const serverSession = useQuery(api.listenProgress.getYouTubePlaylistSession, {
+    roundId,
+  });
+  const startPlaylistSession = useMutation(
+    api.listenProgress.startYouTubePlaylistSession,
+  );
+  const completePlaylistSession = useMutation(
+    api.listenProgress.completeYouTubePlaylistSession,
+  );
   const updatePresence = useMutation(api.presence.update);
 
   const [ytTimerRemainingSec, setYtTimerRemainingSec] = useState<number>(0);
   const [ytTimerRunning, setYtTimerRunning] = useState<boolean>(false);
   const [ytTimerDone, setYtTimerDone] = useState<boolean>(false);
   const timerRef = useRef<number | null>(null);
+  const completionInFlightRef = useRef(false);
 
   const updatePlaylistPresence = useCallback(
     (active: boolean) => {
@@ -69,105 +72,90 @@ export function useRoundYouTubePlaylist({
   }, []);
 
   const completeYouTubeListening = useCallback(async () => {
-    clearTimer();
-    setYtTimerRunning(false);
-    setYtTimerRemainingSec(0);
-    setYtTimerDone(true);
-    updatePlaylistPresence(false);
+    if (completionInFlightRef.current) {
+      return;
+    }
+
+    completionInFlightRef.current = true;
+
     try {
-      if (youtubeSubmissionIds.length > 0) {
-        await markCompletedBatch({ roundId, submissionIds: youtubeSubmissionIds });
+      const result = await completePlaylistSession({
+        roundId,
+        submissionIds: youtubeSubmissionIds,
+      });
+
+      setYtTimerDone(result.done);
+      setYtTimerRunning(result.active);
+      setYtTimerRemainingSec(result.remainingSec);
+
+      if (result.done) {
+        clearTimer();
+        updatePlaylistPresence(false);
         youtubeSubmissionIds.forEach((id) => onMarkCompletedLocal?.(id));
       }
     } catch (error) {
       console.error("Failed to mark playlist listening complete", error);
     } finally {
-      markRoundYouTubePlaylistDone(roundId);
+      completionInFlightRef.current = false;
     }
   }, [
     clearTimer,
-    youtubeSubmissionIds,
-    markCompletedBatch,
-    roundId,
+    completePlaylistSession,
     onMarkCompletedLocal,
+    roundId,
     updatePlaylistPresence,
+    youtubeSubmissionIds,
   ]);
 
-  const syncTimerFromSession = useCallback(() => {
-    const session = getRoundYouTubePlaylistSessionSnapshot(roundId);
+  useEffect(() => {
+    if (!serverSession) {
+      return;
+    }
 
-    if (session.done) {
+    if (serverSession.done) {
       clearTimer();
       setYtTimerDone(true);
       setYtTimerRunning(false);
       setYtTimerRemainingSec(0);
+      updatePlaylistPresence(false);
       return;
     }
 
-    if (session.active && session.endAt) {
+    if (serverSession.readyToComplete) {
+      clearTimer();
+      setYtTimerDone(false);
+      setYtTimerRunning(false);
+      setYtTimerRemainingSec(0);
+      void completeYouTubeListening();
+      return;
+    }
+
+    if (serverSession.active && serverSession.endAt) {
+      const endAt = serverSession.endAt;
       setYtTimerDone(false);
       setYtTimerRunning(true);
-      setYtTimerRemainingSec(session.remainingSec);
+      setYtTimerRemainingSec(serverSession.remainingSec);
       clearTimer();
       timerRef.current = window.setInterval(() => {
-        const nextSession = getRoundYouTubePlaylistSessionSnapshot(roundId);
-        setYtTimerRemainingSec(nextSession.remainingSec);
-        if (nextSession.remainingSec <= 0) {
+        const remainingSec = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+        setYtTimerRemainingSec(remainingSec);
+        if (remainingSec <= 0) {
+          clearTimer();
           void completeYouTubeListening();
         }
       }, 1000);
       return;
     }
 
-    if (session.opened) {
-      clearTimer();
-      setYtTimerDone(false);
-      setYtTimerRunning(false);
-      setYtTimerRemainingSec(0);
-    }
-  }, [clearTimer, completeYouTubeListening, roundId]);
-
-  const startPlaylistTimer = useCallback(
-    (totalSec: number) => {
-      const session = startRoundYouTubePlaylistSession(roundId, totalSec);
-      if (session.done) {
-        setYtTimerDone(true);
-        setYtTimerRunning(false);
-        setYtTimerRemainingSec(0);
-        return;
-      }
-      syncTimerFromSession();
-    },
-    [roundId, syncTimerFromSession],
-  );
+    clearTimer();
+    setYtTimerDone(false);
+    setYtTimerRunning(false);
+    setYtTimerRemainingSec(0);
+  }, [clearTimer, completeYouTubeListening, serverSession, updatePlaylistPresence]);
 
   useEffect(() => {
-    syncTimerFromSession();
-
     return () => clearTimer();
-  }, [clearTimer, syncTimerFromSession]);
-
-  useEffect(() => {
-    const handleSessionEvent = (event: Event) => {
-      const detail = (event as CustomEvent<{ roundId?: string }>).detail;
-      if (detail?.roundId !== roundId) {
-        return;
-      }
-      syncTimerFromSession();
-    };
-
-    window.addEventListener(
-      YOUTUBE_PLAYLIST_SESSION_EVENT,
-      handleSessionEvent as EventListener,
-    );
-
-    return () => {
-      window.removeEventListener(
-        YOUTUBE_PLAYLIST_SESSION_EVENT,
-        handleSessionEvent as EventListener,
-      );
-    };
-  }, [roundId, syncTimerFromSession]);
+  }, [clearTimer]);
 
   const openYouTubePlaylist = useCallback((orderedIds: string[]) => {
     const url = buildYouTubeWatchVideosUrl(orderedIds);
@@ -179,48 +167,70 @@ export function useRoundYouTubePlaylist({
     (orderedIds?: string[]) => {
       const ids = orderedIds && orderedIds.length > 0 ? orderedIds : youtubeVideoIds;
       if (ids.length === 0) return;
-      if (!ytTimerDone) {
-        startPlaylistTimer(totalYouTubeDurationSec);
-      }
-      updatePlaylistPresence(true);
-      openYouTubePlaylist(ids);
+
+      void (async () => {
+        let nextSession = serverSession;
+        if (!serverSession?.done) {
+          try {
+            nextSession = await startPlaylistSession({
+              roundId,
+              durationSec: totalYouTubeDurationSec,
+            });
+          } catch (error) {
+            console.error("Failed to start YouTube playlist session", error);
+          }
+        }
+
+        if (nextSession?.readyToComplete) {
+          await completeYouTubeListening();
+          return;
+        }
+
+        updatePlaylistPresence(true);
+        openYouTubePlaylist(ids);
+      })();
     },
     [
-      youtubeVideoIds,
+      completeYouTubeListening,
       openYouTubePlaylist,
-      ytTimerDone,
-      startPlaylistTimer,
+      roundId,
+      serverSession,
+      startPlaylistSession,
       totalYouTubeDurationSec,
       updatePlaylistPresence,
+      youtubeVideoIds,
     ],
   );
 
   const ensureAutoOpenOnce = useCallback(() => {
     if (youtubeVideoIds.length === 0) return;
     if (roundStatus !== "voting") return;
-    const session = getRoundYouTubePlaylistSessionSnapshot(roundId);
-    if (session.done || ytTimerDone) {
-      syncTimerFromSession();
+    if (serverSession?.done) {
+      clearTimer();
+      setYtTimerDone(true);
+      setYtTimerRunning(false);
+      setYtTimerRemainingSec(0);
       return;
     }
-    if (session.active) {
-      syncTimerFromSession();
+    if (serverSession?.active) {
       updatePlaylistPresence(true);
       return;
     }
-    startPlaylistTimer(totalYouTubeDurationSec);
-    updatePlaylistPresence(true);
-    openYouTubePlaylist(youtubeVideoIds);
+    if (serverSession?.readyToComplete) {
+      void completeYouTubeListening();
+      return;
+    }
+    openPlaylistAndStart(youtubeVideoIds);
   }, [
-    roundId,
-    youtubeVideoIds,
+    clearTimer,
+    completeYouTubeListening,
+    openPlaylistAndStart,
     roundStatus,
-    ytTimerDone,
-    openYouTubePlaylist,
-    startPlaylistTimer,
-    syncTimerFromSession,
-    totalYouTubeDurationSec,
+    serverSession?.active,
+    serverSession?.done,
+    serverSession?.readyToComplete,
     updatePlaylistPresence,
+    youtubeVideoIds,
   ]);
 
   useEffect(() => {

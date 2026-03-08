@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import type { LeagueData } from "@/lib/convex/types";
 import type { Song } from "@/types";
+import {
+  getRequiredListenTimeSeconds,
+} from "@/lib/music/listen-progress";
 
 interface PlayerProgressProps {
   isExternalLink: boolean;
@@ -56,16 +59,19 @@ export function PlayerProgress({
       return { requirementLinePercent: 0, requiredListenTimeFormatted: "0:00" };
     }
 
-    const listenPercentage = leagueData.listenPercentage ?? 100;
-    const requiredTimeFromPercentage = duration * (listenPercentage / 100);
-    const timeLimitInSeconds = (leagueData.listenTimeLimitMinutes ?? Infinity) * 60;
-
-    const actualRequiredListenTime = Math.min(requiredTimeFromPercentage, timeLimitInSeconds);
-    const percent = (actualRequiredListenTime / duration) * 100;
+    const requiredListenTimeSeconds = getRequiredListenTimeSeconds(
+      duration,
+      leagueData.listenPercentage,
+      leagueData.listenTimeLimitMinutes,
+    );
+    const percent =
+      duration > 0
+        ? (requiredListenTimeSeconds / duration) * 100
+        : 0;
     
     return {
       requirementLinePercent: percent,
-      requiredListenTimeFormatted: formatTime(actualRequiredListenTime)
+      requiredListenTimeFormatted: formatTime(requiredListenTimeSeconds)
     };
   }, [showListenRequirement, duration, leagueData]);
 

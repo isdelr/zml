@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   getAllowedProgressJumpSeconds,
   getCappedProgressSeconds,
+  getRequiredListenTimeSeconds,
   getNextProgressSecondsToSync,
+  hasCompletedRequiredListenTime,
 } from "@/lib/music/listen-progress";
 
 describe("listen progress sync helpers", () => {
@@ -62,5 +64,11 @@ describe("listen progress sync helpers", () => {
         durationSeconds: 300,
       }),
     ).toBe(296);
+  });
+
+  it("uses an integer-second completion threshold for persistence", () => {
+    expect(getRequiredListenTimeSeconds(241.9, 50, 10)).toBe(121);
+    expect(hasCompletedRequiredListenTime(120.9, 241.9, 50, 10)).toBe(false);
+    expect(hasCompletedRequiredListenTime(121, 241.9, 50, 10)).toBe(true);
   });
 });

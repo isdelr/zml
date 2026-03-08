@@ -2,6 +2,7 @@ const MIN_ALLOWED_PROGRESS_JUMP_SECONDS = 15;
 const MAX_ALLOWED_PROGRESS_JUMP_SECONDS = 60;
 const DEFAULT_SYNC_DELTA_SECONDS = 15;
 const NEAR_END_THRESHOLD_SECONDS = 5;
+const DEFAULT_TIME_LIMIT_MINUTES = 999;
 
 type NextProgressSyncParams = {
   desiredProgressSeconds: number;
@@ -12,6 +13,51 @@ type NextProgressSyncParams = {
 function normalizeSeconds(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.floor(value));
+}
+
+export function getNormalizedDurationSeconds(durationSeconds: number): number {
+  return normalizeSeconds(durationSeconds);
+}
+
+export function getRequiredListenTimeSeconds(
+  durationSeconds: number,
+  listenPercentage: number | null | undefined,
+  listenTimeLimitMinutes: number | null | undefined,
+): number {
+  const normalizedDurationSeconds = getNormalizedDurationSeconds(durationSeconds);
+  if (normalizedDurationSeconds <= 0) return 0;
+
+  const requiredPercentage = Math.max(0, Math.min(100, listenPercentage ?? 100)) / 100;
+  const timeLimitSeconds = Math.max(
+    0,
+    (listenTimeLimitMinutes ?? DEFAULT_TIME_LIMIT_MINUTES) * 60,
+  );
+
+  return Math.min(
+    normalizedDurationSeconds,
+    Math.ceil(
+      Math.min(
+        normalizedDurationSeconds * requiredPercentage,
+        timeLimitSeconds,
+      ),
+    ),
+  );
+}
+
+export function hasCompletedRequiredListenTime(
+  progressSeconds: number,
+  durationSeconds: number,
+  listenPercentage: number | null | undefined,
+  listenTimeLimitMinutes: number | null | undefined,
+): boolean {
+  return (
+    normalizeSeconds(progressSeconds) >=
+    getRequiredListenTimeSeconds(
+      durationSeconds,
+      listenPercentage,
+      listenTimeLimitMinutes,
+    )
+  );
 }
 
 export function getAllowedProgressJumpSeconds(durationSeconds: number): number {

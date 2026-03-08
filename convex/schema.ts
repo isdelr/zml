@@ -391,6 +391,15 @@ export default defineSchema({
     .index("by_user_and_submission", ["userId", "submissionId"])
     .index("by_round_and_user", ["roundId", "userId"]),
 
+  youtubePlaylistSessions: defineTable({
+    userId: v.id("users"),
+    roundId: v.id("rounds"),
+    durationSec: v.number(),
+    startedAt: v.number(),
+    endAt: v.number(),
+    completedAt: v.optional(v.number()),
+  }).index("by_round_and_user", ["roundId", "userId"]),
+
   comments: defineTable({
     submissionId: v.id("submissions"),
     userId: v.id("users"),

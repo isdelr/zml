@@ -1,5 +1,9 @@
+import {
+  getRequiredListenTimeSeconds as getAuthoritativeRequiredListenTimeSeconds,
+  hasCompletedRequiredListenTime,
+} from "@/lib/music/listen-progress";
+
 const DEFAULT_TOLERANCE_SECONDS = 1.5;
-const DEFAULT_TIME_LIMIT_MINUTES = 999;
 
 export function hasCompletedListenRequirement(
   serverCompleted: boolean,
@@ -26,9 +30,11 @@ export function getRequiredListenTimeSeconds(
   listenPercentage: number | null | undefined,
   listenTimeLimitMinutes: number | null | undefined,
 ): number {
-  const requiredPercentage = (listenPercentage ?? 100) / 100;
-  const timeLimitSeconds = (listenTimeLimitMinutes ?? DEFAULT_TIME_LIMIT_MINUTES) * 60;
-  return Math.min(durationSeconds * requiredPercentage, timeLimitSeconds);
+  return getAuthoritativeRequiredListenTimeSeconds(
+    durationSeconds,
+    listenPercentage,
+    listenTimeLimitMinutes,
+  );
 }
 
 export function shouldMarkListenCompleted(
@@ -37,10 +43,10 @@ export function shouldMarkListenCompleted(
   listenPercentage: number | null | undefined,
   listenTimeLimitMinutes: number | null | undefined,
 ): boolean {
-  const required = getRequiredListenTimeSeconds(
+  return hasCompletedRequiredListenTime(
+    listenedUntilSeconds,
     durationSeconds,
     listenPercentage,
     listenTimeLimitMinutes,
   );
-  return listenedUntilSeconds >= required;
 }

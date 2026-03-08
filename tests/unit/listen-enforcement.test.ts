@@ -27,4 +27,10 @@ describe("listen enforcement helpers", () => {
     expect(shouldMarkListenCompleted(151, 300, 50, 10)).toBe(true);
     expect(shouldMarkListenCompleted(140, 300, 50, 10)).toBe(false);
   });
+
+  it("waits for the authoritative rounded-up second at fractional boundaries", () => {
+    expect(getRequiredListenTimeSeconds(241.9, 50, 10)).toBe(121);
+    expect(shouldMarkListenCompleted(120.9, 241.9, 50, 10)).toBe(false);
+    expect(shouldMarkListenCompleted(121, 241.9, 50, 10)).toBe(true);
+  });
 });

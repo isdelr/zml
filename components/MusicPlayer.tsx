@@ -23,7 +23,6 @@ import { useListenProgressSync } from "@/hooks/useListenProgressSync";
 import { usePlayerBookmark } from "@/hooks/usePlayerBookmark";
 import {
   openUrlInNewTabWithFallback,
-  startRoundYouTubePlaylistSession,
 } from "@/lib/music/youtube-playlist-session";
 
 const PlayerTrackInfo = dynamicImport(() =>
@@ -111,6 +110,10 @@ export function MusicPlayer() {
 
   const getPresignedSongUrl = useAction(api.submissions.getPresignedSongUrl);
   const updatePresence = useMutation(api.presence.update);
+  const updateListenProgress = useMutation(api.listenProgress.updateProgress);
+  const startYouTubePlaylistSession = useMutation(
+    api.listenProgress.startYouTubePlaylistSession,
+  );
 
   const isExternalLink =
     currentTrack?.submissionType === "youtube";
@@ -121,13 +124,20 @@ export function MusicPlayer() {
   const { isBookmarked, handleBookmarkToggle } = usePlayerBookmark({
     currentTrack,
   });
+  const completionSyncTrackRef = useRef<string | null>(null);
+  const trackAdvanceInFlightRef = useRef(false);
 
   useListenProgressSync({
     audioRef,
     isPlaying,
     submissionId: currentTrack?._id ?? null,
     enabled: !isExternalLink,
+    serverProgressSeconds: currentTrackListenProgress?.progressSeconds ?? 0,
   });
+
+  useEffect(() => {
+    completionSyncTrackRef.current = null;
+  }, [currentTrack?._id]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -214,6 +224,50 @@ export function MusicPlayer() {
     onRefreshedUrl: handleWaveformPresignedUrlRefresh,
   });
 
+  const syncCurrentTrackListenProgress = useCallback(async () => {
+    if (
+      !currentTrack ||
+      currentTrack.submissionType !== "file" ||
+      !leagueData?.enforceListenPercentage
+    ) {
+      return null;
+    }
+
+    const currentTime = audioRef.current?.currentTime ?? 0;
+    const progressSeconds = Math.max(
+      currentTrackListenProgress?.progressSeconds ?? 0,
+      listenedUntilRef.current,
+      currentTime,
+    );
+    if (!Number.isFinite(progressSeconds) || progressSeconds <= 0) {
+      return null;
+    }
+
+    const result = await updateListenProgress({
+      submissionId: currentTrack._id,
+      progressSeconds,
+    });
+
+    if (result) {
+      listenedUntilRef.current = Math.max(
+        listenedUntilRef.current,
+        result.progressSeconds,
+      );
+      if (result.isCompleted) {
+        actions.setListenProgress(currentTrack._id, true);
+      }
+    }
+
+    return result;
+  }, [
+    actions,
+    audioRef,
+    currentTrack,
+    currentTrackListenProgress?.progressSeconds,
+    leagueData?.enforceListenPercentage,
+    updateListenProgress,
+  ]);
+
   const handleTimeUpdate = () => {
     const audioElement = audioRef.current;
     if (audioElement && !isNaN(audioElement.duration)) {
@@ -248,7 +302,20 @@ export function MusicPlayer() {
               leagueData.listenTimeLimitMinutes,
             )
           ) {
-            actions.setListenProgress(currentTrack._id, true);
+            const trackId = currentTrack._id;
+            if (completionSyncTrackRef.current !== trackId) {
+              completionSyncTrackRef.current = trackId;
+              void syncCurrentTrackListenProgress()
+                .then((result) => {
+                  if (!result?.isCompleted) {
+                    completionSyncTrackRef.current = null;
+                  }
+                })
+                .catch((error: unknown) => {
+                  console.error("Failed to finalize listen progress", error);
+                  completionSyncTrackRef.current = null;
+                });
+            }
           }
         }
       }
@@ -268,7 +335,7 @@ export function MusicPlayer() {
   );
 
   const openYouTubePlaylistFromQueue = useCallback(
-    (roundId?: Id<"rounds"> | null) => {
+    async (roundId?: Id<"rounds"> | null) => {
       if (!roundId) return false;
       const { videoIds, totalDurationSec } = getRoundQueueYouTubePlaylist(
         queue,
@@ -279,37 +346,58 @@ export function MusicPlayer() {
       const url = buildYouTubeWatchVideosUrl(videoIds);
       if (!url) return false;
 
-      startRoundYouTubePlaylistSession(roundId, totalDurationSec);
+      if (totalDurationSec > 0) {
+        try {
+          await startYouTubePlaylistSession({
+            roundId,
+            durationSec: totalDurationSec,
+          });
+        } catch (error) {
+          console.error("Failed to start YouTube playlist session", error);
+        }
+      }
       updatePlaylistPresence(roundId);
       openUrlInNewTabWithFallback(url);
       return true;
     },
-    [queue, updatePlaylistPresence],
+    [queue, startYouTubePlaylistSession, updatePlaylistPresence],
   );
 
   // Intercept playNext: if the next track is a YouTube submission, open the playlist instead
-  const handlePlayNext = () => {
-    const idx = currentTrackIndex;
-    if (idx === null || queue.length === 0) {
-      actions.playNext();
+  const handlePlayNext = async () => {
+    if (trackAdvanceInFlightRef.current) {
       return;
     }
-    const isAtEnd = idx === queue.length - 1;
-    const nextIndex = isAtEnd ? (repeatMode === "all" ? 0 : null) : idx + 1;
-    if (nextIndex === null) {
-      // Defer to store behavior (will stop playback)
-      actions.playNext();
-      return;
-    }
-    const nextTrack = queue[nextIndex];
-    if (nextTrack?.submissionType === "youtube") {
-      const opened = openYouTubePlaylistFromQueue(nextTrack.roundId);
-      if (opened) {
-        actions.setIsPlaying(false);
+
+    trackAdvanceInFlightRef.current = true;
+
+    try {
+      await syncCurrentTrackListenProgress();
+
+      const idx = currentTrackIndex;
+      if (idx === null || queue.length === 0) {
+        actions.playNext();
+        return;
       }
-      return; // do not advance to an individual YouTube track
+      const isAtEnd = idx === queue.length - 1;
+      const nextIndex = isAtEnd ? (repeatMode === "all" ? 0 : null) : idx + 1;
+      if (nextIndex === null) {
+        // Defer to store behavior (will stop playback)
+        actions.playNext();
+        return;
+      }
+      const nextTrack = queue[nextIndex];
+      if (nextTrack?.submissionType === "youtube") {
+        const opened = await openYouTubePlaylistFromQueue(nextTrack.roundId);
+        if (opened) {
+          actions.setIsPlaying(false);
+        }
+        return; // do not advance to an individual YouTube track
+      }
+      actions.playNext();
+    } finally {
+      trackAdvanceInFlightRef.current = false;
     }
-    actions.playNext();
   };
 
   const handleEnded = async () => {
@@ -317,7 +405,7 @@ export function MusicPlayer() {
       audioRef.current.currentTime = 0;
       await audioRef.current.play();
     } else {
-      handlePlayNext();
+      await handlePlayNext();
     }
   };
 

@@ -90,7 +90,7 @@ describe("youtube playlist session helpers", () => {
     });
   });
 
-  it("falls back to same-tab navigation when popups are blocked", () => {
+  it("does not redirect the current tab when popups are blocked", () => {
     const assign = vi.fn();
     const open = vi.fn(() => null);
 
@@ -105,6 +105,6 @@ describe("youtube playlist session helpers", () => {
       "_blank",
       "noopener,noreferrer",
     );
-    expect(assign).toHaveBeenCalledWith("https://example.com");
+    expect(assign).not.toHaveBeenCalled();
   });
 });
