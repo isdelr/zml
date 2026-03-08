@@ -47,7 +47,9 @@ import {
 
 interface RoundAdminControlsProps {
   round: Doc<"rounds">;
-  submissions: FunctionReturnType<typeof api.submissions.getForRound> | undefined;
+  submissions:
+    | FunctionReturnType<typeof api.submissions.getForRound>
+    | undefined;
   voteCount?: number;
 }
 
@@ -82,25 +84,19 @@ export function RoundAdminControls({
   const canEndVoting = (submissions?.length ?? 0) > 0 && voteCount > 0;
   const canEditRound = round.status !== "finished";
   const pendingSubmissionCount =
-    submissions?.filter((submission) =>
-      submission.submissionType === "file" &&
-      getSubmissionFileProcessingStatus({
-        submissionType: submission.submissionType,
-        songFileKey: submission.songFileKey ?? null,
-        fileProcessingStatus: submission.fileProcessingStatus,
-      }) !== "ready",
+    submissions?.filter(
+      (submission) =>
+        submission.submissionType === "file" &&
+        getSubmissionFileProcessingStatus({
+          submissionType: submission.submissionType,
+          songFileKey: submission.songFileKey ?? null,
+          fileProcessingStatus: submission.fileProcessingStatus,
+        }) !== "ready",
     ).length ?? 0;
   const canStartVoting = pendingSubmissionCount === 0;
   if (round.status === "finished") {
     return null;
   }
-
-  const currentDeadline =
-    round.status === "submissions"
-      ? round.submissionDeadline
-      : round.votingDeadline;
-  const currentPhaseLabel =
-    round.status === "submissions" ? "Submission" : "Voting";
 
   return (
     <div className="flex flex-col gap-2">
@@ -235,9 +231,6 @@ export function RoundAdminControls({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <span>
-          {currentPhaseLabel} deadline: {formatShortDateTime(currentDeadline)}
-        </span>
         {round.status === "submissions" && !canStartVoting ? (
           <span>
             {pendingSubmissionCount} file submission
@@ -246,7 +239,9 @@ export function RoundAdminControls({
           </span>
         ) : null}
         {round.status === "voting" && !canEndVoting ? (
-          <span>Finishing early requires at least 1 submission and 1 vote.</span>
+          <span>
+            Finishing early requires at least 1 submission and 1 vote.
+          </span>
         ) : null}
       </div>
     </div>
@@ -456,7 +451,11 @@ function DeadlineAdjustmentDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setIsOpen(false)}
+          >
             Cancel
           </Button>
           <Button
