@@ -25,6 +25,7 @@ import {
   normalizeSubmissionArtist,
   normalizeSubmissionSongTitle,
 } from "../lib/convex-server/submissions/normalize";
+import { buildSubmissionLyricsFingerprint } from "../lib/convex-server/submissions/lyrics";
 import { firstNonEmpty } from "../lib/env";
 import { formatArtistNames } from "../lib/music/submission-display";
 
@@ -541,14 +542,31 @@ export const editSong = mutation({
       nextOriginalSongFileKey = null;
     }
 
+    const previousLyricsFingerprint = buildSubmissionLyricsFingerprint({
+      artist: submission.artist,
+      originalSongFileKey: previousOriginalSongFileKey,
+      songFileKey: previousSongFileKey,
+      songLink: previousSongLink,
+      songTitle: submission.songTitle,
+      submissionType: submission.submissionType,
+    });
+    const nextLyricsFingerprint = buildSubmissionLyricsFingerprint({
+      artist: newArtist,
+      originalSongFileKey: nextOriginalSongFileKey,
+      songFileKey: nextSongFileKey,
+      songLink: nextSongLink,
+      songTitle: newTitle,
+      submissionType: args.submissionType,
+    });
     const shouldInvalidateLyrics =
-      args.songTitle !== submission.songTitle ||
-      args.artist !== submission.artist ||
-      args.submissionType !== submission.submissionType ||
-      nextSongLink !== previousSongLink;
+      previousLyricsFingerprint !== nextLyricsFingerprint;
 
     if (shouldInvalidateLyrics) {
       updates.lyrics = undefined;
+      updates.lyricsFetchFingerprint = undefined;
+      updates.lyricsFetchStatus = undefined;
+      updates.lyricsFetchDetail = undefined;
+      updates.lyricsFetchedAt = undefined;
     }
 
     await ctx.db.patch("submissions", submissionId, updates);

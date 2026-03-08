@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { FileText } from "lucide-react";
+import { toErrorMessage } from "@/lib/errors";
 
 interface LyricsDisplayProps {
   submissionId: Id<"submissions">;
@@ -16,17 +17,28 @@ interface LyricsDisplayProps {
 export function LyricsDisplay({ submissionId, songTitle }: LyricsDisplayProps) {
   const getLyrics = useAction(api.lyrics.getForSubmission);
   const [lyrics, setLyrics] = useState<string | null>(null);
+  const [lyricsError, setLyricsError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleFetchLyrics = async () => {
-    if (!submissionId || lyrics) return;
+    if (!submissionId || lyrics || lyricsError === "No lyrics found.") return;
     setIsLoading(true);
+    setLyricsError(null);
     try {
       const result = await getLyrics({ submissionId });
-      setLyrics(result);
+      if (result) {
+        setLyrics(result);
+      } else {
+        setLyricsError("No lyrics found.");
+      }
     } catch (error) {
       console.error("Failed to fetch lyrics", error);
-      setLyrics("An error occurred while fetching lyrics.");
+      const message = toErrorMessage(error, "");
+      if (message.toLowerCase().includes("lyrics not found")) {
+        setLyricsError("No lyrics found.");
+      } else {
+        setLyricsError("An error occurred while fetching lyrics.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -46,6 +58,7 @@ export function LyricsDisplay({ submissionId, songTitle }: LyricsDisplayProps) {
         </SheetHeader>
         <div className="flex-1 overflow-y-auto pr-2">
           {isLoading && <p className="text-sm text-muted-foreground">Loading lyrics...</p>}
+          {lyricsError && <p className="text-sm text-muted-foreground">{lyricsError}</p>}
           {lyrics && (
             <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">
               {lyrics}

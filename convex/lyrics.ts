@@ -2,8 +2,35 @@
 import { v } from "convex/values";
 import { action, internalAction, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { buildSubmissionLyricsFingerprint } from "../lib/convex-server/submissions/lyrics";
 
 const GENIUS_API_URL = "https://api.genius.com/";
+const BAD_LYRICS_CACHE_SNIPPETS = [
+  "could not load the lyrics page",
+  "could not contact the lyrics provider",
+  "could not retrieve lyrics",
+  "lyrics not found",
+  "lyrics not available",
+  "genius_access_token is not configured",
+] as const;
+const MISSING_LYRICS_MARKERS = [
+  "lyrics for this song have yet to be released",
+  "lyrics have yet to be released",
+  "lyrics are not available",
+  "lyrics not available",
+  "this song is an instrumental",
+] as const;
+
+type LyricsFetchResult =
+  | {
+      detail: string;
+      lyrics: string;
+      status: "found";
+    }
+  | {
+      detail: string;
+      status: "not_found";
+    };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -84,10 +111,26 @@ function extractLyricsFromHtml(html: string): string | null {
   return text || null;
 }
 
+function isMeaningfulCachedLyrics(lyrics: string | null | undefined): lyrics is string {
+  const trimmed = lyrics?.trim();
+  if (!trimmed) return false;
+  const lower = trimmed.toLowerCase();
+  if (BAD_LYRICS_CACHE_SNIPPETS.some((snippet) => lower.includes(snippet))) {
+    return false;
+  }
+  return trimmed.length >= 20;
+}
+
+function hasMissingLyricsMarker(value: string | null | undefined): boolean {
+  const lower = value?.toLowerCase();
+  if (!lower) return false;
+  return MISSING_LYRICS_MARKERS.some((marker) => lower.includes(marker));
+}
+
 // Internal action: calls Genius API and scrapes lyrics from the first matching result
 export const fetchFromGeniusAndScrape = internalAction({
   args: { artist: v.string(), songTitle: v.string() },
-  handler: async (_ctx, { artist, songTitle }) => {
+  handler: async (_ctx, { artist, songTitle }): Promise<LyricsFetchResult> => {
     const accessToken = process.env.GENIUS_ACCESS_TOKEN;
     if (!accessToken) {
       throw new Error("GENIUS_ACCESS_TOKEN is not configured on the server.");
@@ -145,7 +188,12 @@ export const fetchFromGeniusAndScrape = internalAction({
     };
 
     // Try Genius web JSON endpoint used by the website, which returns lyrics sections
-    const tryGeniusLyricsJson = async (songId: number): Promise<{ lyrics: string | null; status: string; proxyStatus?: string | number }> => {
+    const tryGeniusLyricsJson = async (songId: number): Promise<{
+      lyrics: string | null;
+      notFound?: boolean;
+      proxyStatus?: string | number;
+      status: string;
+    }> => {
       const webApiUrl = `https://genius.com/api/songs/${songId}/lyrics`;
       let proxyStatus: string | number | undefined = undefined;
       try {
@@ -167,6 +215,9 @@ export const fetchFromGeniusAndScrape = internalAction({
           }
           return { lyrics: null, status: "genius-json parsed but empty" };
         }
+        if (direct.status === 404) {
+          return { lyrics: null, notFound: true, status: "genius-json status 404" };
+        }
         // Try via r.jina.ai proxy as plain text JSON
         try {
           const proxiedUrl = `https://r.jina.ai/http://genius.com/api/songs/${songId}/lyrics`;
@@ -174,6 +225,14 @@ export const fetchFromGeniusAndScrape = internalAction({
           proxyStatus = proxied.status;
           if (proxied.ok) {
             const txt = await proxied.text();
+            if (hasMissingLyricsMarker(txt)) {
+              return {
+                lyrics: null,
+                notFound: true,
+                status: `genius-json proxy missing lyrics (${proxyStatus})`,
+                proxyStatus,
+              };
+            }
             // Try to parse JSON from text
             try {
               const data: unknown = JSON.parse(txt);
@@ -187,6 +246,9 @@ export const fetchFromGeniusAndScrape = internalAction({
             } catch {
               return { lyrics: null, status: `genius-json proxy not json (${proxyStatus})`, proxyStatus };
             }
+          }
+          if (proxyStatus === 404) {
+            return { lyrics: null, notFound: true, status: `genius-json proxy status ${proxyStatus}`, proxyStatus };
           }
           return { lyrics: null, status: `genius-json proxy status ${proxyStatus}`, proxyStatus };
         } catch (e) {
@@ -202,7 +264,7 @@ export const fetchFromGeniusAndScrape = internalAction({
       // 0) LRCLIB first (best-effort)
       const lrc = await tryLrclib();
       if (lrc.lyrics) {
-        return lrc.lyrics;
+        return { detail: lrc.status, lyrics: lrc.lyrics, status: "found" };
       }
 
       // 1) Search for the song on Genius
@@ -230,7 +292,10 @@ export const fetchFromGeniusAndScrape = internalAction({
       const hitsRaw = responseRecord?.hits;
       const hits: unknown[] = Array.isArray(hitsRaw) ? hitsRaw : [];
       if (hits.length === 0) {
-        throw new Error(`[lyrics] Genius search returned no hits for query="${searchQuery}".`);
+        return {
+          detail: `[lyrics] Genius search returned no hits for query="${searchQuery}".`,
+          status: "not_found",
+        };
       }
 
       // Prefer a hit where primary artist matches (case-insensitive)
@@ -258,7 +323,17 @@ export const fetchFromGeniusAndScrape = internalAction({
       // 2) Try the Genius web JSON lyrics endpoint first
       const jsonAttempt = await tryGeniusLyricsJson(songId);
       if (jsonAttempt.lyrics) {
-        return jsonAttempt.lyrics;
+        return {
+          detail: jsonAttempt.status,
+          lyrics: jsonAttempt.lyrics,
+          status: "found",
+        };
+      }
+      if (jsonAttempt.notFound) {
+        return {
+          detail: jsonAttempt.status,
+          status: "not_found",
+        };
       }
 
       // 3) Fetch the page HTML (fallback)
@@ -275,6 +350,17 @@ export const fetchFromGeniusAndScrape = internalAction({
       let html: string | null = null;
       if (pageResponse.ok) {
         html = await pageResponse.text();
+        if (hasMissingLyricsMarker(html)) {
+          return {
+            detail: "genius-page missing lyrics marker",
+            status: "not_found",
+          };
+        }
+      } else if (pageResponse.status === 404) {
+        return {
+          detail: `genius-page status ${pageResponse.status}`,
+          status: "not_found",
+        };
       } else {
         let proxyStatus: number | string = "n/a";
         try {
@@ -290,9 +376,19 @@ export const fetchFromGeniusAndScrape = internalAction({
           proxyStatus = proxyResp.status;
           if (proxyResp.ok) {
             const text = await proxyResp.text();
+            if (hasMissingLyricsMarker(text)) {
+              return {
+                detail: `genius-page proxy missing lyrics (${proxyStatus})`,
+                status: "not_found",
+              };
+            }
             const cleaned = text?.trim();
             if (cleaned) {
-              return cleaned;
+              return {
+                detail: `genius-page proxy ok (${proxyStatus})`,
+                lyrics: cleaned,
+                status: "found",
+              };
             }
           }
         } catch {
@@ -321,9 +417,19 @@ export const fetchFromGeniusAndScrape = internalAction({
           proxyStatus = proxyResp.status;
           if (proxyResp.ok) {
             const text = await proxyResp.text();
+            if (hasMissingLyricsMarker(text)) {
+              return {
+                detail: `genius-page proxy missing lyrics (${proxyStatus})`,
+                status: "not_found",
+              };
+            }
             const cleaned = text?.trim();
             if (cleaned) {
-              return cleaned;
+              return {
+                detail: `genius-page proxy ok (${proxyStatus})`,
+                lyrics: cleaned,
+                status: "found",
+              };
             }
           }
         } catch {
@@ -331,7 +437,11 @@ export const fetchFromGeniusAndScrape = internalAction({
         }
         throw new Error(`[lyrics] Unable to extract lyrics from page structure. url=${songUrl} htmlLength=${html?.length ?? 0}. Proxy attempt status ${proxyStatus}. Attempts: ${jsonAttempt.status}.`);
       }
-      return lyrics;
+      return {
+        detail: "genius-page html ok",
+        lyrics,
+        status: "found",
+      };
     } catch (err) {
       console.error("Error fetching/scraping lyrics:", err);
       throw new Error(typeof err === "string" ? err : (err as Error)?.message || "Could not retrieve lyrics at this time.");
@@ -339,14 +449,26 @@ export const fetchFromGeniusAndScrape = internalAction({
   },
 });
 
-// Internal mutation to cache lyrics on the submission document
-export const saveLyrics = internalMutation({
+// Internal mutation to cache lyrics fetch results on the submission document
+export const saveLyricsFetchResult = internalMutation({
   args: {
     submissionId: v.id("submissions"),
-    lyrics: v.string(),
+    detail: v.optional(v.string()),
+    fingerprint: v.string(),
+    lyrics: v.optional(v.string()),
+    status: v.union(v.literal("found"), v.literal("not_found")),
   },
-  handler: async (ctx, { submissionId, lyrics }) => {
-    await ctx.db.patch("submissions", submissionId, { lyrics });
+  handler: async (ctx, { submissionId, detail, fingerprint, lyrics, status }) => {
+    if (status === "found" && !isMeaningfulCachedLyrics(lyrics)) {
+      throw new Error("Cannot save a found lyrics result without meaningful lyrics text.");
+    }
+    await ctx.db.patch("submissions", submissionId, {
+      lyrics: status === "found" ? lyrics : undefined,
+      lyricsFetchDetail: detail ?? undefined,
+      lyricsFetchedAt: Date.now(),
+      lyricsFetchFingerprint: fingerprint,
+      lyricsFetchStatus: status,
+    });
   },
 });
 
@@ -354,54 +476,56 @@ export const saveLyrics = internalMutation({
 export const getForSubmission = action({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, { submissionId }): Promise<string | null> => {
-    // Check cache
     const submission = await ctx.runQuery(internal.submissions.getSubmissionById, { submissionId });
     if (!submission) return null;
-    // If lyrics exist but look like an error placeholder, ignore cache and refetch
-    const isCachedMeaningful = (() => {
-      const l = submission.lyrics?.trim();
-      if (!l) return false;
-      const lower = l.toLowerCase();
-      const badSnippets = [
-        "could not load the lyrics page",
-        "could not contact the lyrics provider",
-        "could not retrieve lyrics",
-        "lyrics not found",
-        "lyrics not available",
-        "genius_access_token is not configured",
-      ];
-      if (badSnippets.some((s) => lower.includes(s))) return false;
-      return l.length >= 20;
-    })();
 
-    if (submission.lyrics && isCachedMeaningful) return submission.lyrics;
+    const fingerprint = buildSubmissionLyricsFingerprint({
+      artist: submission.artist,
+      originalSongFileKey: submission.originalSongFileKey,
+      songFileKey: submission.songFileKey,
+      songLink: submission.songLink,
+      songTitle: submission.songTitle,
+      submissionType: submission.submissionType,
+    });
+    const fingerprintMatches =
+      submission.lyricsFetchFingerprint === fingerprint;
+    const hasCachedLyrics = isMeaningfulCachedLyrics(submission.lyrics);
 
-    // Fetch and scrape
-    const lyrics = await ctx.runAction(internal.lyrics.fetchFromGeniusAndScrape, {
+    if (fingerprintMatches && submission.lyricsFetchStatus === "not_found") {
+      return null;
+    }
+    if (fingerprintMatches && hasCachedLyrics) {
+      const cachedLyrics = submission.lyrics;
+      return cachedLyrics ?? null;
+    }
+    if (!submission.lyricsFetchFingerprint && hasCachedLyrics) {
+      const cachedLyrics = submission.lyrics;
+      await ctx.runMutation(internal.lyrics.saveLyricsFetchResult, {
+        detail: "legacy cached lyrics",
+        fingerprint,
+        lyrics: cachedLyrics,
+        status: "found",
+        submissionId,
+      });
+      return cachedLyrics ?? null;
+    }
+
+    const result = await ctx.runAction(internal.lyrics.fetchFromGeniusAndScrape, {
       artist: submission.artist,
       songTitle: submission.songTitle,
     });
 
-    // Only cache meaningful lyrics, not error placeholders
-    const shouldCache = (() => {
-      if (!lyrics) return false;
-      const lower = lyrics.toLowerCase();
-      const badSnippets = [
-        "could not load the lyrics page",
-        "could not contact the lyrics provider",
-        "could not retrieve lyrics",
-        "lyrics not found",
-        "lyrics not available",
-        "genius_access_token is not configured",
-      ];
-      if (badSnippets.some((s) => lower.includes(s))) return false;
-      // Avoid caching extremely short strings
-      return lyrics.trim().length >= 20;
-    })();
+    await ctx.runMutation(internal.lyrics.saveLyricsFetchResult, {
+      detail: result.detail,
+      fingerprint,
+      lyrics: result.status === "found" ? result.lyrics : undefined,
+      status: result.status,
+      submissionId,
+    });
 
-    if (shouldCache) {
-      await ctx.runMutation(internal.lyrics.saveLyrics, { submissionId, lyrics });
+    if (result.status === "not_found") {
+      return null;
     }
-    return lyrics;
+    return result.lyrics;
   },
 });

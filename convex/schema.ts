@@ -170,6 +170,12 @@ export default defineSchema({
     markedAsTrollBy: v.optional(v.id("users")),
     markedAsTrollAt: v.optional(v.number()),
     lyrics: v.optional(v.string()),
+    lyricsFetchFingerprint: v.optional(v.string()),
+    lyricsFetchStatus: v.optional(
+      v.union(v.literal("found"), v.literal("not_found")),
+    ),
+    lyricsFetchDetail: v.optional(v.string()),
+    lyricsFetchedAt: v.optional(v.number()),
     collectionId: v.optional(v.string()),
     collectionType: v.optional(v.union(v.literal("multi"), v.literal("album"))),
     collectionName: v.optional(v.string()),
