@@ -29,6 +29,7 @@ import {
 } from "@/lib/submission/file-processing";
 
 type SubmissionWithUrls = Doc<"submissions"> & { albumArtUrl: string | null; songFileUrl: string | null; };
+const EMPTY_SUBMISSIONS: SubmissionWithUrls[] = [];
 
 interface SubmissionFormProps {
   round: Doc<"rounds">;
@@ -48,18 +49,15 @@ export function SubmissionForm({
   const [editingSubmission, setEditingSubmission] = useState<SubmissionWithUrls | null>(null);
   const { actions: playerActions } = useMusicPlayerStore();
   const previousStatusesRef = useRef<Record<string, string>>({});
-
-  if (currentUser === undefined || mySubmissions === undefined) {
-    return null;
-  }
+  const resolvedSubmissions = mySubmissions ?? EMPTY_SUBMISSIONS;
 
   const submissionsPerUser = round.submissionsPerUser ?? 1;
   
   // For album/multi rounds, count unique collections instead of individual tracks
-  let submissionCount = mySubmissions.length;
+  let submissionCount = resolvedSubmissions.length;
   if (round.submissionMode === "album" || round.submissionMode === "multi") {
     const uniqueCollections = new Set(
-      mySubmissions
+      resolvedSubmissions
         .filter(s => s.collectionId)
         .map(s => s.collectionId)
     );
@@ -76,20 +74,23 @@ export function SubmissionForm({
   });
 
   const pendingProcessingCount = useMemo(
-    () =>
-      mySubmissions.filter((submission) =>
+    () => {
+      const submissions = mySubmissions ?? EMPTY_SUBMISSIONS;
+      return submissions.filter((submission) =>
         hasPendingSubmissionProcessing({
           submissionType: submission.submissionType,
           songFileKey: submission.songFileKey ?? null,
           fileProcessingStatus: submission.fileProcessingStatus,
         }),
-      ).length,
+      ).length;
+    },
     [mySubmissions],
   );
 
   useEffect(() => {
+    const submissions = mySubmissions ?? EMPTY_SUBMISSIONS;
     const nextStatuses: Record<string, string> = {};
-    for (const submission of mySubmissions) {
+    for (const submission of submissions) {
       const status = getSubmissionFileProcessingStatus({
         submissionType: submission.submissionType,
         songFileKey: submission.songFileKey ?? null,
@@ -108,6 +109,10 @@ export function SubmissionForm({
     }
     previousStatusesRef.current = nextStatuses;
   }, [mySubmissions]);
+
+  if (currentUser === undefined || mySubmissions === undefined) {
+    return null;
+  }
 
   const handleListen = (submission: SubmissionWithUrls) => {
     if (!canPlay(submission)) return;
