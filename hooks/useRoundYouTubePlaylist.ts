@@ -1,10 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/lib/convex/api";
 import { buildYouTubeWatchVideosUrl } from "@/lib/youtube";
+import {
+  YOUTUBE_PLAYLIST_SESSION_EVENT,
+  getRoundYouTubePlaylistSessionSnapshot,
+  markRoundYouTubePlaylistDone,
+  openUrlInNewTabWithFallback,
+  startRoundYouTubePlaylistSession,
+} from "@/lib/music/youtube-playlist-session";
 
 type UseRoundYouTubePlaylistArgs = {
   roundId: Id<"rounds">;
@@ -38,12 +45,6 @@ export function useRoundYouTubePlaylist({
 } {
   const markCompletedBatch = useMutation(api.listenProgress.markCompletedBatch);
   const updatePresence = useMutation(api.presence.update);
-
-  const sessionKey = useMemo(() => `ytPlaylist:${roundId}`, [roundId]);
-  const sessionOpenedKey = `${sessionKey}:opened`;
-  const sessionEndAtKey = `${sessionKey}:endAt`;
-  const sessionDurationKey = `${sessionKey}:duration`;
-  const sessionDoneKey = `${sessionKey}:done`;
 
   const [ytTimerRemainingSec, setYtTimerRemainingSec] = useState<number>(0);
   const [ytTimerRunning, setYtTimerRunning] = useState<boolean>(false);
@@ -81,11 +82,7 @@ export function useRoundYouTubePlaylist({
     } catch (error) {
       console.error("Failed to mark playlist listening complete", error);
     } finally {
-      try {
-        sessionStorage.removeItem(sessionEndAtKey);
-        sessionStorage.removeItem(sessionDurationKey);
-        localStorage.setItem(sessionDoneKey, "1");
-      } catch {}
+      markRoundYouTubePlaylistDone(roundId);
     }
   }, [
     clearTimer,
@@ -93,128 +90,100 @@ export function useRoundYouTubePlaylist({
     markCompletedBatch,
     roundId,
     onMarkCompletedLocal,
-    sessionEndAtKey,
-    sessionDurationKey,
-    sessionDoneKey,
     updatePlaylistPresence,
   ]);
 
-  const startPlaylistTimer = useCallback(
-    (totalSec: number) => {
-      if (!totalSec || totalSec <= 0) return;
+  const syncTimerFromSession = useCallback(() => {
+    const session = getRoundYouTubePlaylistSessionSnapshot(roundId);
 
-      try {
-        if (localStorage.getItem(sessionDoneKey) === "1") {
-          setYtTimerDone(true);
-          setYtTimerRunning(false);
-          setYtTimerRemainingSec(0);
-          return;
-        }
-      } catch {}
+    if (session.done) {
+      clearTimer();
+      setYtTimerDone(true);
+      setYtTimerRunning(false);
+      setYtTimerRemainingSec(0);
+      return;
+    }
 
-      try {
-        const existingEndAt = sessionStorage.getItem(sessionEndAtKey);
-        if (existingEndAt) {
-          const remaining = Math.ceil((Number(existingEndAt) - Date.now()) / 1000);
-          if (remaining > 0) {
-            setYtTimerRunning(true);
-            setYtTimerRemainingSec(remaining);
-            clearTimer();
-            timerRef.current = window.setInterval(() => {
-              const left = Math.max(
-                0,
-                Math.ceil((Number(sessionStorage.getItem(sessionEndAtKey)) - Date.now()) / 1000),
-              );
-              setYtTimerRemainingSec(left);
-              if (left <= 0) void completeYouTubeListening();
-            }, 1000);
-            return;
-          }
-        }
-      } catch {}
-
-      const endAt = Date.now() + totalSec * 1000;
-      try {
-        sessionStorage.setItem(sessionEndAtKey, String(endAt));
-        sessionStorage.setItem(sessionDurationKey, String(totalSec));
-      } catch {}
-
+    if (session.active && session.endAt) {
+      setYtTimerDone(false);
       setYtTimerRunning(true);
-      setYtTimerRemainingSec(totalSec);
+      setYtTimerRemainingSec(session.remainingSec);
       clearTimer();
       timerRef.current = window.setInterval(() => {
-        const msLeft = (Number(sessionStorage.getItem(sessionEndAtKey)) || endAt) - Date.now();
-        const secLeft = Math.max(0, Math.ceil(msLeft / 1000));
-        setYtTimerRemainingSec(secLeft);
-        if (secLeft <= 0) {
+        const nextSession = getRoundYouTubePlaylistSessionSnapshot(roundId);
+        setYtTimerRemainingSec(nextSession.remainingSec);
+        if (nextSession.remainingSec <= 0) {
           void completeYouTubeListening();
         }
       }, 1000);
-    },
-    [clearTimer, completeYouTubeListening, sessionDoneKey, sessionDurationKey, sessionEndAtKey],
-  );
+      return;
+    }
 
-  useEffect(() => {
-    try {
-      const isDone = localStorage.getItem(sessionDoneKey) === "1";
-      if (isDone) {
+    if (session.opened) {
+      clearTimer();
+      setYtTimerDone(false);
+      setYtTimerRunning(false);
+      setYtTimerRemainingSec(0);
+    }
+  }, [clearTimer, completeYouTubeListening, roundId]);
+
+  const startPlaylistTimer = useCallback(
+    (totalSec: number) => {
+      const session = startRoundYouTubePlaylistSession(roundId, totalSec);
+      if (session.done) {
         setYtTimerDone(true);
         setYtTimerRunning(false);
         setYtTimerRemainingSec(0);
-        sessionStorage.removeItem(sessionEndAtKey);
-        sessionStorage.removeItem(sessionDurationKey);
-      } else {
-        const endAtStr = sessionStorage.getItem(sessionEndAtKey);
-        const durationStr = sessionStorage.getItem(sessionDurationKey);
-        if (endAtStr && durationStr) {
-          const endAt = Number(endAtStr);
-          const remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
-          if (remaining > 0) {
-            setYtTimerRunning(true);
-            setYtTimerRemainingSec(remaining);
-            clearTimer();
-            timerRef.current = window.setInterval(() => {
-              const left = Math.max(
-                0,
-                Math.ceil((Number(sessionStorage.getItem(sessionEndAtKey)) - Date.now()) / 1000),
-              );
-              setYtTimerRemainingSec(left);
-              if (left <= 0) void completeYouTubeListening();
-            }, 1000);
-          } else if (endAtStr) {
-            void completeYouTubeListening();
-          }
-        }
+        return;
       }
-    } catch {}
+      syncTimerFromSession();
+    },
+    [roundId, syncTimerFromSession],
+  );
+
+  useEffect(() => {
+    syncTimerFromSession();
 
     return () => clearTimer();
-  }, [
-    sessionEndAtKey,
-    sessionDurationKey,
-    sessionDoneKey,
-    completeYouTubeListening,
-    clearTimer,
-  ]);
+  }, [clearTimer, syncTimerFromSession]);
+
+  useEffect(() => {
+    const handleSessionEvent = (event: Event) => {
+      const detail = (event as CustomEvent<{ roundId?: string }>).detail;
+      if (detail?.roundId !== roundId) {
+        return;
+      }
+      syncTimerFromSession();
+    };
+
+    window.addEventListener(
+      YOUTUBE_PLAYLIST_SESSION_EVENT,
+      handleSessionEvent as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        YOUTUBE_PLAYLIST_SESSION_EVENT,
+        handleSessionEvent as EventListener,
+      );
+    };
+  }, [roundId, syncTimerFromSession]);
 
   const openYouTubePlaylist = useCallback((orderedIds: string[]) => {
     const url = buildYouTubeWatchVideosUrl(orderedIds);
     if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
+    openUrlInNewTabWithFallback(url);
   }, []);
 
   const openPlaylistAndStart = useCallback(
     (orderedIds?: string[]) => {
       const ids = orderedIds && orderedIds.length > 0 ? orderedIds : youtubeVideoIds;
       if (ids.length === 0) return;
-      openYouTubePlaylist(ids);
-      updatePlaylistPresence(true);
       if (!ytTimerDone) {
         startPlaylistTimer(totalYouTubeDurationSec);
       }
-      try {
-        sessionStorage.setItem(sessionOpenedKey, "1");
-      } catch {}
+      updatePlaylistPresence(true);
+      openYouTubePlaylist(ids);
     },
     [
       youtubeVideoIds,
@@ -222,7 +191,6 @@ export function useRoundYouTubePlaylist({
       ytTimerDone,
       startPlaylistTimer,
       totalYouTubeDurationSec,
-      sessionOpenedKey,
       updatePlaylistPresence,
     ],
   );
@@ -230,21 +198,27 @@ export function useRoundYouTubePlaylist({
   const ensureAutoOpenOnce = useCallback(() => {
     if (youtubeVideoIds.length === 0) return;
     if (roundStatus !== "voting") return;
-    if (ytTimerDone) return;
-    try {
-      if (sessionStorage.getItem(sessionOpenedKey) === "1") return;
-      sessionStorage.setItem(sessionOpenedKey, "1");
-    } catch {}
-    openYouTubePlaylist(youtubeVideoIds);
-    updatePlaylistPresence(true);
+    const session = getRoundYouTubePlaylistSessionSnapshot(roundId);
+    if (session.done || ytTimerDone) {
+      syncTimerFromSession();
+      return;
+    }
+    if (session.active) {
+      syncTimerFromSession();
+      updatePlaylistPresence(true);
+      return;
+    }
     startPlaylistTimer(totalYouTubeDurationSec);
+    updatePlaylistPresence(true);
+    openYouTubePlaylist(youtubeVideoIds);
   }, [
+    roundId,
     youtubeVideoIds,
     roundStatus,
     ytTimerDone,
-    sessionOpenedKey,
     openYouTubePlaylist,
     startPlaylistTimer,
+    syncTimerFromSession,
     totalYouTubeDurationSec,
     updatePlaylistPresence,
   ]);

@@ -1,6 +1,9 @@
 type QueueTrackLike = {
+  _id?: string | null;
+  roundId?: string | null;
   submissionType?: string | null;
   songLink?: string | null;
+  duration?: number | null;
 };
 
 export function getQueueYouTubeVideoIds(
@@ -39,4 +42,52 @@ export function markRoundYouTubePlaylistOpened(
     const sessionOpenedKey = `${sessionKey}:opened`;
     targetStorage.setItem(sessionOpenedKey, "1");
   } catch {}
+}
+
+export function getRoundQueueYouTubePlaylist(
+  queue: QueueTrackLike[],
+  roundId: string,
+  extractVideoId: (url: string | null | undefined) => string | null,
+  maxIds = 50,
+): {
+  videoIds: string[];
+  submissionIds: string[];
+  totalDurationSec: number;
+} {
+  const videoIds: string[] = [];
+  const submissionIds: string[] = [];
+  const seenVideoIds = new Set<string>();
+  let totalDurationSec = 0;
+
+  for (const track of queue) {
+    if (track?.roundId !== roundId || track?.submissionType !== "youtube") {
+      continue;
+    }
+
+    const videoId = extractVideoId(track.songLink);
+    if (!videoId) {
+      continue;
+    }
+
+    if (track._id) {
+      submissionIds.push(track._id);
+    }
+
+    if (seenVideoIds.has(videoId)) {
+      continue;
+    }
+
+    seenVideoIds.add(videoId);
+    videoIds.push(videoId);
+    totalDurationSec +=
+      Number.isFinite(track.duration) && (track.duration ?? 0) > 0
+        ? Math.floor(track.duration as number)
+        : 180;
+
+    if (videoIds.length >= maxIds) {
+      break;
+    }
+  }
+
+  return { videoIds, submissionIds, totalDurationSec };
 }

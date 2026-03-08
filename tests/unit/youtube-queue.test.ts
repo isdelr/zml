@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  getRoundQueueYouTubePlaylist,
   getQueueYouTubeVideoIds,
   markRoundYouTubePlaylistOpened,
 } from "@/lib/music/youtube-queue";
@@ -24,5 +25,47 @@ describe("youtube queue helpers", () => {
       "ytPlaylist:round-1:opened",
       "1",
     );
+  });
+
+  it("derives round-scoped playlist metadata for the queue", () => {
+    const extract = (value: string | null | undefined) => value ?? null;
+    const queue = [
+      {
+        _id: "sub-1",
+        roundId: "round-1",
+        submissionType: "youtube",
+        songLink: "a",
+        duration: 101,
+      },
+      {
+        _id: "sub-2",
+        roundId: "round-1",
+        submissionType: "youtube",
+        songLink: "b",
+        duration: null,
+      },
+      {
+        _id: "sub-3",
+        roundId: "round-2",
+        submissionType: "youtube",
+        songLink: "c",
+        duration: 90,
+      },
+      {
+        _id: "sub-4",
+        roundId: "round-1",
+        submissionType: "youtube",
+        songLink: "a",
+        duration: 999,
+      },
+    ];
+
+    expect(
+      getRoundQueueYouTubePlaylist(queue, "round-1", extract, 50),
+    ).toEqual({
+      videoIds: ["a", "b"],
+      submissionIds: ["sub-1", "sub-2", "sub-4"],
+      totalDurationSec: 281,
+    });
   });
 });

@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useEffect, useState, useMemo, useCallback } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import { Id } from "@/convex/_generated/dataModel";
 import { dynamicImport } from "@/components/ui/dynamic-import";
 import { extractTimestampedWaveformComments } from "@/lib/music/comments";
 import {
@@ -12,8 +13,7 @@ import {
   shouldMarkListenCompleted,
 } from "@/lib/music/listen-enforcement";
 import {
-  getQueueYouTubeVideoIds,
-  markRoundYouTubePlaylistOpened,
+  getRoundQueueYouTubePlaylist,
 } from "@/lib/music/youtube-queue";
 import { buildYouTubeWatchVideosUrl, extractYouTubeVideoId } from "@/lib/youtube";
 import { useListeningPresence } from "@/hooks/useListeningPresence";
@@ -21,6 +21,10 @@ import { useSubmissionWaveform } from "@/hooks/useSubmissionWaveform";
 import { useAudioPlaybackSync } from "@/hooks/useAudioPlaybackSync";
 import { useListenProgressSync } from "@/hooks/useListenProgressSync";
 import { usePlayerBookmark } from "@/hooks/usePlayerBookmark";
+import {
+  openUrlInNewTabWithFallback,
+  startRoundYouTubePlaylistSession,
+} from "@/lib/music/youtube-playlist-session";
 
 const PlayerTrackInfo = dynamicImport(() =>
   import("@/components/player/PlayerTrackInfo").then((mod) => ({
@@ -106,6 +110,7 @@ export function MusicPlayer() {
   }, [currentTrack, currentTrackListenProgress]);
 
   const getPresignedSongUrl = useAction(api.submissions.getPresignedSongUrl);
+  const updatePresence = useMutation(api.presence.update);
 
   const isExternalLink =
     currentTrack?.submissionType === "youtube";
@@ -250,14 +255,37 @@ export function MusicPlayer() {
     }
   };
 
-  // Build a YouTube playlist URL from all YouTube submissions currently in the queue
-  const openYouTubePlaylistFromQueue = (roundId?: string | null) => {
-    const ids = getQueueYouTubeVideoIds(queue, extractYouTubeVideoId, 50);
-    const url = buildYouTubeWatchVideosUrl(ids);
-    if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
-    markRoundYouTubePlaylistOpened(roundId);
-  };
+  const updatePlaylistPresence = useCallback(
+    (roundId?: Id<"rounds"> | null) => {
+      if (!roundId) return;
+      void updatePresence({ listeningTo: null, roundId }).catch(
+        (error: unknown) => {
+          console.warn("[presence:youtube-playlist] non-fatal failure", error);
+        },
+      );
+    },
+    [updatePresence],
+  );
+
+  const openYouTubePlaylistFromQueue = useCallback(
+    (roundId?: Id<"rounds"> | null) => {
+      if (!roundId) return false;
+      const { videoIds, totalDurationSec } = getRoundQueueYouTubePlaylist(
+        queue,
+        roundId,
+        extractYouTubeVideoId,
+        50,
+      );
+      const url = buildYouTubeWatchVideosUrl(videoIds);
+      if (!url) return false;
+
+      startRoundYouTubePlaylistSession(roundId, totalDurationSec);
+      updatePlaylistPresence(roundId);
+      openUrlInNewTabWithFallback(url);
+      return true;
+    },
+    [queue, updatePlaylistPresence],
+  );
 
   // Intercept playNext: if the next track is a YouTube submission, open the playlist instead
   const handlePlayNext = () => {
@@ -275,7 +303,10 @@ export function MusicPlayer() {
     }
     const nextTrack = queue[nextIndex];
     if (nextTrack?.submissionType === "youtube") {
-      openYouTubePlaylistFromQueue();
+      const opened = openYouTubePlaylistFromQueue(nextTrack.roundId);
+      if (opened) {
+        actions.setIsPlaying(false);
+      }
       return; // do not advance to an individual YouTube track
     }
     actions.playNext();
