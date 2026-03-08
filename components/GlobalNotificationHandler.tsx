@@ -2,7 +2,6 @@
 
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
-import { useBrowserNotifier } from "@/hooks/useBrowserNotifier";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -17,7 +16,6 @@ export function GlobalNotificationHandler() {
   const [isVisible, setIsVisible] = useState(
     typeof document === "undefined" || document.visibilityState === "visible",
   );
-  useBrowserNotifier();
   const router = useRouter();
   const notifications = useQuery(
     api.notifications.getRecentUnread,

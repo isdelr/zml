@@ -7,7 +7,12 @@ import { Button } from './ui/button';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 
 export function NotificationPermissionModal() {
-  const { isPromptVisible, requestPermission, dismissPrompt } = useBrowserNotifier();
+  const {
+    isPromptVisible,
+    requestPermission,
+    dismissPrompt,
+    requiresIosInstallForPush,
+  } = useBrowserNotifier();
 
   if (!isPromptVisible) {
     return null;
@@ -20,23 +25,29 @@ export function NotificationPermissionModal() {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <BellRing className="size-6 text-primary" />
-              <CardTitle>Get Notified</CardTitle>
+              <CardTitle>
+                {requiresIosInstallForPush ? "Install ZML First" : "Get Notified"}
+              </CardTitle>
             </div>
             <button onClick={() => dismissPrompt(false)} className="text-muted-foreground hover:text-foreground">
               <X className="size-4" />
             </button>
           </div>
           <CardDescription>
-            Enable browser notifications to stay updated on round changes and comments.
+            {requiresIosInstallForPush
+              ? "On iPhone and iPad, push notifications only work from the Home Screen app. In Safari, use Share > Add to Home Screen, then open ZML from your Home Screen and enable notifications there."
+              : "Enable browser notifications to stay updated on round changes and comments."}
           </CardDescription>
         </CardHeader>
         <CardFooter className="flex justify-between">
             <Button variant="link" onClick={() => dismissPrompt(true)}>
                 Never ask again
             </Button>
-            <Button onClick={requestPermission}>
-                Turn On Notifications
-            </Button>
+            {!requiresIosInstallForPush && (
+              <Button onClick={requestPermission}>
+                  Turn On Notifications
+              </Button>
+            )}
         </CardFooter>
       </Card>
     </div>

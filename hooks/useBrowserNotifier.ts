@@ -32,6 +32,64 @@ function getValidatedApplicationServerKey(vapidPublicKey: string) {
   return applicationServerKey;
 }
 
+type NavigatorWithStandalone = Navigator & {
+  standalone?: boolean;
+};
+
+function isAppleMobileBrowser() {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const { userAgent, platform, maxTouchPoints } = navigator;
+  return (
+    /iPhone|iPad|iPod/i.test(userAgent) ||
+    (platform === "MacIntel" && maxTouchPoints > 1)
+  );
+}
+
+function isStandaloneDisplayMode() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const inDisplayModeStandalone = window.matchMedia(
+    "(display-mode: standalone)",
+  ).matches;
+  const inLegacyIosStandalone = Boolean(
+    (navigator as NavigatorWithStandalone).standalone,
+  );
+  return inDisplayModeStandalone || inLegacyIosStandalone;
+}
+
+async function syncSubscriptionToServer(
+  subscription: PushSubscription,
+  subscribe: ReturnType<typeof useMutation<typeof api.webPush.subscribe>>,
+) {
+  const subscriptionJSON = subscription.toJSON();
+
+  if (
+    !subscriptionJSON.endpoint ||
+    !subscriptionJSON.keys?.p256dh ||
+    !subscriptionJSON.keys?.auth
+  ) {
+    console.error("Subscription is missing one or more required properties.");
+    return false;
+  }
+
+  await subscribe({
+    endpoint: subscriptionJSON.endpoint,
+    subscription: {
+      keys: {
+        p256dh: subscriptionJSON.keys.p256dh,
+        auth: subscriptionJSON.keys.auth,
+      },
+    },
+  });
+
+  return true;
+}
+
 export function useBrowserNotifier() {
   const [permission, setPermission] = useState<NotificationPermission>(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -43,6 +101,8 @@ export function useBrowserNotifier() {
   const subscribe = useMutation(api.webPush.subscribe);
   const isSyncingSubscription = useRef(false);
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  const [isAppleMobile, setIsAppleMobile] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
   const [dontAskAgain, setDontAskAgain] = useState(() => {
     if (typeof window === "undefined") {
       return false;
@@ -65,7 +125,45 @@ export function useBrowserNotifier() {
     return isStillDismissed;
   });
 
-  const syncPushSubscription = useCallback(async () => {
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const updatePlatformState = () => {
+      setIsAppleMobile(isAppleMobileBrowser());
+      setIsStandalone(isStandaloneDisplayMode());
+    };
+
+    updatePlatformState();
+
+    const mediaQuery = window.matchMedia("(display-mode: standalone)");
+    const onMediaChange = () => updatePlatformState();
+    mediaQuery.addEventListener("change", onMediaChange);
+    window.addEventListener("focus", updatePlatformState);
+    window.addEventListener("visibilitychange", updatePlatformState);
+
+    return () => {
+      mediaQuery.removeEventListener("change", onMediaChange);
+      window.removeEventListener("focus", updatePlatformState);
+      window.removeEventListener("visibilitychange", updatePlatformState);
+    };
+  }, []);
+
+  const isPushSupported = useMemo(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return (
+      "Notification" in window &&
+      "serviceWorker" in navigator &&
+      "PushManager" in window
+    );
+  }, []);
+  const requiresIosInstallForPush = isAppleMobile && !isStandalone;
+
+  const syncExistingPushSubscription = useCallback(async () => {
     if (isSyncingSubscription.current) {
       return false;
     }
@@ -88,89 +186,72 @@ export function useBrowserNotifier() {
       return false;
     }
 
+    if (requiresIosInstallForPush) {
+      return false;
+    }
+
     isSyncingSubscription.current = true;
 
     try {
       const registration = await navigator.serviceWorker.ready;
-      const applicationServerKey =
-        getValidatedApplicationServerKey(vapidPublicKey);
-
-      console.info("[Push] Attempting browser subscription", {
-        isSecureContext,
-        origin: window.location.origin,
-        permission,
-        scope: registration.scope,
-        hasActiveWorker: Boolean(registration.active),
-        vapidPublicKeyLength: vapidPublicKey.length,
-        applicationServerKeyLength: applicationServerKey.length,
-      });
-
-      let subscription = await registration.pushManager.getSubscription();
+      const subscription = await registration.pushManager.getSubscription();
       if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey,
-        });
-      }
-
-      const subscriptionJSON = subscription.toJSON();
-
-      if (
-        !subscriptionJSON.endpoint ||
-        !subscriptionJSON.keys?.p256dh ||
-        !subscriptionJSON.keys?.auth
-      ) {
-        console.error("Subscription is missing one or more required properties.");
         return false;
       }
 
-      await subscribe({
-        endpoint: subscriptionJSON.endpoint,
-        subscription: {
-          keys: {
-            p256dh: subscriptionJSON.keys.p256dh,
-            auth: subscriptionJSON.keys.auth,
-          },
-        },
-      });
-
-      return true;
+      return await syncSubscriptionToServer(subscription, subscribe);
     } catch (error) {
-      const errorName =
-        error instanceof DOMException || error instanceof Error
-          ? error.name
-          : "UnknownError";
-      const errorMessage =
-        error instanceof Error ? error.message : String(error ?? "Unknown error");
-      console.error("Error subscribing to push notifications:", error, {
-        errorName,
-        errorMessage,
+      console.error("[Push] Failed to sync existing subscription:", error, {
         permission,
-        isSecureContext,
+        isSecureContext: typeof window !== "undefined" ? window.isSecureContext : false,
         origin: typeof window === "undefined" ? undefined : window.location.origin,
-        hasServiceWorker: typeof navigator !== "undefined" && "serviceWorker" in navigator,
-        vapidPublicKeyLength: vapidPublicKey.length,
       });
       return false;
     } finally {
       isSyncingSubscription.current = false;
     }
-  }, [currentUser?._id, permission, subscribe, vapidPublicKey]);
+  }, [
+    currentUser?._id,
+    permission,
+    requiresIosInstallForPush,
+    subscribe,
+    vapidPublicKey,
+  ]);
 
   useEffect(() => {
     if (permission !== "granted" || !currentUser?._id) {
       return;
     }
-    void syncPushSubscription();
-  }, [currentUser?._id, permission, syncPushSubscription]);
+    void syncExistingPushSubscription();
+  }, [currentUser?._id, permission, syncExistingPushSubscription]);
 
   const isPromptVisible = useMemo(() => {
-    return permission === "default" && !dontAskAgain && !isTemporarilyDismissed;
-  }, [permission, dontAskAgain, isTemporarilyDismissed]);
+    if (dontAskAgain || isTemporarilyDismissed) {
+      return false;
+    }
+
+    if (requiresIosInstallForPush) {
+      return true;
+    }
+
+    return permission === "default" && isPushSupported;
+  }, [
+    dontAskAgain,
+    isPushSupported,
+    isTemporarilyDismissed,
+    permission,
+    requiresIosInstallForPush,
+  ]);
 
   const requestPermission = useCallback(async () => {
     if (!("Notification" in window)) {
       console.error("This browser does not support desktop notification");
+      return;
+    }
+    if (requiresIosInstallForPush) {
+      console.warn(
+        "[Push] Push permission on iPhone/iPad requires launching the installed Home Screen app first.",
+      );
       return;
     }
     const currentPermission = await Notification.requestPermission();
@@ -184,9 +265,51 @@ export function useBrowserNotifier() {
       localStorage.removeItem(PROMPT_DISMISSED_KEY);
       setDontAskAgain(false);
       setIsTemporarilyDismissed(false);
-      await syncPushSubscription();
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const applicationServerKey =
+          getValidatedApplicationServerKey(vapidPublicKey ?? "");
+
+        console.info("[Push] Attempting browser subscription", {
+          isSecureContext,
+          origin: window.location.origin,
+          permission: currentPermission,
+          scope: registration.scope,
+          hasActiveWorker: Boolean(registration.active),
+          vapidPublicKeyLength: vapidPublicKey?.length ?? 0,
+          applicationServerKeyLength: applicationServerKey.length,
+        });
+
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+          });
+        }
+
+        await syncSubscriptionToServer(subscription, subscribe);
+      } catch (error) {
+        const errorName =
+          error instanceof DOMException || error instanceof Error
+            ? error.name
+            : "UnknownError";
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : String(error ?? "Unknown error");
+        console.error("Error subscribing to push notifications:", error, {
+          errorName,
+          errorMessage,
+          permission: currentPermission,
+          isSecureContext,
+          origin: window.location.origin,
+          hasServiceWorker: "serviceWorker" in navigator,
+          vapidPublicKeyLength: vapidPublicKey?.length ?? 0,
+        });
+      }
     }
-  }, [syncPushSubscription]);
+  }, [requiresIosInstallForPush, subscribe, vapidPublicKey]);
 
   const showNotification = useCallback(
     (title: string, options?: NotificationOptions) => {
@@ -215,5 +338,6 @@ export function useBrowserNotifier() {
     dismissPrompt,
     showNotification,
     permission,
+    requiresIosInstallForPush,
   };
 }
