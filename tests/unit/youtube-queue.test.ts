@@ -68,4 +68,39 @@ describe("youtube queue helpers", () => {
       totalDurationSec: 281,
     });
   });
+
+  it("rotates round-scoped playlist ids to start at a target submission", () => {
+    const extract = (value: string | null | undefined) => value ?? null;
+    const queue = [
+      {
+        _id: "sub-1",
+        roundId: "round-1",
+        submissionType: "youtube",
+        songLink: "a",
+        duration: 101,
+      },
+      {
+        _id: "sub-2",
+        roundId: "round-1",
+        submissionType: "youtube",
+        songLink: "b",
+        duration: 102,
+      },
+      {
+        _id: "sub-3",
+        roundId: "round-1",
+        submissionType: "youtube",
+        songLink: "c",
+        duration: 103,
+      },
+    ];
+
+    expect(
+      getRoundQueueYouTubePlaylist(queue, "round-1", extract, 50, "sub-2"),
+    ).toEqual({
+      videoIds: ["b", "c", "a"],
+      submissionIds: ["sub-1", "sub-2", "sub-3"],
+      totalDurationSec: 306,
+    });
+  });
 });

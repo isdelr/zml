@@ -3,6 +3,10 @@
 export const YOUTUBE_PLAYLIST_SESSION_EVENT =
   "zml:youtube-playlist-session";
 
+type OpenUrlOptions = {
+  fallbackToCurrentTab?: boolean;
+};
+
 type StorageReadWrite = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 type StorageRead = Pick<Storage, "getItem">;
 
@@ -185,8 +189,20 @@ export function markRoundYouTubePlaylistDone(
   dispatchRoundYouTubePlaylistSessionEvent(roundId);
 }
 
-export function openUrlInNewTabWithFallback(url: string) {
+export function openUrlInNewTabWithFallback(
+  url: string,
+  options: OpenUrlOptions = {},
+) {
   if (typeof window === "undefined") return false;
   const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
-  return Boolean(openedWindow);
+  if (openedWindow) {
+    return true;
+  }
+
+  if (options.fallbackToCurrentTab) {
+    window.location.assign(url);
+    return true;
+  }
+
+  return false;
 }

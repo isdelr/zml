@@ -3,10 +3,7 @@
 import { RefObject, useCallback, useEffect, useRef } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { Song } from "@/types";
-import {
-  getPresignedUrlRefreshDelayMs,
-  parsePresignedUrlExpiry,
-} from "@/lib/music/presigned-url";
+import { openUrlInNewTabWithFallback } from "@/lib/music/youtube-playlist-session";
 
 type UseAudioPlaybackSyncArgs = {
   audioRef: RefObject<HTMLAudioElement | null>;
@@ -39,10 +36,15 @@ export function useAudioPlaybackSync({
   handleAudioError: () => Promise<void>;
 } {
   const lastOpenedTrackIdRef = useRef<string | null>(null);
-  const audioRefreshTimeoutRef = useRef<number | null>(null);
   const prevTrackIdRef = useRef<string | null>(null);
   const pendingSeekTimeRef = useRef<number | null>(null);
   const pendingShouldPlayRef = useRef<boolean>(false);
+  const desiredPlayingRef = useRef(isPlaying);
+  const playbackRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    desiredPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   const refreshAudioUrl = useCallback(
     async (silent = true) => {
@@ -54,7 +56,8 @@ export function useAudioPlaybackSync({
         pendingSeekTimeRef.current = Number.isFinite(audioElement.currentTime)
           ? audioElement.currentTime
           : 0;
-        pendingShouldPlayRef.current = !audioElement.paused;
+        pendingShouldPlayRef.current =
+          desiredPlayingRef.current && !audioElement.paused;
 
         const newUrl = await getPresignedSongUrl({
           submissionId: currentTrack._id,
@@ -77,11 +80,20 @@ export function useAudioPlaybackSync({
     const audioElement = audioRef.current;
     if (!audioElement || !currentTrack) return;
     audioElement.volume = volume;
+    desiredPlayingRef.current = isPlaying;
+    const playbackRequestId = playbackRequestIdRef.current + 1;
+    playbackRequestIdRef.current = playbackRequestId;
 
     if (isExternalLink) {
       audioElement.pause();
-      if (isPlaying && currentTrack._id !== lastOpenedTrackIdRef.current) {
-        window.open(currentTrack.songLink!, "_blank", "noopener,noreferrer");
+      if (
+        isPlaying &&
+        currentTrack.songLink &&
+        currentTrack._id !== lastOpenedTrackIdRef.current
+      ) {
+        openUrlInNewTabWithFallback(currentTrack.songLink, {
+          fallbackToCurrentTab: true,
+        });
         lastOpenedTrackIdRef.current = currentTrack._id;
       }
       return;
@@ -93,18 +105,25 @@ export function useAudioPlaybackSync({
     const sameTrack = prevTrackId === currentTrack._id;
     prevTrackIdRef.current = currentTrack._id;
 
-    const scheduleAudioRefresh = (url?: string | null) => {
-      if (audioRefreshTimeoutRef.current) {
-        window.clearTimeout(audioRefreshTimeoutRef.current);
-        audioRefreshTimeoutRef.current = null;
+    const trySyncPlaybackState = async () => {
+      if (playbackRequestIdRef.current !== playbackRequestId) {
+        return;
       }
-      const expiry = parsePresignedUrlExpiry(url ?? undefined);
-      const delay = getPresignedUrlRefreshDelayMs(expiry);
-      audioRefreshTimeoutRef.current = window.setTimeout(async () => {
-        await refreshAudioUrl(true);
-      }, delay);
+
+      try {
+        if (desiredPlayingRef.current) {
+          await audioElement.play();
+          return;
+        }
+        audioElement.pause();
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        console.error("Error during playback:", error);
+        setIsPlaying(false);
+      }
     };
-    scheduleAudioRefresh(effectiveSongUrl || undefined);
 
     const applyPendingRestore = async () => {
       const targetTime = pendingSeekTimeRef.current ?? 0;
@@ -121,60 +140,66 @@ export function useAudioPlaybackSync({
           audioElement.currentTime = targetTime;
         }
         if (shouldPlay) {
-          await audioElement.play();
+          await trySyncPlaybackState();
         }
       } catch {
         // keep silent
       }
     };
 
+    const handleCanPlay = () => {
+      if (!desiredPlayingRef.current) {
+        return;
+      }
+      void trySyncPlaybackState();
+    };
+    audioElement.addEventListener("canplay", handleCanPlay);
+    audioElement.addEventListener("loadeddata", handleCanPlay);
+
+    let loadedMetadataHandler: (() => void) | null = null;
+
     const handlePlayback = async () => {
       if (effectiveSongUrl && audioElement.src !== effectiveSongUrl) {
         const isRefresh = sameTrack;
         try {
           audioElement.src = effectiveSongUrl;
+          audioElement.load();
+
           if (isRefresh && pendingSeekTimeRef.current !== null) {
-            const onLoaded = async () => {
-              audioElement.removeEventListener("loadedmetadata", onLoaded);
-              await applyPendingRestore();
+            loadedMetadataHandler = () => {
+              void applyPendingRestore();
             };
-            audioElement.addEventListener("loadedmetadata", onLoaded);
-          } else {
-            setProgress(0);
-            if (isPlaying) {
-              await audioElement.play();
-            } else {
-              audioElement.pause();
-            }
+            audioElement.addEventListener(
+              "loadedmetadata",
+              loadedMetadataHandler,
+              { once: true },
+            );
+            return;
           }
+
+          setProgress(0);
         } catch (error: unknown) {
           if (!(error instanceof DOMException && error.name === "AbortError")) {
             console.error("Error during playback:", error);
             setIsPlaying(false);
           }
-        }
-      } else {
-        try {
-          if (isPlaying) {
-            await audioElement.play();
-          } else {
-            audioElement.pause();
-          }
-        } catch (error: unknown) {
-          if (!(error instanceof DOMException && error.name === "AbortError")) {
-            console.error("Error during playback:", error);
-            setIsPlaying(false);
-          }
+          return;
         }
       }
+
+      await trySyncPlaybackState();
     };
 
     void handlePlayback();
 
     return () => {
-      if (audioRefreshTimeoutRef.current) {
-        window.clearTimeout(audioRefreshTimeoutRef.current);
-        audioRefreshTimeoutRef.current = null;
+      audioElement.removeEventListener("canplay", handleCanPlay);
+      audioElement.removeEventListener("loadeddata", handleCanPlay);
+      if (loadedMetadataHandler) {
+        audioElement.removeEventListener(
+          "loadedmetadata",
+          loadedMetadataHandler,
+        );
       }
     };
   }, [
@@ -183,7 +208,6 @@ export function useAudioPlaybackSync({
     effectiveSongUrl,
     isExternalLink,
     isPlaying,
-    refreshAudioUrl,
     setIsPlaying,
     setProgress,
     volume,

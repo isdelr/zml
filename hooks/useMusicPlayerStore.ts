@@ -89,7 +89,7 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
     playPrevious: () => {
       const { currentTrackIndex } = get();
       if (currentTrackIndex !== null && currentTrackIndex > 0) {
-        set({ currentTrackIndex: currentTrackIndex - 1 });
+        set({ currentTrackIndex: currentTrackIndex - 1, isPlaying: true });
       }
     },
     togglePlayPause: () => {

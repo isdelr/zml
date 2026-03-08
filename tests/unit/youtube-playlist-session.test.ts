@@ -107,4 +107,21 @@ describe("youtube playlist session helpers", () => {
     );
     expect(assign).not.toHaveBeenCalled();
   });
+
+  it("redirects the current tab when the caller opts into fallback navigation", () => {
+    const assign = vi.fn();
+    const open = vi.fn(() => null);
+
+    vi.stubGlobal("window", {
+      open,
+      location: { assign },
+    });
+
+    expect(
+      openUrlInNewTabWithFallback("https://example.com", {
+        fallbackToCurrentTab: true,
+      }),
+    ).toBe(true);
+    expect(assign).toHaveBeenCalledWith("https://example.com");
+  });
 });

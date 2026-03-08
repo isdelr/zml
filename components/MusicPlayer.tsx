@@ -24,6 +24,7 @@ import { usePlayerBookmark } from "@/hooks/usePlayerBookmark";
 import {
   openUrlInNewTabWithFallback,
 } from "@/lib/music/youtube-playlist-session";
+import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
 
 const PlayerTrackInfo = dynamicImport(() =>
   import("@/components/player/PlayerTrackInfo").then((mod) => ({
@@ -67,11 +68,13 @@ export function MusicPlayer() {
     currentTrackIndex !== null ? queue[currentTrackIndex] ?? null : null;
 
   const audioRef = useRef<HTMLAudioElement>(null);
+  const preloadAudioRef = useRef<HTMLAudioElement | null>(null);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [lastVolume, setLastVolume] = useState(volume);
-  const [refreshedUrls, setRefreshedUrls] = useState<Record<string, string>>({});
+  const [playbackUrls, setPlaybackUrls] = useState<Record<string, string>>({});
+  const [waveformUrls, setWaveformUrls] = useState<Record<string, string>>({});
 
   const leagueData = useQuery(
     api.leagues.get,
@@ -119,13 +122,50 @@ export function MusicPlayer() {
     currentTrack?.submissionType === "youtube";
   const effectiveSongUrl =
     currentTrack && currentTrack.submissionType === "file"
-      ? refreshedUrls[currentTrack._id] ?? currentTrack.songFileUrl ?? null
+      ? playbackUrls[currentTrack._id] ?? currentTrack.songFileUrl ?? null
+      : null;
+  const waveformSongUrl =
+    currentTrack && currentTrack.submissionType === "file"
+      ? waveformUrls[currentTrack._id] ?? effectiveSongUrl
       : null;
   const { isBookmarked, handleBookmarkToggle } = usePlayerBookmark({
     currentTrack,
   });
   const completionSyncTrackRef = useRef<string | null>(null);
   const trackAdvanceInFlightRef = useRef(false);
+
+  const getAdjacentQueueIndex = useCallback(
+    (direction: 1 | -1) => {
+      if (currentTrackIndex === null || queue.length === 0) {
+        return null;
+      }
+
+      if (direction === 1) {
+        const isAtEnd = currentTrackIndex === queue.length - 1;
+        if (isAtEnd) {
+          return repeatMode === "all" ? 0 : null;
+        }
+        return currentTrackIndex + 1;
+      }
+
+      if (currentTrackIndex > 0) {
+        return currentTrackIndex - 1;
+      }
+
+      return null;
+    },
+    [currentTrackIndex, queue, repeatMode],
+  );
+
+  const nextTrack = useMemo(() => {
+    const nextIndex = getAdjacentQueueIndex(1);
+    return nextIndex === null ? null : queue[nextIndex] ?? null;
+  }, [getAdjacentQueueIndex, queue]);
+
+  const nextTrackCachedUrl =
+    nextTrack && nextTrack.submissionType === "file"
+      ? playbackUrls[nextTrack._id] ?? nextTrack.songFileUrl ?? null
+      : null;
 
   useListenProgressSync({
     audioRef,
@@ -190,9 +230,18 @@ export function MusicPlayer() {
     [commentsData],
   );
 
+  const handlePlaybackPresignedUrlRefresh = useCallback(
+    ({ submissionId, url }: { submissionId: string; url: string }) => {
+      setPlaybackUrls((prev) =>
+        prev[submissionId] === url ? prev : { ...prev, [submissionId]: url },
+      );
+    },
+    [],
+  );
+
   const handleWaveformPresignedUrlRefresh = useCallback(
     ({ submissionId, url }: { submissionId: string; url: string }) => {
-      setRefreshedUrls((prev) =>
+      setWaveformUrls((prev) =>
         prev[submissionId] === url ? prev : { ...prev, [submissionId]: url },
       );
     },
@@ -201,7 +250,7 @@ export function MusicPlayer() {
 
   const { waveformData, isWaveformLoading } = useSubmissionWaveform({
     currentTrack,
-    effectiveSongUrl,
+    effectiveSongUrl: waveformSongUrl,
     getPresignedSongUrl,
     onPresignedUrlRefreshed: handleWaveformPresignedUrlRefresh,
   });
@@ -221,8 +270,72 @@ export function MusicPlayer() {
     setProgress,
     setIsPlaying: actions.setIsPlaying,
     getPresignedSongUrl,
-    onRefreshedUrl: handleWaveformPresignedUrlRefresh,
+    onRefreshedUrl: handlePlaybackPresignedUrlRefresh,
   });
+
+  useEffect(() => {
+    const trackToPreload = nextTrack;
+    if (!trackToPreload || trackToPreload.submissionType !== "file") {
+      const preloadAudio = preloadAudioRef.current;
+      if (preloadAudio) {
+        preloadAudio.pause();
+        preloadAudio.removeAttribute("src");
+        preloadAudio.load();
+      }
+      return;
+    }
+
+    let isCancelled = false;
+
+    const preloadNextTrack = async () => {
+      let nextUrl = nextTrackCachedUrl;
+      const expiresAt = parsePresignedUrlExpiry(nextUrl);
+      const needsFreshUrl =
+        !nextUrl ||
+        (expiresAt !== null && expiresAt - Date.now() < 5 * 60 * 1000);
+
+      if (needsFreshUrl) {
+        try {
+          const refreshedUrl = await getPresignedSongUrl({
+            submissionId: trackToPreload._id,
+          });
+          if (refreshedUrl) {
+            nextUrl = refreshedUrl;
+          }
+        } catch (error) {
+          console.warn("Failed to prefetch next track URL", error);
+        }
+      }
+
+      if (!nextUrl || isCancelled) {
+        return;
+      }
+
+      setPlaybackUrls((prev) =>
+        prev[trackToPreload._id] === nextUrl
+          ? prev
+          : { ...prev, [trackToPreload._id]: nextUrl },
+      );
+
+      if (typeof Audio === "undefined") {
+        return;
+      }
+
+      const preloadAudio = preloadAudioRef.current ?? new Audio();
+      preloadAudio.preload = "auto";
+      if (preloadAudio.src !== nextUrl) {
+        preloadAudio.src = nextUrl;
+        preloadAudio.load();
+      }
+      preloadAudioRef.current = preloadAudio;
+    };
+
+    void preloadNextTrack();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [getPresignedSongUrl, nextTrack, nextTrackCachedUrl]);
 
   const syncCurrentTrackListenProgress = useCallback(async () => {
     if (
@@ -335,70 +448,103 @@ export function MusicPlayer() {
   );
 
   const openYouTubePlaylistFromQueue = useCallback(
-    async (roundId?: Id<"rounds"> | null) => {
+    (
+      roundId?: Id<"rounds"> | null,
+      startSubmissionId?: Id<"submissions"> | null,
+    ) => {
       if (!roundId) return false;
       const { videoIds, totalDurationSec } = getRoundQueueYouTubePlaylist(
         queue,
         roundId,
         extractYouTubeVideoId,
         50,
+        startSubmissionId,
       );
       const url = buildYouTubeWatchVideosUrl(videoIds);
       if (!url) return false;
 
       if (totalDurationSec > 0) {
-        try {
-          await startYouTubePlaylistSession({
-            roundId,
-            durationSec: totalDurationSec,
-          });
-        } catch (error) {
+        void startYouTubePlaylistSession({
+          roundId,
+          durationSec: totalDurationSec,
+        }).catch((error) => {
           console.error("Failed to start YouTube playlist session", error);
-        }
+        });
       }
-      updatePlaylistPresence(roundId);
-      openUrlInNewTabWithFallback(url);
-      return true;
+      if (totalDurationSec > 0) {
+        updatePlaylistPresence(roundId);
+      }
+      return openUrlInNewTabWithFallback(url, {
+        fallbackToCurrentTab: true,
+      });
     },
     [queue, startYouTubePlaylistSession, updatePlaylistPresence],
   );
 
-  // Intercept playNext: if the next track is a YouTube submission, open the playlist instead
-  const handlePlayNext = async () => {
-    if (trackAdvanceInFlightRef.current) {
-      return;
-    }
+  const syncCurrentTrackListenProgressInBackground = useCallback(() => {
+    void syncCurrentTrackListenProgress().catch((error: unknown) => {
+      console.error("Failed to sync listen progress during track change", error);
+    });
+  }, [syncCurrentTrackListenProgress]);
 
-    trackAdvanceInFlightRef.current = true;
-
-    try {
-      await syncCurrentTrackListenProgress();
-
-      const idx = currentTrackIndex;
-      if (idx === null || queue.length === 0) {
-        actions.playNext();
+  const handleTrackStep = useCallback(
+    async (direction: 1 | -1) => {
+      if (trackAdvanceInFlightRef.current) {
         return;
       }
-      const isAtEnd = idx === queue.length - 1;
-      const nextIndex = isAtEnd ? (repeatMode === "all" ? 0 : null) : idx + 1;
-      if (nextIndex === null) {
-        // Defer to store behavior (will stop playback)
-        actions.playNext();
-        return;
-      }
-      const nextTrack = queue[nextIndex];
-      if (nextTrack?.submissionType === "youtube") {
-        const opened = await openYouTubePlaylistFromQueue(nextTrack.roundId);
-        if (opened) {
-          actions.setIsPlaying(false);
+
+      trackAdvanceInFlightRef.current = true;
+
+      try {
+        syncCurrentTrackListenProgressInBackground();
+
+        const adjacentIndex = getAdjacentQueueIndex(direction);
+        if (adjacentIndex === null) {
+          if (direction === 1) {
+            actions.playNext();
+          } else {
+            actions.playPrevious();
+          }
+          return;
         }
-        return; // do not advance to an individual YouTube track
+
+        const adjacentTrack = queue[adjacentIndex];
+        if (adjacentTrack?.submissionType === "youtube") {
+          const opened = openYouTubePlaylistFromQueue(
+            adjacentTrack.roundId,
+            adjacentTrack._id,
+          );
+          if (opened) {
+            actions.setIsPlaying(false);
+          }
+          return;
+        }
+
+        if (direction === 1) {
+          actions.playNext();
+        } else {
+          actions.playPrevious();
+        }
+      } finally {
+        trackAdvanceInFlightRef.current = false;
       }
-      actions.playNext();
-    } finally {
-      trackAdvanceInFlightRef.current = false;
-    }
-  };
+    },
+    [
+      actions,
+      getAdjacentQueueIndex,
+      openYouTubePlaylistFromQueue,
+      queue,
+      syncCurrentTrackListenProgressInBackground,
+    ],
+  );
+
+  const handlePlayNext = useCallback(async () => {
+    await handleTrackStep(1);
+  }, [handleTrackStep]);
+
+  const handlePlayPrevious = useCallback(async () => {
+    await handleTrackStep(-1);
+  }, [handleTrackStep]);
 
   const handleEnded = async () => {
     if (repeatMode === "one" && audioRef.current) {
@@ -488,7 +634,7 @@ export function MusicPlayer() {
               currentTrack={currentTrack}
               onTogglePlayPause={actions.togglePlayPause}
               onPlayNext={handlePlayNext}
-              onPlayPrevious={actions.playPrevious}
+              onPlayPrevious={handlePlayPrevious}
               onToggleShuffle={actions.toggleShuffle}
               onToggleRepeat={actions.toggleRepeat}
             />

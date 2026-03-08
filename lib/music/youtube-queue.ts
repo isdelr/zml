@@ -49,6 +49,7 @@ export function getRoundQueueYouTubePlaylist(
   roundId: string,
   extractVideoId: (url: string | null | undefined) => string | null,
   maxIds = 50,
+  startSubmissionId?: string | null,
 ): {
   videoIds: string[];
   submissionIds: string[];
@@ -58,6 +59,7 @@ export function getRoundQueueYouTubePlaylist(
   const submissionIds: string[] = [];
   const seenVideoIds = new Set<string>();
   let totalDurationSec = 0;
+  let startVideoId: string | null = null;
 
   for (const track of queue) {
     if (track?.roundId !== roundId || track?.submissionType !== "youtube") {
@@ -71,6 +73,9 @@ export function getRoundQueueYouTubePlaylist(
 
     if (track._id) {
       submissionIds.push(track._id);
+      if (track._id === startSubmissionId) {
+        startVideoId = videoId;
+      }
     }
 
     if (seenVideoIds.has(videoId)) {
@@ -86,6 +91,17 @@ export function getRoundQueueYouTubePlaylist(
 
     if (videoIds.length >= maxIds) {
       break;
+    }
+  }
+
+  if (startVideoId) {
+    const startIndex = videoIds.indexOf(startVideoId);
+    if (startIndex > 0) {
+      const orderedVideoIds = [
+        ...videoIds.slice(startIndex),
+        ...videoIds.slice(0, startIndex),
+      ];
+      return { videoIds: orderedVideoIds, submissionIds, totalDurationSec };
     }
   }
 
