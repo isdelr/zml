@@ -7,6 +7,7 @@ import { toSvg } from "jdenticon";
 import { Song } from "@/types";
 import { formatDeadline } from "@/lib/utils";
 import { RoundParticipationSummary } from "@/components/round/RoundParticipationSummary";
+import type { ReactNode } from "react";
 
 type Participant = {
   _id?: string;
@@ -29,6 +30,7 @@ interface RoundHeaderProps {
     label: string;
     users: Participant[];
   }[];
+  adminControls?: ReactNode;
 }
 
 export function RoundHeader({
@@ -42,6 +44,7 @@ export function RoundHeader({
   leagueMaxUp,
   leagueMaxDown,
   participationGroups,
+  adminControls,
 }: RoundHeaderProps) {
   const showPlayAll =
     round.status !== "submissions" && submissions && submissions.length > 0;
@@ -99,21 +102,26 @@ export function RoundHeader({
               </span>
             )}
           </div>
-          {(showPlayAll || showParticipationSummary) && (
-            <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
-              {showPlayAll && (
-                <Button
-                  onClick={() => onPlayAll(submissions as Song[], 0)}
-                  size="lg"
-                  className="w-full bg-primary text-primary-foreground md:w-fit"
-                >
-                  <Play className="mr-2 size-5" />
-                  Play All
-                </Button>
+          {(showPlayAll || showParticipationSummary || adminControls) && (
+            <div className="mt-4 flex flex-col gap-4">
+              {(showPlayAll || showParticipationSummary) && (
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
+                  {showPlayAll && (
+                    <Button
+                      onClick={() => onPlayAll(submissions as Song[], 0)}
+                      size="lg"
+                      className="w-full bg-primary text-primary-foreground md:w-fit"
+                    >
+                      <Play className="mr-2 size-5" />
+                      Play All
+                    </Button>
+                  )}
+                  {showParticipationSummary && (
+                    <RoundParticipationSummary groups={participationGroups} />
+                  )}
+                </div>
               )}
-              {showParticipationSummary && (
-                <RoundParticipationSummary groups={participationGroups} />
-              )}
+              {adminControls}
             </div>
           )}
         </div>

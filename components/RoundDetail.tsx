@@ -116,6 +116,12 @@ export function RoundDetail({
     api.votes.getVotersForRound,
     round.status === "voting" ? { roundId: round._id } : "skip",
   );
+  const roundVotes = useQuery(
+    api.votes.getForRound,
+    canManageLeague && round.status === "voting"
+      ? { roundId: round._id }
+      : "skip",
+  );
 
   const listenProgressMap = useMemo(() => {
     if (!listenProgressData) return {};
@@ -418,10 +424,6 @@ export function RoundDetail({
 
   return (
     <section>
-      {canManageLeague && (
-        <RoundAdminControls round={round} submissions={submissions} />
-      )}
-
       <RoundStatusAlerts
         isSpectator={Boolean(league.isSpectator)}
         roundStatus={round.status}
@@ -443,6 +445,15 @@ export function RoundDetail({
         leagueMaxUp={league.maxPositiveVotes}
         leagueMaxDown={league.maxNegativeVotes}
         participationGroups={participationGroups}
+        adminControls={
+          canManageLeague ? (
+            <RoundAdminControls
+              round={round}
+              submissions={submissions}
+              voteCount={roundVotes?.length ?? 0}
+            />
+          ) : null
+        }
       />
 
       {!league.isSpectator && (
