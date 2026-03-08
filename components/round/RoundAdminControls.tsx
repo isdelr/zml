@@ -356,15 +356,10 @@ function DeadlineAdjustmentDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{directionLabel} deadline</DialogTitle>
-          <DialogDescription className="space-y-2">
+          <DialogDescription className="space-y-2 mb-1">
             <span className="block">
               Current {phaseLabel.toLowerCase()} deadline:{" "}
               {formatShortDateTime(currentDeadline)}
-            </span>
-            <span className="block">
-              {round.status === "submissions"
-                ? "This also shifts the voting deadline by the same amount."
-                : "Only the voting deadline changes."}
             </span>
           </DialogDescription>
         </DialogHeader>

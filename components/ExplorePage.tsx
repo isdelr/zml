@@ -63,7 +63,7 @@ export function ExplorePage() {
 
   return (
     <div className="min-h-full bg-background text-foreground">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 sm:gap-7 sm:p-6 lg:gap-8 lg:p-8">
+      <div className="mx-auto flex w-full flex-col gap-6 p-4 sm:gap-7 sm:p-6 lg:gap-8 lg:p-8">
         <ExploreHeader
           searchTerm={searchTerm}
           onSearchChange={(value) => setSearchTerm(value)}
