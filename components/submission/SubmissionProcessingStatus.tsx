@@ -26,19 +26,12 @@ export function SubmissionProcessingStatus({
 
   const status = getSubmissionFileProcessingStatus(submission);
   const copy = getSubmissionProcessingCopy(status);
-  const detail =
-    status === "failed" && submission.fileProcessingError
-      ? submission.fileProcessingError
-      : copy.description;
 
   return (
-    <div className="space-y-2">
+    <div className={compact ? undefined : "space-y-2"}>
       <Badge variant="outline" className={copy.className}>
         {copy.label}
       </Badge>
-      {!compact ? (
-        <p className="text-xs text-muted-foreground">{detail}</p>
-      ) : null}
     </div>
   );
 }

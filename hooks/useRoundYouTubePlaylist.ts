@@ -213,11 +213,10 @@ export function useRoundYouTubePlaylist({
           return;
         }
 
-        if (nextSession?.done) {
-          return;
+        if (!nextSession?.done) {
+          updatePlaylistPresence(true);
         }
 
-        updatePlaylistPresence(true);
         openYouTubePlaylist(ids);
       })();
     },
