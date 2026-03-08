@@ -446,7 +446,7 @@ export function RoundDetail({
       />
 
       {!league.isSpectator && (
-        <div className="mt-8 mb-16">
+        <div className="mt-8 mb-12">
           <SubmissionForm
             round={round}
             roundStatus={round.status}
