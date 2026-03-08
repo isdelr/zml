@@ -243,14 +243,13 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
         </div>
       )}
       {selectedRound && leagueData ? (
-        <>
-          <div className="my-12 border-b border-border" />
+        <div className="mt-8">
           <RoundDetail
             round={selectedRound}
             league={leagueData}
             canManageLeague={leagueData.canManageLeague}
           />
-        </>
+        </div>
       ) : null}
 
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
