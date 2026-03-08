@@ -32,12 +32,10 @@ export function PageLayout({ children }: PageLayoutProps) {
       <div
         className={cn(
           "flex flex-1 flex-col overflow-y-auto",
-          // Base padding for the bottom navbar on mobile.
-          "pb-16 md:pb-0",
           // Add extra padding if the music player is active.
           currentTrackIndex !== null && "pb-56 md:pb-20",
-          // Add padding for the new top bar on mobile
-          "pt-16 md:pt-0" // Add top padding for mobile, remove for desktop
+          // Add padding for the mobile top bar.
+          "pt-16 md:pt-0"
         )}
       >
         <MobileTopBar />

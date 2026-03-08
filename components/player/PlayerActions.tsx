@@ -45,7 +45,7 @@ export function PlayerActions({
   }, [volume]);
 
   return (
-    <div className="flex w-full items-center justify-end gap-2 md:w-1/4">
+    <div className="hidden w-full items-center justify-end gap-2 md:flex md:w-1/4">
       <Button
         variant="ghost"
         size="icon"

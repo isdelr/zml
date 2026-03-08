@@ -63,6 +63,7 @@ export function MusicPlayer() {
     volume,
     listenProgress,
     actions,
+    isContextViewOpen,
   } = useMusicPlayerStore();
   const currentTrack =
     currentTrackIndex !== null ? queue[currentTrackIndex] ?? null : null;
@@ -617,12 +618,15 @@ export function MusicPlayer() {
         className="hidden"
       />
       <MusicQueue isOpen={isQueueOpen} onOpenChange={setIsQueueOpen} />
-      <footer className="fixed bottom-16 left-0 right-0 z-50 h-auto border-t border-border bg-background text-foreground md:bottom-0 md:h-20">
+      <footer className="fixed bottom-0 left-0 right-0 z-50 h-auto border-t border-border bg-background pb-[env(safe-area-inset-bottom)] text-foreground md:h-20 md:pb-0">
         <div className="flex h-full flex-col items-center justify-between p-2 md:flex-row md:px-4">
           <PlayerTrackInfo
             currentTrack={currentTrack}
             isBookmarked={isBookmarked}
             onBookmarkToggle={handleBookmarkToggle}
+            onQueueOpen={() => setIsQueueOpen(true)}
+            onToggleContextView={actions.toggleContextView}
+            isContextViewOpen={isContextViewOpen}
           />
 
           <div className="flex w-full flex-1 flex-col items-center justify-center gap-1 md:px-4">

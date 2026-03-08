@@ -22,11 +22,6 @@ const MusicPlayer = dynamic(() =>
     default: mod.MusicPlayer,
   })),
 );
-const BottomNavbar = dynamic(() =>
-  import("@/components/BottomNavbar").then((mod) => ({
-    default: mod.BottomNavbar,
-  })),
-);
 
 const geistSans = localFont({
   src: "./fonts/geist/GeistSans-Variable.woff2",
@@ -142,7 +137,7 @@ export default function RootLayout({
 
             <NotificationProvider>
               <ConvexConnectionGuard>
-                <main className="min-h-dvh pb-[calc(env(safe-area-inset-bottom)+4.5rem)] md:pb-0">
+                <main className="min-h-dvh pb-[env(safe-area-inset-bottom)] md:pb-0">
                   {children}
                 </main>
               </ConvexConnectionGuard>
@@ -150,7 +145,6 @@ export default function RootLayout({
               <NonBlockingErrorBoundary boundaryName="MusicPlayer">
                 <MusicPlayer />
               </NonBlockingErrorBoundary>
-              <BottomNavbar />
             </NotificationProvider>
           </ConvexClientProvider>
         </ThemeProvider>

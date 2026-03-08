@@ -10,13 +10,23 @@ import { api } from "@/lib/convex/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toSvg } from "jdenticon";
 import Link from "next/link";
-import { Bell, LogOut, Plus, Trophy } from "lucide-react";
+import {
+  Bell,
+  Bookmark,
+  Compass,
+  LogOut,
+  Plus,
+  PlusCircle,
+  Send,
+  Trophy,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { signOutFromApp } from "@/lib/auth-client";
+import { usePathname } from "next/navigation";
 
 interface MobileMenuSheetProps {
   isOpen: boolean;
@@ -28,6 +38,7 @@ export function MobileMenuSheet({
   onOpenChange,
 }: MobileMenuSheetProps) {
   const { isAuthenticated } = useConvexAuth();
+  const pathname = usePathname();
   const currentUser = useQuery(
     api.users.getCurrentUser,
     isAuthenticated ? {} : "skip",
@@ -42,6 +53,19 @@ export function MobileMenuSheet({
     isAuthenticated ? {} : "skip",
   );
   const clearQueue = useMusicPlayerStore((state) => state.actions.clearQueue);
+
+  const navigationItems = isAuthenticated
+    ? [
+        { name: "Explore", icon: Compass, href: "/explore" },
+        { name: "Notifications", icon: Bell, href: "/notifications" },
+        { name: "My Submissions", icon: Send, href: "/my-submissions" },
+        { name: "Bookmarked", icon: Bookmark, href: "/bookmarked" },
+        { name: "Create League", icon: PlusCircle, href: "/leagues/create" },
+      ]
+    : [
+        { name: "Explore", icon: Compass, href: "/explore" },
+        { name: "Create League", icon: PlusCircle, href: "/leagues/create" },
+      ];
 
   const handleLogout = async () => {
     clearQueue();
@@ -84,24 +108,7 @@ export function MobileMenuSheet({
               >
                 {currentUser.name}
               </Link>
-              <div className="w-full flex justify-around items-center pt-2">
-                <div className="flex flex-col items-center">
-                  <Link
-                    href="/notifications"
-                    onClick={() => onOpenChange(false)}
-                    className="relative p-2 rounded-md hover:bg-accent"
-                  >
-                    <Bell className="size-6 text-muted-foreground" />
-                    {unreadCount !== undefined && unreadCount > 0 && (
-                      <span className="absolute -right-0 -top-0 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </Link>
-                  <span className="text-xs text-muted-foreground">
-                    Notifications
-                  </span>
-                </div>
+              <div className="flex w-full justify-center pt-2">
                 <div className="flex flex-col items-center">
                   <ThemeSwitcher />
                   <span className="text-xs text-muted-foreground">Theme</span>
@@ -116,6 +123,44 @@ export function MobileMenuSheet({
               </Button>
             </div>
           )}
+
+          <div className="space-y-4">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Navigation
+            </h2>
+            <nav className="flex flex-col gap-2">
+              {navigationItems.map((item) => {
+                const isActive =
+                  item.href === "/"
+                    ? pathname === item.href
+                    : pathname.startsWith(item.href);
+
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-semibold transition-colors hover:bg-accent hover:text-foreground",
+                      isActive && "bg-accent text-foreground",
+                    )}
+                    onClick={() => onOpenChange(false)}
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <item.icon className="size-4 shrink-0" />
+                      <span className="truncate">{item.name}</span>
+                    </span>
+                    {item.name === "Notifications" &&
+                      unreadCount !== undefined &&
+                      unreadCount > 0 && (
+                        <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white">
+                          {unreadCount}
+                        </span>
+                      )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
 
           {isAuthenticated && (
             <>
