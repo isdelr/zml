@@ -239,7 +239,10 @@ export const getForLeague = query({
               if (!winnerUser || !winnerSubmission) {
                 return null;
               }
-              const winnerImage = await resolveUserAvatarUrl(storage, winnerUser);
+              const winnerImage = await resolveUserAvatarUrl(
+                storage,
+                winnerUser,
+              );
               return {
                 name: winnerUser.name ?? "Unknown",
                 image: winnerImage,
@@ -355,71 +358,6 @@ export const getForLeague = query({
     });
 
     return { ...paginationResult, page: sortedRounds };
-  },
-});
-
-export const getActiveForUser = query({
-  args: {},
-  handler: async (
-    ctx,
-  ): Promise<
-    Array<Doc<"rounds"> & { leagueName: string; art: string | null }>
-  > => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return [];
-    const memberships = await ctx.db
-      .query("memberships")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    if (memberships.length === 0) return [];
-    const leagueIds = [
-      ...new Set(memberships.map((membership) => membership.leagueId)),
-    ];
-    const userLeagues = (
-      await Promise.all(
-        leagueIds.map((leagueId) => ctx.db.get("leagues", leagueId)),
-      )
-    ).filter((l): l is Doc<"leagues"> => l !== null);
-    if (userLeagues.length === 0) return [];
-    const activeRoundGroups = await Promise.all(
-      userLeagues.map(async (league) => {
-        const [submissionRounds, votingRounds] = await Promise.all([
-          ctx.db
-            .query("rounds")
-            .withIndex("by_league_and_status", (q) =>
-              q.eq("leagueId", league._id).eq("status", "submissions"),
-            )
-            .collect(),
-          ctx.db
-            .query("rounds")
-            .withIndex("by_league_and_status", (q) =>
-              q.eq("leagueId", league._id).eq("status", "voting"),
-            )
-            .collect(),
-        ]);
-        return Promise.all(
-          [...submissionRounds, ...votingRounds].map(async (round) => {
-            const artUrl = round.imageKey
-              ? await storage.getUrl(round.imageKey)
-              : null;
-            return {
-              ...round,
-              leagueName: league.name,
-              art: artUrl,
-            };
-          }),
-        );
-      }),
-    );
-    const allActiveRounds = activeRoundGroups.flat();
-    allActiveRounds.sort((a, b) => {
-      const aDeadline =
-        a.status === "submissions" ? a.submissionDeadline : a.votingDeadline;
-      const bDeadline =
-        b.status === "submissions" ? b.submissionDeadline : b.votingDeadline;
-      return aDeadline - bDeadline;
-    });
-    return allActiveRounds;
   },
 });
 
@@ -728,16 +666,18 @@ export const getVoteSummary = query({
         const submitter = userMap.get(submission.userId.toString());
         const submissionVotes =
           votesBySubmission.get(submission._id.toString()) || [];
-        const voteDetails = await Promise.all(submissionVotes.map(async (vote) => {
-          const voter = userMap.get(vote.userId.toString());
-          const voterImage = await resolveUserAvatarUrl(storage, voter);
-          return {
-            voterId: vote.userId,
-            voterName: voter?.name ?? "Unknown",
-            voterImage,
-            score: vote.vote,
-          };
-        }));
+        const voteDetails = await Promise.all(
+          submissionVotes.map(async (vote) => {
+            const voter = userMap.get(vote.userId.toString());
+            const voterImage = await resolveUserAvatarUrl(storage, voter);
+            return {
+              voterId: vote.userId,
+              voterName: voter?.name ?? "Unknown",
+              voterImage,
+              score: vote.vote,
+            };
+          }),
+        );
 
         const { albumArtUrl } = await resolveSubmissionMediaUrls(
           storage,

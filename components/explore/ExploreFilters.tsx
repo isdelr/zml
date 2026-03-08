@@ -8,17 +8,21 @@ interface ExploreFiltersProps {
   onTabChange: (tab: string) => void;
 }
 
-export function ExploreFilters({ activeTab, filterTabs, onTabChange }: ExploreFiltersProps) {
+export function ExploreFilters({
+  activeTab,
+  filterTabs,
+  onTabChange,
+}: ExploreFiltersProps) {
   return (
-    <div className="mb-8 flex items-center gap-2 overflow-x-auto border-b border-border pb-2">
+    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
       {filterTabs.map((tab) => (
         <Button
           key={tab}
-          variant="ghost"
-          className={`flex-shrink-0 font-semibold transition-colors hover:text-foreground ${
+          variant={activeTab === tab ? "secondary" : "ghost"}
+          className={`h-9 flex-shrink-0 rounded-full px-4 font-semibold transition-colors ${
             activeTab === tab
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground"
+              ? "bg-secondary text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
           }`}
           onClick={() => onTabChange(tab)}
         >

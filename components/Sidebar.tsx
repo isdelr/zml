@@ -8,7 +8,6 @@ import {
   LogOut,
   Plus,
   Send,
-  Swords,
   Trophy,
   User,
 } from "lucide-react";
@@ -36,7 +35,6 @@ const mainNav = [
 ];
 
 const collectionNav = [
-  { name: "Active Rounds", icon: Swords, href: "/active-rounds" },
   { name: "My Submissions", icon: Send, href: "/my-submissions" },
   { name: "Bookmarked", icon: Bookmark, href: "/bookmarked" },
 ];
@@ -77,7 +75,10 @@ export function Sidebar() {
               {currentUser && (
                 <div className="flex items-center gap-2">
                   <Avatar className="size-8">
-                    <AvatarImage src={currentUser.image ?? undefined} alt={currentUser.name} />
+                    <AvatarImage
+                      src={currentUser.image ?? undefined}
+                      alt={currentUser.name}
+                    />
                     <AvatarFallback
                       dangerouslySetInnerHTML={{
                         __html: toSvg(currentUser._id, 32),

@@ -70,6 +70,7 @@ const publicLeaguePreviewValidator = v.object({
   memberCount: v.number(),
   genres: v.array(v.string()),
   art: v.union(v.string(), v.null()),
+  roundArt: v.array(v.string()),
   isActive: v.boolean(),
 });
 
@@ -298,6 +299,20 @@ export const getPublicLeagues = query({
         ]);
 
         const genres = [...new Set(rounds.flatMap((r) => r.genres))];
+        const roundArt = [
+          ...new Set(
+            (
+              await Promise.all(
+                rounds.slice(0, roundsPreviewLimit).map(async (round) => {
+                  if (!round.imageKey) {
+                    return null;
+                  }
+                  return await storage.getUrl(round.imageKey);
+                }),
+              )
+            ).filter((art): art is string => art !== null),
+          ),
+        ].slice(0, 4);
         const isActive = rounds.some(
           (round) =>
             round.status === "submissions" || round.status === "voting",
@@ -311,6 +326,7 @@ export const getPublicLeagues = query({
           memberCount,
           genres,
           art: null,
+          roundArt,
           isActive,
         };
       }),
@@ -830,15 +846,17 @@ export const getLeagueStandings = query({
         .map((user) => [user._id.toString(), user]),
     );
 
-    const standings = await Promise.all(standingsDocs.map(async (standing) => {
-      const user = userById.get(standing.userId.toString());
-      return {
-        userId: standing.userId,
-        name: user?.name ?? "Unknown User",
-        image: (await resolveUserAvatarUrl(storage, user)) ?? undefined,
-        totalPoints: standing.totalPoints,
-      };
-    }));
+    const standings = await Promise.all(
+      standingsDocs.map(async (standing) => {
+        const user = userById.get(standing.userId.toString());
+        return {
+          userId: standing.userId,
+          name: user?.name ?? "Unknown User",
+          image: (await resolveUserAvatarUrl(storage, user)) ?? undefined,
+          totalPoints: standing.totalPoints,
+        };
+      }),
+    );
 
     return standings;
   },

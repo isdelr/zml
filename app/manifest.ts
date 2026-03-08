@@ -46,9 +46,21 @@ export default function manifest(): MetadataRoute.Manifest {
       },
     ],
     shortcuts: [
-      { name: "Explore", url: "/explore", description: "Explore public leagues" },
-      { name: "Active Rounds", url: "/active-rounds", description: "Rounds you can play or vote" },
-      { name: "Submissions", url: "/my-submissions", description: "Your past submissions" },
+      {
+        name: "Explore",
+        url: "/explore",
+        description: "Explore public leagues",
+      },
+      {
+        name: "Notifications",
+        url: "/notifications",
+        description: "Catch up on league activity",
+      },
+      {
+        name: "Submissions",
+        url: "/my-submissions",
+        description: "Your past submissions",
+      },
       { name: "Bookmarked", url: "/bookmarked", description: "Saved songs" },
     ],
     screenshots: [],
