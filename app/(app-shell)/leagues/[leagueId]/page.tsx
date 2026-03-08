@@ -44,7 +44,7 @@ export async function generateMetadata({
   }
 
   const title = leagueMetadata.name;
-  const description = `View the rounds, standings, and stats for the "${leagueMetadata.name}" music league. ${leagueMetadata.memberCount} ${leagueMetadata.memberCount === 1 ? "member" : "members"} competing for musical supremacy.`;
+  const description = `View the rounds and standings for the "${leagueMetadata.name}" music league. ${leagueMetadata.memberCount} ${leagueMetadata.memberCount === 1 ? "member" : "members"} competing for musical supremacy.`;
   const url = `https://zml.app/leagues/${leagueId}`;
   const ogImageUrl = `/api/og/league?leagueId=${leagueId}`;
 

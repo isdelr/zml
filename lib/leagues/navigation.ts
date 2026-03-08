@@ -29,38 +29,6 @@ export function getPreferredRoundId(rounds: RoundLike[] | null | undefined) {
   );
 }
 
-export function buildLeagueTabHref({
-  leagueId,
-  tab,
-  searchParams,
-  selectedRoundId,
-  fallbackRoundId,
-}: {
-  leagueId: string;
-  tab: string;
-  searchParams: SearchParamsInput;
-  selectedRoundId?: string | null;
-  fallbackRoundId?: string | null;
-}) {
-  const nextSearchParams = createSearchParams(searchParams);
-  nextSearchParams.set("tab", tab);
-  nextSearchParams.delete("round");
-
-  if (tab !== "rounds") {
-    return withQueryString(`/leagues/${leagueId}`, nextSearchParams);
-  }
-
-  const roundId = selectedRoundId ?? fallbackRoundId;
-  if (!roundId) {
-    return withQueryString(`/leagues/${leagueId}`, nextSearchParams);
-  }
-
-  return withQueryString(
-    `/leagues/${leagueId}/round/${roundId}`,
-    nextSearchParams,
-  );
-}
-
 export function buildLeagueRoundHref({
   leagueId,
   roundId,
@@ -71,8 +39,8 @@ export function buildLeagueRoundHref({
   searchParams: SearchParamsInput;
 }) {
   const nextSearchParams = createSearchParams(searchParams);
-  nextSearchParams.set("tab", "rounds");
   nextSearchParams.delete("round");
+  nextSearchParams.delete("tab");
 
   return withQueryString(
     `/leagues/${leagueId}/round/${roundId}`,

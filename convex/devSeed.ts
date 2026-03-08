@@ -540,10 +540,6 @@ async function clearNamespaceInternal(
       .query("leagueStandings")
       .withIndex("by_league_and_points", (q) => q.eq("leagueId", league._id))
       .collect();
-    const leagueStats = await ctx.db
-      .query("leagueStats")
-      .withIndex("by_league", (q) => q.eq("leagueId", league._id))
-      .collect();
 
     for (const membership of memberships) {
       await membershipsByUser.delete(ctx, membership);
@@ -556,9 +552,6 @@ async function clearNamespaceInternal(
     }
     for (const standing of standings) {
       await ctx.db.delete("leagueStandings", standing._id);
-    }
-    for (const stat of leagueStats) {
-      await ctx.db.delete("leagueStats", stat._id);
     }
     await ctx.db.delete("leagues", league._id);
   }
@@ -1182,9 +1175,6 @@ export const seedNamespace = mutation({
 
     await ctx.scheduler.runAfter(0, internal.leagues.calculateAndStoreResults, {
       roundId: roundFinished,
-    });
-    await ctx.scheduler.runAfter(0, internal.leagues.updateLeagueStats, {
-      leagueId: leagueFinished,
     });
 
     let simulationSummary:

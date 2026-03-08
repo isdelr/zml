@@ -4,11 +4,7 @@ import { useConvexAuth, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import {
-  useRouter,
-  useSearchParams,
-  useParams,
-} from "next/navigation";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { dynamicImport } from "@/components/ui/dynamic-import";
 import { RoundDetail } from "@/components/RoundDetail";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -16,9 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   buildLeagueRoundHref,
-  buildLeagueTabHref,
   getPreferredRoundId,
 } from "@/lib/leagues/navigation";
+import { Standings } from "@/components/Standings";
 
 const LeagueHeader = dynamicImport(() =>
   import("@/components/league/LeagueHeader").then((mod) => ({
@@ -28,11 +24,6 @@ const LeagueHeader = dynamicImport(() =>
 const LeagueInfo = dynamicImport(() =>
   import("@/components/league/LeagueInfo").then((mod) => ({
     default: mod.LeagueInfo,
-  })),
-);
-const LeagueTabs = dynamicImport(() =>
-  import("@/components/league/LeagueTabs").then((mod) => ({
-    default: mod.LeagueTabs,
   })),
 );
 const LeagueRounds = dynamicImport(() =>
@@ -61,11 +52,10 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   const params = useParams();
   const { isLoading: isAuthLoading } = useConvexAuth();
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
-  const activeTab = searchParams.get("tab") || "rounds";
   const selectedRoundId = (
     typeof params.roundId === "string"
       ? params.roundId
-      : searchParams.get("round")
+      : null
   ) as Id<"rounds"> | null;
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -115,9 +105,6 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
     isAuthLoading ? "skip" : {},
   );
   const { actions: playerActions } = useMusicPlayerStore();
-
-  const isLeagueFinished =
-    rounds && rounds.length > 0 && rounds.every((r) => r.status === "finished");
   const preferredRoundId = getPreferredRoundId(rounds);
 
   useEffect(() => {
@@ -134,18 +121,6 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [searchContainerRef]);
 
-  const handleTabChange = (newTab: string) => {
-    router.replace(
-      buildLeagueTabHref({
-        leagueId,
-        tab: newTab,
-        searchParams,
-        selectedRoundId,
-        fallbackRoundId: preferredRoundId,
-      }),
-    );
-  };
-
   const handleRoundSelect = (roundId: Id<"rounds">) => {
     router.push(
       buildLeagueRoundHref({
@@ -158,7 +133,6 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
 
   useEffect(() => {
     if (
-      activeTab === "rounds" &&
       (status === "CanLoadMore" || status === "Exhausted") &&
       rounds &&
       rounds.length > 0 &&
@@ -175,7 +149,6 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
       }
     }
   }, [
-    activeTab,
     leagueId,
     preferredRoundId,
     rounds,
@@ -200,7 +173,14 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
           ))}
         </div>
         <div className="mt-8">
-          <Skeleton className="h-10 w-full rounded-lg" />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="flex items-center gap-3">
+              <Skeleton className="h-5 w-5" />
+              <Skeleton className="size-8 rounded-full" />
+              <Skeleton className="h-6 w-14 rounded-full" />
+              <Skeleton className="h-5 w-32" />
+            </div>
+          ))}
         </div>
         <div className="mt-8 space-y-2">
           {Array.from({ length: 4 }).map((_, index) => (
@@ -248,34 +228,32 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
         playerActions={playerActions}
       />
       <LeagueInfo leagueData={leagueData} />
-      <LeagueTabs
-        activeTab={activeTab}
-        isLeagueFinished={isLeagueFinished}
-        leagueId={parsedLeagueId}
-        onTabChange={handleTabChange}
-      >
-        <LeagueRounds
-          rounds={rounds || []}
-          hasLoaded={status !== "LoadingFirstPage"}
-          selectedRoundId={selectedRoundId}
-          leagueId={leagueId}
-        />
-        {status === "CanLoadMore" && (
-          <div className="mt-8 flex justify-center">
-            <Button onClick={() => loadMore(10)} variant="outline">
-              Load More Rounds
-            </Button>
-          </div>
-        )}
-        <div className="my-12 border-b border-border"></div>
-        {selectedRound && leagueData ? (
+      <div className="mb-8">
+        <Standings leagueId={parsedLeagueId} />
+      </div>
+      <LeagueRounds
+        rounds={rounds || []}
+        hasLoaded={status !== "LoadingFirstPage"}
+        selectedRoundId={selectedRoundId}
+        leagueId={leagueId}
+      />
+      {status === "CanLoadMore" && (
+        <div className="mt-8 flex justify-center">
+          <Button onClick={() => loadMore(10)} variant="outline">
+            Load More Rounds
+          </Button>
+        </div>
+      )}
+      {selectedRound && leagueData ? (
+        <>
+          <div className="my-12 border-b border-border" />
           <RoundDetail
             round={selectedRound}
             league={leagueData}
             canManageLeague={leagueData.canManageLeague}
           />
-        ) : null}
-      </LeagueTabs>
+        </>
+      ) : null}
 
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <DialogContent className="max-w-2xl">

@@ -4,8 +4,6 @@ import {
   mutation,
   query,
   internalMutation,
-  internalAction,
-  internalQuery,
   type QueryCtx,
 } from "./_generated/server";
 import { getAuthUserId } from "./authCore";
@@ -25,45 +23,6 @@ import { getVoteLimits } from "../lib/convex-server/voteLimits";
 import { resolveUserAvatarUrl } from "./userAvatar";
 
 const storage = new B2Storage();
-
-const songAwardValidator = v.object({
-  songTitle: v.string(),
-  artist: v.string(),
-  albumArtUrl: v.union(v.string(), v.null()),
-  submittedBy: v.string(),
-  count: v.number(),
-});
-
-const roundAwardValidator = v.object({
-  roundId: v.id("rounds"),
-  title: v.string(),
-  imageUrl: v.union(v.string(), v.null()),
-  metric: v.number(),
-  submissions: v.number(),
-  totalUpvotes: v.number(),
-});
-
-// Fine-grained stat validators to match schema precisely
-const attendanceStatValidator = v.object({
-  name: v.optional(v.string()),
-  image: v.optional(v.string()),
-  count: v.number(),
-  meta: v.optional(v.object({ totalRounds: v.number() })),
-});
-
-const goldenEarsStatValidator = v.object({
-  name: v.optional(v.string()),
-  image: v.optional(v.string()),
-  count: v.number(),
-  meta: v.optional(v.object({ rounds: v.number() })),
-});
-
-const consistencyStatValidator = v.object({
-  name: v.optional(v.string()),
-  image: v.optional(v.string()),
-  count: v.number(),
-  meta: v.optional(v.object({ rounds: v.number(), average: v.number() })),
-});
 
 const sortLeaguesForDisplay = (a: Doc<"leagues">, b: Doc<"leagues">) => {
   const nameCompare = a.name.localeCompare(b.name, undefined, {
@@ -885,29 +844,6 @@ export const getLeagueStandings = query({
   },
 });
 
-const userStatValidator = v.object({
-  name: v.optional(v.string()),
-  image: v.optional(v.string()),
-  count: v.number(),
-});
-
-const topSongValidator = v.object({
-  songTitle: v.string(),
-  artist: v.string(),
-  albumArtUrl: v.union(v.string(), v.null()),
-  score: v.number(),
-  submittedBy: v.string(),
-});
-
-const roundSummaryValidator = v.object({
-  roundId: v.id("rounds"),
-  title: v.string(),
-  imageUrl: v.union(v.string(), v.null()),
-  status: v.string(),
-  submissionCount: v.number(),
-  totalVotes: v.number(),
-});
-
 export const getLeagueMetadata = query({
   args: { leagueId: v.id("leagues") },
   returns: v.union(
@@ -929,139 +865,6 @@ export const getLeagueMetadata = query({
       name: league.name,
       description: league.description,
       memberCount,
-    };
-  },
-});
-
-export const updateLeagueStats = internalAction({
-  args: { leagueId: v.id("leagues") },
-  handler: async (ctx, args) => {
-    const statsData = await ctx.runQuery(internal.leagueViews.getStatsData, {
-      leagueId: args.leagueId,
-    });
-
-    if (!statsData) {
-      console.log(
-        `No finished rounds for league ${args.leagueId}, skipping stats update.`,
-      );
-      return;
-    }
-
-    await ctx.runMutation(internal.leagues.storeLeagueStats, {
-      leagueId: args.leagueId,
-      stats: statsData,
-    });
-  },
-});
-
-// getStatsData moved to convex/leagueViews.ts to isolate AWS SDK cold-start cost.
-// NEW: Persist computed league stats. Called by updateLeagueStats().
-export const storeLeagueStats = internalMutation({
-  args: {
-    leagueId: v.id("leagues"),
-    stats: v.object({
-      overlord: v.union(v.null(), userStatValidator),
-      peopleChampion: v.union(v.null(), userStatValidator),
-      mostControversial: v.union(v.null(), userStatValidator),
-      prolificVoter: v.union(v.null(), userStatValidator),
-      topSong: v.union(v.null(), topSongValidator),
-      top10Songs: v.array(topSongValidator),
-      allRounds: v.array(roundSummaryValidator),
-      mostUpvotedSong: v.union(v.null(), songAwardValidator),
-      mostDownvotedSong: v.union(v.null(), songAwardValidator),
-      fanFavoriteSong: v.union(v.null(), songAwardValidator),
-      attendanceStar: v.union(v.null(), attendanceStatValidator),
-      goldenEars: v.union(v.null(), goldenEarsStatValidator),
-      consistencyKing: v.union(v.null(), consistencyStatValidator),
-      biggestDownvoter: v.union(v.null(), userStatValidator),
-      worstRound: v.union(v.null(), roundAwardValidator),
-      closestRound: v.union(v.null(), roundAwardValidator),
-      blowoutRound: v.union(v.null(), roundAwardValidator),
-      genreBreakdown: v.array(
-        v.object({ name: v.string(), value: v.number() }),
-      ),
-    }),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("leagueStats")
-      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .first();
-
-    if (existing) {
-      await ctx.db.patch("leagueStats", existing._id, {
-        ...args.stats,
-      });
-    } else {
-      await ctx.db.insert("leagueStats", {
-        leagueId: args.leagueId,
-        ...args.stats,
-      });
-    }
-  },
-});
-
-// Return league stats for UI
-export const getLeagueStats = query({
-  args: { leagueId: v.id("leagues") },
-  returns: v.union(
-    v.null(),
-    v.object({
-      overlord: v.union(v.null(), userStatValidator),
-      peopleChampion: v.union(v.null(), userStatValidator),
-      mostControversial: v.union(v.null(), userStatValidator),
-      prolificVoter: v.union(v.null(), userStatValidator),
-      topSong: v.union(v.null(), topSongValidator),
-      top10Songs: v.array(topSongValidator),
-      allRounds: v.array(roundSummaryValidator),
-      mostUpvotedSong: v.union(v.null(), songAwardValidator),
-      mostDownvotedSong: v.union(v.null(), songAwardValidator),
-      fanFavoriteSong: v.union(v.null(), songAwardValidator),
-      attendanceStar: v.union(v.null(), attendanceStatValidator),
-      goldenEars: v.union(v.null(), goldenEarsStatValidator),
-      consistencyKing: v.union(v.null(), consistencyStatValidator),
-      biggestDownvoter: v.union(v.null(), userStatValidator),
-      worstRound: v.union(v.null(), roundAwardValidator),
-      closestRound: v.union(v.null(), roundAwardValidator),
-      blowoutRound: v.union(v.null(), roundAwardValidator),
-      genreBreakdown: v.array(
-        v.object({ name: v.string(), value: v.number() }),
-      ),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    const { canView } = await canViewLeague(ctx, args.leagueId, userId);
-    if (!canView) {
-      return null;
-    }
-
-    const statsDoc = await ctx.db
-      .query("leagueStats")
-      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .first();
-    if (!statsDoc) return null;
-
-    // Return exactly the shape specified in `returns` (exclude _id, _creationTime, leagueId)
-    return {
-      overlord: statsDoc.overlord ?? null,
-      peopleChampion: statsDoc.peopleChampion ?? null,
-      mostControversial: statsDoc.mostControversial ?? null,
-      prolificVoter: statsDoc.prolificVoter ?? null,
-      topSong: statsDoc.topSong ?? null,
-      top10Songs: statsDoc.top10Songs ?? [],
-      allRounds: statsDoc.allRounds ?? [],
-      mostUpvotedSong: statsDoc.mostUpvotedSong ?? null,
-      mostDownvotedSong: statsDoc.mostDownvotedSong ?? null,
-      fanFavoriteSong: statsDoc.fanFavoriteSong ?? null,
-      attendanceStar: statsDoc.attendanceStar ?? null,
-      goldenEars: statsDoc.goldenEars ?? null,
-      consistencyKing: statsDoc.consistencyKing ?? null,
-      biggestDownvoter: statsDoc.biggestDownvoter ?? null,
-      worstRound: statsDoc.worstRound ?? null,
-      closestRound: statsDoc.closestRound ?? null,
-      blowoutRound: statsDoc.blowoutRound ?? null,
-      genreBreakdown: statsDoc.genreBreakdown ?? [],
     };
   },
 });
