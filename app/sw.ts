@@ -124,12 +124,28 @@ self.addEventListener("message", (event) => {
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
-  try {
+  event.waitUntil((async () => {
+    const clientsArr = await self.clients.matchAll({
+      type: "window",
+      includeUncontrolled: true,
+    });
+    const hasVisibleClient = clientsArr.some((client) => {
+      if ("visibilityState" in client && client.visibilityState === "visible") {
+        return true;
+      }
+      return "focused" in client && client.focused;
+    });
+
+    if (hasVisibleClient) {
+      return;
+    }
+
     const data = event.data.json() as {
       title?: string;
       body?: string;
       icon?: string;
       badge?: string;
+      tag?: string;
       data?: { url?: string };
     };
 
@@ -138,8 +154,7 @@ self.addEventListener("push", (event) => {
       icon: data.icon || "/icons/web-app-manifest-192x192.png",
       badge: data.badge || "/icons/web-app-manifest-192x192.png",
       vibrate: [100, 50, 100],
-      requireInteraction: true,
-      tag: "zml-notification",
+      tag: data.tag || `${data.data?.url || "/"}:${Date.now()}`,
       data: { url: data.data?.url || "/" },
       actions: [
         {
@@ -151,15 +166,13 @@ self.addEventListener("push", (event) => {
       ],
     };
 
-    event.waitUntil(
-      self.registration.showNotification(
-        data.title || "ZML Notification",
-        options,
-      ),
+    await self.registration.showNotification(
+      data.title || "ZML Notification",
+      options,
     );
-  } catch (error) {
+  })().catch((error) => {
     console.error("[SW] Push parse error:", error);
-  }
+  }));
 });
 
 self.addEventListener("notificationclick", (event) => {

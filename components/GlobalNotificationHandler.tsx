@@ -17,13 +17,11 @@ export function GlobalNotificationHandler() {
   const [isVisible, setIsVisible] = useState(
     typeof document === "undefined" || document.visibilityState === "visible",
   );
-  const { permission } = useBrowserNotifier();
+  useBrowserNotifier();
   const router = useRouter();
   const notifications = useQuery(
     api.notifications.getRecentUnread,
-    isAuthenticated && permission === "granted" && isVisible
-      ? { limit: 5 }
-      : "skip",
+    isAuthenticated && isVisible ? { limit: 5 } : "skip",
   );
 
   // Use a ref to keep track of notifications shown in this session.
@@ -46,7 +44,7 @@ export function GlobalNotificationHandler() {
     // 1. The browser tab is currently visible. The service worker handles background notifications.
     // 2. The user has granted notification permissions for the site.
     // 3. The notifications data has been loaded.
-    if (!isVisible || permission !== "granted" || !notifications) {
+    if (!isVisible || !notifications) {
       return;
     }
 
@@ -74,7 +72,7 @@ export function GlobalNotificationHandler() {
         shownNotifications.current.add(notification._id);
       }
     });
-  }, [isVisible, notifications, permission, router]);
+  }, [isVisible, notifications, router]);
 
   // This component does not render anything.
   return null;

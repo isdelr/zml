@@ -192,6 +192,97 @@ export const createMany = internalMutation({
   },
 });
 
+export const createManyUniqueBySource = internalMutation({
+  args: {
+    notifications: v.array(
+      v.object({
+        userId: v.id("users"),
+        type: notificationTypeValidator,
+        message: v.string(),
+        link: v.string(),
+        triggeringUserId: v.optional(v.id("users")),
+        metadata: v.optional(notificationMetadataValidator),
+        pushNotificationOverride: v.optional(pushNotificationOverrideValidator),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const uniqueUserIds = [
+      ...new Set(args.notifications.map((notification) => notification.userId)),
+    ];
+    const users = await Promise.all(
+      uniqueUserIds.map((userId) => ctx.db.get("users", userId)),
+    );
+    const existingUserIds = new Set(
+      users
+        .filter((user): user is NonNullable<typeof user> => user !== null)
+        .map((user) => user._id.toString()),
+    );
+
+    const sourceCache = new Set<string>();
+    const userTypePairs = [
+      ...new Set(
+        args.notifications.map(
+          (notification) => `${notification.userId}:${notification.type}`,
+        ),
+      ),
+    ];
+
+    for (const pair of userTypePairs) {
+      const [userIdRaw, type] = pair.split(":");
+      const matchingUserId = uniqueUserIds.find(
+        (userId) => userId.toString() === userIdRaw,
+      );
+      if (!matchingUserId) {
+        continue;
+      }
+
+      const recentNotifications = await ctx.db
+        .query("notifications")
+        .withIndex("by_user_and_type", (q) =>
+          q.eq("userId", matchingUserId).eq("type", type as NotificationType),
+        )
+        .order("desc")
+        .take(200);
+
+      for (const notification of recentNotifications) {
+        const source = notification.metadata?.source;
+        if (source) {
+          sourceCache.add(
+            `${notification.userId}:${notification.type}:${source}`,
+          );
+        }
+      }
+    }
+
+    const createdIds: Id<"notifications">[] = [];
+    for (const notification of args.notifications) {
+      const source = notification.metadata?.source;
+      const sourceKey = source
+        ? `${notification.userId}:${notification.type}:${source}`
+        : null;
+
+      if (sourceKey && sourceCache.has(sourceKey)) {
+        continue;
+      }
+
+      const notificationId = await createNotificationWithSideEffects(
+        ctx,
+        notification,
+        { existingUserIds },
+      );
+      if (notificationId) {
+        createdIds.push(notificationId);
+        if (sourceKey) {
+          sourceCache.add(sourceKey);
+        }
+      }
+    }
+
+    return createdIds;
+  },
+});
+
 export const createForLeague = internalAction({
   args: {
     leagueId: v.id("leagues"),

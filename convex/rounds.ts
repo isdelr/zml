@@ -25,8 +25,18 @@ import { resolveSubmissionMediaUrls } from "../lib/convex-server/submissions/med
 import { B2Storage } from "./b2Storage";
 import { resolveUserAvatarUrl } from "./userAvatar";
 import { getSubmissionFileProcessingStatus } from "../lib/submission/file-processing";
+import {
+  buildRoundDeadlineReminderMessage,
+  buildRoundDeadlineReminderSource,
+  buildRoundDeadlineReminderTitle,
+  getRoundDeadlineReminderCandidates,
+  ROUND_DEADLINE_REMINDER_WINDOWS,
+} from "../lib/rounds/deadline-reminders";
 
 const storage = new B2Storage();
+const MAX_ROUND_DEADLINE_REMINDER_MS = Math.max(
+  ...ROUND_DEADLINE_REMINDER_WINDOWS.map((window) => window.thresholdMs),
+);
 
 async function canViewLeague(
   ctx: Pick<QueryCtx, "db">,
@@ -746,6 +756,141 @@ export const transitionDueRounds = internalAction({
         );
       }
     }
+
+    const deadlineReminderContexts = await ctx.runQuery(
+      internal.rounds.getDeadlineReminderContexts,
+      {
+        now,
+        maxDeadline: now + MAX_ROUND_DEADLINE_REMINDER_MS,
+      },
+    );
+
+    const notificationsToCreate = deadlineReminderContexts.flatMap((context) => {
+      const reminderCandidates = getRoundDeadlineReminderCandidates(
+        {
+          _id: context.roundId,
+          status: context.status,
+          submissionDeadline: context.submissionDeadline,
+          votingDeadline: context.votingDeadline,
+        },
+        now,
+      );
+
+      return reminderCandidates.flatMap((candidate) => {
+        const message = buildRoundDeadlineReminderMessage({
+          status: context.status,
+          roundTitle: context.roundTitle,
+          leagueName: context.leagueName,
+          label: candidate.window.label,
+        });
+
+        return context.memberUserIds.map((userId) => ({
+          userId,
+          type: candidate.type,
+          message,
+          link: `/leagues/${context.leagueId}/round/${context.roundId}`,
+          metadata: {
+            source: buildRoundDeadlineReminderSource({
+              roundId: context.roundId,
+              status: context.status,
+              deadline: candidate.deadline,
+              windowKey: candidate.window.key,
+            }),
+          },
+          pushNotificationOverride: {
+            title: buildRoundDeadlineReminderTitle({
+              status: context.status,
+              label: candidate.window.label,
+            }),
+            body: message,
+          },
+        }));
+      });
+    });
+
+    if (notificationsToCreate.length > 0) {
+      await ctx.runMutation(internal.notifications.createManyUniqueBySource, {
+        notifications: notificationsToCreate,
+      });
+    }
+  },
+});
+
+export const getDeadlineReminderContexts = internalQuery({
+  args: {
+    now: v.number(),
+    maxDeadline: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const [submissionRounds, votingRounds] = await Promise.all([
+      ctx.db
+        .query("rounds")
+        .withIndex("by_status_and_submission_deadline", (q) =>
+          q
+            .eq("status", "submissions")
+            .gt("submissionDeadline", args.now)
+            .lte("submissionDeadline", args.maxDeadline),
+        )
+        .collect(),
+      ctx.db
+        .query("rounds")
+        .withIndex("by_status_and_voting_deadline", (q) =>
+          q
+            .eq("status", "voting")
+            .gt("votingDeadline", args.now)
+            .lte("votingDeadline", args.maxDeadline),
+        )
+        .collect(),
+    ]);
+
+    const rounds = [...submissionRounds, ...votingRounds];
+    const leagueIds = [...new Set(rounds.map((round) => round.leagueId))];
+    const [leagues, membershipsByLeague] = await Promise.all([
+      Promise.all(leagueIds.map((leagueId) => ctx.db.get("leagues", leagueId))),
+      Promise.all(
+        leagueIds.map((leagueId) =>
+          ctx.db
+            .query("memberships")
+            .withIndex("by_league", (q) => q.eq("leagueId", leagueId))
+            .collect(),
+        ),
+      ),
+    ]);
+
+    const leagueMap = new Map(
+      leagues
+        .filter((league): league is NonNullable<typeof league> => league !== null)
+        .map((league) => [league._id.toString(), league]),
+    );
+    const memberUserIdsByLeague = new Map(
+      leagueIds.map((leagueId, index) => [
+        leagueId.toString(),
+        membershipsByLeague[index]
+          .filter((membership) => !membership.isBanned && !membership.isSpectator)
+          .map((membership) => membership.userId),
+      ]),
+    );
+
+    return rounds.flatMap((round) => {
+      const league = leagueMap.get(round.leagueId.toString());
+      if (!league) {
+        return [];
+      }
+
+      return [
+        {
+          roundId: round._id,
+          leagueId: round.leagueId,
+          leagueName: league.name,
+          roundTitle: round.title,
+          status: round.status,
+          submissionDeadline: round.submissionDeadline,
+          votingDeadline: round.votingDeadline,
+          memberUserIds:
+            memberUserIdsByLeague.get(round.leagueId.toString()) ?? [],
+        },
+      ];
+    });
   },
 });
 
