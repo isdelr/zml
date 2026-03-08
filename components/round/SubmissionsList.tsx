@@ -27,6 +27,9 @@ type UserVoteStatus = FunctionReturnType<typeof api.votes.getForUserInRound>;
 type BookmarkedSong = FunctionReturnType<
   typeof api.bookmarks.getBookmarkedSongs
 >[number];
+type SubmissionVoteSummary = FunctionReturnType<
+  typeof api.rounds.getVoteSummary
+>[number];
 type SubmissionListener = {
   name?: string | null;
   image?: string | null;
@@ -50,6 +53,7 @@ interface SubmissionsListProps {
   onToggleComments: (submissionId: Id<"submissions"> | null) => void;
   listenersBySubmission: Record<string, SubmissionListener[]> | undefined;
   playlistListeners: SubmissionListener[] | undefined;
+  voteSummaryBySubmission: Record<string, SubmissionVoteSummary>;
   positiveVotesRemaining: number;
   negativeVotesRemaining: number;
   isVoteFinal: boolean;
@@ -83,6 +87,7 @@ export function SubmissionsList({
   onToggleComments,
   listenersBySubmission,
   playlistListeners,
+  voteSummaryBySubmission,
   positiveVotesRemaining,
   negativeVotesRemaining,
   isVoteFinal,
@@ -245,6 +250,7 @@ export function SubmissionsList({
     const userIsSubmitter = submission.userId === currentUser?._id;
     const isCommentsVisible = activeCommentsSubmissionId === submissionId;
     const listeners = listenersBySubmission?.[submissionKey] ?? [];
+    const voteSummary = voteSummaryBySubmission[submissionKey];
 
     const userVoteOnThisSong = userVotes.find(
       (v) => v.submissionId === submissionId,
@@ -273,6 +279,7 @@ export function SubmissionsList({
           onToggleComments(isCommentsVisible ? null : submissionId)
         }
         listeners={listeners}
+        voteDetails={voteSummary?.votes}
         currentUser={currentUser}
       />
     );
@@ -290,6 +297,10 @@ export function SubmissionsList({
   };
 
   const showVotingStatusStrip = roundStatus === "voting" && !league.isSpectator;
+  const desktopGridClass =
+    roundStatus === "finished"
+      ? "grid grid-cols-[auto_4fr_3fr_3fr_2fr_auto] items-center gap-4 px-4 py-2"
+      : "grid grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 px-4 py-2";
 
   return (
     <div className="mt-3 flex flex-col rounded-lg border">
@@ -345,10 +356,14 @@ export function SubmissionsList({
       ) : null}
 
       <div className="hidden border-b border-border text-xs font-semibold uppercase text-muted-foreground md:block">
-        <div className="grid grid-cols-[auto_4fr_3fr_2fr_auto] items-center gap-4 px-4 py-2">
+        <div className={desktopGridClass}>
           <span className="w-10 text-center">#</span>
           <span>Track</span>
           <span>{roundStatus === "voting" ? "Comment" : "Submitted By"}</span>
+          {roundStatus === "finished" ? <span>Votes</span> : null}
+          {roundStatus === "finished" ? (
+            <span className="text-right">Points</span>
+          ) : null}
         </div>
       </div>
 
@@ -451,6 +466,7 @@ export function SubmissionsList({
             const listeners = listenersBySubmission
               ? listenersBySubmission[song._id.toString()]
               : [];
+            const voteSummary = voteSummaryBySubmission[song._id.toString()];
             const userVoteOnThisSong = userVotes.find(
               (v) => v.submissionId === song._id,
             );
@@ -480,6 +496,7 @@ export function SubmissionsList({
                 onPlaySong={() => onPlaySong(toSong(song), indexInAll)}
                 listenProgress={listenProgressMap[song._id.toString()]}
                 listeners={listeners ?? []}
+                voteDetails={voteSummary?.votes}
                 currentUser={currentUser}
               />
             );
@@ -497,6 +514,7 @@ export function SubmissionsList({
             const listeners = listenersBySubmission
               ? listenersBySubmission[song._id.toString()]
               : [];
+            const voteSummary = voteSummaryBySubmission[song._id.toString()];
             const userVoteOnThisSong = userVotes.find(
               (v) => v.submissionId === song._id,
             );
@@ -526,6 +544,7 @@ export function SubmissionsList({
                 onPlaySong={() => onPlaySong(toSong(song), indexInAll)}
                 listenProgress={listenProgressMap[song._id.toString()]}
                 listeners={listeners ?? []}
+                voteDetails={voteSummary?.votes}
                 currentUser={currentUser}
               />
             );

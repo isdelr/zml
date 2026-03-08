@@ -7,7 +7,7 @@ import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
 import type { LeagueData, RoundForLeague } from "@/lib/convex/types";
 import { dynamicImport } from "@/components/ui/dynamic-import";
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { SubmissionCommentsPanel } from "./round/SubmissionCommentsPanel";
 import { getSortedRoundSubmissions } from "@/lib/rounds/submission-order";
 import { getRoundSubmitterSummary } from "@/lib/rounds/submitter-summary";
@@ -33,11 +33,6 @@ const SubmissionForm = dynamicImport(() =>
 const SubmissionsList = dynamicImport(() =>
   import("./round/SubmissionsList").then((mod) => ({
     default: mod.SubmissionsList,
-  })),
-);
-const RoundVoteSummary = dynamicImport(() =>
-  import("./round/RoundVoteSummary").then((mod) => ({
-    default: mod.RoundVoteSummary,
   })),
 );
 
@@ -93,16 +88,13 @@ export function RoundDetail({
     queue,
   } = useMusicPlayerStore();
 
-  const [isVoteSummaryVisible, setIsVoteSummaryVisible] = useState(false);
-  const summaryTriggerRef = useRef<HTMLDivElement | null>(null);
   const [activeCommentsSubmissionId, setActiveCommentsSubmissionId] =
     useState<Id<"submissions"> | null>(null);
 
   const currentUser = useQuery(api.users.getCurrentUser);
-  const listenersBySubmission = useQuery(
-    api.presence.listForRound,
-    { roundId: round._id },
-  );
+  const listenersBySubmission = useQuery(api.presence.listForRound, {
+    roundId: round._id,
+  });
   const playlistListeners = useQuery(api.presence.listPlaylistForRound, {
     roundId: round._id,
   });
@@ -113,6 +105,10 @@ export function RoundDetail({
   const submissions = useQuery(api.submissions.getForRound, {
     roundId: round._id,
   });
+  const voteSummary = useQuery(
+    api.rounds.getVoteSummary,
+    round.status === "finished" ? { roundId: round._id } : "skip",
+  );
   const shouldLoadVoteStatus =
     !league.isSpectator &&
     (round.status === "voting" || round.status === "finished");
@@ -120,26 +116,6 @@ export function RoundDetail({
     api.votes.getVotersForRound,
     round.status === "voting" ? { roundId: round._id } : "skip",
   );
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry) return;
-        if (entry.isIntersecting) {
-          setIsVoteSummaryVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "0px 0px 200px 0px" },
-    );
-
-    if (summaryTriggerRef.current) {
-      observer.observe(summaryTriggerRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, []);
 
   const listenProgressMap = useMemo(() => {
     if (!listenProgressData) return {};
@@ -234,6 +210,13 @@ export function RoundDetail({
     if (!submissions) return undefined;
     return getSortedRoundSubmissions(submissions, round.status, round._id);
   }, [submissions, round.status, round._id]);
+
+  const voteSummaryBySubmission = useMemo(() => {
+    if (!voteSummary) return {};
+    return Object.fromEntries(
+      voteSummary.map((summary) => [summary.submissionId.toString(), summary]),
+    );
+  }, [voteSummary]);
 
   const toSong = useCallback(
     (submission: NonNullable<typeof sortedSubmissions>[number]): Song => ({
@@ -436,10 +419,7 @@ export function RoundDetail({
   return (
     <section>
       {canManageLeague && (
-        <RoundAdminControls
-          round={round}
-          submissions={submissions}
-        />
+        <RoundAdminControls round={round} submissions={submissions} />
       )}
 
       <RoundStatusAlerts
@@ -508,6 +488,7 @@ export function RoundDetail({
             onToggleComments={setActiveCommentsSubmissionId}
             listenersBySubmission={listenersBySubmission}
             playlistListeners={playlistListeners}
+            voteSummaryBySubmission={voteSummaryBySubmission}
             positiveVotesRemaining={positiveVotesRemaining}
             negativeVotesRemaining={negativeVotesRemaining}
             isVoteFinal={isVoteFinal}
@@ -516,15 +497,6 @@ export function RoundDetail({
             onReachYouTube={ensureAutoOpenOnce}
             ytInfo={ytInfo}
           />
-          {round.status === "finished" && (
-            <div ref={summaryTriggerRef}>
-              {isVoteSummaryVisible ? (
-                <RoundVoteSummary roundId={round._id} />
-              ) : (
-                <div className="my-8 min-h-[24rem]" />
-              )}
-            </div>
-          )}
         </>
       )}
 
