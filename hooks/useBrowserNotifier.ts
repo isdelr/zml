@@ -1,5 +1,5 @@
 // hooks/useBrowserNotifier.ts
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
 
@@ -18,6 +18,20 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+function getValidatedApplicationServerKey(vapidPublicKey: string) {
+  const normalized = vapidPublicKey.trim();
+  const applicationServerKey = urlBase64ToUint8Array(normalized);
+  if (
+    applicationServerKey.length !== 65 ||
+    applicationServerKey[0] !== 0x04
+  ) {
+    throw new Error(
+      `Invalid VAPID public key in client env. Expected 65-byte uncompressed P-256 key, received ${applicationServerKey.length} bytes.`,
+    );
+  }
+  return applicationServerKey;
+}
+
 export function useBrowserNotifier() {
   const [permission, setPermission] = useState<NotificationPermission>(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -25,12 +39,10 @@ export function useBrowserNotifier() {
     }
     return Notification.permission;
   });
-  const shouldLoadCurrentUser = permission === "granted";
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    shouldLoadCurrentUser ? {} : "skip",
-  );
+  const currentUser = useQuery(api.users.getCurrentUser, {});
   const subscribe = useMutation(api.webPush.subscribe);
+  const isSyncingSubscription = useRef(false);
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
   const [dontAskAgain, setDontAskAgain] = useState(() => {
     if (typeof window === "undefined") {
       return false;
@@ -53,52 +65,104 @@ export function useBrowserNotifier() {
     return isStillDismissed;
   });
 
-  useEffect(() => {
-    const createSubscription = async () => {
-      if (
-        permission === "granted" &&
-        !!currentUser?._id &&
-        "serviceWorker" in navigator &&
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-      ) {
-        try {
-          const registration = await navigator.serviceWorker.ready;
-          let subscription = await registration.pushManager.getSubscription();
-          if (!subscription) {
-            const applicationServerKey = urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!);
-            subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey,
-            });
-          }
+  const syncPushSubscription = useCallback(async () => {
+    if (isSyncingSubscription.current) {
+      return false;
+    }
 
-          const subscriptionJSON = subscription.toJSON();
+    if (permission !== "granted") {
+      return false;
+    }
 
-          if (
-            !subscriptionJSON.endpoint ||
-            !subscriptionJSON.keys?.p256dh ||
-            !subscriptionJSON.keys?.auth
-          ) {
-            console.error("Subscription is missing one or more required properties.");
-            return;
-          }
+    if (!currentUser?._id) {
+      return false;
+    }
 
-          await subscribe({
-            endpoint: subscriptionJSON.endpoint,
-            subscription: {
-              keys: {
-                p256dh: subscriptionJSON.keys.p256dh,
-                auth: subscriptionJSON.keys.auth,
-              },
-            },
-          });
-        } catch (error) {
-          console.error("Error subscribing to push notifications:", error);
-        }
+    if (!("serviceWorker" in navigator)) {
+      console.error("[Push] Service workers are unavailable in this browser.");
+      return false;
+    }
+
+    if (!vapidPublicKey) {
+      console.error("[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing in the client bundle.");
+      return false;
+    }
+
+    isSyncingSubscription.current = true;
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const applicationServerKey =
+        getValidatedApplicationServerKey(vapidPublicKey);
+
+      console.info("[Push] Attempting browser subscription", {
+        isSecureContext,
+        origin: window.location.origin,
+        permission,
+        scope: registration.scope,
+        hasActiveWorker: Boolean(registration.active),
+        vapidPublicKeyLength: vapidPublicKey.length,
+        applicationServerKeyLength: applicationServerKey.length,
+      });
+
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        });
       }
-    };
-    void createSubscription();
-  }, [permission, currentUser?._id, subscribe]);
+
+      const subscriptionJSON = subscription.toJSON();
+
+      if (
+        !subscriptionJSON.endpoint ||
+        !subscriptionJSON.keys?.p256dh ||
+        !subscriptionJSON.keys?.auth
+      ) {
+        console.error("Subscription is missing one or more required properties.");
+        return false;
+      }
+
+      await subscribe({
+        endpoint: subscriptionJSON.endpoint,
+        subscription: {
+          keys: {
+            p256dh: subscriptionJSON.keys.p256dh,
+            auth: subscriptionJSON.keys.auth,
+          },
+        },
+      });
+
+      return true;
+    } catch (error) {
+      const errorName =
+        error instanceof DOMException || error instanceof Error
+          ? error.name
+          : "UnknownError";
+      const errorMessage =
+        error instanceof Error ? error.message : String(error ?? "Unknown error");
+      console.error("Error subscribing to push notifications:", error, {
+        errorName,
+        errorMessage,
+        permission,
+        isSecureContext,
+        origin: typeof window === "undefined" ? undefined : window.location.origin,
+        hasServiceWorker: typeof navigator !== "undefined" && "serviceWorker" in navigator,
+        vapidPublicKeyLength: vapidPublicKey.length,
+      });
+      return false;
+    } finally {
+      isSyncingSubscription.current = false;
+    }
+  }, [currentUser?._id, permission, subscribe, vapidPublicKey]);
+
+  useEffect(() => {
+    if (permission !== "granted" || !currentUser?._id) {
+      return;
+    }
+    void syncPushSubscription();
+  }, [currentUser?._id, permission, syncPushSubscription]);
 
   const isPromptVisible = useMemo(() => {
     return permission === "default" && !dontAskAgain && !isTemporarilyDismissed;
@@ -120,8 +184,9 @@ export function useBrowserNotifier() {
       localStorage.removeItem(PROMPT_DISMISSED_KEY);
       setDontAskAgain(false);
       setIsTemporarilyDismissed(false);
+      await syncPushSubscription();
     }
-  }, []);
+  }, [syncPushSubscription]);
 
   const showNotification = useCallback(
     (title: string, options?: NotificationOptions) => {
