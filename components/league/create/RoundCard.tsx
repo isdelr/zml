@@ -89,7 +89,10 @@ export function RoundCard({
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Describe the theme of this round." {...field} />
+                    <Textarea
+                      placeholder="Describe the theme of this round."
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -102,7 +105,13 @@ export function RoundCard({
                 <FormItem>
                   <FormLabel>Songs per Participant</FormLabel>
                   <FormControl>
-                    <Input type="number" min={1} max={5} {...field} value={(field.value as number) || ""} />
+                    <Input
+                      type="number"
+                      min={1}
+                      max={5}
+                      {...field}
+                      value={(field.value as number) || ""}
+                    />
                   </FormControl>
                   <FormDescription>
                     How many songs each participant can submit (1-5)
@@ -147,9 +156,13 @@ export function RoundCard({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="single">Single song per submission</SelectItem>
-                        <SelectItem value="multi">Multiple songs per round (shuffled)</SelectItem>
-                        <SelectItem value="album">Album round (keep track order)</SelectItem>
+                        <SelectItem value="single">Single song</SelectItem>
+                        <SelectItem value="multi">
+                          Multiple songs (shuffled)
+                        </SelectItem>
+                        <SelectItem value="album">
+                          Multiple songs (keep track order)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormDescription>

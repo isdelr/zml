@@ -21,10 +21,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Doc } from "@/convex/_generated/dataModel";
-import { 
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -32,49 +38,71 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-const numberOrNull = z.preprocess((val) => {
-  if (val === "" || val === undefined || val === null) return null;
-  if (typeof val === "string") {
-    const n = Number(val);
-    return Number.isNaN(n) ? null : n;
-  }
-  if (typeof val === "number") return val;
-  return null;
-}, z.union([z.number().int().min(0), z.null()]));
-
-const roundEditSchema = z.object({
-  title: z.string().min(3, "Title must be at least 3 characters."),
-  description: z
-    .string()
-    .min(10, "Description must be at least 10 characters."),
-  submissionsPerUser: z.coerce
-    .number()
-    .min(1, "Must be at least 1.")
-    .max(5, "Max 5 submissions per user."),
-  maxPositiveVotes: numberOrNull.optional(),
-  maxNegativeVotes: numberOrNull.optional(),
-  submissionMode: z.enum(["single", "multi", "album"]).default("single"),
-  submissionInstructions: z.string().optional(),
-  albumConfig: z.object({
-    allowPartial: z.boolean().optional(),
-    requireReleaseYear: z.boolean().optional(),
-    minTracks: z.coerce.number().min(1, "Must be at least 1 track.").optional(),
-    maxTracks: z.coerce.number().min(1, "Must be at least 1 track.").optional(),
-  }).optional(),
-}).superRefine((data, ctx) => {
-  if (data.submissionMode === "album" && data.albumConfig) {
-    const { minTracks, maxTracks } = data.albumConfig;
-    if (minTracks !== undefined && maxTracks !== undefined && minTracks > maxTracks) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Minimum tracks cannot exceed maximum tracks.",
-        path: ["albumConfig", "minTracks"],
-      });
+const numberOrNull = z.preprocess(
+  (val) => {
+    if (val === "" || val === undefined || val === null) return null;
+    if (typeof val === "string") {
+      const n = Number(val);
+      return Number.isNaN(n) ? null : n;
     }
-  }
-});
+    if (typeof val === "number") return val;
+    return null;
+  },
+  z.union([z.number().int().min(0), z.null()]),
+);
+
+const roundEditSchema = z
+  .object({
+    title: z.string().min(3, "Title must be at least 3 characters."),
+    description: z
+      .string()
+      .min(10, "Description must be at least 10 characters."),
+    submissionsPerUser: z.coerce
+      .number()
+      .min(1, "Must be at least 1.")
+      .max(5, "Max 5 submissions per user."),
+    maxPositiveVotes: numberOrNull.optional(),
+    maxNegativeVotes: numberOrNull.optional(),
+    submissionMode: z.enum(["single", "multi", "album"]).default("single"),
+    submissionInstructions: z.string().optional(),
+    albumConfig: z
+      .object({
+        allowPartial: z.boolean().optional(),
+        requireReleaseYear: z.boolean().optional(),
+        minTracks: z.coerce
+          .number()
+          .min(1, "Must be at least 1 track.")
+          .optional(),
+        maxTracks: z.coerce
+          .number()
+          .min(1, "Must be at least 1 track.")
+          .optional(),
+      })
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.submissionMode === "album" && data.albumConfig) {
+      const { minTracks, maxTracks } = data.albumConfig;
+      if (
+        minTracks !== undefined &&
+        maxTracks !== undefined &&
+        minTracks > maxTracks
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Minimum tracks cannot exceed maximum tracks.",
+          path: ["albumConfig", "minTracks"],
+        });
+      }
+    }
+  });
 type RoundEditInput = z.input<typeof roundEditSchema>;
 type RoundEditOutput = z.output<typeof roundEditSchema>;
 
@@ -128,7 +156,7 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
             <h3 className="text-base font-semibold">Basic Information</h3>
             <Badge variant="secondary">Required</Badge>
           </div>
-          
+
           <FormField
             control={form.control}
             name="title"
@@ -142,7 +170,7 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="description"
@@ -150,13 +178,16 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
               <FormItem>
                 <FormLabel>Round Description</FormLabel>
                 <FormControl>
-                  <Textarea placeholder="Describe the theme of this round..." {...field} />
+                  <Textarea
+                    placeholder="Describe the theme of this round..."
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="submissionsPerUser"
@@ -192,7 +223,9 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
             <AccordionTrigger className="hover:no-underline">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">Voting Overrides</span>
-                <Badge variant="outline" className="text-xs">Optional</Badge>
+                <Badge variant="outline" className="text-xs">
+                  Optional
+                </Badge>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -207,7 +240,8 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
             </AccordionTrigger>
             <AccordionContent className="space-y-4 pt-4">
               <p className="text-sm text-muted-foreground">
-                Leave these fields empty to use the league&apos;s default voting rules.
+                Leave these fields empty to use the league&apos;s default voting
+                rules.
               </p>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
@@ -217,18 +251,22 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
                     <FormItem>
                       <FormLabel>Upvotes per Round</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
+                        <Input
+                          type="number"
                           name={field.name}
                           ref={field.ref}
                           onBlur={field.onBlur}
-                          value={typeof field.value === "number" ? field.value : ""}
+                          value={
+                            typeof field.value === "number" ? field.value : ""
+                          }
                           onChange={(e) =>
                             field.onChange(
-                              e.target.value === "" ? null : Number(e.target.value),
+                              e.target.value === ""
+                                ? null
+                                : Number(e.target.value),
                             )
                           }
-                          placeholder="Use league default" 
+                          placeholder="Use league default"
                         />
                       </FormControl>
                       <FormDescription>
@@ -245,18 +283,22 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
                     <FormItem>
                       <FormLabel>Downvotes per Round</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
+                        <Input
+                          type="number"
                           name={field.name}
                           ref={field.ref}
                           onBlur={field.onBlur}
-                          value={typeof field.value === "number" ? field.value : ""}
+                          value={
+                            typeof field.value === "number" ? field.value : ""
+                          }
                           onChange={(e) =>
                             field.onChange(
-                              e.target.value === "" ? null : Number(e.target.value),
+                              e.target.value === ""
+                                ? null
+                                : Number(e.target.value),
                             )
                           }
-                          placeholder="Use league default" 
+                          placeholder="Use league default"
                         />
                       </FormControl>
                       <FormDescription>
@@ -274,7 +316,9 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
             <AccordionTrigger className="hover:no-underline">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">Submission Settings</span>
-                <Badge variant="outline" className="text-xs">Optional</Badge>
+                <Badge variant="outline" className="text-xs">
+                  Optional
+                </Badge>
               </div>
             </AccordionTrigger>
             <AccordionContent className="space-y-4 pt-4">
@@ -291,19 +335,24 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="single">Single song per submission</SelectItem>
-                        <SelectItem value="multi">Multiple songs per round (shuffled)</SelectItem>
-                        <SelectItem value="album">Album round (keep track order)</SelectItem>
+                        <SelectItem value="single">Single song</SelectItem>
+                        <SelectItem value="multi">
+                          Multiple songs (shuffled)
+                        </SelectItem>
+                        <SelectItem value="album">
+                          Multiple songs (keep track order)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      Choose how submissions should be grouped and presented for this round.
+                      Choose how submissions should be grouped and presented for
+                      this round.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="submissionInstructions"
@@ -317,7 +366,8 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
                       />
                     </FormControl>
                     <FormDescription>
-                      These instructions will be shown to participants when they submit songs.
+                      These instructions will be shown to participants when they
+                      submit songs.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -326,7 +376,9 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
 
               {submissionMode === "album" && (
                 <div className="space-y-4 rounded-md border bg-muted/50 p-4">
-                  <h4 className="text-sm font-semibold text-muted-foreground">Album Round Settings</h4>
+                  <h4 className="text-sm font-semibold text-muted-foreground">
+                    Album Round Settings
+                  </h4>
                   <FormField
                     control={form.control}
                     name="albumConfig.allowPartial"
@@ -335,7 +387,8 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
                         <div className="space-y-0.5">
                           <FormLabel>Allow partial albums</FormLabel>
                           <FormDescription>
-                            Participants can submit only a selection of tracks instead of the full album.
+                            Participants can submit only a selection of tracks
+                            instead of the full album.
                           </FormDescription>
                         </div>
                         <FormControl>
@@ -355,7 +408,8 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
                         <div className="space-y-0.5">
                           <FormLabel>Require album release year</FormLabel>
                           <FormDescription>
-                            Ensure every submission includes the album&apos;s release year for context.
+                            Ensure every submission includes the album&apos;s
+                            release year for context.
                           </FormDescription>
                         </div>
                         <FormControl>
