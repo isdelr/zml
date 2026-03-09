@@ -110,6 +110,22 @@ async function scheduleSubmissionAudioProcessing(
   );
 }
 
+async function scheduleSubmissionFileDeletion(
+  ctx: Pick<MutationCtx, "scheduler">,
+  keys: Iterable<string>,
+  failureLabel: string,
+) {
+  const uniqueKeys = [...new Set(keys)].filter((key) => key.length > 0);
+  if (uniqueKeys.length === 0) {
+    return;
+  }
+
+  await ctx.scheduler.runAfter(0, internal.submissions.deleteSubmissionFiles, {
+    keys: uniqueKeys,
+    failureLabel,
+  });
+}
+
 async function canViewLeague(
   ctx: Pick<QueryCtx, "db">,
   leagueId: Id<"leagues">,
@@ -592,13 +608,11 @@ export const editSong = mutation({
     ) {
       keysToDelete.add(previousSongFileLegacyKey);
     }
-    for (const key of keysToDelete) {
-      try {
-        await storage.deleteObject(key);
-      } catch (error) {
-        console.error(`Failed to delete stale submission file "${key}"`, error);
-      }
-    }
+    await scheduleSubmissionFileDeletion(
+      ctx,
+      keysToDelete,
+      "stale submission file",
+    );
 
     if (
       args.submissionType === "file" &&
@@ -609,6 +623,22 @@ export const editSong = mutation({
     }
 
     return "Submission updated successfully.";
+  },
+});
+
+export const deleteSubmissionFiles = internalAction({
+  args: {
+    keys: v.array(v.string()),
+    failureLabel: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    for (const key of new Set(args.keys)) {
+      try {
+        await storage.deleteObject(key);
+      } catch (error) {
+        console.error(`Failed to delete ${args.failureLabel} "${key}"`, error);
+      }
+    }
   },
 });
 
