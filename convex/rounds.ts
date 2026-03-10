@@ -32,6 +32,11 @@ import {
   getRoundDeadlineReminderCandidates,
   ROUND_DEADLINE_REMINDER_WINDOWS,
 } from "../lib/rounds/deadline-reminders";
+import {
+  getPendingSubmissionParticipantIds,
+  getPendingVotingParticipantIds,
+} from "../lib/rounds/pending-participation";
+import { getVoteLimits } from "../lib/convex-server/voteLimits";
 
 const storage = new B2Storage();
 const MAX_ROUND_DEADLINE_REMINDER_MS = Math.max(
@@ -462,6 +467,112 @@ export const adjustRoundTime = mutation({
     } else {
       throw new Error("Cannot adjust time for a finished round.");
     }
+  },
+});
+
+export const sendParticipationReminder = mutation({
+  args: {
+    roundId: v.id("rounds"),
+  },
+  returns: v.object({
+    notifiedCount: v.number(),
+    status: v.union(v.literal("submissions"), v.literal("voting")),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ notifiedCount: number; status: "submissions" | "voting" }> => {
+    const round = await ctx.db.get("rounds", args.roundId);
+    if (!round) {
+      throw new Error("Round not found");
+    }
+
+    if (round.status === "finished") {
+      throw new Error("Cannot send reminders for a finished round.");
+    }
+
+    const { league, userId } = await requireOwnerManagerOrGlobalAdmin(
+      ctx,
+      round.leagueId,
+    );
+
+    const [memberships, submissions] = await Promise.all([
+      ctx.db
+        .query("memberships")
+        .withIndex("by_league", (q) => q.eq("leagueId", league._id))
+        .collect(),
+      ctx.db
+        .query("submissions")
+        .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+        .collect(),
+    ]);
+
+    const activeMembers = memberships
+      .filter((membership) => !membership.isBanned && !membership.isSpectator)
+      .map((membership) => ({ _id: membership.userId }));
+
+    let targetUserIds: string[] = [];
+    let type: "round_submission" | "round_voting";
+    let message: string;
+    let title: string;
+    let status: "submissions" | "voting";
+
+    if (round.status === "submissions") {
+      targetUserIds = getPendingSubmissionParticipantIds(
+        activeMembers,
+        submissions,
+        round.submissionsPerUser ?? 1,
+      );
+      type = "round_submission";
+      message = `Reminder: submit your song${(round.submissionsPerUser ?? 1) > 1 ? "s" : ""} for "${round.title}" in "${league.name}".`;
+      title = "Reminder to submit";
+      status = "submissions";
+    } else {
+      const votes = await ctx.db
+        .query("votes")
+        .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+        .collect();
+      const { maxUp, maxDown } = getVoteLimits(round, league);
+      targetUserIds = getPendingVotingParticipantIds(
+        activeMembers,
+        submissions,
+        votes,
+        maxUp,
+        maxDown,
+      );
+      type = "round_voting";
+      message = `Reminder: finish voting for "${round.title}" in "${league.name}".`;
+      title = "Reminder to vote";
+      status = "voting";
+    }
+
+    if (targetUserIds.length === 0) {
+      return { notifiedCount: 0, status };
+    }
+
+    const targetUserIdSet = new Set(targetUserIds);
+    const notificationsToCreate = memberships
+      .filter((membership) => targetUserIdSet.has(membership.userId.toString()))
+      .map((membership) => ({
+        userId: membership.userId,
+        type,
+        message,
+        link: `/leagues/${league._id}/round/${round._id}`,
+        triggeringUserId: userId,
+        pushNotificationOverride: {
+          title,
+          body: message,
+        },
+      }));
+
+    const createdIds: Id<"notifications">[] =
+      notificationsToCreate.length > 0
+        ? await ctx.runMutation(internal.notifications.createMany, {
+            notifications: notificationsToCreate,
+          })
+        : [];
+
+    return { notifiedCount: createdIds.length, status };
   },
 });
 

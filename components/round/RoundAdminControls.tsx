@@ -8,7 +8,7 @@ import type { FunctionReturnType } from "convex/server";
 import { toast } from "sonner";
 import { toErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
-import { Clock3, Edit, Flag, Minus, Plus } from "lucide-react";
+import { BellRing, Clock3, Edit, Flag, Minus, Plus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,7 +60,11 @@ export function RoundAdminControls({
 }: RoundAdminControlsProps) {
   const manageRoundState = useMutation(api.rounds.manageRoundState);
   const adjustRoundTime = useMutation(api.rounds.adjustRoundTime);
+  const sendParticipationReminder = useMutation(
+    api.rounds.sendParticipationReminder,
+  );
   const [isEditRoundOpen, setIsEditRoundOpen] = useState(false);
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
 
   const handleAction = async <TArgs extends object>(
     mutation: (args: TArgs) => Promise<unknown>,
@@ -94,6 +98,31 @@ export function RoundAdminControls({
         }) !== "ready",
     ).length ?? 0;
   const canStartVoting = pendingSubmissionCount === 0;
+  const handleSendReminder = async () => {
+    setIsSendingReminder(true);
+    try {
+      const promise = sendParticipationReminder({ roundId: round._id });
+      toast.promise(promise, {
+        loading:
+          round.status === "submissions"
+            ? "Sending submission reminders..."
+            : "Sending voting reminders...",
+        success: ({ notifiedCount, status }) => {
+          if (notifiedCount === 0) {
+            return status === "submissions"
+              ? "Everyone has already submitted."
+              : "Everyone eligible has already voted.";
+          }
+          return `Sent ${notifiedCount} reminder${notifiedCount === 1 ? "" : "s"}.`;
+        },
+        error: (error) => toErrorMessage(error, "Failed to send reminders."),
+      });
+      await promise;
+    } finally {
+      setIsSendingReminder(false);
+    }
+  };
+
   if (round.status === "finished") {
     return null;
   }
@@ -146,87 +175,107 @@ export function RoundAdminControls({
         )}
 
         {round.status === "submissions" && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <InlineAdminButton
-                icon={Flag}
-                disabled={!canStartVoting}
-                title={
-                  !canStartVoting
-                    ? `${pendingSubmissionCount} file submission${pendingSubmissionCount === 1 ? "" : "s"} still processing.`
-                    : "Close submissions and open voting immediately."
-                }
-              >
-                Start voting now
-              </InlineAdminButton>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Start voting early?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This closes submissions before the current deadline and opens
-                  voting immediately.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
+          <>
+            <InlineAdminButton
+              icon={BellRing}
+              disabled={isSendingReminder}
+              title="Notify participants who still need to submit."
+              onClick={() => void handleSendReminder()}
+            >
+              Remind to submit
+            </InlineAdminButton>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <InlineAdminButton
+                  icon={Flag}
                   disabled={!canStartVoting}
-                  onClick={() =>
-                    void handleAction(
-                      manageRoundState,
-                      { roundId: round._id, action: "startVoting" },
-                      "Voting started.",
-                    )
+                  title={
+                    !canStartVoting
+                      ? `${pendingSubmissionCount} file submission${pendingSubmissionCount === 1 ? "" : "s"} still processing.`
+                      : "Close submissions and open voting immediately."
                   }
                 >
-                  Start voting
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  Start voting now
+                </InlineAdminButton>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Start voting early?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This closes submissions before the current deadline and
+                    opens voting immediately.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={!canStartVoting}
+                    onClick={() =>
+                      void handleAction(
+                        manageRoundState,
+                        { roundId: round._id, action: "startVoting" },
+                        "Voting started.",
+                      )
+                    }
+                  >
+                    Start voting
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
         )}
 
         {round.status === "voting" && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <InlineAdminButton
-                icon={Flag}
-                disabled={!canEndVoting}
-                title={
-                  canEndVoting
-                    ? "Close voting and finish the round now."
-                    : "Finishing early requires at least 1 submission and 1 vote."
-                }
-              >
-                End round now
-              </InlineAdminButton>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>End voting early?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This closes voting before the current deadline, calculates the
-                  results, and finishes the round immediately.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
+          <>
+            <InlineAdminButton
+              icon={BellRing}
+              disabled={isSendingReminder}
+              title="Notify participants who still need to finish voting."
+              onClick={() => void handleSendReminder()}
+            >
+              Remind to vote
+            </InlineAdminButton>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <InlineAdminButton
+                  icon={Flag}
                   disabled={!canEndVoting}
-                  onClick={() =>
-                    void handleAction(
-                      manageRoundState,
-                      { roundId: round._id, action: "endVoting" },
-                      "Round finished.",
-                    )
+                  title={
+                    canEndVoting
+                      ? "Close voting and finish the round now."
+                      : "Finishing early requires at least 1 submission and 1 vote."
                   }
                 >
-                  End round
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  End round now
+                </InlineAdminButton>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>End voting early?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This closes voting before the current deadline, calculates
+                    the results, and finishes the round immediately.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={!canEndVoting}
+                    onClick={() =>
+                      void handleAction(
+                        manageRoundState,
+                        { roundId: round._id, action: "endVoting" },
+                        "Round finished.",
+                      )
+                    }
+                  >
+                    End round
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
         )}
       </div>
 
