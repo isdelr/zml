@@ -5,6 +5,12 @@ const HOUR_MS = 60 * MINUTE_MS;
 
 export const ROUND_DEADLINE_REMINDER_WINDOWS = [
   {
+    key: "2d",
+    label: "2 days",
+    thresholdMs: 48 * HOUR_MS,
+    graceMs: 30 * MINUTE_MS,
+  },
+  {
     key: "24h",
     label: "1 day",
     thresholdMs: 24 * HOUR_MS,

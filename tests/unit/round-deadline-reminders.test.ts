@@ -7,6 +7,23 @@ import {
 } from "@/lib/rounds/deadline-reminders";
 
 describe("round deadline reminders", () => {
+  it("creates a 48-hour submission reminder inside the reminder window", () => {
+    const now = new Date("2026-03-08T12:00:00Z").getTime();
+    const round = {
+      _id: "round-0",
+      status: "submissions",
+      submissionDeadline: now + 48 * 60 * 60 * 1000 - 10 * 60 * 1000,
+      votingDeadline: now + 72 * 60 * 60 * 1000,
+    } as const;
+
+    expect(getRoundDeadlineReminderCandidates(round, now)).toEqual([
+      expect.objectContaining({
+        type: "round_submission",
+        window: expect.objectContaining({ key: "2d", label: "2 days" }),
+      }),
+    ]);
+  });
+
   it("creates a 24-hour submission reminder inside the reminder window", () => {
     const now = new Date("2026-03-08T12:00:00Z").getTime();
     const round = {
