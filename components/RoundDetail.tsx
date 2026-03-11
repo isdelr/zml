@@ -489,6 +489,7 @@ export function RoundDetail({
             currentUser={currentUser}
             roundStatus={round.status}
             league={league}
+            canManageLeague={canManageLeague}
             currentTrackIndex={currentTrackIndex}
             isPlaying={isPlaying}
             queue={queue}

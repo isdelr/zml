@@ -6,6 +6,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { voterCounter } from "./counters";
 import { getVoteLimits } from "../lib/convex-server/voteLimits";
 import { transitionRoundToFinishedWithSideEffects } from "../lib/convex-server/rounds/transitions";
+import { recalculateAndStoreRoundResults } from "../lib/convex-server/leagues/results";
 import { B2Storage } from "./b2Storage";
 import { resolveUserAvatarUrl } from "./userAvatar";
 
@@ -477,5 +478,62 @@ export const castVote = mutation({
     }
 
     return { message: "Vote saved.", isFinal: false };
+  },
+});
+
+export const adjustFinishedRoundVote = mutation({
+  args: {
+    submissionId: v.id("submissions"),
+    delta: v.union(v.literal(1), v.literal(-1)),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated.");
+
+    const submission = await ctx.db.get("submissions", args.submissionId);
+    if (!submission) throw new Error("Submission not found.");
+
+    const round = await ctx.db.get("rounds", submission.roundId);
+    if (!round) throw new Error("Round not found.");
+    if (round.status !== "finished") {
+      throw new Error(
+        "Admin vote adjustments are only available for finished rounds.",
+      );
+    }
+
+    const league = await ctx.db.get("leagues", submission.leagueId);
+    if (!league) throw new Error("League not found.");
+
+    const canManage = await canManageLeague(ctx, league, userId);
+    if (!canManage) {
+      throw new Error("You do not have permission to manage this league.");
+    }
+
+    const existingAdjustment = await ctx.db
+      .query("adminVoteAdjustments")
+      .withIndex("by_submission_and_user", (q) =>
+        q.eq("submissionId", submission._id).eq("userId", userId),
+      )
+      .unique();
+    const nextVote = (existingAdjustment?.vote ?? 0) + args.delta;
+
+    if (existingAdjustment) {
+      if (nextVote === 0) {
+        await ctx.db.delete(existingAdjustment._id);
+      } else {
+        await ctx.db.patch(existingAdjustment._id, { vote: nextVote });
+      }
+    } else if (nextVote !== 0) {
+      await ctx.db.insert("adminVoteAdjustments", {
+        roundId: round._id,
+        submissionId: submission._id,
+        userId,
+        vote: nextVote,
+      });
+    }
+
+    await recalculateAndStoreRoundResults(ctx, round._id);
+
+    return { message: "Admin adjustment saved." };
   },
 });

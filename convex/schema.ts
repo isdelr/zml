@@ -209,6 +209,16 @@ export default defineSchema({
     .index("by_round_and_user", ["roundId", "userId"])
     .index("by_submission_and_user", ["submissionId", "userId"]),
 
+  adminVoteAdjustments: defineTable({
+    roundId: v.id("rounds"),
+    submissionId: v.id("submissions"),
+    userId: v.id("users"),
+    vote: v.number(),
+  })
+    .index("by_round", ["roundId"])
+    .index("by_round_and_user", ["roundId", "userId"])
+    .index("by_submission_and_user", ["submissionId", "userId"]),
+
   bookmarks: defineTable({
     userId: v.id("users"),
     submissionId: v.id("submissions"),

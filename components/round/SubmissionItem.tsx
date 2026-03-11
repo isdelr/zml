@@ -69,6 +69,7 @@ interface SubmissionItemProps {
   roundStatus: "voting" | "finished" | "submissions";
   onToggleComments: () => void;
   league: LeagueData;
+  canManageLeague: boolean;
   hasVoted: boolean;
   canVote: boolean;
   onVoteClick: (delta: 1 | -1) => void;
@@ -86,6 +87,7 @@ interface SubmissionItemProps {
         voterName: string;
         voterImage: string | null;
         score: number;
+        isAdminAdjustment?: boolean;
       }[]
     | undefined;
   currentUser: Doc<"users"> | null | undefined;
@@ -101,6 +103,7 @@ export function SubmissionItem({
   currentVoteValue,
   roundStatus,
   league,
+  canManageLeague,
   hasVoted,
   canVote,
   onVoteClick,
@@ -119,6 +122,7 @@ export function SubmissionItem({
   const markAsTrollSubmission = useMutation(
     api.submissions.markAsTrollSubmission,
   );
+  const adjustFinishedRoundVote = useMutation(api.votes.adjustFinishedRoundVote);
 
   // Check if current user can mark troll submissions (league owner, manager, or global admin)
   const canMarkTrollSubmissions = useMemo(() => {
@@ -138,6 +142,19 @@ export function SubmissionItem({
       toast.success(result.message);
     } catch (error) {
       toast.error(toErrorMessage(error, "Failed to update troll status."));
+    }
+  };
+
+  const handleAdminVoteAdjustment = async (delta: 1 | -1) => {
+    try {
+      await adjustFinishedRoundVote({
+        submissionId: song._id,
+        delta,
+      });
+    } catch (error) {
+      toast.error(
+        toErrorMessage(error, "Failed to update the admin point adjustment."),
+      );
     }
   };
 
@@ -268,6 +285,7 @@ export function SubmissionItem({
           voterName: vote.voterName,
           voterImage: vote.voterImage,
           score: vote.score,
+          isAdminAdjustment: vote.isAdminAdjustment ?? false,
         })),
       ),
     [voteDetails],
@@ -401,6 +419,60 @@ export function SubmissionItem({
     </div>
   );
 
+  const renderAdminAdjustmentButtonGroup = () => {
+    if (roundStatus !== "finished" || !canManageLeague) return null;
+
+    return (
+      <div className="flex items-center rounded-full border bg-background">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(compactMobileVoteButtonClass)}
+                aria-label="Subtract 1 admin point"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAdminVoteAdjustment(-1);
+                }}
+              >
+                <ArrowDown
+                  className={cn(compactMobileIconClass, "text-destructive")}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Admin downvote</p>
+            </TooltipContent>
+          </Tooltip>
+          <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Admin
+          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(compactMobileVoteButtonClass)}
+                aria-label="Add 1 admin point"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAdminVoteAdjustment(1);
+                }}
+              >
+                <ArrowUp className={cn(compactMobileIconClass, "text-success")} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Admin upvote</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    );
+  };
+
   return (
     <div className="border-b border-border last:border-b-0">
       <div
@@ -477,6 +549,11 @@ export function SubmissionItem({
           </div>
           {roundStatus === "finished" && voteGroups.length > 0 ? (
             <div className="mt-2">{renderVoteGroups(4)}</div>
+          ) : null}
+          {roundStatus === "finished" && canManageLeague ? (
+            <div className="mt-2 flex justify-end">
+              {renderAdminAdjustmentButtonGroup()}
+            </div>
           ) : null}
           <div className="mt-3 flex items-center justify-between gap-2">
             {renderSubmitterInfo()}
@@ -700,6 +777,9 @@ export function SubmissionItem({
                 </Tooltip>
               </TooltipProvider>
             )}
+            {roundStatus === "finished" && canManageLeague
+              ? renderAdminAdjustmentButtonGroup()
+              : null}
           </div>
           <div className="flex items-center justify-center w-44 gap-1">
             {roundStatus === "voting" ? (

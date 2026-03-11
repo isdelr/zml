@@ -43,6 +43,7 @@ interface SubmissionsListProps {
   currentUser: Doc<"users"> | null | undefined;
   roundStatus: "voting" | "finished" | "submissions";
   league: LeagueData;
+  canManageLeague: boolean;
   currentTrackIndex: number | null;
   isPlaying: boolean;
   queue: Song[];
@@ -77,6 +78,7 @@ export function SubmissionsList({
   currentUser,
   roundStatus,
   league,
+  canManageLeague,
   currentTrackIndex,
   isPlaying,
   queue,
@@ -269,6 +271,7 @@ export function SubmissionsList({
         currentVoteValue={currentVoteValue}
         roundStatus={roundStatus}
         league={league}
+        canManageLeague={canManageLeague}
         hasVoted={hasVoted}
         canVote={canVote}
         onVoteClick={(delta) => onVoteClick(submissionId, delta)}
@@ -491,6 +494,7 @@ export function SubmissionsList({
                   roundStatus={roundStatus}
                   hasVoted={hasVoted}
                   league={league}
+                  canManageLeague={canManageLeague}
                   canVote={canVote}
                   onToggleComments={() =>
                     onToggleComments(isCommentsVisible ? null : song._id)

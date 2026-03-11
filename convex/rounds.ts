@@ -721,6 +721,7 @@ const songVoteDetailValidator = v.object({
   voterName: v.string(),
   voterImage: v.union(v.string(), v.null()),
   score: v.number(),
+  isAdminAdjustment: v.optional(v.boolean()),
 });
 
 const voteSummaryValidator = v.array(
@@ -755,7 +756,11 @@ export const getVoteSummary = query({
       .query("votes")
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
       .collect();
-    if (votes.length === 0) return [];
+    const adminAdjustments = await ctx.db
+      .query("adminVoteAdjustments")
+      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+      .collect();
+    if (votes.length === 0 && adminAdjustments.length === 0) return [];
 
     const submissions = await ctx.db
       .query("submissions")
@@ -763,6 +768,7 @@ export const getVoteSummary = query({
       .collect();
     const allUserIds = new Set<Id<"users">>();
     votes.forEach((v) => allUserIds.add(v.userId));
+    adminAdjustments.forEach((adjustment) => allUserIds.add(adjustment.userId));
     submissions.forEach((s) => allUserIds.add(s.userId));
 
     const users = await Promise.all(
@@ -782,12 +788,25 @@ export const getVoteSummary = query({
       }
       votesBySubmission.get(subId)!.push(vote);
     }
+    const adminAdjustmentsBySubmission = new Map<
+      string,
+      Doc<"adminVoteAdjustments">[]
+    >();
+    for (const adjustment of adminAdjustments) {
+      const subId = adjustment.submissionId.toString();
+      if (!adminAdjustmentsBySubmission.has(subId)) {
+        adminAdjustmentsBySubmission.set(subId, []);
+      }
+      adminAdjustmentsBySubmission.get(subId)!.push(adjustment);
+    }
     const summary = await Promise.all(
       submissions.map(async (submission) => {
         const submitter = userMap.get(submission.userId.toString());
         const submissionVotes =
           votesBySubmission.get(submission._id.toString()) || [];
-        const voteDetails = await Promise.all(
+        const submissionAdminAdjustments =
+          adminAdjustmentsBySubmission.get(submission._id.toString()) || [];
+        const standardVoteDetails = await Promise.all(
           submissionVotes.map(async (vote) => {
             const voter = userMap.get(vote.userId.toString());
             const voterImage = await resolveUserAvatarUrl(storage, voter);
@@ -799,6 +818,14 @@ export const getVoteSummary = query({
             };
           }),
         );
+        const adminVoteDetails = submissionAdminAdjustments.map((adjustment) => ({
+          voterId: adjustment.userId,
+          voterName: "Admin adjustment",
+          voterImage: null,
+          score: adjustment.vote,
+          isAdminAdjustment: true,
+        }));
+        const voteDetails = [...standardVoteDetails, ...adminVoteDetails];
 
         const { albumArtUrl } = await resolveSubmissionMediaUrls(
           storage,

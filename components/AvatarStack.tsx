@@ -3,12 +3,14 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { toSvg } from "jdenticon";
+import { Shield } from "lucide-react";
 
 interface AvatarStackProps {
   users: {
     _id?: string;
     name?: string | null;
     image?: string | null;
+    isAdminAdjustment?: boolean;
   }[];
   max?: number;
   className?: string;
@@ -31,16 +33,28 @@ export function AvatarStack({
       {visibleUsers.map((user, index) => (
         <Avatar
           key={index}
-          className={cn("size-8 border-2 border-background", avatarClassName)}
+          className={cn(
+            "size-8 border-2 border-background",
+            user.isAdminAdjustment && "bg-amber-100 text-amber-700",
+            avatarClassName,
+          )}
         >
-          <AvatarImage src={user.image ?? undefined} alt={user.name ?? ""} />
+          {!user.isAdminAdjustment ? (
+            <AvatarImage src={user.image ?? undefined} alt={user.name ?? ""} />
+          ) : null}
           <AvatarFallback>
-            <div
-              className="size-full"
-              dangerouslySetInnerHTML={{
-                __html: toSvg(user.name ?? user._id ?? "anon", 100),
-              }}
-            />
+            {user.isAdminAdjustment ? (
+              <div className="flex size-full items-center justify-center">
+                <Shield className="size-4" />
+              </div>
+            ) : (
+              <div
+                className="size-full"
+                dangerouslySetInnerHTML={{
+                  __html: toSvg(user.name ?? user._id ?? "anon", 100),
+                }}
+              />
+            )}
           </AvatarFallback>
         </Avatar>
       ))}

@@ -32,13 +32,15 @@ describe("vote summary display helpers", () => {
       {
         score: 2,
         users: [
-          { _id: "u1", name: "Ana", image: null },
-          { _id: "u2", name: "Bruno", image: null },
+          { _id: "u1", name: "Ana", image: null, isAdminAdjustment: false },
+          { _id: "u2", name: "Bruno", image: null, isAdminAdjustment: false },
         ],
       },
       {
         score: -1,
-        users: [{ _id: "u3", name: "Carla", image: null }],
+        users: [
+          { _id: "u3", name: "Carla", image: null, isAdminAdjustment: false },
+        ],
       },
     ]);
   });
@@ -46,5 +48,43 @@ describe("vote summary display helpers", () => {
   it("formats positive scores with a leading plus sign", () => {
     expect(formatVoteScore(3)).toBe("+3");
     expect(formatVoteScore(-2)).toBe("-2");
+  });
+
+  it("keeps admin adjustments marked inside grouped users", () => {
+    const groups = groupVoteSummaryDetailsByScore([
+      {
+        voterId: "admin-1",
+        voterName: "Admin adjustment",
+        voterImage: null,
+        score: 1,
+        isAdminAdjustment: true,
+      },
+      {
+        voterId: "u1",
+        voterName: "Ana",
+        voterImage: null,
+        score: 1,
+      },
+    ]);
+
+    expect(groups).toEqual([
+      {
+        score: 1,
+        users: [
+          {
+            _id: "admin-1",
+            name: "Admin adjustment",
+            image: null,
+            isAdminAdjustment: true,
+          },
+          {
+            _id: "u1",
+            name: "Ana",
+            image: null,
+            isAdminAdjustment: false,
+          },
+        ],
+      },
+    ]);
   });
 });

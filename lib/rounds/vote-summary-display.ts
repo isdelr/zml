@@ -3,6 +3,7 @@ export type VoteSummaryDetail = {
   voterName?: string | null;
   voterImage?: string | null;
   score: number;
+  isAdminAdjustment?: boolean;
 };
 
 export type VoteScoreGroup = {
@@ -11,6 +12,7 @@ export type VoteScoreGroup = {
     _id: string;
     name?: string | null;
     image?: string | null;
+    isAdminAdjustment?: boolean;
   }[];
 };
 
@@ -25,6 +27,7 @@ export function groupVoteSummaryDetailsByScore(
       _id: vote.voterId,
       name: vote.voterName ?? null,
       image: vote.voterImage ?? null,
+      isAdminAdjustment: vote.isAdminAdjustment ?? false,
     });
     groups.set(vote.score, users);
   }
@@ -33,6 +36,9 @@ export function groupVoteSummaryDetailsByScore(
     .map(([score, users]) => ({
       score,
       users: [...users].sort((a, b) => {
+        if (a.isAdminAdjustment !== b.isAdminAdjustment) {
+          return a.isAdminAdjustment ? -1 : 1;
+        }
         const nameCompare = (a.name ?? "").localeCompare(b.name ?? "");
         if (nameCompare !== 0) return nameCompare;
         return a._id.localeCompare(b._id);

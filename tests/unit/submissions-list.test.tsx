@@ -72,6 +72,7 @@ describe("SubmissionsList", () => {
         currentUser={null}
         roundStatus="finished"
         league={{ isSpectator: false } as never}
+        canManageLeague={false}
         currentTrackIndex={null}
         isPlaying={false}
         queue={[]}
