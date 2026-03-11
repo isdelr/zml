@@ -30,34 +30,37 @@ export function AvatarStack({
 
   return (
     <div className={cn("flex items-center -space-x-2", className)}>
-      {visibleUsers.map((user, index) => (
-        <Avatar
-          key={index}
-          className={cn(
-            "size-8 border-2 border-background",
-            user.isAdminAdjustment && "bg-amber-100 text-amber-700",
-            avatarClassName,
-          )}
-        >
-          {!user.isAdminAdjustment ? (
+      {visibleUsers.map((user, index) =>
+        user.isAdminAdjustment ? (
+          <div
+            key={index}
+            className={cn(
+              avatarClassName,
+              "relative z-10 flex size-8 items-center justify-center text-amber-600",
+              "!border-0 !rounded-none !bg-transparent shadow-none",
+            )}
+            aria-label={user.name ?? "Admin adjustment"}
+            title={user.name ?? "Admin adjustment"}
+          >
+            <Shield className="size-[70%] fill-current stroke-current" />
+          </div>
+        ) : (
+          <Avatar
+            key={index}
+            className={cn("size-8 border-2 border-background", avatarClassName)}
+          >
             <AvatarImage src={user.image ?? undefined} alt={user.name ?? ""} />
-          ) : null}
-          <AvatarFallback>
-            {user.isAdminAdjustment ? (
-              <div className="flex size-full items-center justify-center">
-                <Shield className="size-4" />
-              </div>
-            ) : (
+            <AvatarFallback>
               <div
                 className="size-full"
                 dangerouslySetInnerHTML={{
                   __html: toSvg(user.name ?? user._id ?? "anon", 100),
                 }}
               />
-            )}
-          </AvatarFallback>
-        </Avatar>
-      ))}
+            </AvatarFallback>
+          </Avatar>
+        ),
+      )}
       {hiddenCount > 0 && (
         <div
           className={cn(
