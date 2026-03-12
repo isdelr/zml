@@ -77,6 +77,15 @@ function getSiteUrl() {
   return (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/u, "");
 }
 
+function buildActionUrl(actionUrl: string | undefined, leagueId: Id<"leagues">, roundId: Id<"rounds">) {
+  const path = actionUrl ?? `/leagues/${leagueId}/round/${roundId}`;
+  if (/^https?:\/\//u.test(path)) {
+    return path;
+  }
+
+  return `${getSiteUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 function getBearerToken(request: Request) {
   const authorization = request.headers.get("authorization");
   if (!authorization) {
@@ -528,15 +537,26 @@ export const getRoundMetadataForDispatch = internalQuery({
   },
 });
 
-export const dispatchRoundReminder = internalAction({
+export const dispatchRoundNotification = internalAction({
   args: {
     leagueId: v.id("leagues"),
     roundId: v.id("rounds"),
-    roundStatus: v.union(v.literal("submissions"), v.literal("voting")),
-    reminderKind: v.union(v.literal("participation"), v.literal("deadline")),
+    roundStatus: v.union(
+      v.literal("submissions"),
+      v.literal("voting"),
+      v.literal("finished"),
+    ),
+    reminderKind: v.union(
+      v.literal("participation"),
+      v.literal("deadline"),
+      v.literal("transition"),
+      v.literal("deadline_changed"),
+      v.literal("standings_shift"),
+    ),
     message: v.string(),
     deadlineMs: v.optional(v.number()),
     source: v.optional(v.string()),
+    actionUrl: v.optional(v.string()),
     targetUserIds: v.array(v.id("users")),
   },
   handler: async (ctx, args) => {
@@ -578,7 +598,7 @@ export const dispatchRoundReminder = internalAction({
       reminderKind: args.reminderKind,
       message: args.message,
       deadlineMs: args.deadlineMs ?? null,
-      actionUrl: `${getSiteUrl()}/leagues/${args.leagueId}/round/${args.roundId}`,
+      actionUrl: buildActionUrl(args.actionUrl, args.leagueId, args.roundId),
       source: args.source ?? null,
       mentionDiscordUserIds,
     };

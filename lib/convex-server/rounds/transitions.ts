@@ -15,12 +15,19 @@ export async function transitionRoundToVotingWithSideEffects(
   }
 
   await ctx.db.patch("rounds", round._id, { status: "voting" });
-  await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+  await ctx.scheduler.runAfter(0, internal.notifications.createForLeagueAndDispatchDiscord, {
     leagueId: league._id,
-    type: "round_voting",
+    roundId: round._id,
+    roundStatus: "voting",
+    notificationType: "round_voting",
+    discordNotificationKind: "transition",
     message: `Voting has begun for the round "${round.title}" in "${league.name}"!`,
     link: `/leagues/${league._id}/round/${round._id}`,
+    deadlineMs: round.votingDeadline,
     triggeringUserId,
+    metadata: {
+      source: `round-transition:${round._id}:voting`,
+    },
   });
 
   return true;
@@ -49,12 +56,18 @@ export async function transitionRoundToFinishedWithSideEffects(
   await ctx.scheduler.runAfter(0, internal.leagues.calculateAndStoreResults, {
     roundId: round._id,
   });
-  await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+  await ctx.scheduler.runAfter(0, internal.notifications.createForLeagueAndDispatchDiscord, {
     leagueId: league._id,
-    type: "round_finished",
+    roundId: round._id,
+    roundStatus: "finished",
+    notificationType: "round_finished",
+    discordNotificationKind: "transition",
     message: notificationMessage,
     link: `/leagues/${league._id}/round/${round._id}`,
     triggeringUserId: options.triggeringUserId,
+    metadata: {
+      source: `round-transition:${round._id}:finished`,
+    },
   });
 
   return true;

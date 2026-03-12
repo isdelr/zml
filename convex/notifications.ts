@@ -41,6 +41,20 @@ const pushNotificationOverrideValidator = v.object({
   icon: v.optional(v.string()),
 });
 
+const roundStatusValidator = v.union(
+  v.literal("submissions"),
+  v.literal("voting"),
+  v.literal("finished"),
+);
+
+const discordNotificationKindValidator = v.union(
+  v.literal("participation"),
+  v.literal("deadline"),
+  v.literal("transition"),
+  v.literal("deadline_changed"),
+  v.literal("standings_shift"),
+);
+
 type NotificationWriteArgs = {
   userId: Id<"users">;
   type: NotificationType;
@@ -349,13 +363,96 @@ export const createForLeague = internalAction({
   },
 });
 
+export const createForLeagueAndDispatchDiscord = internalAction({
+  args: {
+    leagueId: v.id("leagues"),
+    roundId: v.id("rounds"),
+    roundStatus: roundStatusValidator,
+    notificationType: v.union(
+      v.literal("round_submission"),
+      v.literal("round_voting"),
+      v.literal("round_finished"),
+    ),
+    discordNotificationKind: discordNotificationKindValidator,
+    message: v.string(),
+    link: v.string(),
+    actionUrl: v.optional(v.string()),
+    deadlineMs: v.optional(v.number()),
+    triggeringUserId: v.optional(v.id("users")),
+    metadata: v.optional(notificationMetadataValidator),
+    pushNotificationOverride: v.optional(pushNotificationOverrideValidator),
+  },
+  handler: async (
+    ctx: ActionCtx,
+    args,
+  ): Promise<{ notificationCount: number; dispatchedToDiscord: boolean }> => {
+    const memberships: Doc<"memberships">[] = await ctx.runQuery(
+      internal.notifications.getLeagueMemberships,
+      { leagueId: args.leagueId },
+    );
+
+    const notificationsToCreate: NotificationWriteArgs[] = memberships
+      .filter((membership) => membership.userId !== args.triggeringUserId)
+      .map((membership) => ({
+        userId: membership.userId,
+        type: args.notificationType,
+        message: args.message,
+        link: args.link,
+        triggeringUserId: args.triggeringUserId,
+        metadata: args.metadata,
+        pushNotificationOverride: args.pushNotificationOverride,
+      }));
+
+    if (notificationsToCreate.length === 0) {
+      return { notificationCount: 0, dispatchedToDiscord: false };
+    }
+
+    const createdNotifications: {
+      notificationId: Id<"notifications">;
+      userId: Id<"users">;
+      type: NotificationType;
+      source: string | null;
+    }[] = await ctx.runMutation(
+      internal.notifications.createManyUniqueBySource,
+      { notifications: notificationsToCreate },
+    );
+    if (createdNotifications.length === 0) {
+      return { notificationCount: 0, dispatchedToDiscord: false };
+    }
+
+    await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundNotification, {
+      leagueId: args.leagueId,
+      roundId: args.roundId,
+      roundStatus: args.roundStatus,
+      reminderKind: args.discordNotificationKind,
+      message: args.message,
+      deadlineMs: args.deadlineMs,
+      source: args.metadata?.source,
+      actionUrl: args.actionUrl,
+      targetUserIds: createdNotifications.map(
+        (notification: {
+          userId: Id<"users">;
+        }) => notification.userId,
+      ),
+    });
+
+    return {
+      notificationCount: createdNotifications.length,
+      dispatchedToDiscord: true,
+    };
+  },
+});
+
 export const getLeagueMemberships = internalQuery({
   args: { leagueId: v.id("leagues") },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
       .collect();
+    return memberships.filter(
+      (membership) => !membership.isBanned && !membership.isSpectator,
+    );
   },
 });
 

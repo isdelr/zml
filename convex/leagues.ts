@@ -34,6 +34,31 @@ const sortLeaguesForDisplay = (a: Doc<"leagues">, b: Doc<"leagues">) => {
   return b._creationTime - a._creationTime;
 };
 
+function buildStandingRankMap(
+  standings: Array<{ userId: Id<"users"> }>,
+): Map<string, number> {
+  return new Map(
+    standings.map((standing, index) => [standing.userId.toString(), index + 1]),
+  );
+}
+
+function buildStandingsShiftMessage(
+  leagueName: string,
+  roundTitle: string,
+  previousRank: number | null,
+  nextRank: number,
+) {
+  if (previousRank === null) {
+    return `You entered the standings for "${leagueName}" at #${nextRank} after "${roundTitle}".`;
+  }
+
+  if (nextRank < previousRank) {
+    return `Your standing in "${leagueName}" improved from #${previousRank} to #${nextRank} after "${roundTitle}".`;
+  }
+
+  return `Your standing in "${leagueName}" fell from #${previousRank} to #${nextRank} after "${roundTitle}".`;
+}
+
 async function canViewLeague(
   ctx: { db: QueryCtx["db"] },
   leagueId: Id<"leagues">,
@@ -893,8 +918,95 @@ export const getLeagueMetadata = query({
 // Called from rounds.ts and votes.ts using internal.leagues.calculateAndStoreResults.
 export const calculateAndStoreResults = internalMutation({
   args: { roundId: v.id("rounds") },
-  handler: async (ctx, { roundId }) =>
-    recalculateAndStoreRoundResults(ctx, roundId),
+  handler: async (ctx, { roundId }) => {
+    const round = await ctx.db.get("rounds", roundId);
+    if (!round) {
+      return;
+    }
+
+    const league = await ctx.db.get("leagues", round.leagueId);
+    if (!league) {
+      return;
+    }
+
+    const previousStandings = await ctx.db
+      .query("leagueStandings")
+      .withIndex("by_league_and_points", (q) => q.eq("leagueId", league._id))
+      .order("desc")
+      .collect();
+
+    await recalculateAndStoreRoundResults(ctx, roundId);
+
+    const nextStandings = await ctx.db
+      .query("leagueStandings")
+      .withIndex("by_league_and_points", (q) => q.eq("leagueId", league._id))
+      .order("desc")
+      .collect();
+
+    const previousRanks = buildStandingRankMap(previousStandings);
+    const nextRanks = buildStandingRankMap(nextStandings);
+    const standingsShiftNotifications = nextStandings.flatMap((standing) => {
+      const nextRank = nextRanks.get(standing.userId.toString());
+      if (!nextRank) {
+        return [];
+      }
+
+      const previousRank = previousRanks.get(standing.userId.toString()) ?? null;
+      if (previousRank === nextRank) {
+        return [];
+      }
+
+      return [
+        {
+          userId: standing.userId,
+          type: "round_finished" as const,
+          message: buildStandingsShiftMessage(
+            league.name,
+            round.title,
+            previousRank,
+            nextRank,
+          ),
+          link: `/leagues/${league._id}`,
+          metadata: {
+            source: `standings-shift:${round._id}:${standing.userId}:${previousRank ?? "new"}:${nextRank}`,
+          },
+          pushNotificationOverride: {
+            title: "Standings Updated",
+          },
+        },
+      ];
+    });
+
+    if (standingsShiftNotifications.length === 0) {
+      return;
+    }
+
+    const createdNotifications: {
+      notificationId: Id<"notifications">;
+      userId: Id<"users">;
+      type: "new_comment" | "round_submission" | "round_voting" | "round_finished";
+      source: string | null;
+    }[] = await ctx.runMutation(
+      internal.notifications.createManyUniqueBySource,
+      { notifications: standingsShiftNotifications },
+    );
+    if (createdNotifications.length === 0) {
+      return;
+    }
+
+    await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundNotification, {
+      leagueId: league._id,
+      roundId: round._id,
+      roundStatus: "finished",
+      reminderKind: "standings_shift",
+      message: `Standings changed after "${round.title}" in "${league.name}". Check the updated leaderboard.`,
+      actionUrl: `/leagues/${league._id}`,
+      source: `standings-shift:${round._id}`,
+      targetUserIds: createdNotifications.map(
+        (notification: { userId: Id<"users"> }) => notification.userId,
+      ),
+    });
+  },
 });
 
 export const leaveLeague = mutation({

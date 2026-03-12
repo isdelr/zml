@@ -450,7 +450,7 @@ export const adjustRoundTime = mutation({
   handler: async (ctx, args) => {
     const round = await ctx.db.get("rounds", args.roundId);
     if (!round) throw new Error("Round not found");
-    await requireOwnerManagerOrGlobalAdmin(ctx, round.leagueId);
+    const { league } = await requireOwnerManagerOrGlobalAdmin(ctx, round.leagueId);
 
     const now = Date.now();
     const timeAdjustment = args.hours * 60 * 60 * 1000;
@@ -466,6 +466,23 @@ export const adjustRoundTime = mutation({
         submissionDeadline: newSubmissionDeadline,
         votingDeadline: round.votingDeadline + timeAdjustment,
       });
+      await ctx.scheduler.runAfter(0, internal.notifications.createForLeagueAndDispatchDiscord, {
+        leagueId: round.leagueId,
+        roundId: round._id,
+        roundStatus: "submissions",
+        notificationType: "round_submission",
+        discordNotificationKind: "deadline_changed",
+        message: `The submission deadline for "${round.title}" in "${league.name}" was updated.`,
+        link: `/leagues/${round.leagueId}/round/${round._id}`,
+        deadlineMs: newSubmissionDeadline,
+        metadata: {
+          source: `round-deadline-change:${round._id}:submissions:${newSubmissionDeadline}:${round.votingDeadline + timeAdjustment}`,
+        },
+        pushNotificationOverride: {
+          title: "Submission Deadline Changed",
+          body: `The submission deadline for "${round.title}" in "${league.name}" was updated.`,
+        },
+      });
     } else if (round.status === "voting") {
       const newVotingDeadline = round.votingDeadline + timeAdjustment;
       if (newVotingDeadline < now) {
@@ -473,6 +490,23 @@ export const adjustRoundTime = mutation({
       }
       await ctx.db.patch("rounds", round._id, {
         votingDeadline: newVotingDeadline,
+      });
+      await ctx.scheduler.runAfter(0, internal.notifications.createForLeagueAndDispatchDiscord, {
+        leagueId: round.leagueId,
+        roundId: round._id,
+        roundStatus: "voting",
+        notificationType: "round_voting",
+        discordNotificationKind: "deadline_changed",
+        message: `The voting deadline for "${round.title}" in "${league.name}" was updated.`,
+        link: `/leagues/${round.leagueId}/round/${round._id}`,
+        deadlineMs: newVotingDeadline,
+        metadata: {
+          source: `round-deadline-change:${round._id}:voting:${newVotingDeadline}`,
+        },
+        pushNotificationOverride: {
+          title: "Voting Deadline Changed",
+          body: `The voting deadline for "${round.title}" in "${league.name}" was updated.`,
+        },
       });
     } else {
       throw new Error("Cannot adjust time for a finished round.");
@@ -583,7 +617,7 @@ export const sendParticipationReminder = mutation({
         : [];
 
     if (createdIds.length > 0) {
-      await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundReminder, {
+      await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundNotification, {
         leagueId: league._id,
         roundId: round._id,
         roundStatus: status,
@@ -635,12 +669,23 @@ export const rollbackRoundToSubmissions = mutation({
     });
 
     // Notify league members that submissions have been reopened
-    await ctx.scheduler.runAfter(0, internal.notifications.createForLeague, {
+    await ctx.scheduler.runAfter(0, internal.notifications.createForLeagueAndDispatchDiscord, {
       leagueId: league._id,
-      type: "round_submission",
+      roundId: round._id,
+      roundStatus: "submissions",
+      notificationType: "round_submission",
+      discordNotificationKind: "transition",
       message: `The round "${round.title}" has been reopened for submissions for 24 hours in "${league.name}"!`,
       link: `/leagues/${league._id}/round/${round._id}`,
+      deadlineMs: newSubmissionDeadline,
       triggeringUserId: userId,
+      metadata: {
+        source: `round-transition:${round._id}:reopened:${newSubmissionDeadline}:${newVotingDeadline}`,
+      },
+      pushNotificationOverride: {
+        title: "Submissions Reopened",
+        body: `The round "${round.title}" has been reopened for submissions in "${league.name}".`,
+      },
     });
 
     return { success: true };
@@ -723,13 +768,24 @@ export const updateRound = mutation({
         );
         await ctx.scheduler.runAfter(
           0,
-          internal.notifications.createForLeague,
+          internal.notifications.createForLeagueAndDispatchDiscord,
           {
             leagueId: league._id,
-            type: "round_submission",
+            roundId: round._id,
+            roundStatus: "submissions",
+            notificationType: "round_submission",
+            discordNotificationKind: "transition",
             message: `The round "${round.title}" in "${league.name}" was updated. Please submit your song again.`,
             link: `/leagues/${league._id}/round/${round._id}`,
+            deadlineMs: round.submissionDeadline,
             triggeringUserId: adminUserId,
+            metadata: {
+              source: `round-transition:${round._id}:updated-resubmit`,
+            },
+            pushNotificationOverride: {
+              title: "Round Updated",
+              body: `The round "${round.title}" in "${league.name}" was updated. Please submit again.`,
+            },
           },
         );
       }
@@ -1033,7 +1089,7 @@ export const transitionDueRounds = internalAction({
           continue;
         }
 
-        await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundReminder, {
+        await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundNotification, {
           leagueId: dispatch.leagueId,
           roundId: dispatch.roundId,
           roundStatus: dispatch.roundStatus,
