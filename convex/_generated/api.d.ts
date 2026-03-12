@@ -18,6 +18,7 @@ import type * as bookmarks from "../bookmarks.js";
 import type * as counters from "../counters.js";
 import type * as crons from "../crons.js";
 import type * as devSeed from "../devSeed.js";
+import type * as discordBot from "../discordBot.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as leagueViews from "../leagueViews.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   counters: typeof counters;
   crons: typeof crons;
   devSeed: typeof devSeed;
+  discordBot: typeof discordBot;
   files: typeof files;
   http: typeof http;
   leagueViews: typeof leagueViews;

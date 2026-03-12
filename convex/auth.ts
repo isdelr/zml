@@ -5,6 +5,7 @@ import type { OAuth2Tokens } from "better-auth";
 import type { HttpRouter } from "convex/server";
 import type { DataModel } from "./_generated/dataModel";
 import authConfig from "./auth.config";
+import { getAllowedDiscordServerIdsFromEnv } from "../lib/discord/server-access";
 import { authComponent, getAuthUserId } from "./authCore";
 
 type DiscordProfile = {
@@ -65,9 +66,9 @@ const resolveDiscordAvatarUrl = (profile: DiscordProfile) => {
 };
 
 const assertDiscordGuildMembership = async (accessToken: string) => {
-  const requiredServerId = process.env.DISCORD_SERVER_ID;
-  if (!requiredServerId) {
-    throw new Error("DISCORD_SERVER_ID is required.");
+  const requiredServerIds = getAllowedDiscordServerIdsFromEnv();
+  if (requiredServerIds.length === 0) {
+    throw new Error("DISCORD_SERVER_ID is required and must include at least one server.");
   }
 
   const guildsResponse = await fetch("https://discord.com/api/users/@me/guilds", {
@@ -80,7 +81,9 @@ const assertDiscordGuildMembership = async (accessToken: string) => {
   }
 
   const guilds = (await guildsResponse.json()) as DiscordGuild[];
-  const isMember = guilds.some((guild) => guild.id === requiredServerId);
+  const isMember = guilds.some((guild) =>
+    requiredServerIds.includes(guild.id),
+  );
   if (!isMember) {
     throw new Error(
       "You must be a member of the required Discord server to sign in.",

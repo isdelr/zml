@@ -42,6 +42,16 @@ const storage = new B2Storage();
 const MAX_ROUND_DEADLINE_REMINDER_MS = Math.max(
   ...ROUND_DEADLINE_REMINDER_WINDOWS.map((window) => window.thresholdMs),
 );
+type DeadlineReminderContext = {
+  roundId: Id<"rounds">;
+  leagueId: Id<"leagues">;
+  leagueName: string;
+  roundTitle: string;
+  status: "submissions" | "voting" | "finished";
+  submissionDeadline: number;
+  votingDeadline: number;
+  memberUserIds: Id<"users">[];
+};
 
 async function canViewLeague(
   ctx: Pick<QueryCtx, "db">,
@@ -572,6 +582,21 @@ export const sendParticipationReminder = mutation({
           })
         : [];
 
+    if (createdIds.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundReminder, {
+        leagueId: league._id,
+        roundId: round._id,
+        roundStatus: status,
+        reminderKind: "participation",
+        message,
+        deadlineMs:
+          status === "submissions"
+            ? round.submissionDeadline
+            : round.votingDeadline,
+        targetUserIds: targetUserIds.map((targetUserId) => targetUserId as Id<"users">),
+      });
+    }
+
     return { notifiedCount: createdIds.length, status };
   },
 });
@@ -895,7 +920,7 @@ export const transitionDueRounds = internalAction({
       }
     }
 
-    const deadlineReminderContexts = await ctx.runQuery(
+    const deadlineReminderContexts: DeadlineReminderContext[] = await ctx.runQuery(
       internal.rounds.getDeadlineReminderContexts,
       {
         now,
@@ -903,7 +928,17 @@ export const transitionDueRounds = internalAction({
       },
     );
 
-    const notificationsToCreate = deadlineReminderContexts.flatMap((context) => {
+    const deadlineReminderDispatches: {
+      source: string;
+      leagueId: Id<"leagues">;
+      roundId: Id<"rounds">;
+      roundStatus: "submissions" | "voting";
+      message: string;
+      deadlineMs: number;
+      targetUserIds: Id<"users">[];
+    }[] = [];
+
+    const notificationsToCreate = deadlineReminderContexts.flatMap((context: DeadlineReminderContext) => {
       const status = context.status;
       if (status !== "submissions" && status !== "voting") {
         return [];
@@ -925,19 +960,30 @@ export const transitionDueRounds = internalAction({
           leagueName: context.leagueName,
           label: candidate.window.label,
         });
+        const source = buildRoundDeadlineReminderSource({
+          roundId: context.roundId,
+          status,
+          deadline: candidate.deadline,
+          windowKey: candidate.window.key,
+        });
 
-        return context.memberUserIds.map((userId) => ({
+        deadlineReminderDispatches.push({
+          source,
+          leagueId: context.leagueId,
+          roundId: context.roundId,
+          roundStatus: status,
+          message,
+          deadlineMs: candidate.deadline,
+          targetUserIds: [...context.memberUserIds],
+        });
+
+        return context.memberUserIds.map((userId: Id<"users">) => ({
           userId,
           type: candidate.type,
           message,
           link: `/leagues/${context.leagueId}/round/${context.roundId}`,
           metadata: {
-            source: buildRoundDeadlineReminderSource({
-              roundId: context.roundId,
-              status,
-              deadline: candidate.deadline,
-              windowKey: candidate.window.key,
-            }),
+            source,
           },
           pushNotificationOverride: {
             title: buildRoundDeadlineReminderTitle({
@@ -951,9 +997,53 @@ export const transitionDueRounds = internalAction({
     });
 
     if (notificationsToCreate.length > 0) {
-      await ctx.runMutation(internal.notifications.createManyUniqueBySource, {
-        notifications: notificationsToCreate,
-      });
+      const createdNotifications: {
+        notificationId: Id<"notifications">;
+        userId: Id<"users">;
+        type: "new_comment" | "round_submission" | "round_voting" | "round_finished";
+        source: string | null;
+      }[] = await ctx.runMutation(
+        internal.notifications.createManyUniqueBySource,
+        {
+          notifications: notificationsToCreate,
+        },
+      );
+      const createdNotificationKeys = new Set(
+        createdNotifications.map(
+          (notification: {
+            userId: Id<"users">;
+            type: "new_comment" | "round_submission" | "round_voting" | "round_finished";
+            source: string | null;
+          }) =>
+            `${notification.userId}:${notification.type}:${notification.source ?? ""}`,
+        ),
+      );
+
+      for (const dispatch of deadlineReminderDispatches) {
+        const notificationType =
+          dispatch.roundStatus === "submissions"
+            ? "round_submission"
+            : "round_voting";
+        const targetUserIds = dispatch.targetUserIds.filter((userId) =>
+          createdNotificationKeys.has(
+            `${userId}:${notificationType}:${dispatch.source}`,
+          ),
+        );
+        if (targetUserIds.length === 0) {
+          continue;
+        }
+
+        await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundReminder, {
+          leagueId: dispatch.leagueId,
+          roundId: dispatch.roundId,
+          roundStatus: dispatch.roundStatus,
+          reminderKind: "deadline",
+          message: dispatch.message,
+          deadlineMs: dispatch.deadlineMs,
+          source: dispatch.source,
+          targetUserIds,
+        });
+      }
     }
   },
 });

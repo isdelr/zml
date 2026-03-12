@@ -206,6 +206,14 @@ export const createManyUniqueBySource = internalMutation({
       }),
     ),
   },
+  returns: v.array(
+    v.object({
+      notificationId: v.id("notifications"),
+      userId: v.id("users"),
+      type: notificationTypeValidator,
+      source: v.union(v.string(), v.null()),
+    }),
+  ),
   handler: async (ctx, args) => {
     const uniqueUserIds = [
       ...new Set(args.notifications.map((notification) => notification.userId)),
@@ -254,7 +262,12 @@ export const createManyUniqueBySource = internalMutation({
       }
     }
 
-    const createdIds: Id<"notifications">[] = [];
+    const createdNotifications: {
+      notificationId: Id<"notifications">;
+      userId: Id<"users">;
+      type: NotificationType;
+      source: string | null;
+    }[] = [];
     for (const notification of args.notifications) {
       const source = notification.metadata?.source;
       const sourceKey = source
@@ -271,14 +284,19 @@ export const createManyUniqueBySource = internalMutation({
         { existingUserIds },
       );
       if (notificationId) {
-        createdIds.push(notificationId);
         if (sourceKey) {
           sourceCache.add(sourceKey);
         }
+        createdNotifications.push({
+          notificationId,
+          userId: notification.userId,
+          type: notification.type,
+          source: source ?? null,
+        });
       }
     }
 
-    return createdIds;
+    return createdNotifications;
   },
 });
 
