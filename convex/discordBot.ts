@@ -50,6 +50,10 @@ const DEFAULT_PAGINATION_OPTS = {
   numItems: 256,
 } as const;
 
+type BetterAuthFindManyResult<T> = {
+  page?: T[];
+};
+
 function jsonResponse(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
@@ -168,11 +172,12 @@ async function resolveDiscordUserIdsForAppUsers(
     return [];
   }
 
-  const authUsers = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+  const authUsersResult = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
     model: "user",
     paginationOpts: DEFAULT_PAGINATION_OPTS,
     where: [{ field: "userId", operator: "in", value: uniqueAppUserIds }],
-  })) as Array<{ _id?: string; userId?: string }>;
+  })) as BetterAuthFindManyResult<{ _id?: string; userId?: string }>;
+  const authUsers = Array.isArray(authUsersResult.page) ? authUsersResult.page : [];
 
   const authUserIds = authUsers
     .map((user) => user._id)
@@ -181,14 +186,15 @@ async function resolveDiscordUserIdsForAppUsers(
     return [];
   }
 
-  const accounts = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+  const accountsResult = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
     model: "account",
     paginationOpts: DEFAULT_PAGINATION_OPTS,
     where: [
       { field: "providerId", value: "discord" },
       { field: "userId", operator: "in", value: authUserIds },
     ],
-  })) as Array<{ accountId?: string; userId?: string }>;
+  })) as BetterAuthFindManyResult<{ accountId?: string; userId?: string }>;
+  const accounts = Array.isArray(accountsResult.page) ? accountsResult.page : [];
 
   const appUserIdByAuthUserId = new Map<string, string>();
   for (const authUser of authUsers) {
