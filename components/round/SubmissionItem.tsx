@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { toErrorMessage } from "@/lib/errors";
 import { YouTubeIcon } from "@/components/icons/BrandIcons";
 import { OverflowText } from "@/components/ui/overflow-text";
+import { ExpandableText } from "@/components/ui/expandable-text";
 import { buildTrackMetadataText } from "@/lib/music/submission-display";
 import {
   DropdownMenu,
@@ -293,9 +294,12 @@ export function SubmissionItem({
 
   const renderSubmitterInfo = () =>
     roundStatus === "voting" ? (
-      <p className="line-clamp-3 text-xs leading-4 text-muted-foreground [overflow-wrap:anywhere]">
+      <ExpandableText
+        textClassName="text-xs leading-4 text-muted-foreground"
+        buttonClassName="px-2"
+      >
         {votingComment}
-      </p>
+      </ExpandableText>
     ) : (
       <div className="flex items-center gap-2 text-sm">
         <Avatar className="size-6">
@@ -555,8 +559,8 @@ export function SubmissionItem({
               {renderAdminAdjustmentButtonGroup()}
             </div>
           ) : null}
-          <div className="mt-3 flex items-center justify-between gap-2">
-            {renderSubmitterInfo()}
+          <div className="mt-3 flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">{renderSubmitterInfo()}</div>
             <div className="flex items-center gap-0.5">
               {roundStatus === "voting" && renderVoteButtonGroup()}
               {canMarkTrollSubmissions && (
@@ -739,7 +743,7 @@ export function SubmissionItem({
               </p>
             </div>
           </div>
-          <div>{renderSubmitterInfo()}</div>
+          <div className="min-w-0">{renderSubmitterInfo()}</div>
           {roundStatus === "finished" ? (
             <div className="min-w-0">{renderVoteGroups(6)}</div>
           ) : null}
