@@ -18,42 +18,38 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const { token } = await getToken(convexSiteUrl, request.headers);
   if (!token) {
-    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-  }
-
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch (error) {
     return NextResponse.json(
-      {
-        error: "Failed to parse upload payload.",
-        message: toErrorMessage(error),
-      },
-      { status: 400 },
+      { error: "Authentication required." },
+      { status: 401 },
     );
   }
 
-  const key = formData.get("key");
-  if (typeof key !== "string" || key.trim().length === 0) {
+  const url = new URL(request.url);
+  const key = url.searchParams.get("key")?.trim();
+  if (!key) {
     return NextResponse.json({ error: "Missing storage key." }, { status: 400 });
   }
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Missing file." }, { status: 400 });
-  }
-  if (file.size <= 0) {
-    return NextResponse.json({ error: "File is empty." }, { status: 400 });
+  if (!request.body) {
+    return NextResponse.json({ error: "Missing file body." }, { status: 400 });
   }
 
   try {
     const bodyStream = Readable.fromWeb(
-      file.stream() as unknown as NodeReadableStream<Uint8Array>,
+      request.body as unknown as NodeReadableStream<Uint8Array>,
     );
+    const contentLengthHeader = request.headers.get("content-length");
+    const parsedContentLength = contentLengthHeader
+      ? Number.parseInt(contentLengthHeader, 10)
+      : Number.NaN;
+
     await storage.putObject(key, bodyStream, {
-      contentType: file.type || "application/octet-stream",
-      contentLength: file.size,
+      contentType:
+        request.headers.get("content-type") || "application/octet-stream",
+      contentLength:
+        Number.isFinite(parsedContentLength) && parsedContentLength > 0
+          ? parsedContentLength
+          : undefined,
     });
     return NextResponse.json({ key });
   } catch (error) {
@@ -66,4 +62,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

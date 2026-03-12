@@ -32,15 +32,15 @@ type UploadOptions = {
   onProgress?: (progress: number) => void;
 };
 
-function uploadWithProgress(
-  url: string,
+function uploadViaAppServerWithProgress(
+  key: string,
   file: File,
   onProgress?: (progress: number) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
-    xhr.open("PUT", url);
+    xhr.open("POST", `/api/storage/upload-file?key=${encodeURIComponent(key)}`);
     xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
 
     xhr.upload.onprogress = (event) => {
@@ -66,55 +66,14 @@ function uploadWithProgress(
   });
 }
 
-function uploadViaProxyWithProgress(
-  key: string,
-  file: File,
-  onProgress?: (progress: number) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const formData = new FormData();
-    formData.append("key", key);
-    formData.append("file", file);
-
-    xhr.open("POST", "/api/storage/upload-file");
-
-    xhr.upload.onprogress = (event) => {
-      if (!onProgress || !event.lengthComputable) {
-        return;
-      }
-      onProgress(Math.round((event.loaded / event.total) * 100));
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Proxy upload failed with status ${xhr.status}`));
-      }
-    };
-
-    xhr.onerror = () => {
-      reject(new Error("Proxy upload failed due to a network error."));
-    };
-
-    xhr.send(formData);
-  });
-}
-
 export function useUploadFile(api: UploadApi) {
   const generateUploadUrl = useAction(api.generateUploadUrl);
   const syncMetadata = useAction(api.syncMetadata);
 
   return useCallback(
     async (file: File, options?: UploadOptions) => {
-      const { url, key } = await generateUploadUrl({});
-
-      try {
-        await uploadWithProgress(url, file, options?.onProgress);
-      } catch {
-        await uploadViaProxyWithProgress(key, file, options?.onProgress);
-      }
+      const { key } = await generateUploadUrl({});
+      await uploadViaAppServerWithProgress(key, file, options?.onProgress);
       await syncMetadata({ key });
       return key;
     },
