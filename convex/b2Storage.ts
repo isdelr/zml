@@ -1,8 +1,12 @@
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -151,6 +155,83 @@ export class B2Storage {
       new PutObjectCommand({ Bucket: config.bucket, Key: key }),
     );
     return { key, url };
+  }
+
+  async createMultipartUpload(key: string, options?: { contentType?: string }) {
+    const config = getStorageConfig();
+    clearCachedSignedUrlsForKey(config.bucket, key);
+    const response = await getStorageClient().send(
+      new CreateMultipartUploadCommand({
+        Bucket: config.bucket,
+        Key: key,
+        ContentType: options?.contentType,
+      }),
+    );
+
+    if (!response.UploadId) {
+      throw new Error("Storage provider did not return a multipart upload ID.");
+    }
+
+    return { uploadId: response.UploadId };
+  }
+
+  async uploadPart(
+    key: string,
+    uploadId: string,
+    partNumber: number,
+    body: PutObjectBody,
+    options?: { contentLength?: number },
+  ) {
+    const config = getStorageConfig();
+    const response = await getStorageClient().send(
+      new UploadPartCommand({
+        Bucket: config.bucket,
+        Key: key,
+        UploadId: uploadId,
+        PartNumber: partNumber,
+        Body: body,
+        ContentLength: options?.contentLength,
+      }),
+    );
+
+    if (!response.ETag) {
+      throw new Error("Storage provider did not return a multipart part ETag.");
+    }
+
+    return { etag: response.ETag };
+  }
+
+  async completeMultipartUpload(
+    key: string,
+    uploadId: string,
+    parts: Array<{ partNumber: number; etag: string }>,
+  ) {
+    const config = getStorageConfig();
+    clearCachedSignedUrlsForKey(config.bucket, key);
+    await getStorageClient().send(
+      new CompleteMultipartUploadCommand({
+        Bucket: config.bucket,
+        Key: key,
+        UploadId: uploadId,
+        MultipartUpload: {
+          Parts: parts.map((part) => ({
+            PartNumber: part.partNumber,
+            ETag: part.etag,
+          })),
+        },
+      }),
+    );
+  }
+
+  async abortMultipartUpload(key: string, uploadId: string) {
+    const config = getStorageConfig();
+    await getStorageClient().send(
+      new AbortMultipartUploadCommand({
+        Bucket: config.bucket,
+        Key: key,
+        UploadId: uploadId,
+      }),
+    );
   }
 
   async deleteObject(key: string) {
