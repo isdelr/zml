@@ -379,6 +379,7 @@ export const createForLeagueAndDispatchDiscord = internalAction({
     actionUrl: v.optional(v.string()),
     deadlineMs: v.optional(v.number()),
     triggeringUserId: v.optional(v.id("users")),
+    targetUserIds: v.optional(v.array(v.id("users"))),
     metadata: v.optional(notificationMetadataValidator),
     pushNotificationOverride: v.optional(pushNotificationOverrideValidator),
   },
@@ -390,9 +391,17 @@ export const createForLeagueAndDispatchDiscord = internalAction({
       internal.notifications.getLeagueMemberships,
       { leagueId: args.leagueId },
     );
+    const targetUserIdSet = args.targetUserIds
+      ? new Set(args.targetUserIds.map((userId) => userId.toString()))
+      : null;
 
     const notificationsToCreate: NotificationWriteArgs[] = memberships
       .filter((membership) => membership.userId !== args.triggeringUserId)
+      .filter((membership) =>
+        targetUserIdSet === null
+          ? true
+          : targetUserIdSet.has(membership.userId.toString()),
+      )
       .map((membership) => ({
         userId: membership.userId,
         type: args.notificationType,

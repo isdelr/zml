@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getPendingRoundParticipantIds,
   getPendingSubmissionParticipantIds,
   getPendingVotingParticipantIds,
 } from "@/lib/rounds/pending-participation";
@@ -41,5 +42,28 @@ describe("pending participation helpers", () => {
         1,
       ),
     ).toEqual([]);
+  });
+
+  it("routes status-based reminders through the matching pending helper", () => {
+    expect(
+      getPendingRoundParticipantIds({
+        status: "submissions",
+        members: [{ _id: "u1" }, { _id: "u2" }],
+        submissions: [{ userId: "u1" }],
+        submissionsPerUser: 1,
+      }),
+    ).toEqual(["u2"]);
+
+    expect(
+      getPendingRoundParticipantIds({
+        status: "voting",
+        members: [{ _id: "u1" }, { _id: "u2" }, { _id: "u3" }],
+        submissions: [{ userId: "u1" }, { userId: "u2" }],
+        submissionsPerUser: 1,
+        votes: [{ userId: "u1", vote: 1 }],
+        maxUp: 1,
+        maxDown: 1,
+      }),
+    ).toEqual(["u1", "u2"]);
   });
 });

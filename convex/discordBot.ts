@@ -13,6 +13,7 @@ import {
   getPrimaryDiscordServerIdFromEnv,
   isAllowedDiscordServerId,
 } from "../lib/discord/server-access";
+import { shouldMentionDiscordUsersForReminder } from "../lib/discord/reminder-mentions";
 
 const BOT_API_PREFIX = "/discord-bot";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
@@ -580,11 +581,13 @@ export const dispatchRoundNotification = internalAction({
       return { dispatched: false, mentionedCount: 0 };
     }
 
-    const mentionDiscordUserIds = await resolveDiscordUserIdsForAppUsers(
-      ctx,
-      args.targetUserIds,
+    const shouldMentionUsers = shouldMentionDiscordUsersForReminder(
+      args.reminderKind,
     );
-    if (mentionDiscordUserIds.length === 0) {
+    const mentionDiscordUserIds = shouldMentionUsers
+      ? await resolveDiscordUserIdsForAppUsers(ctx, args.targetUserIds)
+      : [];
+    if (shouldMentionUsers && mentionDiscordUserIds.length === 0) {
       return { dispatched: false, mentionedCount: 0 };
     }
 

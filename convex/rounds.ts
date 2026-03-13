@@ -33,6 +33,7 @@ import {
   ROUND_DEADLINE_REMINDER_WINDOWS,
 } from "../lib/rounds/deadline-reminders";
 import {
+  getPendingRoundParticipantIds,
   getPendingSubmissionParticipantIds,
   getPendingVotingParticipantIds,
 } from "../lib/rounds/pending-participation";
@@ -50,7 +51,7 @@ type DeadlineReminderContext = {
   status: "submissions" | "voting" | "finished";
   submissionDeadline: number;
   votingDeadline: number;
-  memberUserIds: Id<"users">[];
+  targetUserIds: Id<"users">[];
 };
 
 async function canViewLeague(
@@ -456,6 +457,24 @@ export const adjustRoundTime = mutation({
     const timeAdjustment = args.hours * 60 * 60 * 1000;
 
     if (round.status === "submissions") {
+      const [memberships, submissions] = await Promise.all([
+        ctx.db
+          .query("memberships")
+          .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
+          .collect(),
+        ctx.db
+          .query("submissions")
+          .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+          .collect(),
+      ]);
+      const activeMembers = memberships
+        .filter((membership) => !membership.isBanned && !membership.isSpectator)
+        .map((membership) => ({ _id: membership.userId }));
+      const targetUserIds = getPendingSubmissionParticipantIds(
+        activeMembers,
+        submissions,
+        round.submissionsPerUser ?? 1,
+      );
       const newSubmissionDeadline = round.submissionDeadline + timeAdjustment;
       if (newSubmissionDeadline < now) {
         throw new Error(
@@ -478,12 +497,40 @@ export const adjustRoundTime = mutation({
         metadata: {
           source: `round-deadline-change:${round._id}:submissions:${newSubmissionDeadline}:${round.votingDeadline + timeAdjustment}`,
         },
+        targetUserIds: targetUserIds.map(
+          (targetUserId) => targetUserId as Id<"users">,
+        ),
         pushNotificationOverride: {
           title: "Submission Deadline Changed",
           body: `The submission deadline for "${round.title}" in "${league.name}" was updated.`,
         },
       });
     } else if (round.status === "voting") {
+      const [memberships, submissions, votes] = await Promise.all([
+        ctx.db
+          .query("memberships")
+          .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
+          .collect(),
+        ctx.db
+          .query("submissions")
+          .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+          .collect(),
+        ctx.db
+          .query("votes")
+          .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+          .collect(),
+      ]);
+      const activeMembers = memberships
+        .filter((membership) => !membership.isBanned && !membership.isSpectator)
+        .map((membership) => ({ _id: membership.userId }));
+      const { maxUp, maxDown } = getVoteLimits(round, league);
+      const targetUserIds = getPendingVotingParticipantIds(
+        activeMembers,
+        submissions,
+        votes,
+        maxUp,
+        maxDown,
+      );
       const newVotingDeadline = round.votingDeadline + timeAdjustment;
       if (newVotingDeadline < now) {
         throw new Error("Cannot set voting deadline to a time in the past.");
@@ -503,6 +550,9 @@ export const adjustRoundTime = mutation({
         metadata: {
           source: `round-deadline-change:${round._id}:voting:${newVotingDeadline}`,
         },
+        targetUserIds: targetUserIds.map(
+          (targetUserId) => targetUserId as Id<"users">,
+        ),
         pushNotificationOverride: {
           title: "Voting Deadline Changed",
           body: `The voting deadline for "${round.title}" in "${league.name}" was updated.`,
@@ -1030,10 +1080,10 @@ export const transitionDueRounds = internalAction({
           roundStatus: status,
           message,
           deadlineMs: candidate.deadline,
-          targetUserIds: [...context.memberUserIds],
+          targetUserIds: [...context.targetUserIds],
         });
 
-        return context.memberUserIds.map((userId: Id<"users">) => ({
+        return context.targetUserIds.map((userId: Id<"users">) => ({
           userId,
           type: candidate.type,
           message,
@@ -1133,7 +1183,7 @@ export const getDeadlineReminderContexts = internalQuery({
 
     const rounds = [...submissionRounds, ...votingRounds];
     const leagueIds = [...new Set(rounds.map((round) => round.leagueId))];
-    const [leagues, membershipsByLeague] = await Promise.all([
+    const [leagues, membershipsByLeague, submissionsByRound, votesByRound] = await Promise.all([
       Promise.all(leagueIds.map((leagueId) => ctx.db.get("leagues", leagueId))),
       Promise.all(
         leagueIds.map((leagueId) =>
@@ -1143,6 +1193,24 @@ export const getDeadlineReminderContexts = internalQuery({
             .collect(),
         ),
       ),
+      Promise.all(
+        rounds.map((round) =>
+          ctx.db
+            .query("submissions")
+            .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+            .collect(),
+        ),
+      ),
+      Promise.all(
+        rounds.map((round) =>
+          round.status === "voting"
+            ? ctx.db
+                .query("votes")
+                .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+                .collect()
+            : Promise.resolve([]),
+        ),
+      ),
     ]);
 
     const leagueMap = new Map(
@@ -1150,13 +1218,19 @@ export const getDeadlineReminderContexts = internalQuery({
         .filter((league): league is NonNullable<typeof league> => league !== null)
         .map((league) => [league._id.toString(), league]),
     );
-    const memberUserIdsByLeague = new Map(
+    const activeMembersByLeague = new Map(
       leagueIds.map((leagueId, index) => [
         leagueId.toString(),
         membershipsByLeague[index]
           .filter((membership) => !membership.isBanned && !membership.isSpectator)
-          .map((membership) => membership.userId),
+          .map((membership) => ({ _id: membership.userId })),
       ]),
+    );
+    const submissionsByRoundId = new Map(
+      rounds.map((round, index) => [round._id.toString(), submissionsByRound[index]]),
+    );
+    const votesByRoundId = new Map(
+      rounds.map((round, index) => [round._id.toString(), votesByRound[index]]),
     );
 
     return rounds.flatMap((round) => {
@@ -1164,6 +1238,17 @@ export const getDeadlineReminderContexts = internalQuery({
       if (!league) {
         return [];
       }
+      const status: "submissions" | "voting" =
+        round.status === "submissions" ? "submissions" : "voting";
+
+      const targetUserIds = getPendingRoundParticipantIds({
+        status,
+        members: activeMembersByLeague.get(round.leagueId.toString()) ?? [],
+        submissions: submissionsByRoundId.get(round._id.toString()) ?? [],
+        submissionsPerUser: round.submissionsPerUser ?? 1,
+        votes: votesByRoundId.get(round._id.toString()) ?? [],
+        ...getVoteLimits(round, league),
+      }).map((userId) => userId as Id<"users">);
 
       return [
         {
@@ -1171,11 +1256,10 @@ export const getDeadlineReminderContexts = internalQuery({
           leagueId: round.leagueId,
           leagueName: league.name,
           roundTitle: round.title,
-          status: round.status,
+          status,
           submissionDeadline: round.submissionDeadline,
           votingDeadline: round.votingDeadline,
-          memberUserIds:
-            memberUserIdsByLeague.get(round.leagueId.toString()) ?? [],
+          targetUserIds,
         },
       ];
     });

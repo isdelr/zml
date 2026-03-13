@@ -13,6 +13,16 @@ type VoteLike = {
   vote: number;
 };
 
+type PendingParticipationArgs = {
+  status: "submissions" | "voting";
+  members: MemberLike[] | undefined;
+  submissions: SubmissionLike[] | undefined;
+  submissionsPerUser: number;
+  votes?: VoteLike[] | undefined;
+  maxUp?: number;
+  maxDown?: number;
+};
+
 const toId = (value: IdLike) => value.toString();
 
 export function getPendingSubmissionParticipantIds(
@@ -75,4 +85,24 @@ export function getPendingVotingParticipantIds(
     const totals = voteTotals.get(userId) ?? { up: 0, down: 0 };
     return totals.up < maxUp || totals.down < maxDown;
   });
+}
+
+export function getPendingRoundParticipantIds(
+  args: PendingParticipationArgs,
+): string[] {
+  if (args.status === "submissions") {
+    return getPendingSubmissionParticipantIds(
+      args.members,
+      args.submissions,
+      args.submissionsPerUser,
+    );
+  }
+
+  return getPendingVotingParticipantIds(
+    args.members,
+    args.submissions,
+    args.votes,
+    args.maxUp ?? 0,
+    args.maxDown ?? 0,
+  );
 }
