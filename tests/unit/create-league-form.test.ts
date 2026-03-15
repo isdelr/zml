@@ -4,6 +4,10 @@ import {
   createDefaultRound,
   createLeagueFormSchema,
 } from "@/lib/leagues/create-league-form";
+import {
+  MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
+  MAX_LEAGUE_UPVOTES_PER_MEMBER,
+} from "@/lib/leagues/vote-limits";
 
 function buildValidLeagueInput() {
   return {
@@ -56,6 +60,31 @@ describe("createLeagueFormSchema", () => {
   it("accepts a valid base league payload", () => {
     const result = createLeagueFormSchema.safeParse(buildValidLeagueInput());
     expect(result.success).toBe(true);
+  });
+
+  it("accepts vote totals up to the configured cap", () => {
+    const result = createLeagueFormSchema.safeParse({
+      ...buildValidLeagueInput(),
+      maxPositiveVotes: MAX_LEAGUE_UPVOTES_PER_MEMBER,
+      maxNegativeVotes: MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects vote totals above the configured cap", () => {
+    const result = createLeagueFormSchema.safeParse({
+      ...buildValidLeagueInput(),
+      maxPositiveVotes: MAX_LEAGUE_UPVOTES_PER_MEMBER + 1,
+      maxNegativeVotes: MAX_LEAGUE_DOWNVOTES_PER_MEMBER + 1,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join("."));
+      expect(paths).toContain("maxPositiveVotes");
+      expect(paths).toContain("maxNegativeVotes");
+    }
   });
 
   it("requires listen config when enforceListenPercentage is enabled", () => {

@@ -24,6 +24,10 @@ import {
   buildLeagueRoundSchedule,
   buildScheduledRoundResequencePatches,
 } from "../lib/rounds/schedule";
+import {
+  MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
+  MAX_LEAGUE_UPVOTES_PER_MEMBER,
+} from "../lib/leagues/vote-limits";
 
 const storage = new B2Storage();
 
@@ -209,8 +213,21 @@ export const create = mutation({
     if (args.votingDeadline < 1 || args.votingDeadline > maxHours) {
       throw new Error(`Voting period must be between 1 and ${maxHours} hours.`);
     }
-    if (args.maxPositiveVotes < 1 || args.maxPositiveVotes > 10) {
-      throw new Error("Upvotes must be between 1 and 10.");
+    if (
+      args.maxPositiveVotes < 1 ||
+      args.maxPositiveVotes > MAX_LEAGUE_UPVOTES_PER_MEMBER
+    ) {
+      throw new Error(
+        `Upvotes must be between 1 and ${MAX_LEAGUE_UPVOTES_PER_MEMBER}.`,
+      );
+    }
+    if (
+      args.maxNegativeVotes < 0 ||
+      args.maxNegativeVotes > MAX_LEAGUE_DOWNVOTES_PER_MEMBER
+    ) {
+      throw new Error(
+        `Downvotes must be between 0 and ${MAX_LEAGUE_DOWNVOTES_PER_MEMBER}.`,
+      );
     }
 
     // Generate a unique invite code for the league

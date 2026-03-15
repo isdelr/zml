@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
+  MAX_LEAGUE_UPVOTES_PER_MEMBER,
+} from "@/lib/leagues/vote-limits";
 
 export const MAX_ROUND_IMAGE_SIZE_MB = 5;
 export const MAX_ROUND_IMAGE_SIZE_BYTES = MAX_ROUND_IMAGE_SIZE_MB * 1024 * 1024;
@@ -46,8 +50,20 @@ export const createLeagueFormSchema = z
       .number()
       .min(1, "Must be at least 1 hour.")
       .max(720, "Max duration is 30 days (720 hours)."),
-    maxPositiveVotes: z.coerce.number().min(1, "Must be at least 1 vote."),
-    maxNegativeVotes: z.coerce.number().min(0, "Cannot be negative."),
+    maxPositiveVotes: z.coerce
+      .number()
+      .min(1, "Must be at least 1 vote.")
+      .max(
+        MAX_LEAGUE_UPVOTES_PER_MEMBER,
+        `Cannot exceed ${MAX_LEAGUE_UPVOTES_PER_MEMBER} votes.`,
+      ),
+    maxNegativeVotes: z.coerce
+      .number()
+      .min(0, "Cannot be negative.")
+      .max(
+        MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
+        `Cannot exceed ${MAX_LEAGUE_DOWNVOTES_PER_MEMBER} votes.`,
+      ),
     limitVotesPerSubmission: z.boolean().default(false),
     maxPositiveVotesPerSubmission: z.coerce.number().min(1, "Must be at least 1 vote.").optional(),
     maxNegativeVotesPerSubmission: z.coerce.number().min(0, "Cannot be negative.").optional(),

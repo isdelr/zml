@@ -5,6 +5,10 @@ import { internal } from "./_generated/api";
 import { memberCounter, submissionCounter, voterCounter } from "./counters";
 import { membershipsByUser, submissionsByUser, unreadNotifications } from "./aggregates";
 import {
+  MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
+  MAX_LEAGUE_UPVOTES_PER_MEMBER,
+} from "../lib/leagues/vote-limits";
+import {
   buildSubmissionSearchText,
   normalizeSubmissionArtist,
   normalizeSubmissionSongTitle,
@@ -393,8 +397,16 @@ async function seedVotes(
     finalizeRatio: number;
   },
 ): Promise<VoteGenerationResult> {
-  const maxUp = clamp(args.league.maxPositiveVotes, 1, 10);
-  const maxDown = clamp(args.league.maxNegativeVotes, 0, 5);
+  const maxUp = clamp(
+    args.league.maxPositiveVotes,
+    1,
+    MAX_LEAGUE_UPVOTES_PER_MEMBER,
+  );
+  const maxDown = clamp(
+    args.league.maxNegativeVotes,
+    0,
+    MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
+  );
   let votesInserted = 0;
   let finalizedVoters = 0;
 
