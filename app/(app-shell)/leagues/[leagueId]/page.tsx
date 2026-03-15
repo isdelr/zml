@@ -1,11 +1,9 @@
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { ConvexHttpClient } from "convex/browser";
+import { getServerAuthToken } from "@/lib/auth-server";
+import { serverOptions } from "@/lib/convex-server";
+import { fetchQuery } from "convex/nextjs";
 import type { Metadata } from "next";
-
-const convex = new ConvexHttpClient(
-  (process.env.CONVEX_SELF_HOSTED_URL || process.env.NEXT_PUBLIC_CONVEX_URL)!,
-);
 
 export async function generateMetadata({
   params,
@@ -16,9 +14,14 @@ export async function generateMetadata({
 
   let leagueMetadata;
   try {
-    leagueMetadata = await convex.query(api.leagues.getLeagueMetadata, {
-      leagueId: leagueId as Id<"leagues">,
-    });
+    const token = await getServerAuthToken();
+    leagueMetadata = await fetchQuery(
+      api.leagues.getLeagueMetadata,
+      {
+        leagueId: leagueId as Id<"leagues">,
+      },
+      serverOptions({ token: token ?? undefined }),
+    );
   } catch {
     return { title: "League" };
   }
