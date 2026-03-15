@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface RoundStatusAlertsProps {
   isSpectator: boolean;
-  roundStatus: "submissions" | "voting" | "finished";
+  roundStatus: "scheduled" | "submissions" | "voting" | "finished";
   userVoteStatus:
     | {
         hasVoted: boolean;
@@ -71,6 +71,15 @@ export function RoundStatusAlerts({
               </span>
               <Headphones className="inline-block size-4" />
             </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {roundStatus === "scheduled" ? (
+        <Alert className="mb-8 border-muted bg-muted/40 text-foreground">
+          <AlertTitle className="font-bold">Round Not Open Yet</AlertTitle>
+          <AlertDescription className="text-muted-foreground">
+            This round is scheduled and will open for submissions automatically.
           </AlertDescription>
         </Alert>
       ) : null}

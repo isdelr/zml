@@ -147,7 +147,9 @@ export function RoundAdminControls({
           </Dialog>
         )}
 
-        {(round.status === "submissions" || round.status === "voting") && (
+        {(round.status === "scheduled" ||
+          round.status === "submissions" ||
+          round.status === "voting") && (
           <>
             <DeadlineAdjustmentDialog
               direction="increase"
@@ -341,13 +343,26 @@ function DeadlineAdjustmentDialog({
   const [hours, setHours] = useState("");
 
   const currentDeadline =
-    round.status === "submissions"
+    round.status === "scheduled"
+      ? (round.submissionStartsAt ?? round.submissionDeadline)
+      : round.status === "submissions"
       ? round.submissionDeadline
       : round.votingDeadline;
-  const phaseLabel = round.status === "submissions" ? "Submission" : "Voting";
+  const phaseLabel =
+    round.status === "scheduled"
+      ? "Round start"
+      : round.status === "submissions"
+        ? "Submission"
+        : "Voting";
   const directionLabel = direction === "increase" ? "Increase" : "Decrease";
   const buttonLabel =
-    direction === "increase" ? "Increase deadline" : "Decrease deadline";
+    round.status === "scheduled"
+      ? direction === "increase"
+        ? "Delay round"
+        : "Move round earlier"
+      : direction === "increase"
+        ? "Increase deadline"
+        : "Decrease deadline";
   const Icon = direction === "increase" ? Plus : Minus;
 
   const parsedDays = parseAdjustmentValue(days);

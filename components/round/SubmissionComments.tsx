@@ -16,7 +16,7 @@ import { toErrorMessage } from "@/lib/errors";
 
 interface SubmissionCommentsProps {
   submissionId: Id<"submissions">;
-  roundStatus: "voting" | "finished" | "submissions";
+  roundStatus: "scheduled" | "voting" | "finished" | "submissions";
 }
 
 export function SubmissionComments({ submissionId }: SubmissionCommentsProps) {

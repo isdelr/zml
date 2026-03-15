@@ -303,6 +303,12 @@ export const submitSong = mutation({
     if (!round) throw new Error("Round not found.");
     if (round.status !== "submissions")
       throw new Error("Submissions are not open.");
+    if (
+      round.submissionStartsAt !== undefined &&
+      round.submissionStartsAt > Date.now()
+    ) {
+      throw new Error("This round has not opened for submissions yet.");
+    }
     if (round.submissionDeadline <= Date.now()) {
       throw new Error(
         "The submission deadline has passed. Recent uploads are still finishing in the background.",

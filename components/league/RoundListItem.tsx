@@ -14,7 +14,13 @@ type RoundListItemProps = {
 
 export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProps) {
   const statusInfo =
-    round.status === "submissions"
+    round.status === "scheduled"
+      ? {
+        icon: <Clock className="size-4 text-muted-foreground" />,
+        label: "Scheduled",
+        textColor: "text-muted-foreground",
+      }
+      : round.status === "submissions"
       ? {
         icon: <Send className="size-4 text-success" />,
         label: "Submissions",
@@ -73,6 +79,12 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
 
   const renderMobileSecondaryInfo = () => (
     <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+      {round.status === "scheduled" && (
+        <div className="flex items-center gap-1.5">
+          <Clock className="size-3" />
+          <span>Starts {formatShortDateTime(round.submissionStartsAt ?? round.submissionDeadline)}</span>
+        </div>
+      )}
       {round.status === "submissions" && (
         <div className="flex items-center gap-1.5">
           <Clock className="size-3" />
@@ -105,7 +117,15 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
           </div>
           <AvatarStack
             max={5}
-            users={(round.status === "submissions" ? round.submitters : round.voters) ?? []}
+            users={
+              (
+                round.status === "submissions"
+                  ? round.submitters
+                  : round.status === "voting"
+                    ? round.voters
+                    : []
+              ) ?? []
+            }
           />
         </div>
         {renderMobileSecondaryInfo()}
@@ -120,6 +140,17 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
           <p className="truncate font-semibold">{round.title}</p>
         </div>
         <div className="flex min-w-0 items-center text-sm text-muted-foreground">
+          {round.status === "scheduled" && (
+            <>
+              <Clock className="mr-2 size-4" />
+              <span>
+                Starts{" "}
+                {formatShortDateTime(
+                  round.submissionStartsAt ?? round.submissionDeadline,
+                )}
+              </span>
+            </>
+          )}
           {round.status === "submissions" && (
             <>
               <Clock className="mr-2 size-4" />

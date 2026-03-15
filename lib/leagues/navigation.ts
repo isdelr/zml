@@ -24,6 +24,7 @@ export function getPreferredRoundId(rounds: RoundLike[] | null | undefined) {
   return (
     rounds.find((round) => round.status === "voting")?._id ??
     rounds.find((round) => round.status === "submissions")?._id ??
+    rounds.find((round) => round.status === "scheduled")?._id ??
     rounds[0]?._id ??
     null
   );

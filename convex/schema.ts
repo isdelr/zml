@@ -98,15 +98,18 @@ export default defineSchema({
 
   rounds: defineTable({
     leagueId: v.id("leagues"),
+    order: v.optional(v.number()),
     title: v.string(),
     description: v.string(),
     imageKey: v.optional(v.string()),
     genres: v.array(v.string()),
     status: v.union(
+      v.literal("scheduled"),
       v.literal("submissions"),
       v.literal("voting"),
       v.literal("finished"),
     ),
+    submissionStartsAt: v.optional(v.number()),
     submissionDeadline: v.number(),
     votingDeadline: v.number(),
     submissionsPerUser: v.optional(v.number()),
@@ -128,6 +131,7 @@ export default defineSchema({
   })
     .index("by_league", ["leagueId"])
     .index("by_league_and_status", ["leagueId", "status"])
+    .index("by_status_and_submission_start", ["status", "submissionStartsAt"])
     .index("by_status_and_submission_deadline", [
       "status",
       "submissionDeadline",

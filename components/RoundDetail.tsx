@@ -456,7 +456,7 @@ export function RoundDetail({
         }
       />
 
-      {!league.isSpectator && (
+      {!league.isSpectator && round.status !== "scheduled" && (
         <div className="mt-8 mb-12">
           <SubmissionForm
             round={round}

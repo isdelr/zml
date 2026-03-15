@@ -16,11 +16,14 @@ import {
   checkLeagueManagementPermission,
   checkLeagueOwnership,
   generateInviteCode,
-  hoursToMs,
 } from "../lib/convex-server/leagues/permissions";
 import { getLeagueMembersSummary } from "../lib/convex-server/leagues/members";
 import { recalculateAndStoreRoundResults } from "../lib/convex-server/leagues/results";
 import { resolveUserAvatarUrl } from "./userAvatar";
+import {
+  buildLeagueRoundSchedule,
+  buildScheduledRoundResequencePatches,
+} from "../lib/rounds/schedule";
 
 const storage = new B2Storage();
 
@@ -261,39 +264,42 @@ export const create = mutation({
       totalWins: 0,
     });
 
-    // Create rounds with staggered deadlines
-    let submissionTime = Date.now();
-    for (const round of args.rounds) {
-      const submissionDeadlineTimestamp =
-        submissionTime + hoursToMs(args.submissionDeadline);
-      const votingDeadlineTimestamp =
-        submissionDeadlineTimestamp + hoursToMs(args.votingDeadline);
+    // Create rounds in a fixed sequence with a 24 hour buffer between them.
+    const roundSchedules = buildLeagueRoundSchedule({
+      roundCount: args.rounds.length,
+      startsAt: Date.now(),
+      submissionHours: args.submissionDeadline,
+      votingHours: args.votingDeadline,
+    });
 
+    for (const [index, round] of args.rounds.entries()) {
+      const schedule = roundSchedules[index];
       const roundId = await ctx.db.insert("rounds", {
         leagueId: leagueId,
+        order: schedule.order,
         title: round.title,
         description: round.description,
         submissionsPerUser: round.submissionsPerUser ?? 1,
         imageKey: round.imageKey,
         genres: round.genres,
-        status: "submissions",
-        submissionDeadline: submissionDeadlineTimestamp,
-        votingDeadline: votingDeadlineTimestamp,
+        status: schedule.status,
+        submissionStartsAt: schedule.submissionStartsAt,
+        submissionDeadline: schedule.submissionDeadline,
+        votingDeadline: schedule.votingDeadline,
         submissionMode: round.submissionMode ?? "single",
         submissionInstructions: round.submissionInstructions,
         albumConfig: round.albumConfig,
       });
 
-      // Notify creator that their round is open for submissions
-      await ctx.scheduler.runAfter(0, internal.notifications.create, {
-        userId: userId,
-        type: "round_submission",
-        message: `Your new round, "${round.title}", is open for submissions in "${args.name}"!`,
-        link: `/leagues/${leagueId}/round/${roundId}`,
-        triggeringUserId: userId,
-      });
-
-      submissionTime = votingDeadlineTimestamp;
+      if (schedule.status === "submissions") {
+        await ctx.scheduler.runAfter(0, internal.notifications.create, {
+          userId: userId,
+          type: "round_submission",
+          message: `Your new round, "${round.title}", is open for submissions in "${args.name}"!`,
+          link: `/leagues/${leagueId}/round/${roundId}`,
+          triggeringUserId: userId,
+        });
+      }
     }
 
     return leagueId;
@@ -742,7 +748,7 @@ export const updateLeague = mutation({
     maxNegativeVotesPerSubmission: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await checkLeagueManagementPermission(ctx, args.leagueId);
+    const league = await checkLeagueManagementPermission(ctx, args.leagueId);
     const { leagueId, ...updates } = args;
 
     const maxHours = 30 * 24;
@@ -762,6 +768,31 @@ export const updateLeague = mutation({
     }
 
     await ctx.db.patch("leagues", leagueId, updates);
+
+    if (
+      updates.submissionDeadline !== undefined ||
+      updates.votingDeadline !== undefined
+    ) {
+      const rounds = await ctx.db
+        .query("rounds")
+        .withIndex("by_league", (q) => q.eq("leagueId", leagueId))
+        .collect();
+      const nextSubmissionHours =
+        updates.submissionDeadline ?? league.submissionDeadline;
+      const nextVotingHours = updates.votingDeadline ?? league.votingDeadline;
+      const resequencePatches = buildScheduledRoundResequencePatches({
+        rounds,
+        submissionHours: nextSubmissionHours,
+        votingHours: nextVotingHours,
+      });
+
+      await Promise.all(
+        resequencePatches.map(({ roundId, patch }) =>
+          ctx.db.patch("rounds", roundId as Id<"rounds">, patch),
+        ),
+      );
+    }
+
     return "League updated successfully.";
   },
 });

@@ -67,7 +67,7 @@ interface SubmissionItemProps {
   isCommentsVisible: boolean;
   userIsSubmitter: boolean;
   currentVoteValue: number;
-  roundStatus: "voting" | "finished" | "submissions";
+  roundStatus: "scheduled" | "voting" | "finished" | "submissions";
   onToggleComments: () => void;
   league: LeagueData;
   canManageLeague: boolean;

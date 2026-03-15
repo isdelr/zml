@@ -4,6 +4,35 @@ import type { MutationCtx } from "../../../convex/_generated/server";
 
 type TriggeringUserId = Id<"users"> | undefined;
 
+export async function transitionRoundToSubmissionsWithSideEffects(
+  ctx: MutationCtx,
+  round: Doc<"rounds">,
+  league: Doc<"leagues">,
+  triggeringUserId?: TriggeringUserId,
+): Promise<boolean> {
+  if (round.status !== "scheduled") {
+    return false;
+  }
+
+  await ctx.db.patch("rounds", round._id, { status: "submissions" });
+  await ctx.scheduler.runAfter(0, internal.notifications.createForLeagueAndDispatchDiscord, {
+    leagueId: league._id,
+    roundId: round._id,
+    roundStatus: "submissions",
+    notificationType: "round_submission",
+    discordNotificationKind: "transition",
+    message: `Submissions are now open for the round "${round.title}" in "${league.name}"!`,
+    link: `/leagues/${league._id}/round/${round._id}`,
+    deadlineMs: round.submissionDeadline,
+    triggeringUserId,
+    metadata: {
+      source: `round-transition:${round._id}:submissions`,
+    },
+  });
+
+  return true;
+}
+
 export async function transitionRoundToVotingWithSideEffects(
   ctx: MutationCtx,
   round: Doc<"rounds">,

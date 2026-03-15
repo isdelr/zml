@@ -14,6 +14,7 @@ import {
   isAllowedDiscordServerId,
 } from "../lib/discord/server-access";
 import { shouldMentionDiscordUsersForReminder } from "../lib/discord/reminder-mentions";
+import { sortRoundsInLeagueOrder } from "../lib/rounds/schedule";
 
 const BOT_API_PREFIX = "/discord-bot";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
@@ -42,6 +43,7 @@ type RoundSummary = {
   _id: Id<"rounds">;
   title: string;
   status: Doc<"rounds">["status"];
+  submissionStartsAt: number | null;
   submissionDeadline: number;
   votingDeadline: number;
 };
@@ -106,25 +108,7 @@ function sanitizeSearchQuery(value: string | null) {
 }
 
 function sortRoundsForDiscord(rounds: Doc<"rounds">[]) {
-  const getRelevantDeadline = (round: Doc<"rounds">) =>
-    round.status === "submissions"
-      ? round.submissionDeadline
-      : round.votingDeadline;
-
-  return [...rounds].sort((a, b) => {
-    const aIsActive = a.status === "submissions" || a.status === "voting";
-    const bIsActive = b.status === "submissions" || b.status === "voting";
-
-    if (aIsActive !== bIsActive) {
-      return aIsActive ? -1 : 1;
-    }
-
-    if (aIsActive && bIsActive) {
-      return getRelevantDeadline(a) - getRelevantDeadline(b);
-    }
-
-    return getRelevantDeadline(b) - getRelevantDeadline(a);
-  });
+  return sortRoundsInLeagueOrder(rounds);
 }
 
 async function resolveAppUserIdFromDiscordUserId(
@@ -422,10 +406,12 @@ export const getLeagueRoundsForUser = internalQuery({
           _id: v.id("rounds"),
           title: v.string(),
           status: v.union(
+            v.literal("scheduled"),
             v.literal("submissions"),
             v.literal("voting"),
             v.literal("finished"),
           ),
+          submissionStartsAt: v.union(v.number(), v.null()),
           submissionDeadline: v.number(),
           votingDeadline: v.number(),
         }),
@@ -451,6 +437,7 @@ export const getLeagueRoundsForUser = internalQuery({
           _id: round._id,
           title: round.title,
           status: round.status,
+          submissionStartsAt: round.submissionStartsAt ?? null,
           submissionDeadline: round.submissionDeadline,
           votingDeadline: round.votingDeadline,
         }),
@@ -475,10 +462,12 @@ export const getUpcomingRoundForUser = internalQuery({
           _id: v.id("rounds"),
           title: v.string(),
           status: v.union(
+            v.literal("scheduled"),
             v.literal("submissions"),
             v.literal("voting"),
             v.literal("finished"),
           ),
+          submissionStartsAt: v.union(v.number(), v.null()),
           submissionDeadline: v.number(),
           votingDeadline: v.number(),
         }),
@@ -507,6 +496,7 @@ export const getUpcomingRoundForUser = internalQuery({
         _id: round._id,
         title: round.title,
         status: round.status,
+        submissionStartsAt: round.submissionStartsAt ?? null,
         submissionDeadline: round.submissionDeadline,
         votingDeadline: round.votingDeadline,
       }),

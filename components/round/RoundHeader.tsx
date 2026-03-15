@@ -47,7 +47,10 @@ export function RoundHeader({
   adminControls,
 }: RoundHeaderProps) {
   const showPlayAll =
-    round.status !== "submissions" && submissions && submissions.length > 0;
+    round.status !== "submissions" &&
+    round.status !== "scheduled" &&
+    submissions &&
+    submissions.length > 0;
   const showParticipationSummary =
     participationGroups && participationGroups.length > 0;
 
@@ -76,7 +79,9 @@ export function RoundHeader({
             </h1>
             <p className="mt-2 text-muted-foreground">
               {round.status.charAt(0).toUpperCase() + round.status.slice(1)} •{" "}
-              {round.status === "submissions"
+              {round.status === "scheduled"
+                ? `Submissions open ${formatDeadline(round.submissionStartsAt ?? round.submissionDeadline)}`
+                : round.status === "submissions"
                 ? `Submissions close ${formatDeadline(round.submissionDeadline)}`
                 : round.status === "voting"
                   ? `Voting ends ${formatDeadline(round.votingDeadline)}`

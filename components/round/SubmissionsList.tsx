@@ -41,7 +41,7 @@ interface SubmissionsListProps {
   userVoteStatus: UserVoteStatus | undefined;
   userVotes: Doc<"votes">[];
   currentUser: Doc<"users"> | null | undefined;
-  roundStatus: "voting" | "finished" | "submissions";
+  roundStatus: "scheduled" | "voting" | "finished" | "submissions";
   league: LeagueData;
   canManageLeague: boolean;
   currentTrackIndex: number | null;

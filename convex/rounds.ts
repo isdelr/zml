@@ -18,6 +18,7 @@ import {
   requireOwnerOrGlobalAdmin,
 } from "../lib/convex-server/rounds/permissions";
 import {
+  transitionRoundToSubmissionsWithSideEffects,
   transitionRoundToFinishedWithSideEffects,
   transitionRoundToVotingWithSideEffects,
 } from "../lib/convex-server/rounds/transitions";
@@ -38,6 +39,12 @@ import {
   getPendingVotingParticipantIds,
 } from "../lib/rounds/pending-participation";
 import { getVoteLimits } from "../lib/convex-server/voteLimits";
+import {
+  buildRoundShiftPatches,
+  hoursToMs,
+  ROUND_GAP_MS,
+  sortRoundsInLeagueOrder,
+} from "../lib/rounds/schedule";
 
 const storage = new B2Storage();
 const MAX_ROUND_DEADLINE_REMINDER_MS = Math.max(
@@ -48,7 +55,7 @@ type DeadlineReminderContext = {
   leagueId: Id<"leagues">;
   leagueName: string;
   roundTitle: string;
-  status: "submissions" | "voting" | "finished";
+  status: "scheduled" | "submissions" | "voting" | "finished";
   submissionDeadline: number;
   votingDeadline: number;
   targetUserIds: Id<"users">[];
@@ -183,7 +190,7 @@ export const getForLeague = query({
     const paginationResult = await ctx.db
       .query("rounds")
       .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
-      .order("desc")
+      .order("asc")
       .paginate(args.paginationOpts);
 
     const leagueName = league?.name ?? "Unknown League";
@@ -350,40 +357,10 @@ export const getForLeague = query({
       }),
     );
 
-    const sortedRounds = roundsWithDetails.sort((a, b) => {
-      const aIsActive = a.status === "submissions" || a.status === "voting";
-      const bIsActive = b.status === "submissions" || b.status === "voting";
-
-      if (aIsActive !== bIsActive) {
-        return aIsActive ? -1 : 1;
-      }
-
-      const getRelevantDeadline = (
-        round: (typeof roundsWithDetails)[number],
-      ) => {
-        switch (round.status) {
-          case "submissions":
-            return round.submissionDeadline;
-          case "voting":
-            return round.votingDeadline;
-          case "finished":
-            return round.votingDeadline;
-          default:
-            return round.submissionDeadline;
-        }
-      };
-
-      const aDeadline = getRelevantDeadline(a);
-      const bDeadline = getRelevantDeadline(b);
-
-      if (aIsActive && bIsActive) {
-        return aDeadline - bDeadline;
-      }
-
-      return bDeadline - aDeadline;
-    });
-
-    return { ...paginationResult, page: sortedRounds };
+    return {
+      ...paginationResult,
+      page: sortRoundsInLeagueOrder(roundsWithDetails),
+    };
   },
 });
 
@@ -454,7 +431,51 @@ export const adjustRoundTime = mutation({
     const { league } = await requireOwnerManagerOrGlobalAdmin(ctx, round.leagueId);
 
     const now = Date.now();
-    const timeAdjustment = args.hours * 60 * 60 * 1000;
+    const timeAdjustment = hoursToMs(args.hours);
+    const leagueRounds = await ctx.db
+      .query("rounds")
+      .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
+      .collect();
+    const sortedRounds = sortRoundsInLeagueOrder(leagueRounds);
+    const shiftPatches = buildRoundShiftPatches({
+      rounds: sortedRounds.map((leagueRound) => ({
+        ...leagueRound,
+        _id: leagueRound._id.toString(),
+      })),
+      roundId: args.roundId.toString(),
+      adjustmentMs: timeAdjustment,
+    });
+    const currentRoundPatch = shiftPatches.find(
+      ({ roundId }) => roundId === args.roundId.toString(),
+    )?.patch;
+
+    if (!currentRoundPatch) {
+      throw new Error("Could not determine the updated round schedule.");
+    }
+
+    if (round.status === "scheduled") {
+      const roundIndex = sortedRounds.findIndex(
+        (leagueRound) => leagueRound._id === round._id,
+      );
+      const previousRound = roundIndex > 0 ? sortedRounds[roundIndex - 1] : null;
+      const newSubmissionStartsAt =
+        currentRoundPatch.submissionStartsAt ?? round.submissionStartsAt;
+
+      if (newSubmissionStartsAt === undefined) {
+        throw new Error("Scheduled round is missing a submission start time.");
+      }
+      if (newSubmissionStartsAt < now) {
+        throw new Error("Cannot move a scheduled round to start in the past.");
+      }
+      if (
+        previousRound &&
+        newSubmissionStartsAt < previousRound.votingDeadline + ROUND_GAP_MS
+      ) {
+        throw new Error(
+          "Cannot move this round earlier because it would overlap the previous round.",
+        );
+      }
+    }
 
     if (round.status === "submissions") {
       const [memberships, submissions] = await Promise.all([
@@ -475,16 +496,17 @@ export const adjustRoundTime = mutation({
         submissions,
         round.submissionsPerUser ?? 1,
       );
-      const newSubmissionDeadline = round.submissionDeadline + timeAdjustment;
+      const newSubmissionDeadline = currentRoundPatch.submissionDeadline;
       if (newSubmissionDeadline < now) {
         throw new Error(
           "Cannot set submission deadline to a time in the past.",
         );
       }
-      await ctx.db.patch("rounds", round._id, {
-        submissionDeadline: newSubmissionDeadline,
-        votingDeadline: round.votingDeadline + timeAdjustment,
-      });
+      await Promise.all(
+        shiftPatches.map(({ roundId, patch }) =>
+          ctx.db.patch("rounds", roundId as Id<"rounds">, patch),
+        ),
+      );
       await ctx.scheduler.runAfter(0, internal.notifications.createForLeagueAndDispatchDiscord, {
         leagueId: round.leagueId,
         roundId: round._id,
@@ -495,7 +517,7 @@ export const adjustRoundTime = mutation({
         link: `/leagues/${round.leagueId}/round/${round._id}`,
         deadlineMs: newSubmissionDeadline,
         metadata: {
-          source: `round-deadline-change:${round._id}:submissions:${newSubmissionDeadline}:${round.votingDeadline + timeAdjustment}`,
+          source: `round-deadline-change:${round._id}:submissions:${newSubmissionDeadline}:${currentRoundPatch.votingDeadline}`,
         },
         targetUserIds: targetUserIds.map(
           (targetUserId) => targetUserId as Id<"users">,
@@ -531,13 +553,15 @@ export const adjustRoundTime = mutation({
         maxUp,
         maxDown,
       );
-      const newVotingDeadline = round.votingDeadline + timeAdjustment;
+      const newVotingDeadline = currentRoundPatch.votingDeadline;
       if (newVotingDeadline < now) {
         throw new Error("Cannot set voting deadline to a time in the past.");
       }
-      await ctx.db.patch("rounds", round._id, {
-        votingDeadline: newVotingDeadline,
-      });
+      await Promise.all(
+        shiftPatches.map(({ roundId, patch }) =>
+          ctx.db.patch("rounds", roundId as Id<"rounds">, patch),
+        ),
+      );
       await ctx.scheduler.runAfter(0, internal.notifications.createForLeagueAndDispatchDiscord, {
         leagueId: round.leagueId,
         roundId: round._id,
@@ -558,6 +582,12 @@ export const adjustRoundTime = mutation({
           body: `The voting deadline for "${round.title}" in "${league.name}" was updated.`,
         },
       });
+    } else if (round.status === "scheduled") {
+      await Promise.all(
+        shiftPatches.map(({ roundId, patch }) =>
+          ctx.db.patch("rounds", roundId as Id<"rounds">, patch),
+        ),
+      );
     } else {
       throw new Error("Cannot adjust time for a finished round.");
     }
@@ -583,6 +613,10 @@ export const sendParticipationReminder = mutation({
 
     if (round.status === "finished") {
       throw new Error("Cannot send reminders for a finished round.");
+    }
+
+    if (round.status === "scheduled") {
+      throw new Error("Cannot send reminders before a round has started.");
     }
 
     const { league, userId } = await requireOwnerManagerOrGlobalAdmin(
@@ -707,16 +741,34 @@ export const rollbackRoundToSubmissions = mutation({
 
     // Reopen submissions for 24 hours from now, and shift voting deadline accordingly
     const now = Date.now();
-    const oneDayMs = 24 * 60 * 60 * 1000;
+    const oneDayMs = hoursToMs(24);
     const newSubmissionDeadline = now + oneDayMs;
-    const newVotingDeadline =
-      newSubmissionDeadline + league.votingDeadline * 60 * 60 * 1000;
+    const newVotingDeadline = newSubmissionDeadline + hoursToMs(league.votingDeadline);
+    const downstreamShiftMs = newVotingDeadline - round.votingDeadline;
+    const leagueRounds = await ctx.db
+      .query("rounds")
+      .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
+      .collect();
+    const downstreamPatches = buildRoundShiftPatches({
+      rounds: leagueRounds.map((leagueRound) => ({
+        ...leagueRound,
+        _id: leagueRound._id.toString(),
+      })),
+      roundId: round._id.toString(),
+      adjustmentMs: downstreamShiftMs,
+    }).filter(({ roundId }) => roundId !== round._id.toString());
 
     await ctx.db.patch("rounds", round._id, {
       status: "submissions",
+      submissionStartsAt: now,
       submissionDeadline: newSubmissionDeadline,
       votingDeadline: newVotingDeadline,
     });
+    await Promise.all(
+      downstreamPatches.map(({ roundId, patch }) =>
+        ctx.db.patch("rounds", roundId as Id<"rounds">, patch),
+      ),
+    );
 
     // Notify league members that submissions have been reopened
     await ctx.scheduler.runAfter(0, internal.notifications.createForLeagueAndDispatchDiscord, {
@@ -984,6 +1036,28 @@ export const getVoteSummary = query({
 export const transitionDueRounds = internalAction({
   handler: async (ctx) => {
     const now = Date.now();
+    await ctx.runMutation(internal.rounds.normalizeRoundSchedules, {});
+
+    const dueForSubmissions = await ctx.runQuery(
+      internal.rounds.getDueForSubmissions,
+      { now },
+    );
+    const submissionTransitions = await Promise.allSettled(
+      dueForSubmissions.map((round: Doc<"rounds">) =>
+        ctx.runMutation(internal.rounds.transitionRoundToSubmissions, {
+          roundId: round._id,
+        }),
+      ),
+    );
+    for (const [index, transition] of submissionTransitions.entries()) {
+      if (transition.status === "rejected") {
+        const round = dueForSubmissions[index];
+        console.error(
+          `Failed to transition round ${round._id} to submissions:`,
+          transition.reason,
+        );
+      }
+    }
 
     const dueForVoting = await ctx.runQuery(internal.rounds.getDueForVoting, {
       now,
@@ -1266,6 +1340,99 @@ export const getDeadlineReminderContexts = internalQuery({
   },
 });
 
+export const normalizeRoundSchedules = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const rounds = await ctx.db.query("rounds").collect();
+    if (rounds.length === 0) {
+      return;
+    }
+
+    const roundsByLeague = new Map<string, Doc<"rounds">[]>();
+    for (const round of rounds) {
+      const key = round.leagueId.toString();
+      const existing = roundsByLeague.get(key) ?? [];
+      existing.push(round);
+      roundsByLeague.set(key, existing);
+    }
+
+    const leagues = await Promise.all(
+      [...roundsByLeague.keys()].map((leagueId) =>
+        ctx.db.get("leagues", leagueId as Id<"leagues">),
+      ),
+    );
+    const leagueMap = new Map(
+      leagues
+        .filter((league): league is NonNullable<typeof league> => league !== null)
+        .map((league) => [league._id.toString(), league]),
+    );
+
+    for (const [leagueId, leagueRounds] of roundsByLeague.entries()) {
+      const league = leagueMap.get(leagueId);
+      if (!league) {
+        continue;
+      }
+
+      const sortedRounds = sortRoundsInLeagueOrder(leagueRounds);
+      const firstNonFinishedIndex = sortedRounds.findIndex(
+        (round) => round.status !== "finished",
+      );
+      let nextSubmissionStartsAt: number | null = null;
+
+      for (const [index, round] of sortedRounds.entries()) {
+        const patch: Partial<Doc<"rounds">> = {};
+        const defaultSubmissionStartsAt =
+          round.submissionStartsAt ??
+          round.submissionDeadline - hoursToMs(league.submissionDeadline);
+
+        if (round.order !== index) {
+          patch.order = index;
+        }
+        if (round.submissionStartsAt === undefined) {
+          patch.submissionStartsAt = defaultSubmissionStartsAt;
+        }
+
+        if (
+          firstNonFinishedIndex !== -1 &&
+          index > firstNonFinishedIndex &&
+          round.status !== "finished"
+        ) {
+          const submissionStartsAt: number =
+            nextSubmissionStartsAt ?? defaultSubmissionStartsAt;
+          const submissionDeadline: number =
+            submissionStartsAt + hoursToMs(league.submissionDeadline);
+          const votingDeadline: number =
+            submissionDeadline + hoursToMs(league.votingDeadline);
+
+          patch.status = "scheduled";
+          patch.submissionStartsAt = submissionStartsAt;
+          patch.submissionDeadline = submissionDeadline;
+          patch.votingDeadline = votingDeadline;
+          nextSubmissionStartsAt = votingDeadline + ROUND_GAP_MS;
+        } else if (index === firstNonFinishedIndex) {
+          nextSubmissionStartsAt = round.votingDeadline + ROUND_GAP_MS;
+        }
+
+        if (Object.keys(patch).length > 0) {
+          await ctx.db.patch("rounds", round._id, patch);
+        }
+      }
+    }
+  },
+});
+
+export const getDueForSubmissions = internalQuery({
+  args: { now: v.number() },
+  handler: async (ctx, { now }) => {
+    return await ctx.db
+      .query("rounds")
+      .withIndex("by_status_and_submission_start", (q) =>
+        q.eq("status", "scheduled").lte("submissionStartsAt", now),
+      )
+      .collect();
+  },
+});
+
 export const getDueForVoting = internalQuery({
   args: { now: v.number() },
   handler: async (ctx, { now }) => {
@@ -1287,6 +1454,22 @@ export const getDueForFinishing = internalQuery({
         q.eq("status", "voting").lte("votingDeadline", now),
       )
       .collect();
+  },
+});
+
+export const transitionRoundToSubmissions = internalMutation({
+  args: { roundId: v.id("rounds") },
+  handler: async (ctx, { roundId }) => {
+    const round = await ctx.db.get("rounds", roundId);
+    if (!round || round.status !== "scheduled") return;
+    const submissionStartsAt =
+      round.submissionStartsAt ?? round.submissionDeadline;
+    if (submissionStartsAt > Date.now()) return;
+
+    const league = await ctx.db.get("leagues", round.leagueId);
+    if (league) {
+      await transitionRoundToSubmissionsWithSideEffects(ctx, round, league);
+    }
   },
 });
 

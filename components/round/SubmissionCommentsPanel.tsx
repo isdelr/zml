@@ -15,7 +15,7 @@ import { buildTrackMetadataText } from "@/lib/music/submission-display";
 
 interface SubmissionCommentsPanelProps {
   submission: Song | null; // Changed from submissionId to the full object
-  roundStatus: "voting" | "finished" | "submissions";
+  roundStatus: "scheduled" | "voting" | "finished" | "submissions";
   onOpenChange: (isOpen: boolean) => void;
   onPlaySong: (song: Song) => void;
 }

@@ -16,12 +16,19 @@ describe("league navigation", () => {
     ).toBe("/leagues/league-1/round/round-7?foo=bar");
   });
 
-  it("prefers voting rounds, then submissions, then the first round", () => {
+  it("prefers voting rounds, then submissions, then scheduled rounds, then the first round", () => {
     expect(
       getPreferredRoundId([
         { _id: "round-1", status: "finished" },
         { _id: "round-2", status: "voting" },
         { _id: "round-3", status: "submissions" },
+      ]),
+    ).toBe("round-2");
+
+    expect(
+      getPreferredRoundId([
+        { _id: "round-1", status: "finished" },
+        { _id: "round-2", status: "scheduled" },
       ]),
     ).toBe("round-2");
 

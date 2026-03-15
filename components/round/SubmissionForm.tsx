@@ -39,7 +39,7 @@ const FALLBACK_ALBUM_ART = "/icons/web-app-manifest-192x192.png";
 
 interface SubmissionFormProps {
   round: Doc<"rounds">;
-  roundStatus: "voting" | "finished" | "submissions";
+  roundStatus: "scheduled" | "voting" | "finished" | "submissions";
   currentUser: Doc<"users"> | null | undefined;
   mySubmissions: SubmissionWithUrls[] | undefined;
   leagueName: string;
