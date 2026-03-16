@@ -43,7 +43,7 @@ export function SongManualTab({
   return (
     <TabsContent value="manual" className="mt-6">
       <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="space-y-6">
           <FormField
             control={form.control}
             name="songTitle"
