@@ -21,6 +21,7 @@ import { useSubmissionWaveform } from "@/hooks/useSubmissionWaveform";
 import { useAudioPlaybackSync } from "@/hooks/useAudioPlaybackSync";
 import { useListenProgressSync } from "@/hooks/useListenProgressSync";
 import { usePlayerBookmark } from "@/hooks/usePlayerBookmark";
+import { useWindowSize } from "@/hooks/useWindowSize";
 import {
   openUrlInNewTabWithFallback,
 } from "@/lib/music/youtube-playlist-session";
@@ -67,9 +68,11 @@ export function MusicPlayer() {
   } = useMusicPlayerStore();
   const currentTrack =
     currentTrackIndex !== null ? queue[currentTrackIndex] ?? null : null;
+  const { width } = useWindowSize();
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const preloadAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastPlayedTrackIdRef = useRef<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
@@ -179,6 +182,20 @@ export function MusicPlayer() {
   useEffect(() => {
     completionSyncTrackRef.current = null;
   }, [currentTrack?._id]);
+
+  useEffect(() => {
+    const currentTrackId = currentTrack?._id ?? null;
+    if (!currentTrackId || width <= 0) {
+      return;
+    }
+
+    const isDifferentTrack = lastPlayedTrackIdRef.current !== currentTrackId;
+    lastPlayedTrackIdRef.current = currentTrackId;
+
+    if (isDifferentTrack && width > 1440) {
+      actions.openContextView();
+    }
+  }, [actions, currentTrack?._id, width]);
 
   useEffect(() => {
     if (audioRef.current) {

@@ -30,6 +30,7 @@ interface MusicPlayerState {
     seek: (time: number) => void;
     resetSeek: () => void;
     setVolume: (volume: number) => void;
+    openContextView: () => void;
     toggleContextView: () => void;
     closeContextView: () => void;
     setListenProgress: (submissionId: string, isListened: boolean) => void;
@@ -154,6 +155,12 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
     seek: (time) => set({ seekTo: time }),
     resetSeek: () => set({ seekTo: null }),
     setVolume: (volume) => set({ volume }),
+    openContextView: () => {
+      const { currentTrackIndex } = get();
+      if (currentTrackIndex !== null) {
+        set({ isContextViewOpen: true });
+      }
+    },
     toggleContextView: () => {
       const { isContextViewOpen, currentTrackIndex } = get();
       if (currentTrackIndex !== null) {

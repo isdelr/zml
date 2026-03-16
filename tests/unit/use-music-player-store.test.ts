@@ -46,4 +46,21 @@ describe("useMusicPlayerStore", () => {
       isPlaying: true,
     });
   });
+
+  it("opens the context view when a track is active", () => {
+    const { actions } = useMusicPlayerStore.getState();
+
+    actions.playSong(makeSong("one"));
+    actions.openContextView();
+
+    expect(useMusicPlayerStore.getState().isContextViewOpen).toBe(true);
+  });
+
+  it("does not open the context view when no track is active", () => {
+    const { actions } = useMusicPlayerStore.getState();
+
+    actions.openContextView();
+
+    expect(useMusicPlayerStore.getState().isContextViewOpen).toBe(false);
+  });
 });
