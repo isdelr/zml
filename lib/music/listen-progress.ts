@@ -4,6 +4,18 @@ const DEFAULT_SYNC_DELTA_SECONDS = 15;
 const NEAR_END_THRESHOLD_SECONDS = 5;
 const DEFAULT_TIME_LIMIT_MINUTES = 999;
 
+export type PlaylistListenRequirementEntry<TSubmissionId = string> = {
+  submissionIds: TSubmissionId[];
+  durationSeconds: number;
+};
+
+export type PlaylistListenUnlock<TSubmissionId = string> = {
+  submissionIds: TSubmissionId[];
+  durationSeconds: number;
+  requiredListenSeconds: number;
+  unlockAfterSeconds: number;
+};
+
 type NextProgressSyncParams = {
   desiredProgressSeconds: number;
   lastSyncedProgressSeconds: number;
@@ -58,6 +70,61 @@ export function hasCompletedRequiredListenTime(
       listenTimeLimitMinutes,
     )
   );
+}
+
+export function getPlaylistListenUnlocks<TSubmissionId>(
+  entries: PlaylistListenRequirementEntry<TSubmissionId>[],
+  listenPercentage: number | null | undefined,
+  listenTimeLimitMinutes: number | null | undefined,
+): PlaylistListenUnlock<TSubmissionId>[] {
+  let elapsedRequiredSeconds = 0;
+
+  return entries.map((entry) => {
+    const durationSeconds = getNormalizedDurationSeconds(entry.durationSeconds);
+    const requiredListenSeconds = getRequiredListenTimeSeconds(
+      durationSeconds,
+      listenPercentage,
+      listenTimeLimitMinutes,
+    );
+
+    elapsedRequiredSeconds += requiredListenSeconds;
+
+    return {
+      submissionIds: entry.submissionIds,
+      durationSeconds,
+      requiredListenSeconds,
+      unlockAfterSeconds: elapsedRequiredSeconds,
+    };
+  });
+}
+
+export function getTotalPlaylistRequiredListenSeconds<TSubmissionId>(
+  entries: PlaylistListenRequirementEntry<TSubmissionId>[],
+  listenPercentage: number | null | undefined,
+  listenTimeLimitMinutes: number | null | undefined,
+): number {
+  return getPlaylistListenUnlocks(
+    entries,
+    listenPercentage,
+    listenTimeLimitMinutes,
+  ).reduce((sum, entry) => sum + entry.requiredListenSeconds, 0);
+}
+
+export function getUnlockedPlaylistSubmissionIds<TSubmissionId>(
+  entries: PlaylistListenRequirementEntry<TSubmissionId>[],
+  elapsedSeconds: number,
+  listenPercentage: number | null | undefined,
+  listenTimeLimitMinutes: number | null | undefined,
+): TSubmissionId[] {
+  const normalizedElapsedSeconds = normalizeSeconds(elapsedSeconds);
+
+  return getPlaylistListenUnlocks(
+    entries,
+    listenPercentage,
+    listenTimeLimitMinutes,
+  )
+    .filter((entry) => normalizedElapsedSeconds >= entry.unlockAfterSeconds)
+    .flatMap((entry) => entry.submissionIds);
 }
 
 export function getAllowedProgressJumpSeconds(durationSeconds: number): number {

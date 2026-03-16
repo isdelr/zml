@@ -14,6 +14,7 @@ import {
 } from "@/lib/music/listen-enforcement";
 import {
   getRoundQueueYouTubePlaylist,
+  getYouTubePlaylistEntries,
 } from "@/lib/music/youtube-queue";
 import { buildYouTubeWatchVideosUrl, extractYouTubeVideoId } from "@/lib/youtube";
 import { useListeningPresence } from "@/hooks/useListeningPresence";
@@ -26,6 +27,7 @@ import {
   openUrlInNewTabWithFallback,
 } from "@/lib/music/youtube-playlist-session";
 import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
+import { getTotalPlaylistRequiredListenSeconds } from "@/lib/music/listen-progress";
 
 const PlayerTrackInfo = dynamicImport(() =>
   import("@/components/player/PlayerTrackInfo").then((mod) => ({
@@ -471,12 +473,29 @@ export function MusicPlayer() {
       startSubmissionId?: Id<"submissions"> | null,
     ) => {
       if (!roundId) return false;
-      const { videoIds, totalDurationSec } = getRoundQueueYouTubePlaylist(
+      const { videoIds } = getRoundQueueYouTubePlaylist(
         queue,
         roundId,
         extractYouTubeVideoId,
         50,
         startSubmissionId,
+      );
+      const youtubeEntries = getYouTubePlaylistEntries(
+        queue,
+        extractYouTubeVideoId,
+        {
+          maxIds: 50,
+          roundId,
+          startSubmissionId,
+        },
+      );
+      const totalDurationSec = getTotalPlaylistRequiredListenSeconds(
+        youtubeEntries.map((entry) => ({
+          submissionIds: entry.submissionIds,
+          durationSeconds: entry.durationSec,
+        })),
+        leagueData?.listenPercentage,
+        leagueData?.listenTimeLimitMinutes,
       );
       const url = buildYouTubeWatchVideosUrl(videoIds);
       if (!url) return false;
@@ -496,7 +515,13 @@ export function MusicPlayer() {
         fallbackToCurrentTab: true,
       });
     },
-    [queue, startYouTubePlaylistSession, updatePlaylistPresence],
+    [
+      queue,
+      leagueData?.listenPercentage,
+      leagueData?.listenTimeLimitMinutes,
+      startYouTubePlaylistSession,
+      updatePlaylistPresence,
+    ],
   );
 
   const syncCurrentTrackListenProgressInBackground = useCallback(() => {

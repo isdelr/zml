@@ -4,14 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/lib/convex/api";
+import { type PlaylistListenUnlock } from "@/lib/music/listen-progress";
 import { buildYouTubeWatchVideosUrl } from "@/lib/youtube";
 import { openUrlInNewTabWithFallback } from "@/lib/music/youtube-playlist-session";
 
 type UseRoundYouTubePlaylistArgs = {
   roundId: Id<"rounds">;
   roundStatus: string;
-  youtubeSubmissionIds: Id<"submissions">[];
   youtubeVideoIds: string[];
+  youtubeUnlocks: PlaylistListenUnlock<Id<"submissions">>[];
   totalYouTubeDurationSec: number;
   onMarkCompletedLocal?: (submissionId: Id<"submissions">) => void;
 };
@@ -29,6 +30,7 @@ type PlaylistSessionState = {
   active: boolean;
   done: boolean;
   readyToComplete: boolean;
+  startedAt?: number | null;
   endAt: number | null;
   remainingSec: number;
 };
@@ -36,8 +38,8 @@ type PlaylistSessionState = {
 export function useRoundYouTubePlaylist({
   roundId,
   roundStatus,
-  youtubeSubmissionIds,
   youtubeVideoIds,
+  youtubeUnlocks,
   totalYouTubeDurationSec,
   onMarkCompletedLocal,
 }: UseRoundYouTubePlaylistArgs): {
@@ -61,6 +63,11 @@ export function useRoundYouTubePlaylist({
   const [ytTimerDone, setYtTimerDone] = useState<boolean>(false);
   const timerRef = useRef<number | null>(null);
   const completionInFlightRef = useRef(false);
+  const locallyUnlockedSubmissionIdsRef = useRef<Set<string>>(new Set());
+
+  const allYouTubeSubmissionIds = youtubeUnlocks.flatMap(
+    (entry) => entry.submissionIds,
+  );
 
   const updatePlaylistPresence = useCallback(
     (active: boolean) => {
@@ -79,6 +86,29 @@ export function useRoundYouTubePlaylist({
     }
   }, []);
 
+  const syncLocallyUnlockedSubmissions = useCallback(
+    (elapsedSeconds: number, markAllAsCompleted = false) => {
+      const nextUnlockedSubmissionIds = markAllAsCompleted
+        ? allYouTubeSubmissionIds
+        : youtubeUnlocks
+            .filter((entry) => elapsedSeconds >= entry.unlockAfterSeconds)
+            .flatMap((entry) => entry.submissionIds);
+      const nextUnlockedIdSet = new Set(
+        nextUnlockedSubmissionIds.map((submissionId) => submissionId.toString()),
+      );
+      const previousUnlockedIdSet = locallyUnlockedSubmissionIdsRef.current;
+
+      nextUnlockedSubmissionIds.forEach((submissionId) => {
+        if (!previousUnlockedIdSet.has(submissionId.toString())) {
+          onMarkCompletedLocal?.(submissionId);
+        }
+      });
+
+      locallyUnlockedSubmissionIdsRef.current = nextUnlockedIdSet;
+    },
+    [allYouTubeSubmissionIds, onMarkCompletedLocal, youtubeUnlocks],
+  );
+
   const completeYouTubeListening = useCallback(async () => {
     if (completionInFlightRef.current) {
       return;
@@ -89,7 +119,7 @@ export function useRoundYouTubePlaylist({
     try {
       const result = await completePlaylistSession({
         roundId,
-        submissionIds: youtubeSubmissionIds,
+        submissionIds: allYouTubeSubmissionIds,
       });
 
       setYtTimerDone(result.done);
@@ -99,7 +129,7 @@ export function useRoundYouTubePlaylist({
       if (result.done) {
         clearTimer();
         updatePlaylistPresence(false);
-        youtubeSubmissionIds.forEach((id) => onMarkCompletedLocal?.(id));
+        syncLocallyUnlockedSubmissions(totalYouTubeDurationSec, true);
       }
     } catch (error) {
       console.error("Failed to mark playlist listening complete", error);
@@ -109,28 +139,36 @@ export function useRoundYouTubePlaylist({
   }, [
     clearTimer,
     completePlaylistSession,
-    onMarkCompletedLocal,
     roundId,
+    allYouTubeSubmissionIds,
+    syncLocallyUnlockedSubmissions,
+    totalYouTubeDurationSec,
     updatePlaylistPresence,
-    youtubeSubmissionIds,
   ]);
 
   const startLocalTimer = useCallback(
-    (endAt: number, initialRemainingSec: number) => {
+    (startedAt: number, endAt: number, initialRemainingSec: number) => {
       setYtTimerDone(false);
       setYtTimerRunning(true);
       setYtTimerRemainingSec(Math.max(0, initialRemainingSec));
+      syncLocallyUnlockedSubmissions(
+        Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
+      );
       clearTimer();
       timerRef.current = window.setInterval(() => {
-        const remainingSec = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+        const now = Date.now();
+        const remainingSec = Math.max(0, Math.ceil((endAt - now) / 1000));
         setYtTimerRemainingSec(remainingSec);
+        syncLocallyUnlockedSubmissions(
+          Math.max(0, Math.floor((now - startedAt) / 1000)),
+        );
         if (remainingSec <= 0) {
           clearTimer();
           void completeYouTubeListening();
         }
       }, 1000);
     },
-    [clearTimer, completeYouTubeListening],
+    [clearTimer, completeYouTubeListening, syncLocallyUnlockedSubmissions],
   );
 
   const syncLocalSessionState = useCallback(
@@ -144,6 +182,7 @@ export function useRoundYouTubePlaylist({
         setYtTimerDone(true);
         setYtTimerRunning(false);
         setYtTimerRemainingSec(0);
+        syncLocallyUnlockedSubmissions(totalYouTubeDurationSec, true);
         updatePlaylistPresence(false);
         return;
       }
@@ -157,8 +196,8 @@ export function useRoundYouTubePlaylist({
         return;
       }
 
-      if (session.active && session.endAt) {
-        startLocalTimer(session.endAt, session.remainingSec);
+      if (session.active && session.endAt && session.startedAt) {
+        startLocalTimer(session.startedAt, session.endAt, session.remainingSec);
         return;
       }
 
@@ -166,11 +205,14 @@ export function useRoundYouTubePlaylist({
       setYtTimerDone(false);
       setYtTimerRunning(false);
       setYtTimerRemainingSec(0);
+      locallyUnlockedSubmissionIdsRef.current = new Set();
     },
     [
       clearTimer,
       completeYouTubeListening,
       startLocalTimer,
+      syncLocallyUnlockedSubmissions,
+      totalYouTubeDurationSec,
       updatePlaylistPresence,
     ],
   );

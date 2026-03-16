@@ -9,6 +9,10 @@ import { transitionRoundToFinishedWithSideEffects } from "../lib/convex-server/r
 import { recalculateAndStoreRoundResults } from "../lib/convex-server/leagues/results";
 import { B2Storage } from "./b2Storage";
 import { resolveUserAvatarUrl } from "./userAvatar";
+import { getSortedRoundSubmissions } from "../lib/rounds/submission-order";
+import { extractYouTubeVideoId } from "../lib/youtube";
+import { getYouTubePlaylistEntries } from "../lib/music/youtube-queue";
+import { getUnlockedPlaylistSubmissionIds } from "../lib/music/listen-progress";
 
 const storage = new B2Storage();
 const FINAL_VOTE_CONFIRMATION_REQUIRED_ERROR =
@@ -65,6 +69,58 @@ async function canManageLeague(
 
   const user = await ctx.db.get("users", userId);
   return Boolean(user?.isGlobalAdmin);
+}
+
+async function getUnlockedYouTubePlaylistSubmissionIdSet(
+  ctx: Pick<QueryCtx, "db">,
+  round: Doc<"rounds">,
+  league: Doc<"leagues">,
+  userId: Id<"users">,
+  now: number,
+): Promise<Set<string>> {
+  if (!league.enforceListenPercentage) {
+    return new Set();
+  }
+
+  const session = await ctx.db
+    .query("youtubePlaylistSessions")
+    .withIndex("by_round_and_user", (q) =>
+      q.eq("roundId", round._id).eq("userId", userId),
+    )
+    .first();
+  if (!session) {
+    return new Set();
+  }
+
+  const submissions = await ctx.db
+    .query("submissions")
+    .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+    .collect();
+  const sortedSubmissions = getSortedRoundSubmissions(
+    submissions.map((submission) => ({ ...submission, points: 0 })),
+    round.status,
+    round._id,
+  );
+  const playlistEntries = getYouTubePlaylistEntries(
+    sortedSubmissions,
+    extractYouTubeVideoId,
+  ).map((entry) => ({
+    submissionIds: entry.submissionIds,
+    durationSeconds: entry.durationSec,
+  }));
+
+  const elapsedSeconds = Math.max(
+    0,
+    Math.floor(((session.completedAt ?? now) - session.startedAt) / 1000),
+  );
+  return new Set(
+    getUnlockedPlaylistSubmissionIds(
+      playlistEntries,
+      elapsedSeconds,
+      league.listenPercentage,
+      league.listenTimeLimitMinutes,
+    ).map((submissionId) => submissionId.toString()),
+  );
 }
 
 export const getForRound = query({
@@ -361,11 +417,20 @@ export const castVote = mutation({
             progress,
           ]),
         );
+        const unlockedYouTubeSubmissionIds =
+          await getUnlockedYouTubePlaylistSubmissionIdSet(
+            ctx,
+            round,
+            league,
+            userId,
+            Date.now(),
+          );
 
         if (
           shouldCheckSubmissionListen &&
           progressBySubmissionId.get(args.submissionId.toString())?.isCompleted !==
-            true
+            true &&
+          !unlockedYouTubeSubmissionIds.has(args.submissionId.toString())
         ) {
           throw new Error(SUBMISSION_LISTEN_REQUIREMENT_ERROR);
         }
@@ -384,7 +449,8 @@ export const castVote = mutation({
           const allCompleted = requiredSubs.every(
             (submissionDoc) =>
               progressBySubmissionId.get(submissionDoc._id.toString())
-                ?.isCompleted === true,
+                ?.isCompleted === true ||
+              unlockedYouTubeSubmissionIds.has(submissionDoc._id.toString()),
           );
           if (!allCompleted) {
             throw new Error(FINAL_VOTE_LISTEN_REQUIREMENT_ERROR);

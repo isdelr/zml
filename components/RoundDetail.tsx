@@ -16,6 +16,11 @@ import { useRoundYouTubePlaylist } from "@/hooks/useRoundYouTubePlaylist";
 import { useRoundVoting } from "@/hooks/useRoundVoting";
 import { RoundStatusAlerts } from "./round/RoundStatusAlerts";
 import { FinalVoteConfirmationDialog } from "./round/FinalVoteConfirmationDialog";
+import {
+  getPlaylistListenUnlocks,
+  getTotalPlaylistRequiredListenSeconds,
+} from "@/lib/music/listen-progress";
+import { getYouTubePlaylistEntries } from "@/lib/music/youtube-queue";
 
 const RoundAdminControls = dynamicImport(() =>
   import("./round/RoundAdminControls").then((mod) => ({
@@ -42,40 +47,6 @@ interface RoundDetailProps {
   canManageLeague: boolean;
 }
 
-type RoundYouTubeEntry = {
-  submissionId: Id<"submissions">;
-  videoId: string;
-  duration: number;
-};
-
-function getRoundYouTubeEntries(
-  submissions:
-    | {
-        _id: Id<"submissions">;
-        submissionType: string;
-        songLink?: string | null;
-        duration?: number | null;
-      }[]
-    | undefined,
-): RoundYouTubeEntry[] {
-  if (!submissions) return [];
-  const seen = new Set<string>();
-  const list: RoundYouTubeEntry[] = [];
-  for (const submission of submissions) {
-    if (submission.submissionType !== "youtube" || !submission.songLink)
-      continue;
-    const videoId = extractYouTubeVideoId(submission.songLink);
-    if (!videoId || seen.has(videoId)) continue;
-    seen.add(videoId);
-    const duration =
-      Number.isFinite(submission.duration) && (submission.duration ?? 0) > 0
-        ? Math.floor(submission.duration as number)
-        : 180;
-    list.push({ submissionId: submission._id, videoId, duration });
-  }
-  return list;
-}
-
 export function RoundDetail({
   round,
   league,
@@ -86,6 +57,7 @@ export function RoundDetail({
     currentTrackIndex,
     isPlaying,
     queue,
+    listenProgress: localListenProgress,
   } = useMusicPlayerStore();
 
   const [activeCommentsSubmissionId, setActiveCommentsSubmissionId] =
@@ -134,6 +106,13 @@ export function RoundDetail({
     return map;
   }, [listenProgressData]);
 
+  const hasListenRequirementMet = useCallback(
+    (submissionId: Id<"submissions">) =>
+      listenProgressMap[submissionId]?.isCompleted === true ||
+      localListenProgress[submissionId.toString()] === true,
+    [listenProgressMap, localListenProgress],
+  );
+
   const songsLeftToListen = useMemo(() => {
     if (!league.enforceListenPercentage || !submissions || !currentUser)
       return [];
@@ -145,13 +124,13 @@ export function RoundDetail({
     );
     if (requiredSubs.length === 0) return [];
     return requiredSubs.filter(
-      (sub) => listenProgressMap[sub._id]?.isCompleted !== true,
+      (sub) => !hasListenRequirementMet(sub._id),
     );
   }, [
     league.enforceListenPercentage,
     submissions,
     currentUser,
-    listenProgressMap,
+    hasListenRequirementMet,
   ]);
 
   const canFinalizeVotes = useMemo(() => {
@@ -165,13 +144,13 @@ export function RoundDetail({
     );
     if (requiredSubs.length === 0) return true;
     return requiredSubs.every(
-      (sub) => listenProgressMap[sub._id]?.isCompleted === true,
+      (sub) => hasListenRequirementMet(sub._id),
     );
   }, [
     league.enforceListenPercentage,
     submissions,
     currentUser,
-    listenProgressMap,
+    hasListenRequirementMet,
   ]);
 
   const finalizationBlockedReason = useMemo(() => {
@@ -290,34 +269,43 @@ export function RoundDetail({
     [submissions, currentUser],
   );
 
-  const youtubeData = getRoundYouTubeEntries(sortedSubmissions);
-  const youtubeVideoIds = youtubeData.map((entry) => entry.videoId);
-  const youtubeSubmissionIds = useMemo(() => {
-    if (!sortedSubmissions) return [] as Id<"submissions">[];
-    return sortedSubmissions
-      .filter(
-        (submission) =>
-          submission.submissionType === "youtube" &&
-          Boolean(submission.songLink) &&
-          Boolean(
-            submission.songLink
-              ? extractYouTubeVideoId(submission.songLink)
-              : null,
-          ),
-      )
-      .map((submission) => submission._id);
-  }, [sortedSubmissions]);
-  const totalYouTubeDurationSec = youtubeData.reduce(
-    (sum, entry) => sum + entry.duration,
-    0,
+  const youtubeEntries = useMemo(
+    () =>
+      getYouTubePlaylistEntries(sortedSubmissions ?? [], extractYouTubeVideoId),
+    [sortedSubmissions],
+  );
+  const youtubeVideoIds = youtubeEntries.map((entry) => entry.videoId);
+  const youtubeUnlocks = useMemo(
+    () =>
+      getPlaylistListenUnlocks(
+        youtubeEntries.map((entry) => ({
+          submissionIds: entry.submissionIds,
+          durationSeconds: entry.durationSec,
+        })),
+        league.listenPercentage,
+        league.listenTimeLimitMinutes,
+      ),
+    [league.listenPercentage, league.listenTimeLimitMinutes, youtubeEntries],
+  );
+  const totalYouTubeDurationSec = useMemo(
+    () =>
+      getTotalPlaylistRequiredListenSeconds(
+        youtubeEntries.map((entry) => ({
+          submissionIds: entry.submissionIds,
+          durationSeconds: entry.durationSec,
+        })),
+        league.listenPercentage,
+        league.listenTimeLimitMinutes,
+      ),
+    [league.listenPercentage, league.listenTimeLimitMinutes, youtubeEntries],
   );
 
   const { ytInfo, ensureAutoOpenOnce, openPlaylistAndStart } =
     useRoundYouTubePlaylist({
       roundId: round._id,
       roundStatus: round.status,
-      youtubeSubmissionIds,
       youtubeVideoIds,
+      youtubeUnlocks,
       totalYouTubeDurationSec,
       onMarkCompletedLocal: (submissionId) => {
         playerActions.setListenProgress(submissionId.toString(), true);

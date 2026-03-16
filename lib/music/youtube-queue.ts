@@ -1,10 +1,22 @@
-type QueueTrackLike = {
-  _id?: string | null;
+type QueueTrackLike<TId extends string = string> = {
+  _id?: TId | null;
   roundId?: string | null;
   submissionType?: string | null;
   songLink?: string | null;
   duration?: number | null;
 };
+
+export type YouTubePlaylistEntry<TId extends string = string> = {
+  submissionIds: TId[];
+  videoId: string;
+  durationSec: number;
+};
+
+function getNormalizedDurationSec(duration?: number | null): number {
+  return Number.isFinite(duration) && (duration ?? 0) > 0
+    ? Math.floor(duration as number)
+    : 180;
+}
 
 export function getQueueYouTubeVideoIds(
   queue: QueueTrackLike[],
@@ -27,6 +39,70 @@ export function getQueueYouTubeVideoIds(
   }
 
   return ids;
+}
+
+export function getYouTubePlaylistEntries<TId extends string = string>(
+  queue: QueueTrackLike<TId>[],
+  extractVideoId: (url: string | null | undefined) => string | null,
+  options: {
+    maxIds?: number;
+    roundId?: string | null;
+    startSubmissionId?: TId | null;
+  } = {},
+): YouTubePlaylistEntry<TId>[] {
+  const maxIds = options.maxIds ?? 50;
+  const entries: YouTubePlaylistEntry<TId>[] = [];
+  const entryByVideoId = new Map<string, YouTubePlaylistEntry<TId>>();
+  let startVideoId: string | null = null;
+
+  for (const track of queue) {
+    if (options.roundId && track?.roundId !== options.roundId) {
+      continue;
+    }
+    if (track?.submissionType !== "youtube") {
+      continue;
+    }
+
+    const videoId = extractVideoId(track.songLink);
+    if (!videoId) {
+      continue;
+    }
+
+    if (track._id && track._id === options.startSubmissionId) {
+      startVideoId = videoId;
+    }
+
+    const existing = entryByVideoId.get(videoId);
+    if (existing) {
+      if (track._id) {
+        existing.submissionIds.push(track._id);
+      }
+      continue;
+    }
+
+    if (entries.length >= maxIds) {
+      break;
+    }
+
+    const entry: YouTubePlaylistEntry<TId> = {
+      submissionIds: track._id ? [track._id] : [],
+      videoId,
+      durationSec: getNormalizedDurationSec(track.duration),
+    };
+    entries.push(entry);
+    entryByVideoId.set(videoId, entry);
+  }
+
+  if (!startVideoId) {
+    return entries;
+  }
+
+  const startIndex = entries.findIndex((entry) => entry.videoId === startVideoId);
+  if (startIndex <= 0) {
+    return entries;
+  }
+
+  return [...entries.slice(startIndex), ...entries.slice(0, startIndex)];
 }
 
 export function markRoundYouTubePlaylistOpened(
@@ -55,55 +131,24 @@ export function getRoundQueueYouTubePlaylist(
   submissionIds: string[];
   totalDurationSec: number;
 } {
-  const videoIds: string[] = [];
-  const submissionIds: string[] = [];
-  const seenVideoIds = new Set<string>();
-  let totalDurationSec = 0;
-  let startVideoId: string | null = null;
+  const entries = getYouTubePlaylistEntries(queue, extractVideoId, {
+    maxIds,
+    roundId,
+    startSubmissionId,
+  });
+  const submissionIds = queue
+    .filter(
+      (track) =>
+        track?.roundId === roundId &&
+        track?.submissionType === "youtube" &&
+        Boolean(extractVideoId(track.songLink)) &&
+        Boolean(track._id),
+    )
+    .map((track) => track._id as string);
 
-  for (const track of queue) {
-    if (track?.roundId !== roundId || track?.submissionType !== "youtube") {
-      continue;
-    }
-
-    const videoId = extractVideoId(track.songLink);
-    if (!videoId) {
-      continue;
-    }
-
-    if (track._id) {
-      submissionIds.push(track._id);
-      if (track._id === startSubmissionId) {
-        startVideoId = videoId;
-      }
-    }
-
-    if (seenVideoIds.has(videoId)) {
-      continue;
-    }
-
-    seenVideoIds.add(videoId);
-    videoIds.push(videoId);
-    totalDurationSec +=
-      Number.isFinite(track.duration) && (track.duration ?? 0) > 0
-        ? Math.floor(track.duration as number)
-        : 180;
-
-    if (videoIds.length >= maxIds) {
-      break;
-    }
-  }
-
-  if (startVideoId) {
-    const startIndex = videoIds.indexOf(startVideoId);
-    if (startIndex > 0) {
-      const orderedVideoIds = [
-        ...videoIds.slice(startIndex),
-        ...videoIds.slice(0, startIndex),
-      ];
-      return { videoIds: orderedVideoIds, submissionIds, totalDurationSec };
-    }
-  }
-
-  return { videoIds, submissionIds, totalDurationSec };
+  return {
+    videoIds: entries.map((entry) => entry.videoId),
+    submissionIds,
+    totalDurationSec: entries.reduce((sum, entry) => sum + entry.durationSec, 0),
+  };
 }
