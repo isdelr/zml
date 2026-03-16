@@ -273,7 +273,11 @@ export function SubmissionItem({
         ? "text-destructive"
         : "text-muted-foreground";
   const votingComment = song.comment?.trim() ? song.comment.trim() : "-";
-  const metadataText = buildTrackMetadataText(song.artist, song.albumName);
+  const metadataText = buildTrackMetadataText(
+    song.artist,
+    song.albumName,
+    song.year,
+  );
   const compactMobileActionButtonClass = "size-10 md:size-8";
   const compactMobileVoteButtonClass = "size-10 rounded-full md:size-8";
   const compactMobileIconClass = "size-4 md:size-5";

@@ -15,8 +15,14 @@ export function formatArtistNames(artist?: string | null): string {
 export function buildTrackMetadataText(
   artist?: string | null,
   albumName?: string | null,
+  year?: number | null,
 ): string {
-  const parts = [formatArtistNames(artist), albumName?.trim()]
+  const formattedYear =
+    typeof year === "number" && Number.isFinite(year) && year > 0
+      ? String(Math.trunc(year))
+      : "";
+
+  const parts = [formatArtistNames(artist), albumName?.trim(), formattedYear]
     .map((value) => value?.trim() ?? "")
     .filter(Boolean);
 

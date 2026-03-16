@@ -215,6 +215,9 @@ export function SongManualTab({
                               shouldValidate: true,
                             });
                           }
+                          if (typeof metadata.year === "number") {
+                            form.setValue("year", metadata.year);
+                          }
 
                           if (metadata.coverArtFile) {
                             form.setValue(

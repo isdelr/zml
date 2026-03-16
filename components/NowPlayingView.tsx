@@ -136,6 +136,7 @@ export function NowPlayingView() {
     songTitle,
     artist,
     albumName,
+    year,
     albumArtUrl,
     submittedBy,
     roundTitle,
@@ -143,11 +144,14 @@ export function NowPlayingView() {
     leagueId,
     comment,
   } = track;
-  const metadataText = buildTrackMetadataText(artist, albumName);
+  const metadataText = buildTrackMetadataText(artist, albumName, year);
+  const albumYearText = [albumName?.trim(), year ? String(year) : ""]
+    .filter(Boolean)
+    .join(" • ");
   const canRevealSubmitter = track.roundStatus === "finished";
   const visibleSubmittedBy = canRevealSubmitter ? submittedBy : null;
   const hasTrackInformation = Boolean(
-    visibleSubmittedBy || roundTitle || leagueName || albumName,
+    visibleSubmittedBy || roundTitle || leagueName || albumName || year,
   );
 
   const NowPlayingContent = () => (
@@ -165,8 +169,8 @@ export function NowPlayingView() {
         <div>
           <h3 className="text-2xl font-bold">{songTitle}</h3>
           <p className="text-lg text-muted-foreground">{artist}</p>
-          {albumName ? (
-            <p className="text-sm text-muted-foreground/80">{albumName}</p>
+          {albumYearText ? (
+            <p className="text-sm text-muted-foreground/80">{albumYearText}</p>
           ) : null}
         </div>
       </div>
@@ -200,6 +204,12 @@ export function NowPlayingView() {
                   <span className="text-right">{albumName}</span>
                 </div>
               )}
+              {year ? (
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Release Year</span>
+                  <span className="text-right">{year}</span>
+                </div>
+              ) : null}
               {leagueName ? (
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">League</span>

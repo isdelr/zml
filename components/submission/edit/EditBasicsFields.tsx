@@ -4,7 +4,6 @@ import { UseFormReturn } from "react-hook-form";
 
 import {
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -54,6 +53,31 @@ export function EditBasicsFields({ form }: EditBasicsFieldsProps) {
             <FormLabel>Album</FormLabel>
             <FormControl>
               <Input placeholder="Album name" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="year"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Release Year</FormLabel>
+            <FormControl>
+              <Input
+                type="number"
+                placeholder="e.g., 1997"
+                name={field.name}
+                ref={field.ref}
+                onBlur={field.onBlur}
+                value={typeof field.value === "number" ? field.value : ""}
+                onChange={(e) =>
+                  field.onChange(
+                    e.target.value === "" ? undefined : Number(e.target.value),
+                  )
+                }
+              />
             </FormControl>
             <FormMessage />
           </FormItem>

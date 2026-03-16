@@ -65,6 +65,7 @@ function MySubmissionRow({
   const metadataText = buildTrackMetadataText(
     submission.artist,
     submission.albumName,
+    submission.year,
   );
 
   return (

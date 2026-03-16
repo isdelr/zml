@@ -14,6 +14,7 @@ export const songSubmissionFormSchema = z
     songTitle: z.string().optional(),
     artist: z.string().optional(),
     albumName: z.string().optional(),
+    year: z.number().optional(),
     albumArtFile: z
       .instanceof(File)
       .optional()
@@ -60,6 +61,7 @@ export const defaultSongSubmissionFormValues: SongSubmissionFormValues = {
   songTitle: "",
   artist: "",
   albumName: "",
+  year: undefined,
   songLink: "",
   comment: "",
 };

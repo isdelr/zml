@@ -22,7 +22,11 @@ export function BookmarkItem({
   onBookmarkToggle,
   onPlaySong,
 }: BookmarkItemProps) {
-  const metadataText = buildTrackMetadataText(song.artist, song.albumName);
+  const metadataText = buildTrackMetadataText(
+    song.artist,
+    song.albumName,
+    song.year,
+  );
 
   return (
     <div

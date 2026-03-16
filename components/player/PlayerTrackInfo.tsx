@@ -121,6 +121,7 @@ export function PlayerTrackInfo({
   const metadataText = buildTrackMetadataText(
     currentTrack.artist,
     currentTrack.albumName,
+    currentTrack.year,
   );
 
   return (

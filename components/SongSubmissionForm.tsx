@@ -17,8 +17,16 @@ import {
   songSubmissionFormSchema,
   type SongSubmissionFormValues,
 } from "@/lib/submission/song-form";
-import { Form } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PotentialDuplicateDialog } from "@/components/submission/PotentialDuplicateDialog";
 import { SongManualTab } from "@/components/submission/song/SongManualTab";
@@ -101,6 +109,7 @@ export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
           songTitle: values.songTitle,
           artist: values.artist,
           albumName: values.albumName || undefined,
+          year: values.year,
           albumArtKey,
           songFileKey,
           comment: values.comment,
@@ -115,6 +124,7 @@ export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
           songTitle: metadata.songTitle,
           artist: metadata.artist,
           albumName: undefined,
+          year: values.year,
           songLink: values.songLink,
           albumArtUrlValue: metadata.albumArtUrl,
           comment: values.comment,
@@ -230,6 +240,32 @@ export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
               />
               <SongLinkTab form={form} />
             </Tabs>
+
+            <FormField
+              control={form.control}
+              name="year"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Release Year</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="e.g., 1997"
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={typeof field.value === "number" ? field.value : ""}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value === "" ? undefined : Number(e.target.value),
+                        )
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <SongCommentField form={form} />
 

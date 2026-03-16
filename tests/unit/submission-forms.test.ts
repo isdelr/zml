@@ -14,6 +14,7 @@ import {
   defaultSongSubmissionFormValues,
   songSubmissionFormSchema,
 } from "@/lib/submission/song-form";
+import { editSubmissionFormSchema } from "@/lib/submission/edit-form";
 
 const createFile = (name: string, contents: string, type: string) =>
   new File([contents], name, { type });
@@ -28,6 +29,7 @@ describe("submission form schemas", () => {
       songLink: "",
       comment: "",
     });
+    expect(defaultSongSubmissionFormValues.year).toBeUndefined();
 
     expect(defaultMultiSongSubmissionFormValues).toMatchObject({
       submissionType: "manual",
@@ -61,6 +63,7 @@ describe("submission form schemas", () => {
       submissionType: "manual",
       songTitle: "Song",
       artist: "Artist",
+      year: 1997,
       albumArtFile: createFile("cover.png", "cover", "image/png"),
       songFile: createFile("song.mp3", "audio", "audio/mpeg"),
       comment: "Nice track",
@@ -85,6 +88,7 @@ describe("submission form schemas", () => {
     const validLink = songSubmissionFormSchema.safeParse({
       submissionType: "link",
       songLink: "https://youtu.be/abc123def45",
+      year: 2001,
       comment: "Classic",
     });
     expect(validLink.success).toBe(true);
@@ -94,6 +98,19 @@ describe("submission form schemas", () => {
       songLink: "https://example.com/not-youtube",
     });
     expect(invalidLink.success).toBe(false);
+  });
+
+  it("accepts optional release year in the edit form", () => {
+    const result = editSubmissionFormSchema.safeParse({
+      submissionType: "file",
+      songTitle: "Song",
+      artist: "Artist",
+      albumName: "Album",
+      year: 1997,
+      comment: "Updated",
+    });
+
+    expect(result.success).toBe(true);
   });
 
   it("validates manual and link multi-track requirements", () => {

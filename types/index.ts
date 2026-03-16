@@ -8,6 +8,7 @@ export type Song = {
   songTitle: string;
   artist: string;
   albumName?: string | null;
+  year?: number | null;
   albumArtUrl: string | null;
   songFileUrl: string | null;
   songLink: string | null;

@@ -32,7 +32,11 @@ export function SubmissionCommentsPanel({
   const { isPlaying, currentTrackIndex, queue } = useMusicPlayerStore();
   const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
   const metadataText = submission
-    ? buildTrackMetadataText(submission.artist, submission.albumName)
+    ? buildTrackMetadataText(
+        submission.artist,
+        submission.albumName,
+        submission.year,
+      )
     : "";
 
   return (

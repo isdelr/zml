@@ -166,6 +166,7 @@ export function MySubmissionsPage() {
                           const metadataText = buildTrackMetadataText(
                             submission.artist,
                             submission.albumName,
+                            submission.year,
                           );
 
                           return (

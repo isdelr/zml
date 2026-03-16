@@ -48,6 +48,7 @@ export function MusicQueue({ isOpen, onOpenChange }: MusicQueueProps) {
                 const metadataText = buildTrackMetadataText(
                   song.artist,
                   song.albumName,
+                  song.year,
                 );
                 return (
                   <div
