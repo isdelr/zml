@@ -106,6 +106,75 @@ const publicLeaguePreviewValidator = v.object({
   isActive: v.boolean(),
 });
 
+const exploreLeaguePreviewValidator = v.object({
+  _id: v.id("leagues"),
+  _creationTime: v.number(),
+  name: v.string(),
+  description: v.string(),
+  memberCount: v.number(),
+  genres: v.array(v.string()),
+  art: v.union(v.string(), v.null()),
+  roundArt: v.array(v.string()),
+  isActive: v.boolean(),
+  visibility: v.union(v.literal("public"), v.literal("private")),
+});
+
+async function buildLeaguePreview(
+  ctx: QueryCtx,
+  league: Doc<"leagues">,
+): Promise<{
+  _id: Id<"leagues">;
+  _creationTime: number;
+  name: string;
+  description: string;
+  memberCount: number;
+  genres: string[];
+  art: string | null;
+  roundArt: string[];
+  isActive: boolean;
+}> {
+  const roundsPreviewLimit = 5;
+  const [memberCount, rounds] = await Promise.all([
+    memberCounter.count(ctx, league._id),
+    ctx.db
+      .query("rounds")
+      .withIndex("by_league", (q) => q.eq("leagueId", league._id))
+      .order("desc")
+      .take(roundsPreviewLimit),
+  ]);
+
+  const genres = [...new Set(rounds.flatMap((round) => round.genres))];
+  const roundArt = [
+    ...new Set(
+      (
+        await Promise.all(
+          rounds.slice(0, roundsPreviewLimit).map(async (round) => {
+            if (!round.imageKey) {
+              return null;
+            }
+            return await storage.getUrl(round.imageKey);
+          }),
+        )
+      ).filter((art): art is string => art !== null),
+    ),
+  ].slice(0, 4);
+  const isActive = rounds.some(
+    (round) => round.status === "submissions" || round.status === "voting",
+  );
+
+  return {
+    _id: league._id,
+    _creationTime: league._creationTime,
+    name: league.name,
+    description: league.description,
+    memberCount,
+    genres,
+    art: null,
+    roundArt,
+    isActive,
+  };
+}
+
 export const addLeagueManager = mutation({
   args: {
     leagueId: v.id("leagues"),
@@ -328,59 +397,79 @@ export const getPublicLeagues = query({
   returns: v.array(publicLeaguePreviewValidator),
   handler: async (ctx, args) => {
     const limit = Math.max(1, Math.min(args.limit ?? 25, 50));
-    const roundsPreviewLimit = 5;
     const publicLeagues = await ctx.db
       .query("leagues")
       .withIndex("by_public", (q) => q.eq("isPublic", true))
       .order("desc")
       .take(limit);
 
-    const leaguesWithDetails = await Promise.all(
-      publicLeagues.map(async (league) => {
-        const [memberCount, rounds] = await Promise.all([
-          memberCounter.count(ctx, league._id),
-          ctx.db
-            .query("rounds")
-            .withIndex("by_league", (q) => q.eq("leagueId", league._id))
-            .order("desc")
-            .take(roundsPreviewLimit),
-        ]);
+    return await Promise.all(
+      publicLeagues.map((league) => buildLeaguePreview(ctx, league)),
+    );
+  },
+});
 
-        const genres = [...new Set(rounds.flatMap((r) => r.genres))];
-        const roundArt = [
-          ...new Set(
+export const getExploreLeagues = query({
+  args: { limit: v.optional(v.number()) },
+  returns: v.object({
+    publicLeagues: v.array(exploreLeaguePreviewValidator),
+    joinedPrivateLeagues: v.array(exploreLeaguePreviewValidator),
+  }),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    const limit = Math.max(1, Math.min(args.limit ?? 25, 50));
+    const publicLeagues = await ctx.db
+      .query("leagues")
+      .withIndex("by_public", (q) => q.eq("isPublic", true))
+      .order("desc")
+      .take(limit);
+
+    const joinedPrivateLeagueIds = !userId
+      ? []
+      : [
+          ...new Map(
             (
-              await Promise.all(
-                rounds.slice(0, roundsPreviewLimit).map(async (round) => {
-                  if (!round.imageKey) {
-                    return null;
-                  }
-                  return await storage.getUrl(round.imageKey);
-                }),
-              )
-            ).filter((art): art is string => art !== null),
-          ),
-        ].slice(0, 4);
-        const isActive = rounds.some(
-          (round) =>
-            round.status === "submissions" || round.status === "voting",
-        );
+              await ctx.db
+                .query("memberships")
+                .withIndex("by_user", (q) => q.eq("userId", userId))
+                .collect()
+            )
+              .sort((a, b) => (b.joinDate ?? 0) - (a.joinDate ?? 0))
+              .map((membership) => [
+                membership.leagueId.toString(),
+                membership.leagueId,
+              ]),
+          ).values(),
+        ];
 
-        return {
-          _id: league._id,
-          _creationTime: league._creationTime,
-          name: league.name,
-          description: league.description,
-          memberCount,
-          genres,
-          art: null,
-          roundArt,
-          isActive,
-        };
-      }),
+    const joinedPrivateLeagueDocs = (
+      await Promise.all(
+        joinedPrivateLeagueIds.map((leagueId) => ctx.db.get("leagues", leagueId)),
+      )
+    ).filter(
+      (league): league is Doc<"leagues"> => league !== null && !league.isPublic,
     );
 
-    return leaguesWithDetails;
+    const [publicLeaguePreviews, joinedPrivateLeaguePreviews] =
+      await Promise.all([
+        Promise.all(
+          publicLeagues.map(async (league) => ({
+            ...(await buildLeaguePreview(ctx, league)),
+            visibility: "public" as const,
+          })),
+        ),
+        Promise.all(
+          joinedPrivateLeagueDocs.map(async (league) => ({
+            ...(await buildLeaguePreview(ctx, league)),
+            visibility: "private" as const,
+          })),
+        ),
+      ]);
+
+    return {
+      publicLeagues: publicLeaguePreviews,
+      joinedPrivateLeagues: joinedPrivateLeaguePreviews,
+    };
   },
 });
 

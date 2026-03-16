@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
+import {
+  filterExploreLeagues,
+  type ExploreLeagueTab,
+} from "@/lib/explore/filter-leagues";
 import { dynamicImport } from "./ui/dynamic-import";
 import type { FunctionReturnType } from "convex/server";
 
@@ -20,46 +24,35 @@ const LeagueGrid = dynamicImport(() =>
   import("./explore/LeagueGrid").then((mod) => ({ default: mod.LeagueGrid })),
 );
 
-type PublicLeague = FunctionReturnType<
-  typeof api.leagues.getPublicLeagues
->[number] & {
-  roundArt?: string[];
-};
-type PublicLeagues = PublicLeague[];
+type ExploreLeagues = FunctionReturnType<typeof api.leagues.getExploreLeagues>;
+type ExploreLeague =
+  | ExploreLeagues["publicLeagues"][number]
+  | ExploreLeagues["joinedPrivateLeagues"][number];
 
 export function ExplorePage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("All");
+  const [activeTab, setActiveTab] = useState<ExploreLeagueTab>("All");
 
-  const leagues = useQuery(api.leagues.getPublicLeagues, { limit: 25 });
+  const leagues = useQuery(api.leagues.getExploreLeagues, { limit: 25 });
 
-  const filterTabs = ["All", "Popular", "New", "Active"];
+  const filterTabs: ExploreLeagueTab[] = ["All", "Popular", "New", "Active"];
   const isLoading = leagues === undefined;
 
-  const filteredLeagues = useMemo<PublicLeagues>(() => {
-    if (!leagues) return [];
-    let filtered = leagues;
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (league) =>
-          league.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          league.description.toLowerCase().includes(searchTerm.toLowerCase()),
-      );
-    }
-
-    if (activeTab === "Popular") {
-      filtered = [...filtered].sort((a, b) => b.memberCount - a.memberCount);
-    } else if (activeTab === "New") {
-      filtered = [...filtered].sort(
-        (a, b) => b._creationTime - a._creationTime,
-      );
-    } else if (activeTab === "Active") {
-      filtered = [...filtered].filter((league) => league.isActive);
-    }
-
-    return filtered;
+  const filteredPublicLeagues = useMemo<ExploreLeague[]>(() => {
+    return filterExploreLeagues(leagues?.publicLeagues ?? [], {
+      searchTerm,
+      activeTab,
+    });
   }, [leagues, searchTerm, activeTab]);
+
+  const filteredJoinedPrivateLeagues = useMemo<ExploreLeague[]>(() => {
+    return filterExploreLeagues(leagues?.joinedPrivateLeagues ?? [], {
+      searchTerm,
+      activeTab,
+    });
+  }, [leagues, searchTerm, activeTab]);
+
+  const hasJoinedPrivateLeagues = (leagues?.joinedPrivateLeagues.length ?? 0) > 0;
 
   return (
     <div className="min-h-full bg-background text-foreground">
@@ -72,18 +65,38 @@ export function ExplorePage() {
         <ExploreFilters
           activeTab={activeTab}
           filterTabs={filterTabs}
-          onTabChange={(tab) => setActiveTab(tab)}
+          onTabChange={setActiveTab}
         />
 
         {isLoading ? (
           <div className="rounded-lg border border-dashed py-20 text-center">
             <h2 className="text-xl font-semibold">Loading Leagues</h2>
             <p className="mt-2 text-muted-foreground">
-              Fetching public leagues...
+              Fetching league directory...
             </p>
           </div>
         ) : (
-          <LeagueGrid filteredLeagues={filteredLeagues} />
+          <div className="space-y-8">
+            {hasJoinedPrivateLeagues ? (
+              <LeagueGrid
+                description="These leagues are only visible here because you've already joined them."
+                emptyDescription="None of your joined private leagues match the current search or filter."
+                emptyTitle="No Matching Private Leagues"
+                filteredLeagues={filteredJoinedPrivateLeagues}
+                title="Your Private League Joins"
+                variant="private"
+              />
+            ) : null}
+
+            <LeagueGrid
+              description="Browse the public directory to find leagues anyone can discover and join."
+              emptyDescription="No public leagues match your filter criteria. Try another filter or create your own league."
+              emptyTitle="No Public Leagues Found"
+              filteredLeagues={filteredPublicLeagues}
+              title="Public Leagues"
+              variant="public"
+            />
+          </div>
         )}
       </div>
     </div>

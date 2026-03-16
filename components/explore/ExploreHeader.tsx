@@ -18,11 +18,11 @@ export function ExploreHeader({
     <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div className="max-w-2xl space-y-2">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Explore Public Leagues
+          Explore Leagues
         </h1>
         <p className="text-sm text-muted-foreground sm:text-base">
-          Browse active communities, check what&apos;s moving, and jump into the
-          leagues that fit your taste.
+          Browse the public directory and keep your joined private leagues in
+          view without losing track of which is which.
         </p>
       </div>
       <div className="flex w-full flex-col gap-3 sm:flex-row lg:max-w-2xl lg:justify-end">

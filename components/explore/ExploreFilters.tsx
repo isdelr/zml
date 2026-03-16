@@ -1,11 +1,12 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import type { ExploreLeagueTab } from "@/lib/explore/filter-leagues";
 
 interface ExploreFiltersProps {
-  activeTab: string;
-  filterTabs: string[];
-  onTabChange: (tab: string) => void;
+  activeTab: ExploreLeagueTab;
+  filterTabs: ExploreLeagueTab[];
+  onTabChange: (tab: ExploreLeagueTab) => void;
 }
 
 export function ExploreFilters({
