@@ -55,18 +55,18 @@ export function RoundHeader({
     participationGroups && participationGroups.length > 0;
 
   return (
-    <div className="mb-8 flex flex-col gap-6 md:flex-row md:gap-8">
+    <div className="mb-8 flex flex-col gap-6 xl:flex-row xl:gap-8">
       {round.art ? (
         <Image
           src={round.art}
           alt="Round Art"
           width={256}
           height={256}
-          className="h-64 w-64 flex-shrink-0 rounded-md object-cover"
+          className="aspect-square h-auto w-full max-w-sm flex-shrink-0 rounded-md object-cover xl:h-64 xl:w-64"
         />
       ) : (
         <div
-          className="generated-art h-64 w-64 flex-shrink-0 rounded-md bg-muted"
+          className="generated-art aspect-square h-auto w-full max-w-sm flex-shrink-0 rounded-md bg-muted xl:h-64 xl:w-64"
           dangerouslySetInnerHTML={{ __html: toSvg(round._id, 256) }}
         />
       )}
@@ -82,15 +82,16 @@ export function RoundHeader({
               {round.status === "scheduled"
                 ? `Submissions open ${formatDeadline(round.submissionStartsAt ?? round.submissionDeadline)}`
                 : round.status === "submissions"
-                ? `Submissions close ${formatDeadline(round.submissionDeadline)}`
-                : round.status === "voting"
-                  ? `Voting ends ${formatDeadline(round.votingDeadline)}`
-                  : "Finished"}
+                  ? `Submissions close ${formatDeadline(round.submissionDeadline)}`
+                  : round.status === "voting"
+                    ? `Voting ends ${formatDeadline(round.votingDeadline)}`
+                    : "Finished"}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {round.submissionCount > 0 && (
                 <>
-                  {round.submissionCount} {round.submissionCount > 1 ? "songs" : "song"}
+                  {round.submissionCount}{" "}
+                  {round.submissionCount > 1 ? "songs" : "song"}
                   {totalDuration && `, ${totalDuration}`}
                 </>
               )}
@@ -103,19 +104,21 @@ export function RoundHeader({
                 className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
                 title={`League defaults: +${leagueMaxUp} / -${leagueMaxDown}`}
               >
-                Custom vote limits: <span className="font-semibold">+{effectiveMaxUp}</span> / <span className="font-semibold">-{effectiveMaxDown}</span>
+                Custom vote limits:{" "}
+                <span className="font-semibold">+{effectiveMaxUp}</span> /{" "}
+                <span className="font-semibold">-{effectiveMaxDown}</span>
               </span>
             )}
           </div>
           {(showPlayAll || showParticipationSummary || adminControls) && (
             <div className="mt-4 flex flex-col gap-4">
               {(showPlayAll || showParticipationSummary) && (
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
                   {showPlayAll && (
                     <Button
                       onClick={() => onPlayAll(submissions as Song[], 0)}
                       size="lg"
-                      className="w-full bg-primary text-primary-foreground md:w-fit"
+                      className="w-full bg-primary text-primary-foreground lg:w-fit"
                     >
                       <Play className="mr-2 size-5" />
                       Play All

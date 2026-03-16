@@ -160,12 +160,12 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
 
   if (leagueData === undefined) {
     return (
-      <div className="p-4 md:p-8">
+      <div className="p-4 sm:p-6 xl:p-8">
         <div className="space-y-4">
           <Skeleton className="h-12 w-64" />
           <Skeleton className="h-6 w-full max-w-2xl" />
         </div>
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
             <Skeleton key={index} className="h-28 rounded-lg" />
           ))}
@@ -213,7 +213,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   }
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-4 sm:p-6 xl:p-8">
       <LeagueHeader
         leagueData={leagueData}
         currentUser={currentUser}
@@ -226,12 +226,12 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
         playerActions={playerActions}
       />
       <LeagueInfo leagueData={leagueData} />
-      <div className="mb-12 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
+      <div className="mb-12 grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
         <section className="overflow-hidden rounded-2xl border bg-card/60">
           <div className="border-b px-4 py-3">
             <h2 className="text-lg font-semibold">Standings</h2>
           </div>
-          <div className="px-4 py-3 lg:h-[34rem] lg:overflow-y-auto lg:pr-3">
+          <div className="px-4 py-3 xl:h-[34rem] xl:overflow-y-auto xl:pr-3">
             <Standings leagueId={parsedLeagueId} />
           </div>
         </section>
@@ -239,7 +239,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
           <div className="border-b px-4 py-3">
             <h2 className="text-lg font-semibold">Rounds</h2>
           </div>
-          <div className="px-4 py-3 lg:h-[34rem] lg:overflow-y-auto lg:pr-3">
+          <div className="px-4 py-3 xl:h-[34rem] xl:overflow-y-auto xl:pr-3">
             <LeagueRounds
               rounds={rounds || []}
               hasLoaded={status !== "LoadingFirstPage"}
@@ -249,7 +249,11 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
           </div>
           {status === "CanLoadMore" && (
             <div className="border-t px-4 py-3">
-              <Button onClick={() => loadMore(10)} variant="outline" className="w-full">
+              <Button
+                onClick={() => loadMore(10)}
+                variant="outline"
+                className="w-full"
+              >
                 Load More Rounds
               </Button>
             </div>

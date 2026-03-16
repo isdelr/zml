@@ -56,19 +56,16 @@ export function LeagueHeader({
 
   const handleLeaveLeague = () => {
     if (!window.confirm("Are you sure you want to leave this league?")) return;
-    toast.promise(
-      leaveLeague({ leagueId: leagueData._id }),
-      {
-        loading: "Leaving league...",
-        success: "You left the league.",
-        error: (err: unknown) => toErrorMessage(err, "Failed to leave league."),
-      },
-    );
+    toast.promise(leaveLeague({ leagueId: leagueData._id }), {
+      loading: "Leaving league...",
+      success: "You left the league.",
+      error: (err: unknown) => toErrorMessage(err, "Failed to leave league."),
+    });
   };
 
   return (
-    <header className="mb-8 flex flex-col-reverse items-start justify-between gap-4 md:flex-row md:items-center">
-      <div className="flex items-center gap-4">
+    <header className="mb-8 flex flex-col-reverse items-start justify-between gap-4 lg:flex-row lg:items-center">
+      <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto lg:gap-4">
         {/* Invite Button Popover */}
         {leagueData.canManageLeague && (
           <Popover>
@@ -136,7 +133,7 @@ export function LeagueHeader({
         )}
       </div>
       <div
-        className="relative w-full flex-1 md:max-w-xs"
+        className="relative w-full flex-1 lg:max-w-sm"
         ref={searchContainerRef}
       >
         <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
@@ -170,7 +167,9 @@ export function LeagueHeader({
                             onSearchChange("");
                           }}
                         >
-                          <p className="font-semibold truncate overflow-hidden text-ellipsis whitespace-nowrap">{round.title}</p>
+                          <p className="font-semibold truncate overflow-hidden text-ellipsis whitespace-nowrap">
+                            {round.title}
+                          </p>
                         </Button>
                       ))}
                     </div>
@@ -208,9 +207,14 @@ export function LeagueHeader({
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <p className="font-semibold truncate">{song.songTitle}</p>
+                            <p className="font-semibold truncate">
+                              {song.songTitle}
+                            </p>
                             <p className="text-sm text-muted-foreground truncate">
-                              {buildTrackMetadataText(song.artist, song.albumName)}
+                              {buildTrackMetadataText(
+                                song.artist,
+                                song.albumName,
+                              )}
                             </p>
                           </div>
                         </Button>

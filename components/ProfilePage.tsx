@@ -20,10 +20,10 @@ import { toSvg } from "jdenticon";
 import { Skeleton } from "./ui/skeleton";
 
 const StatCard = ({
-                    icon,
-                    title,
-                    value,
-                  }: {
+  icon,
+  title,
+  value,
+}: {
   icon: React.ReactNode;
   title: string;
   value: number | string;
@@ -46,8 +46,8 @@ export function ProfilePage({ userId }: { userId: string }) {
 
   if (profileData === undefined) {
     return (
-      <div className="min-h-full p-4 md:p-8">
-        <header className="mb-8 flex flex-col items-center gap-4 text-center md:flex-row md:gap-6 md:text-left">
+      <div className="min-h-full p-4 sm:p-6 xl:p-8">
+        <header className="mb-8 flex flex-col items-center gap-4 text-center lg:flex-row lg:gap-6 lg:text-left">
           <Skeleton className="size-24 rounded-full" />
           <div className="space-y-3">
             <Skeleton className="h-10 w-56" />
@@ -89,8 +89,8 @@ export function ProfilePage({ userId }: { userId: string }) {
   const { name, image, creationTime, stats, leagues } = profileData;
 
   return (
-    <div className="min-h-full p-4 md:p-8">
-      <header className="mb-8 flex flex-col items-center gap-4 text-center md:flex-row md:gap-6 md:text-left">
+    <div className="min-h-full p-4 sm:p-6 xl:p-8">
+      <header className="mb-8 flex flex-col items-center gap-4 text-center lg:flex-row lg:gap-6 lg:text-left">
         <Avatar className="size-24 border-4 border-primary">
           <AvatarImage src={image ?? undefined} alt={name ?? "User"} />
           <AvatarFallback>
@@ -99,14 +99,28 @@ export function ProfilePage({ userId }: { userId: string }) {
         </Avatar>
         <div>
           <h1 className="text-3xl font-bold md:text-4xl">{name}</h1>
-          <p className="text-muted-foreground">Member for {formatDistanceToNow(new Date(creationTime))}</p>
+          <p className="text-muted-foreground">
+            Member for {formatDistanceToNow(new Date(creationTime))}
+          </p>
         </div>
       </header>
 
       <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard icon={<Shield className="size-4 text-muted-foreground" />} title="Leagues Joined" value={stats.leaguesJoined} />
-        <StatCard icon={<Trophy className="size-4 text-muted-foreground" />} title="Total Wins" value={stats.totalWins} />
-        <StatCard icon={<Music className="size-4 text-muted-foreground" />} title="Total Submissions" value={stats.totalSubmissions} />
+        <StatCard
+          icon={<Shield className="size-4 text-muted-foreground" />}
+          title="Leagues Joined"
+          value={stats.leaguesJoined}
+        />
+        <StatCard
+          icon={<Trophy className="size-4 text-muted-foreground" />}
+          title="Total Wins"
+          value={stats.totalWins}
+        />
+        <StatCard
+          icon={<Music className="size-4 text-muted-foreground" />}
+          title="Total Submissions"
+          value={stats.totalSubmissions}
+        />
       </section>
 
       <Card>
@@ -114,9 +128,11 @@ export function ProfilePage({ userId }: { userId: string }) {
           <CardTitle>League History</CardTitle>
         </CardHeader>
         <CardContent className="p-0 md:p-6">
-          <div className="md:hidden">
+          <div className="lg:hidden">
             {leagues.length === 0 ? (
-              <p className="p-4 text-center text-muted-foreground">No active leagues.</p>
+              <p className="p-4 text-center text-muted-foreground">
+                No active leagues.
+              </p>
             ) : (
               <div className="space-y-4 p-4">
                 {leagues.map((league) => (
@@ -124,7 +140,8 @@ export function ProfilePage({ userId }: { userId: string }) {
                     <CardTitle className="mb-2">{league.name}</CardTitle>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <p>
-                        <strong>Rank:</strong> {league.userRank ? `#${league.userRank}` : "N/A"}
+                        <strong>Rank:</strong>{" "}
+                        {league.userRank ? `#${league.userRank}` : "N/A"}
                       </p>
                       <p>
                         <strong>Wins:</strong> {league.wins}
@@ -136,7 +153,11 @@ export function ProfilePage({ userId }: { userId: string }) {
                         <strong>Submissions:</strong> {league.submissionCount}
                       </p>
                     </div>
-                    <Link href={`/leagues/${league._id}`} passHref className="mt-4 block">
+                    <Link
+                      href={`/leagues/${league._id}`}
+                      passHref
+                      className="mt-4 block"
+                    >
                       <Button variant="outline" className="w-full">
                         View League
                       </Button>
@@ -148,7 +169,7 @@ export function ProfilePage({ userId }: { userId: string }) {
           </div>
 
           <Table>
-            <TableHeader className="hidden md:table-header-group">
+            <TableHeader className="hidden lg:table-header-group">
               <TableRow>
                 <TableHead>League</TableHead>
                 <TableHead className="text-center">Rank</TableHead>
@@ -158,7 +179,7 @@ export function ProfilePage({ userId }: { userId: string }) {
                 <TableHead />
               </TableRow>
             </TableHeader>
-            <TableBody className="hidden md:table-row-group">
+            <TableBody className="hidden lg:table-row-group">
               {leagues.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
@@ -169,10 +190,16 @@ export function ProfilePage({ userId }: { userId: string }) {
                 leagues.map((league) => (
                   <TableRow key={league._id}>
                     <TableCell className="font-medium">{league.name}</TableCell>
-                    <TableCell className="text-center">{league.userRank ? `#${league.userRank}` : "N/A"}</TableCell>
-                    <TableCell className="text-center">{league.userScore ?? "N/A"}</TableCell>
+                    <TableCell className="text-center">
+                      {league.userRank ? `#${league.userRank}` : "N/A"}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {league.userScore ?? "N/A"}
+                    </TableCell>
                     <TableCell className="text-center">{league.wins}</TableCell>
-                    <TableCell className="text-center">{league.submissionCount}</TableCell>
+                    <TableCell className="text-center">
+                      {league.submissionCount}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Link href={`/leagues/${league._id}`} passHref>
                         <Button variant="outline">View League</Button>

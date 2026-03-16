@@ -48,7 +48,7 @@ export default function NotificationsPage() {
   const unreadCount = notifications?.filter((n) => !n.read).length ?? 0;
 
   return (
-    <div className="min-h-full bg-background p-4 text-foreground md:p-8">
+    <div className="min-h-full bg-background p-4 text-foreground sm:p-6 xl:p-8">
       <Card className="mx-auto max-w-3xl">
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle className="text-2xl">Notifications</CardTitle>

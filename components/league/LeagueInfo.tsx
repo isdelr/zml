@@ -15,7 +15,9 @@ export function LeagueInfo({ leagueData }: LeagueInfoProps) {
   return (
     <div className="mb-8">
       <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-4xl font-bold md:text-6xl">{leagueData.name}</h1>
+        <h1 className="text-4xl font-bold sm:text-5xl lg:text-6xl">
+          {leagueData.name}
+        </h1>
         {leagueData.isSpectator && (
           <Badge variant="secondary" className="h-fit">
             <Eye className="mr-1 size-3" />
@@ -23,7 +25,7 @@ export function LeagueInfo({ leagueData }: LeagueInfoProps) {
           </Badge>
         )}
       </div>
-      <div className="mt-4 flex flex-col items-start gap-3 text-muted-foreground md:flex-row md:items-center md:gap-6">
+      <div className="mt-4 flex flex-col items-start gap-3 text-muted-foreground lg:flex-row lg:items-center lg:gap-6">
         <div className="flex items-center gap-2">
           {leagueData.members && <AvatarStack users={leagueData.members} />}
           <span>

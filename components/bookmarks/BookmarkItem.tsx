@@ -17,21 +17,21 @@ interface BookmarkItemProps {
 }
 
 export function BookmarkItem({
-                               song,
-                               index,
-                               onBookmarkToggle,
-                               onPlaySong,
-                             }: BookmarkItemProps) {
+  song,
+  index,
+  onBookmarkToggle,
+  onPlaySong,
+}: BookmarkItemProps) {
   const metadataText = buildTrackMetadataText(song.artist, song.albumName);
 
   return (
     <div
       key={song._id}
-      className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b p-3 transition-colors last:border-b-0 hover:bg-accent md:grid-cols-[auto_4fr_3fr_3fr_auto] md:gap-4"
+      className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b p-3 transition-colors last:border-b-0 hover:bg-accent lg:grid-cols-[auto_4fr_3fr_3fr_auto] lg:gap-4"
     >
-<span className="hidden w-4 text-center text-muted-foreground md:block">
-{index + 1}
-</span>
+      <span className="hidden w-4 text-center text-muted-foreground lg:block">
+        {index + 1}
+      </span>
       <div className="flex items-center gap-4">
         <Image
           src={song.albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
@@ -45,15 +45,18 @@ export function BookmarkItem({
           <p className="text-sm text-muted-foreground">{metadataText}</p>
         </div>
       </div>
-      <div className="hidden text-sm text-muted-foreground md:block md:text-base">
+      <div className="hidden text-sm text-muted-foreground lg:block lg:text-base">
         <p className="font-medium">{song.roundTitle}</p>
       </div>
-      <div className="hidden text-sm text-muted-foreground md:block md:text-base">
-        <Link href={`/leagues/${song.leagueId}`} className="hover:underline md:text-foreground">
+      <div className="hidden text-sm text-muted-foreground lg:block lg:text-base">
+        <Link
+          href={`/leagues/${song.leagueId}`}
+          className="hover:underline lg:text-foreground"
+        >
           {song.leagueName}
         </Link>
       </div>
-      <div className="flex items-center justify-end md:w-32 md:gap-2">
+      <div className="flex items-center justify-end lg:w-32 lg:gap-2">
         {song.submissionType === "file" ? (
           <Button
             variant="ghost"
@@ -86,7 +89,7 @@ export function BookmarkItem({
         </Button>
       </div>
 
-      <div className="-mt-2 col-span-full flex justify-between pl-[56px] text-xs text-muted-foreground md:hidden">
+      <div className="-mt-2 col-span-full flex justify-between pl-[56px] text-xs text-muted-foreground lg:hidden">
         <span>{song.roundTitle}</span>
         <Link href={`/leagues/${song.leagueId}`} className="hover:underline">
           {song.leagueName}

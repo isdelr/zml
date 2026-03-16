@@ -69,12 +69,15 @@ export function PageLayout({ children }: PageLayoutProps) {
   }, []);
 
   useEffect(() => {
-    setIsMobileTopBarHidden(false);
     isMobileTopBarHiddenRef.current = false;
     const container = scrollContainerRef.current;
     mobileTopBarScrollStateRef.current = createMobileTopBarScrollState(
       container?.scrollTop ?? 0,
     );
+    const frameId = window.requestAnimationFrame(() => {
+      setIsMobileTopBarHidden(false);
+    });
+    return () => window.cancelAnimationFrame(frameId);
   }, [pathname]);
 
   return (
@@ -85,20 +88,23 @@ export function PageLayout({ children }: PageLayoutProps) {
         className={cn(
           "flex flex-1 flex-col overflow-y-auto",
           // Add extra padding if the music player is active.
-          currentTrackIndex !== null && "pb-56 md:pb-20",
+          currentTrackIndex !== null && "pb-56 xl:pb-20",
         )}
       >
         <MobileTopBar hidden={isMobileTopBarHidden} />
         <div
           className={cn(
-            "h-16 shrink-0 transition-[height] duration-200 md:hidden",
+            "h-16 shrink-0 transition-[height] duration-200 xl:hidden",
             isMobileTopBarHidden && "h-0",
           )}
         />
         {children}
       </div>
       <InstallPWABanner />
-      <NonBlockingErrorBoundary boundaryName="NowPlayingView" resetKey={pathname}>
+      <NonBlockingErrorBoundary
+        boundaryName="NowPlayingView"
+        resetKey={pathname}
+      >
         <NowPlayingView />
       </NonBlockingErrorBoundary>
     </div>

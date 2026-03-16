@@ -31,7 +31,7 @@ export function NowPlayingView() {
     useMusicPlayerStore();
   const track = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
   const { width } = useWindowSize();
-  const isMobile = width < 768;
+  const isDesktopRail = width >= 1400;
 
   // Lyrics fetching state & action
   const getLyrics = useAction(api.lyrics.getForSubmission);
@@ -54,7 +54,9 @@ export function NowPlayingView() {
     (async () => {
       try {
         setIsLyricsLoading(true);
-        const result = await getLyrics({ submissionId: track._id as Id<"submissions"> });
+        const result = await getLyrics({
+          submissionId: track._id as Id<"submissions">,
+        });
         if (cancelled) return;
         setLyrics(result);
       } catch (error) {
@@ -130,8 +132,17 @@ export function NowPlayingView() {
 
   if (!track) return null;
 
-  const { songTitle, artist, albumName, albumArtUrl, submittedBy, roundTitle, leagueName, leagueId, comment } =
-    track;
+  const {
+    songTitle,
+    artist,
+    albumName,
+    albumArtUrl,
+    submittedBy,
+    roundTitle,
+    leagueName,
+    leagueId,
+    comment,
+  } = track;
   const metadataText = buildTrackMetadataText(artist, albumName);
   const canRevealSubmitter = track.roundStatus === "finished";
   const visibleSubmittedBy = canRevealSubmitter ? submittedBy : null;
@@ -221,7 +232,9 @@ export function NowPlayingView() {
             <p className="text-sm text-muted-foreground">Loading lyrics...</p>
           )}
           {lyricsError && (
-            <p className="text-sm text-center text-muted-foreground">{lyricsError}</p>
+            <p className="text-sm text-center text-muted-foreground">
+              {lyricsError}
+            </p>
           )}
           {!isLyricsLoading && !lyricsError && lyrics && (
             <div className="leading-relaxed text-md md:text-lg font-sans">
@@ -229,14 +242,17 @@ export function NowPlayingView() {
                 <div className="space-y-1">
                   {lrcLines.map((line, i) => {
                     const isActive = i === activeIndex;
-                    const isSectionHeader = /^(verse|chorus|bridge|intro|outro)/i.test(line.text);
+                    const isSectionHeader =
+                      /^(verse|chorus|bridge|intro|outro)/i.test(line.text);
                     return (
                       <div
                         key={`${line.time}-${i}`}
                         className={cn(
                           "transition-colors duration-200",
-                          isActive ? "text-foreground font-semibold" : "text-muted-foreground",
-                          isSectionHeader && "mt-3"
+                          isActive
+                            ? "text-foreground font-semibold"
+                            : "text-muted-foreground",
+                          isSectionHeader && "mt-3",
                         )}
                       >
                         {line.text}
@@ -267,11 +283,19 @@ export function NowPlayingView() {
 
   return (
     <>
-      {!isMobile && (
-        <aside className={cn("hidden md:flex flex-col w-96 bg-sidebar p-4 text-sidebar-foreground border-l border-sidebar-border h-screen overflow-y-auto pb-28")}>
+      {isDesktopRail && (
+        <aside
+          className={cn(
+            "hidden h-screen w-[22rem] flex-col overflow-y-auto border-l border-sidebar-border bg-sidebar p-4 pb-28 text-sidebar-foreground min-[1400px]:flex 2xl:w-96",
+          )}
+        >
           <div className="flex justify-between items-center mb-4">
             <p className="truncate font-semibold">{metadataText}</p>
-            <Button variant="ghost" size="icon" onClick={actions.closeContextView}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={actions.closeContextView}
+            >
               <X className="size-5" />
             </Button>
           </div>
@@ -279,12 +303,17 @@ export function NowPlayingView() {
         </aside>
       )}
 
-      {isMobile && (
-        <Sheet open={isContextViewOpen} onOpenChange={(isOpen) => !isOpen && actions.closeContextView()}>
+      {!isDesktopRail && (
+        <Sheet
+          open={isContextViewOpen}
+          onOpenChange={(isOpen) => !isOpen && actions.closeContextView()}
+        >
           <SheetContent side="bottom" className="h-[90dvh] flex flex-col p-0 ">
             <SheetHeader className="p-4 border-b flex-shrink-0">
               <SheetTitle className="text-center">{songTitle}</SheetTitle>
-              <p className="text-sm text-muted-foreground text-center">{metadataText}</p>
+              <p className="text-sm text-muted-foreground text-center">
+                {metadataText}
+              </p>
             </SheetHeader>
             <div className="overflow-y-auto p-4 space-y-6">
               <NowPlayingContent />

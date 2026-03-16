@@ -10,10 +10,10 @@ interface BookmarkListProps {
   onPlaySong: (song: BookmarkedSong) => void;
 }
 
-export function BookmarkList({ 
-  bookmarkedSongs, 
-  onBookmarkToggle, 
-  onPlaySong 
+export function BookmarkList({
+  bookmarkedSongs,
+  onBookmarkToggle,
+  onPlaySong,
 }: BookmarkListProps) {
   if (bookmarkedSongs.length === 0) {
     return (
@@ -28,7 +28,7 @@ export function BookmarkList({
 
   return (
     <div className="overflow-hidden rounded-md border">
-      <div className="hidden grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground md:grid">
+      <div className="hidden grid-cols-[auto_4fr_3fr_3fr_auto] items-center gap-4 border-b bg-secondary/50 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground lg:grid">
         <span className="w-4 text-center">#</span>
         <span>Track</span>
         <span>From Round</span>
@@ -37,7 +37,7 @@ export function BookmarkList({
       </div>
       <div>
         {bookmarkedSongs.map((song, index) => (
-          <BookmarkItem 
+          <BookmarkItem
             key={song._id}
             song={song}
             index={index}

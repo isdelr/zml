@@ -21,16 +21,13 @@ export function LeagueRounds({
     return (
       <div className="flex flex-col gap-2">
         {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="rounded-lg border p-3"
-          >
+          <div key={index} className="rounded-lg border p-3">
             <div className="flex items-center gap-4 md:hidden">
               <Skeleton className="size-4 rounded-full" />
               <Skeleton className="h-5 flex-1" />
               <Skeleton className="h-5 w-16" />
             </div>
-            <div className="hidden items-center gap-4 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)]">
+            <div className="hidden items-center gap-4 lg:grid lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)]">
               <Skeleton className="h-5 w-28" />
               <Skeleton className="h-5 w-3/4" />
               <Skeleton className="h-5 w-2/3" />

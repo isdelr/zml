@@ -64,7 +64,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "hidden w-64 flex-col bg-sidebar p-6 text-sidebar-foreground md:flex",
+        "hidden w-72 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-5 py-6 text-sidebar-foreground xl:flex 2xl:w-80 2xl:px-6",
         currentTrackIndex !== null && "pb-28",
       )}
     >

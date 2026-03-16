@@ -12,35 +12,39 @@ type RoundListItemProps = {
   isSelected: boolean;
 };
 
-export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProps) {
+export function RoundListItem({
+  round,
+  leagueId,
+  isSelected,
+}: RoundListItemProps) {
   const statusInfo =
     round.status === "scheduled"
       ? {
-        icon: <Clock className="size-4 text-muted-foreground" />,
-        label: "Scheduled",
-        textColor: "text-muted-foreground",
-      }
-      : round.status === "submissions"
-      ? {
-        icon: <Send className="size-4 text-success" />,
-        label: "Submissions",
-        textColor: "text-success",
-      }
-      : round.status === "voting"
-        ? {
-          icon: <Vote className="size-4 text-info" />,
-          label: "Voting",
-          textColor: "text-info",
-        }
-        : {
-          icon: (
-            <div className="flex size-4 items-center justify-center">
-              <div className="size-2 rounded-full bg-muted-foreground" />
-            </div>
-          ),
-          label: "Finished",
+          icon: <Clock className="size-4 text-muted-foreground" />,
+          label: "Scheduled",
           textColor: "text-muted-foreground",
-        };
+        }
+      : round.status === "submissions"
+        ? {
+            icon: <Send className="size-4 text-success" />,
+            label: "Submissions",
+            textColor: "text-success",
+          }
+        : round.status === "voting"
+          ? {
+              icon: <Vote className="size-4 text-info" />,
+              label: "Voting",
+              textColor: "text-info",
+            }
+          : {
+              icon: (
+                <div className="flex size-4 items-center justify-center">
+                  <div className="size-2 rounded-full bg-muted-foreground" />
+                </div>
+              ),
+              label: "Finished",
+              textColor: "text-muted-foreground",
+            };
 
   const renderWinnerPoints = (points: number) => (
     <span className="text-xs font-semibold uppercase tracking-[0.08em] text-amber-500">
@@ -53,7 +57,12 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
       <div className="flex min-w-0 items-center gap-2 truncate">
         <Crown className="size-3.5 shrink-0 text-amber-500" />
         {renderWinnerPoints(round.winners[0]?.points ?? 0)}
-        <AvatarStack users={round.winners.map((winner) => ({ name: winner.name, image: winner.image }))} />
+        <AvatarStack
+          users={round.winners.map((winner) => ({
+            name: winner.name,
+            image: winner.image,
+          }))}
+        />
         <p className="truncate font-semibold text-foreground/80">
           Tie: {round.winners.map((winner) => winner.name).join(", ")}
         </p>
@@ -70,7 +79,12 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
           <p className="truncate font-semibold text-foreground/80">
             {round.winner.name}
           </p>
-          <span className={cn("truncate text-muted-foreground", !isMobile && "hidden lg:inline")}>
+          <span
+            className={cn(
+              "truncate text-muted-foreground",
+              !isMobile && "hidden lg:inline",
+            )}
+          >
             - &quot;{round.winner.songTitle}&quot;
           </span>
         </div>
@@ -82,7 +96,12 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
       {round.status === "scheduled" && (
         <div className="flex items-center gap-1.5">
           <Clock className="size-3" />
-          <span>Starts {formatShortDateTime(round.submissionStartsAt ?? round.submissionDeadline)}</span>
+          <span>
+            Starts{" "}
+            {formatShortDateTime(
+              round.submissionStartsAt ?? round.submissionDeadline,
+            )}
+          </span>
         </div>
       )}
       {round.status === "submissions" && (
@@ -109,7 +128,7 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
         isSelected ? "bg-accent border-primary/50" : "hover:bg-accent",
       )}
     >
-      <div className="md:hidden">
+      <div className="lg:hidden">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
             {statusInfo.icon}
@@ -118,23 +137,23 @@ export function RoundListItem({ round, leagueId, isSelected }: RoundListItemProp
           <AvatarStack
             max={5}
             users={
-              (
-                round.status === "submissions"
-                  ? round.submitters
-                  : round.status === "voting"
-                    ? round.voters
-                    : []
-              ) ?? []
+              (round.status === "submissions"
+                ? round.submitters
+                : round.status === "voting"
+                  ? round.voters
+                  : []) ?? []
             }
           />
         </div>
         {renderMobileSecondaryInfo()}
       </div>
 
-      <div className="hidden md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-4">
+      <div className="hidden lg:grid lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-4">
         <div className="flex items-center gap-3">
           {statusInfo.icon}
-          <span className={cn("font-semibold", statusInfo.textColor)}>{statusInfo.label}</span>
+          <span className={cn("font-semibold", statusInfo.textColor)}>
+            {statusInfo.label}
+          </span>
         </div>
         <div>
           <p className="truncate font-semibold">{round.title}</p>

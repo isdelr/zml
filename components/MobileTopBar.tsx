@@ -26,7 +26,7 @@ export function MobileTopBar({ hidden = false }: MobileTopBarProps) {
     <>
       <header
         className={cn(
-          "md:hidden fixed top-0 left-0 right-0 z-50 flex h-16 w-full items-center justify-between border-b border-border/40 bg-background/95 px-4 backdrop-blur transition-transform duration-200 supports-[backdrop-filter]:bg-background/60",
+          "fixed left-0 right-0 top-0 z-50 flex h-16 w-full items-center justify-between border-b border-border/40 bg-background/95 px-4 backdrop-blur transition-transform duration-200 supports-[backdrop-filter]:bg-background/60 xl:hidden",
           hidden && "-translate-y-full",
         )}
       >
