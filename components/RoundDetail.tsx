@@ -228,7 +228,9 @@ export function RoundDetail({
     // For YouTube submissions, open playlist with that song first
     if (song.submissionType === "youtube") {
       if (youtubeVideoIds.length > 0) {
-        const idx = youtubeData.findIndex((d) => d.submissionId === song._id);
+        const idx = youtubeEntries.findIndex((entry) =>
+          entry.submissionIds.includes(song._id),
+        );
         const ordered =
           idx >= 0
             ? [...youtubeVideoIds.slice(idx), ...youtubeVideoIds.slice(0, idx)]
