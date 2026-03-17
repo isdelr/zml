@@ -50,16 +50,12 @@ interface SubmissionsListProps {
   onPlaySong: (song: Song, index: number) => void;
   onVoteClick: (submissionId: Id<"submissions">, delta: 1 | -1) => void;
   listenProgressMap: Record<string, Doc<"listenProgress">>;
-  activeCommentsSubmissionId: Id<"submissions"> | null;
-  onToggleComments: (submissionId: Id<"submissions"> | null) => void;
   listenersBySubmission: Record<string, SubmissionListener[]> | undefined;
   playlistListeners: SubmissionListener[] | undefined;
   voteSummaryBySubmission: Record<string, SubmissionVoteSummary>;
   positiveVotesRemaining: number;
   negativeVotesRemaining: number;
   isVoteFinal: boolean;
-  effectiveMaxUp: number;
-  effectiveMaxDown: number;
   onReachYouTube?: () => void;
   ytInfo?: {
     running: boolean;
@@ -85,16 +81,12 @@ export function SubmissionsList({
   onPlaySong,
   onVoteClick,
   listenProgressMap,
-  activeCommentsSubmissionId,
-  onToggleComments,
   listenersBySubmission,
   playlistListeners,
   voteSummaryBySubmission,
   positiveVotesRemaining,
   negativeVotesRemaining,
   isVoteFinal,
-  effectiveMaxUp,
-  effectiveMaxDown,
   onReachYouTube,
   ytInfo,
 }: SubmissionsListProps) {
@@ -250,7 +242,6 @@ export function SubmissionsList({
     const isThisSongPlaying = isPlaying && currentTrack?._id === submissionId;
     const isThisSongCurrent = currentTrack?._id === submissionId;
     const userIsSubmitter = submission.userId === currentUser?._id;
-    const isCommentsVisible = activeCommentsSubmissionId === submissionId;
     const listeners = listenersBySubmission?.[submissionKey] ?? [];
     const voteSummary = voteSummaryBySubmission[submissionKey];
 
@@ -266,7 +257,6 @@ export function SubmissionsList({
         index={index}
         isThisSongPlaying={isThisSongPlaying}
         isThisSongCurrent={isThisSongCurrent}
-        isCommentsVisible={isCommentsVisible}
         userIsSubmitter={userIsSubmitter}
         currentVoteValue={currentVoteValue}
         roundStatus={roundStatus}
@@ -278,9 +268,6 @@ export function SubmissionsList({
         onBookmark={() => handleBookmark(submissionId)}
         onPlaySong={() => onPlaySong(toSong(submission), index)}
         listenProgress={listenProgressMap[submissionKey]}
-        onToggleComments={() =>
-          onToggleComments(isCommentsVisible ? null : submissionId)
-        }
         listeners={listeners}
         voteDetails={voteSummary?.votes}
         currentUser={currentUser}
@@ -487,7 +474,6 @@ export function SubmissionsList({
                 isPlaying && currentTrack?._id === song._id;
               const isThisSongCurrent = currentTrack?._id === song._id;
               const userIsSubmitter = song.userId === currentUser?._id;
-              const isCommentsVisible = activeCommentsSubmissionId === song._id;
               const listeners = listenersBySubmission
                 ? listenersBySubmission[song._id.toString()]
                 : [];
@@ -506,7 +492,6 @@ export function SubmissionsList({
                   index={indexInAll}
                   isThisSongPlaying={isThisSongPlaying}
                   isThisSongCurrent={isThisSongCurrent}
-                  isCommentsVisible={isCommentsVisible}
                   userIsSubmitter={userIsSubmitter}
                   currentVoteValue={currentVoteValue}
                   roundStatus={roundStatus}
@@ -514,9 +499,6 @@ export function SubmissionsList({
                   league={league}
                   canManageLeague={canManageLeague}
                   canVote={canVote}
-                  onToggleComments={() =>
-                    onToggleComments(isCommentsVisible ? null : song._id)
-                  }
                   onVoteClick={(delta) => onVoteClick(song._id, delta)}
                   onBookmark={() => handleBookmark(song._id)}
                   onPlaySong={() => onPlaySong(toSong(song), indexInAll)}

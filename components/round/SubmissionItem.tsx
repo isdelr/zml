@@ -5,7 +5,6 @@ import {
   ArrowDown,
   ArrowUp,
   Bookmark,
-  MessageSquare,
   MoreHorizontal,
   Play,
   Pause,
@@ -48,6 +47,7 @@ import {
   formatVoteScore,
   groupVoteSummaryDetailsByScore,
 } from "@/lib/rounds/vote-summary-display";
+import { SubmissionComments } from "./SubmissionComments";
 
 // A new component for the animated equalizer
 const EqualizerIcon = () => (
@@ -64,11 +64,9 @@ interface SubmissionItemProps {
   index: number;
   isThisSongPlaying: boolean;
   isThisSongCurrent: boolean;
-  isCommentsVisible: boolean;
   userIsSubmitter: boolean;
   currentVoteValue: number;
   roundStatus: "scheduled" | "voting" | "finished" | "submissions";
-  onToggleComments: () => void;
   league: LeagueData;
   canManageLeague: boolean;
   hasVoted: boolean;
@@ -99,7 +97,6 @@ export function SubmissionItem({
   index,
   isThisSongPlaying,
   isThisSongCurrent,
-  isCommentsVisible,
   userIsSubmitter,
   currentVoteValue,
   roundStatus,
@@ -111,7 +108,6 @@ export function SubmissionItem({
   onBookmark,
   onPlaySong,
   listenProgress,
-  onToggleComments,
   listeners,
   voteDetails,
   currentUser,
@@ -281,7 +277,7 @@ export function SubmissionItem({
   const compactMobileActionButtonClass = "size-10 md:size-8";
   const compactMobileVoteButtonClass = "size-10 rounded-full md:size-8";
   const compactMobileIconClass = "size-4 md:size-5";
-  const showMobileOverflowAccent = song.isBookmarked || isCommentsVisible;
+  const showMobileOverflowAccent = song.isBookmarked;
   const voteGroups = useMemo(
     () =>
       groupVoteSummaryDetailsByScore(
@@ -487,7 +483,6 @@ export function SubmissionItem({
         className={cn(
           "p-3 transition-colors",
           isThisSongCurrent ? "bg-accent" : "hover:bg-accent/50",
-          isCommentsVisible && "bg-accent/50",
           showListenRequirementIndicator && "border-l-2 border-primary/70",
         )}
       >
@@ -647,15 +642,6 @@ export function SubmissionItem({
                       )}
                     />
                     {song.isBookmarked ? "Remove bookmark" : "Bookmark song"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => onToggleComments()}>
-                    <MessageSquare
-                      className={cn(
-                        "size-4",
-                        isCommentsVisible && "fill-accent",
-                      )}
-                    />
-                    {isCommentsVisible ? "Hide comments" : "Show comments"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -864,22 +850,14 @@ export function SubmissionItem({
                 )}
               />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleComments();
-              }}
-            >
-              <MessageSquare
-                className={cn("size-5", isCommentsVisible && "fill-accent")}
-              />
-            </Button>
           </div>
         </div>
       </div>
+      <SubmissionComments
+        submissionId={song._id}
+        submissionTitle={song.songTitle}
+        className="md:pl-[4.5rem]"
+      />
     </div>
   );
 }

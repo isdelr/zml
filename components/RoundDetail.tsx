@@ -7,8 +7,7 @@ import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
 import type { LeagueData, RoundForLeague } from "@/lib/convex/types";
 import { dynamicImport } from "@/components/ui/dynamic-import";
-import { useMemo, useState, useCallback } from "react";
-import { SubmissionCommentsPanel } from "./round/SubmissionCommentsPanel";
+import { useMemo, useCallback } from "react";
 import { getSortedRoundSubmissions } from "@/lib/rounds/submission-order";
 import { getRoundSubmitterSummary } from "@/lib/rounds/submitter-summary";
 import { extractYouTubeVideoId } from "@/lib/youtube";
@@ -60,9 +59,6 @@ export function RoundDetail({
     queue,
     listenProgress: localListenProgress,
   } = useMusicPlayerStore();
-
-  const [activeCommentsSubmissionId, setActiveCommentsSubmissionId] =
-    useState<Id<"submissions"> | null>(null);
 
   const currentUser = useQuery(api.users.getCurrentUser);
   const listenersBySubmission = useQuery(api.presence.listForRound, {
@@ -215,16 +211,6 @@ export function RoundDetail({
     [],
   );
 
-  const activeSubmissionForPanel = useMemo(() => {
-    if (!activeCommentsSubmissionId || !sortedSubmissions) {
-      return null;
-    }
-    const found =
-      sortedSubmissions.find((s) => s._id === activeCommentsSubmissionId) ??
-      null;
-    return found ? toSong(found) : null;
-  }, [activeCommentsSubmissionId, sortedSubmissions, toSong]);
-
   const handlePlaySong = (song: Song, index: number) => {
     // For YouTube submissions, open playlist with that song first
     if (song.submissionType === "youtube") {
@@ -251,16 +237,6 @@ export function RoundDetail({
     } else {
       const queueSongs = sortedSubmissions?.map(toSong) ?? [];
       playerActions.playRound(queueSongs, index);
-    }
-  };
-
-  const handlePlaySongFromPanel = (song: Song) => {
-    const indexInQueue =
-      sortedSubmissions?.findIndex((s) => s._id === song._id) ?? -1;
-    if (indexInQueue !== -1) {
-      handlePlaySong(song, indexInQueue);
-    } else {
-      playerActions.playSong(song);
     }
   };
 
@@ -497,30 +473,17 @@ export function RoundDetail({
             onPlaySong={handlePlaySong}
             onVoteClick={handleVoteClick}
             listenProgressMap={listenProgressMap}
-            activeCommentsSubmissionId={activeCommentsSubmissionId}
-            onToggleComments={setActiveCommentsSubmissionId}
             listenersBySubmission={listenersBySubmission}
             playlistListeners={playlistListeners}
             voteSummaryBySubmission={voteSummaryBySubmission}
             positiveVotesRemaining={positiveVotesRemaining}
             negativeVotesRemaining={negativeVotesRemaining}
             isVoteFinal={isVoteFinal}
-            effectiveMaxUp={effectiveMaxUp}
-            effectiveMaxDown={effectiveMaxDown}
             onReachYouTube={ensureAutoOpenOnce}
             ytInfo={ytInfoWithPresenceControl}
           />
         </>
       )}
-
-      <SubmissionCommentsPanel
-        submission={activeSubmissionForPanel}
-        roundStatus={round.status}
-        onOpenChange={(isOpen) =>
-          !isOpen && setActiveCommentsSubmissionId(null)
-        }
-        onPlaySong={handlePlaySongFromPanel}
-      />
 
       <FinalVoteConfirmationDialog
         open={confirmationState.isOpen}

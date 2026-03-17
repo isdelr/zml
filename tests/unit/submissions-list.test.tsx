@@ -79,16 +79,12 @@ describe("SubmissionsList", () => {
         onPlaySong={vi.fn()}
         onVoteClick={vi.fn()}
         listenProgressMap={{}}
-        activeCommentsSubmissionId={null}
-        onToggleComments={vi.fn()}
         listenersBySubmission={undefined}
         playlistListeners={undefined}
         voteSummaryBySubmission={{}}
         positiveVotesRemaining={0}
         negativeVotesRemaining={0}
         isVoteFinal={false}
-        effectiveMaxUp={1}
-        effectiveMaxDown={0}
       />,
     );
 
@@ -120,16 +116,12 @@ describe("SubmissionsList", () => {
         onPlaySong={vi.fn()}
         onVoteClick={vi.fn()}
         listenProgressMap={{}}
-        activeCommentsSubmissionId={null}
-        onToggleComments={vi.fn()}
         listenersBySubmission={undefined}
         playlistListeners={undefined}
         voteSummaryBySubmission={{}}
         positiveVotesRemaining={3}
         negativeVotesRemaining={1}
         isVoteFinal={false}
-        effectiveMaxUp={3}
-        effectiveMaxDown={1}
       />,
     );
 

@@ -1,28 +1,47 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
-import { useConvexAuth } from "convex/react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { toSvg } from "jdenticon";
 import React from "react";
-import { formatDistanceToNow } from "date-fns";
 import { toErrorMessage } from "@/lib/errors";
+import { useWindowSize } from "@/hooks/useWindowSize";
+import { cn } from "@/lib/utils";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface SubmissionCommentsProps {
   submissionId: Id<"submissions">;
-  roundStatus: "scheduled" | "voting" | "finished" | "submissions";
+  submissionTitle: string;
+  className?: string;
 }
 
-export function SubmissionComments({ submissionId }: SubmissionCommentsProps) {
+export function SubmissionComments({
+  submissionId,
+  submissionTitle,
+  className,
+}: SubmissionCommentsProps) {
   const [commentText, setCommentText] = useState("");
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [showAllComments, setShowAllComments] = useState(false);
   const { isAuthenticated } = useConvexAuth();
   const playerActions = useMusicPlayerStore((state) => state.actions);
+  const { width } = useWindowSize();
+  const isMobile = width > 0 ? width < 768 : false;
 
   const comments = useQuery(api.submissions.getCommentsForSubmission, {
     submissionId,
@@ -62,14 +81,17 @@ export function SubmissionComments({ submissionId }: SubmissionCommentsProps) {
     );
   });
 
-  const handleAddComment = () => {
-    if (!commentText.trim()) return;
-    const textToSubmit = commentText;
+  const handleAddComment = async () => {
+    const textToSubmit = commentText.trim();
+    if (!textToSubmit) return;
     setCommentText("");
-    addComment({ submissionId, text: textToSubmit }).catch((error: unknown) => {
+    try {
+      await addComment({ submissionId, text: textToSubmit });
+      setIsComposerOpen(false);
+    } catch (error: unknown) {
       toast.error(toErrorMessage(error, "Failed to post comment."));
       setCommentText(textToSubmit);
-    });
+    }
   };
 
   const parseTimeToSeconds = (timeStr: string): number => {
@@ -92,7 +114,15 @@ export function SubmissionComments({ submissionId }: SubmissionCommentsProps) {
     playerActions.seek(time);
   };
 
-  const renderCommentText = (text: string) => {
+  const renderCommentText = (text: string, compact = false) => {
+    if (compact) {
+      return (
+        <p className="truncate text-sm text-muted-foreground">
+          {text}
+        </p>
+      );
+    }
+
     const timestampRegex = /@(\d{1,2}:\d{2})/g;
     const parts = text.split(timestampRegex);
     return (
@@ -118,78 +148,218 @@ export function SubmissionComments({ submissionId }: SubmissionCommentsProps) {
     );
   };
 
-  return (
-    <div className="space-y-6">
-      {isAuthenticated && (
-        <div className="flex items-start gap-3">
-          <Avatar className="mt-1 size-8 flex-shrink-0">
-            <AvatarImage src={currentUser?.image ?? undefined} />
-            <AvatarFallback>
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: toSvg(currentUser?._id ?? "anon", 32),
-                }}
-              />
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0 space-y-2">
-            <Textarea
-              placeholder="Add your thoughts... use @M:SS to link a time!"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              rows={1}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleAddComment();
-                }
+  const totalComments = comments?.length ?? 0;
+  const hiddenCommentCount = Math.max(0, totalComments - 3);
+  const visibleComments = useMemo(() => {
+    if (!comments) return [];
+    if (showAllComments) return comments;
+    return comments.slice(-3);
+  }, [comments, showAllComments]);
+
+  const composerBody = (
+    <div className="space-y-4">
+      <div className="flex items-start gap-3">
+        <Avatar className="mt-0.5 size-8 flex-shrink-0">
+          <AvatarImage src={currentUser?.image ?? undefined} />
+          <AvatarFallback>
+            <div
+              dangerouslySetInnerHTML={{
+                __html: toSvg(currentUser?._id ?? "anon", 32),
               }}
             />
-            <div className="flex justify-end">
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1 space-y-3">
+          <Textarea
+            placeholder="Add your thoughts... use @M:SS to link a time."
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            rows={4}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                void handleAddComment();
+              }
+            }}
+          />
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Press Ctrl/Cmd + Enter to post quickly.
+            </p>
+            <div className="flex items-center gap-2">
               <Button
-                onClick={handleAddComment}
-                disabled={!commentText.trim()}
+                type="button"
+                variant="ghost"
                 size="sm"
+                onClick={() => setIsComposerOpen(false)}
               >
-                Post
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleAddComment()}
+                disabled={!commentText.trim()}
+              >
+                Post comment
               </Button>
             </div>
           </div>
         </div>
-      )}
-
-      <div className="space-y-4">
-        {comments && comments.length === 0 && (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            Be the first to comment.
-          </p>
-        )}
-        {comments?.map((comment) => (
-          <div key={comment._id} className="flex items-start gap-3">
-            <Avatar className="size-8 flex-shrink-0">
-              <AvatarImage src={comment.authorImage ?? undefined} />
-              <AvatarFallback>
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: toSvg(comment.userId, 32),
-                  }}
-                />
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-semibold">{comment.authorName}</span>
-                <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(comment._creationTime, {
-                    addSuffix: true,
-                  })}
-                </span>
-              </div>
-              {renderCommentText(comment.text)}
-            </div>
-          </div>
-        ))}
       </div>
+    </div>
+  );
+
+  const composerTrigger = isAuthenticated ? (
+    isMobile ? (
+      <Sheet open={isComposerOpen} onOpenChange={setIsComposerOpen}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 rounded-full px-3 text-xs sm:text-sm"
+          onClick={() => setIsComposerOpen(true)}
+        >
+          Add comment
+        </Button>
+        <SheetContent
+          side="bottom"
+          className="max-h-[85dvh] rounded-t-3xl px-0 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-0"
+        >
+          <SheetHeader className="border-b px-4 py-4">
+            <SheetTitle className="text-base">Comment on {submissionTitle}</SheetTitle>
+            <SheetDescription>
+              Keep it short. The latest comments stay visible right under the track.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="overflow-y-auto px-4 py-4">{composerBody}</div>
+        </SheetContent>
+      </Sheet>
+    ) : (
+      <Popover open={isComposerOpen} onOpenChange={setIsComposerOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-full px-3 text-xs sm:text-sm"
+          >
+            Add comment
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="w-[min(28rem,calc(100vw-2rem))] rounded-2xl border-border/70 p-4"
+        >
+          <div className="mb-3">
+            <p className="text-sm font-semibold text-foreground">
+              Comment on {submissionTitle}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Share a quick reaction without leaving the song list.
+            </p>
+          </div>
+          {composerBody}
+        </PopoverContent>
+      </Popover>
+    )
+  ) : null;
+
+  return (
+    <div
+      className={cn(
+        "border-t border-border/60 bg-muted/25 px-3 py-3 md:px-4",
+        className,
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Comments
+          </span>
+          <span className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground">
+            {totalComments}
+          </span>
+        </div>
+        {composerTrigger}
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {comments === undefined ? (
+          <>
+            <div className="h-10 animate-pulse rounded-xl bg-background/70" />
+            <div className="h-10 animate-pulse rounded-xl bg-background/50" />
+          </>
+        ) : visibleComments.length > 0 ? (
+          visibleComments.map((comment) => (
+            <div
+              key={comment._id}
+              className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/80 px-2.5 py-2"
+            >
+              <Avatar className="size-7 flex-shrink-0">
+                <AvatarImage src={comment.authorImage ?? undefined} />
+                <AvatarFallback>
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: toSvg(comment.userId, 28),
+                    }}
+                  />
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <div
+                  className={cn(
+                    "min-w-0 gap-2 text-sm",
+                    showAllComments
+                      ? "flex flex-col items-start sm:flex-row sm:items-center"
+                      : "flex items-center",
+                  )}
+                >
+                  <span className="shrink-0 font-medium text-foreground">
+                    {comment.authorName}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    {renderCommentText(comment.text, !showAllComments)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/50 px-3 py-2 text-sm text-muted-foreground">
+            No comments yet.
+          </div>
+        )}
+      </div>
+
+      {hiddenCommentCount > 0 || showAllComments ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="mt-2 h-7 rounded-full px-2 text-xs text-muted-foreground"
+          onClick={() => setShowAllComments((current) => !current)}
+        >
+          {showAllComments ? (
+            <>
+              <ChevronUp className="size-4" />
+              Show less
+            </>
+          ) : (
+            <>
+              <ChevronDown className="size-4" />
+              View {hiddenCommentCount} more comment
+              {hiddenCommentCount === 1 ? "" : "s"}
+            </>
+          )}
+        </Button>
+      ) : null}
+
+      {!isAuthenticated ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Sign in to join the conversation.
+        </p>
+      ) : null}
     </div>
   );
 }
