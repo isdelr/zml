@@ -60,6 +60,7 @@ export function MusicPlayer() {
     queue,
     currentTrackIndex,
     isPlaying,
+    presenceSource,
     repeatMode,
     isShuffled,
     seekTo,
@@ -276,6 +277,7 @@ export function MusicPlayer() {
   });
 
   useListeningPresence({
+    enabled: presenceSource === "player",
     isPlaying,
     submissionId: currentTrack?._id ?? null,
   });
@@ -501,6 +503,7 @@ export function MusicPlayer() {
       if (!url) return false;
 
       if (totalDurationSec > 0) {
+        actions.setPresenceSource("youtubePlaylist");
         void startYouTubePlaylistSession({
           roundId,
           durationSec: totalDurationSec,
@@ -516,6 +519,7 @@ export function MusicPlayer() {
       });
     },
     [
+      actions,
       queue,
       leagueData?.listenPercentage,
       leagueData?.listenTimeLimitMinutes,

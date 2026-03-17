@@ -21,6 +21,7 @@ describe("useMusicPlayerStore", () => {
       originalQueue: [],
       currentTrackIndex: null,
       isPlaying: false,
+      presenceSource: null,
       repeatMode: "none",
       isShuffled: false,
       seekTo: null,
@@ -44,6 +45,7 @@ describe("useMusicPlayerStore", () => {
     expect(useMusicPlayerStore.getState()).toMatchObject({
       currentTrackIndex: 0,
       isPlaying: true,
+      presenceSource: "player",
     });
   });
 
@@ -54,6 +56,23 @@ describe("useMusicPlayerStore", () => {
     actions.openContextView();
 
     expect(useMusicPlayerStore.getState().isContextViewOpen).toBe(true);
+  });
+
+  it("switches presence back to the player when resuming a file track", () => {
+    const { actions } = useMusicPlayerStore.getState();
+
+    actions.playSong(makeSong("one"));
+    useMusicPlayerStore.setState({
+      isPlaying: false,
+      presenceSource: "youtubePlaylist",
+    });
+
+    actions.togglePlayPause();
+
+    expect(useMusicPlayerStore.getState()).toMatchObject({
+      isPlaying: true,
+      presenceSource: "player",
+    });
   });
 
   it("does not open the context view when no track is active", () => {

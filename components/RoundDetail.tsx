@@ -56,6 +56,7 @@ export function RoundDetail({
     actions: playerActions,
     currentTrackIndex,
     isPlaying,
+    presenceSource,
     queue,
     listenProgress: localListenProgress,
   } = useMusicPlayerStore();
@@ -227,6 +228,8 @@ export function RoundDetail({
   const handlePlaySong = (song: Song, index: number) => {
     // For YouTube submissions, open playlist with that song first
     if (song.submissionType === "youtube") {
+      playerActions.setIsPlaying(false);
+      playerActions.setPresenceSource("youtubePlaylist");
       if (youtubeVideoIds.length > 0) {
         const idx = youtubeEntries.findIndex((entry) =>
           entry.submissionIds.includes(song._id),
@@ -271,35 +274,26 @@ export function RoundDetail({
     [submissions, currentUser],
   );
 
-  const youtubeEntries = useMemo(
-    () =>
-      getYouTubePlaylistEntries(sortedSubmissions ?? [], extractYouTubeVideoId),
-    [sortedSubmissions],
+  const youtubeEntries = getYouTubePlaylistEntries(
+    sortedSubmissions ?? [],
+    extractYouTubeVideoId,
   );
   const youtubeVideoIds = youtubeEntries.map((entry) => entry.videoId);
-  const youtubeUnlocks = useMemo(
-    () =>
-      getPlaylistListenUnlocks(
-        youtubeEntries.map((entry) => ({
-          submissionIds: entry.submissionIds,
-          durationSeconds: entry.durationSec,
-        })),
-        league.listenPercentage,
-        league.listenTimeLimitMinutes,
-      ),
-    [league.listenPercentage, league.listenTimeLimitMinutes, youtubeEntries],
+  const youtubeUnlocks = getPlaylistListenUnlocks(
+    youtubeEntries.map((entry) => ({
+      submissionIds: entry.submissionIds,
+      durationSeconds: entry.durationSec,
+    })),
+    league.listenPercentage,
+    league.listenTimeLimitMinutes,
   );
-  const totalYouTubeDurationSec = useMemo(
-    () =>
-      getTotalPlaylistRequiredListenSeconds(
-        youtubeEntries.map((entry) => ({
-          submissionIds: entry.submissionIds,
-          durationSeconds: entry.durationSec,
-        })),
-        league.listenPercentage,
-        league.listenTimeLimitMinutes,
-      ),
-    [league.listenPercentage, league.listenTimeLimitMinutes, youtubeEntries],
+  const totalYouTubeDurationSec = getTotalPlaylistRequiredListenSeconds(
+    youtubeEntries.map((entry) => ({
+      submissionIds: entry.submissionIds,
+      durationSeconds: entry.durationSec,
+    })),
+    league.listenPercentage,
+    league.listenTimeLimitMinutes,
   );
 
   const { ytInfo, ensureAutoOpenOnce, openPlaylistAndStart } =
@@ -309,10 +303,27 @@ export function RoundDetail({
       youtubeVideoIds,
       youtubeUnlocks,
       totalYouTubeDurationSec,
+      presenceEnabled: presenceSource === "youtubePlaylist",
+      onPresenceStart: () => {
+        playerActions.setIsPlaying(false);
+        playerActions.setPresenceSource("youtubePlaylist");
+      },
       onMarkCompletedLocal: (submissionId) => {
         playerActions.setListenProgress(submissionId.toString(), true);
       },
     });
+
+  const ytInfoWithPresenceControl = useMemo(
+    () => ({
+      ...ytInfo,
+      onOpen: () => {
+        playerActions.setIsPlaying(false);
+        playerActions.setPresenceSource("youtubePlaylist");
+        ytInfo.onOpen();
+      },
+    }),
+    [playerActions, ytInfo],
+  );
 
   const submissionsPerUser = round.submissionsPerUser ?? 1;
 
@@ -497,7 +508,7 @@ export function RoundDetail({
             effectiveMaxUp={effectiveMaxUp}
             effectiveMaxDown={effectiveMaxDown}
             onReachYouTube={ensureAutoOpenOnce}
-            ytInfo={ytInfo}
+            ytInfo={ytInfoWithPresenceControl}
           />
         </>
       )}

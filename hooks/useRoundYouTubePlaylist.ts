@@ -14,6 +14,8 @@ type UseRoundYouTubePlaylistArgs = {
   youtubeVideoIds: string[];
   youtubeUnlocks: PlaylistListenUnlock<Id<"submissions">>[];
   totalYouTubeDurationSec: number;
+  presenceEnabled?: boolean;
+  onPresenceStart?: () => void;
   onMarkCompletedLocal?: (submissionId: Id<"submissions">) => void;
 };
 
@@ -41,6 +43,8 @@ export function useRoundYouTubePlaylist({
   youtubeVideoIds,
   youtubeUnlocks,
   totalYouTubeDurationSec,
+  presenceEnabled = true,
+  onPresenceStart,
   onMarkCompletedLocal,
 }: UseRoundYouTubePlaylistArgs): {
   ytInfo: YouTubeInfo;
@@ -71,12 +75,15 @@ export function useRoundYouTubePlaylist({
 
   const updatePlaylistPresence = useCallback(
     (active: boolean) => {
+      if (active) {
+        onPresenceStart?.();
+      }
       const args = active ? { listeningTo: null, roundId } : { listeningTo: null };
       void updatePresence(args).catch((error: unknown) => {
         console.warn("[presence:youtube-playlist] non-fatal failure", error);
       });
     },
-    [roundId, updatePresence],
+    [onPresenceStart, roundId, updatePresence],
   );
 
   const clearTimer = useCallback(() => {
@@ -128,7 +135,9 @@ export function useRoundYouTubePlaylist({
 
       if (result.done) {
         clearTimer();
-        updatePlaylistPresence(false);
+        if (presenceEnabled) {
+          updatePlaylistPresence(false);
+        }
         syncLocallyUnlockedSubmissions(totalYouTubeDurationSec, true);
       }
     } catch (error) {
@@ -143,6 +152,7 @@ export function useRoundYouTubePlaylist({
     allYouTubeSubmissionIds,
     syncLocallyUnlockedSubmissions,
     totalYouTubeDurationSec,
+    presenceEnabled,
     updatePlaylistPresence,
   ]);
 
@@ -183,7 +193,9 @@ export function useRoundYouTubePlaylist({
         setYtTimerRunning(false);
         setYtTimerRemainingSec(0);
         syncLocallyUnlockedSubmissions(totalYouTubeDurationSec, true);
-        updatePlaylistPresence(false);
+        if (presenceEnabled) {
+          updatePlaylistPresence(false);
+        }
         return;
       }
 
@@ -213,6 +225,7 @@ export function useRoundYouTubePlaylist({
       startLocalTimer,
       syncLocallyUnlockedSubmissions,
       totalYouTubeDurationSec,
+      presenceEnabled,
       updatePlaylistPresence,
     ],
   );
@@ -306,7 +319,7 @@ export function useRoundYouTubePlaylist({
   ]);
 
   useEffect(() => {
-    if (!ytTimerRunning) {
+    if (!ytTimerRunning || !presenceEnabled) {
       return;
     }
     updatePlaylistPresence(true);
@@ -317,7 +330,7 @@ export function useRoundYouTubePlaylist({
     return () => {
       window.clearInterval(heartbeat);
     };
-  }, [ytTimerRunning, updatePlaylistPresence]);
+  }, [presenceEnabled, ytTimerRunning, updatePlaylistPresence]);
 
   return {
     ytInfo: {

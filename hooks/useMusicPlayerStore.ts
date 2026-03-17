@@ -9,6 +9,7 @@ interface MusicPlayerState {
   originalQueue: Song[];
   currentTrackIndex: number | null;
   isPlaying: boolean;
+  presenceSource: "player" | "youtubePlaylist" | null;
   repeatMode: RepeatMode;
   isShuffled: boolean;
   seekTo: number | null;
@@ -24,6 +25,9 @@ interface MusicPlayerState {
     playPrevious: () => void;
     togglePlayPause: () => void;
     setIsPlaying: (playing: boolean) => void;
+    setPresenceSource: (
+      source: "player" | "youtubePlaylist" | null,
+    ) => void;
     clearQueue: () => void;
     toggleRepeat: () => void;
     toggleShuffle: () => void;
@@ -44,6 +48,7 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
   originalQueue: [],
   currentTrackIndex: null,
   isPlaying: false,
+  presenceSource: null,
   repeatMode: "none",
   isShuffled: false,
   volume: 1,
@@ -59,6 +64,7 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
         originalQueue: songs,
         currentTrackIndex: startIndex,
         isPlaying: true,
+        presenceSource: "player",
         isShuffled: false,
       });
     },
@@ -68,6 +74,7 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
         originalQueue: [song],
         currentTrackIndex: 0,
         isPlaying: true,
+        presenceSource: "player",
         isShuffled: false,
       });
     },
@@ -79,33 +86,57 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
 
       if (isAtEnd) {
         if (repeatMode === "all") {
-          set({ currentTrackIndex: 0, isPlaying: true });
+          set({
+            currentTrackIndex: 0,
+            isPlaying: true,
+            presenceSource: "player",
+          });
         } else {
-          set({ isPlaying: false, currentTrackIndex: null });
+          set({
+            isPlaying: false,
+            currentTrackIndex: null,
+            presenceSource: null,
+          });
         }
       } else {
-        set({ currentTrackIndex: currentTrackIndex + 1, isPlaying: true });
+        set({
+          currentTrackIndex: currentTrackIndex + 1,
+          isPlaying: true,
+          presenceSource: "player",
+        });
       }
     },
     playPrevious: () => {
       const { currentTrackIndex } = get();
       if (currentTrackIndex !== null && currentTrackIndex > 0) {
-        set({ currentTrackIndex: currentTrackIndex - 1, isPlaying: true });
+        set({
+          currentTrackIndex: currentTrackIndex - 1,
+          isPlaying: true,
+          presenceSource: "player",
+        });
       }
     },
     togglePlayPause: () => {
-      const { isPlaying, queue } = get();
+      const { isPlaying, queue, currentTrackIndex } = get();
+      const currentTrack =
+        currentTrackIndex !== null ? queue[currentTrackIndex] : null;
       if (queue.length > 0) {
-        set({ isPlaying: !isPlaying });
+        set({
+          isPlaying: !isPlaying,
+          presenceSource:
+            currentTrack?.submissionType === "file" ? "player" : null,
+        });
       }
     },
     setIsPlaying: (playing) => set({ isPlaying: playing }),
+    setPresenceSource: (presenceSource) => set({ presenceSource }),
     clearQueue: () =>
       set({
         queue: [],
         originalQueue: [],
         currentTrackIndex: null,
         isPlaying: false,
+        presenceSource: null,
       }),
     toggleRepeat: () => {
       const { repeatMode } = get();

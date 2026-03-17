@@ -6,6 +6,7 @@ import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
 
 type UseListeningPresenceArgs = {
+  enabled?: boolean;
   isPlaying: boolean;
   submissionId: Id<"submissions"> | null;
 };
@@ -13,6 +14,7 @@ type UseListeningPresenceArgs = {
 const PRESENCE_HEARTBEAT_MS = 30_000;
 
 export function useListeningPresence({
+  enabled = true,
   isPlaying,
   submissionId,
 }: UseListeningPresenceArgs) {
@@ -28,15 +30,16 @@ export function useListeningPresence({
   );
 
   useEffect(() => {
-    const desiredListeningTo = isPlaying && submissionId ? submissionId : null;
+    const desiredListeningTo =
+      enabled && isPlaying && submissionId ? submissionId : null;
     if (lastSentRef.current !== desiredListeningTo) {
       lastSentRef.current = desiredListeningTo;
       updatePresenceSafely(desiredListeningTo);
     }
-  }, [isPlaying, submissionId, updatePresenceSafely]);
+  }, [enabled, isPlaying, submissionId, updatePresenceSafely]);
 
   useEffect(() => {
-    if (!(isPlaying && submissionId)) {
+    if (!(enabled && isPlaying && submissionId)) {
       return;
     }
     const heartbeat = window.setInterval(() => {
@@ -49,7 +52,7 @@ export function useListeningPresence({
     return () => {
       clearInterval(heartbeat);
     };
-  }, [isPlaying, submissionId, updatePresenceSafely]);
+  }, [enabled, isPlaying, submissionId, updatePresenceSafely]);
 
   useEffect(() => {
     return () => {
