@@ -17,3 +17,20 @@ export function getVoteLimits(
     maxDown: overrides.maxNegativeVotes ?? defaults.maxNegativeVotes,
   };
 }
+
+export function getVoteLimitSnapshotPatch(
+  overrides: VoteLimitOverrides,
+  defaults: VoteLimitDefaults,
+) {
+  const patch: VoteLimitOverrides = {};
+
+  if (overrides.maxPositiveVotes == null) {
+    patch.maxPositiveVotes = defaults.maxPositiveVotes;
+  }
+
+  if (overrides.maxNegativeVotes == null) {
+    patch.maxNegativeVotes = defaults.maxNegativeVotes;
+  }
+
+  return patch;
+}

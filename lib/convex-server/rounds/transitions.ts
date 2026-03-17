@@ -1,6 +1,7 @@
 import { internal } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import type { MutationCtx } from "../../../convex/_generated/server";
+import { getVoteLimitSnapshotPatch } from "../voteLimits";
 
 type TriggeringUserId = Id<"users"> | undefined;
 
@@ -43,7 +44,10 @@ export async function transitionRoundToVotingWithSideEffects(
     return false;
   }
 
-  await ctx.db.patch("rounds", round._id, { status: "voting" });
+  await ctx.db.patch("rounds", round._id, {
+    status: "voting",
+    ...getVoteLimitSnapshotPatch(round, league),
+  });
   await ctx.scheduler.runAfter(0, internal.notifications.createForLeagueAndDispatchDiscord, {
     leagueId: league._id,
     roundId: round._id,
