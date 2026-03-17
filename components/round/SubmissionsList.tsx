@@ -302,6 +302,10 @@ export function SubmissionsList({
   const showVotingStatusStrip = roundStatus === "voting" && !league.isSpectator;
   const showVotingYouTubeSection =
     roundStatus === "voting" && youtubeItems.length > 0;
+  const showPerSongVoteCaps =
+    showVotingStatusStrip && league.limitVotesPerSubmission;
+  const perSongPositiveVoteCap = league.maxPositiveVotesPerSubmission ?? 1;
+  const perSongNegativeVoteCap = league.maxNegativeVotesPerSubmission ?? 0;
   const desktopGridClass =
     roundStatus === "finished"
       ? "grid grid-cols-[auto_4fr_3fr_3fr_2fr_auto] items-center gap-4 px-4 py-2"
@@ -351,6 +355,20 @@ export function SubmissionsList({
                 Submit a song to unlock voting for this round.
               </p>
             )}
+
+            {showPerSongVoteCaps ? (
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs">
+                <span className="font-medium text-foreground">Per song</span>
+                <span className="inline-flex items-center gap-1 text-success">
+                  <ArrowUp className="size-3.5" />
+                  <span>+{perSongPositiveVoteCap} max</span>
+                </span>
+                <span className="inline-flex items-center gap-1 text-destructive">
+                  <ArrowDown className="size-3.5" />
+                  <span>-{perSongNegativeVoteCap} max</span>
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

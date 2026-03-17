@@ -96,4 +96,45 @@ describe("SubmissionsList", () => {
       screen.getAllByTestId("submission-item").map((item) => item.textContent),
     ).toEqual(["Top YouTube Song", "Lower Manual Song"]);
   });
+
+  it("shows per-song vote caps in the voting status strip when enabled for the league", () => {
+    render(
+      <SubmissionsList
+        submissions={[makeSubmission("song-1")] as never}
+        userVoteStatus={{ hasVoted: false, canVote: true } as never}
+        userVotes={[]}
+        currentUser={null}
+        roundStatus="voting"
+        league={
+          {
+            isSpectator: false,
+            limitVotesPerSubmission: true,
+            maxPositiveVotesPerSubmission: 2,
+            maxNegativeVotesPerSubmission: 1,
+          } as never
+        }
+        canManageLeague={false}
+        currentTrackIndex={null}
+        isPlaying={false}
+        queue={[]}
+        onPlaySong={vi.fn()}
+        onVoteClick={vi.fn()}
+        listenProgressMap={{}}
+        activeCommentsSubmissionId={null}
+        onToggleComments={vi.fn()}
+        listenersBySubmission={undefined}
+        playlistListeners={undefined}
+        voteSummaryBySubmission={{}}
+        positiveVotesRemaining={3}
+        negativeVotesRemaining={1}
+        isVoteFinal={false}
+        effectiveMaxUp={3}
+        effectiveMaxDown={1}
+      />,
+    );
+
+    expect(screen.getByText("Per song")).toBeInTheDocument();
+    expect(screen.getByText("+2 max")).toBeInTheDocument();
+    expect(screen.getByText("-1 max")).toBeInTheDocument();
+  });
 });
