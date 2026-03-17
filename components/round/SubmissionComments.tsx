@@ -27,17 +27,19 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 interface SubmissionCommentsProps {
   submissionId: Id<"submissions">;
   submissionTitle: string;
+  expandAllByDefault?: boolean;
   className?: string;
 }
 
 export function SubmissionComments({
   submissionId,
   submissionTitle,
+  expandAllByDefault = false,
   className,
 }: SubmissionCommentsProps) {
   const [commentText, setCommentText] = useState("");
   const [isComposerOpen, setIsComposerOpen] = useState(false);
-  const [showAllComments, setShowAllComments] = useState(false);
+  const [showAllComments, setShowAllComments] = useState(expandAllByDefault);
   const { isAuthenticated } = useConvexAuth();
   const playerActions = useMusicPlayerStore((state) => state.actions);
   const { width } = useWindowSize();
@@ -152,6 +154,7 @@ export function SubmissionComments({
     if (!comments) return [];
     return [...comments].reverse();
   }, [comments]);
+  const hasComments = orderedComments.length > 0;
   const hiddenCommentCount = Math.max(0, orderedComments.length - 3);
   const visibleComments = useMemo(() => {
     if (showAllComments) return orderedComments;
@@ -267,6 +270,18 @@ export function SubmissionComments({
     )
   ) : null;
 
+  if (!hasComments) {
+    if (!isAuthenticated) {
+      return null;
+    }
+
+    return (
+      <div className={cn("px-3 pb-3 md:px-4", className)}>
+        <div className="flex justify-end">{composerTrigger}</div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -274,12 +289,7 @@ export function SubmissionComments({
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Comments
-        </span>
-        {composerTrigger}
-      </div>
+      <div className="flex justify-end">{composerTrigger}</div>
 
       <div className="mt-3 space-y-2">
         {comments === undefined ? (
@@ -304,14 +314,7 @@ export function SubmissionComments({
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <div
-                  className={cn(
-                    "min-w-0 gap-2 text-left text-sm",
-                    showAllComments
-                      ? "flex flex-col items-start"
-                      : "flex items-start",
-                  )}
-                >
+                <div className="flex min-w-0 items-start gap-2 text-left text-sm">
                   <span className="shrink-0 font-medium text-foreground">
                     {comment.authorName}
                   </span>
@@ -322,11 +325,7 @@ export function SubmissionComments({
               </div>
             </div>
           ))
-        ) : (
-          <div className="py-1 text-sm text-muted-foreground">
-            No comments yet.
-          </div>
-        )}
+        ) : null}
       </div>
 
       {hiddenCommentCount > 0 || showAllComments ? (

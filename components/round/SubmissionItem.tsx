@@ -856,6 +856,7 @@ export function SubmissionItem({
       <SubmissionComments
         submissionId={song._id}
         submissionTitle={song.songTitle}
+        expandAllByDefault={roundStatus === "finished"}
         className="md:pl-[4.5rem]"
       />
     </div>
