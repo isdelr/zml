@@ -22,32 +22,33 @@ import React from "react";
 import { toErrorMessage } from "@/lib/errors";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, MessageSquarePlus } from "lucide-react";
 
 interface SubmissionCommentsProps {
   submissionId: Id<"submissions">;
-  submissionTitle: string;
   expandAllByDefault?: boolean;
   className?: string;
 }
 
-export function SubmissionComments({
+interface SubmissionCommentComposerButtonProps {
+  submissionId: Id<"submissions">;
+  submissionTitle: string;
+  className?: string;
+  size?: "icon" | "sm";
+}
+
+export function SubmissionCommentComposerButton({
   submissionId,
   submissionTitle,
-  expandAllByDefault = false,
   className,
-}: SubmissionCommentsProps) {
+  size = "icon",
+}: SubmissionCommentComposerButtonProps) {
   const [commentText, setCommentText] = useState("");
   const [isComposerOpen, setIsComposerOpen] = useState(false);
-  const [showAllComments, setShowAllComments] = useState(expandAllByDefault);
   const { isAuthenticated } = useConvexAuth();
-  const playerActions = useMusicPlayerStore((state) => state.actions);
   const { width } = useWindowSize();
   const isMobile = width > 0 ? width < 768 : false;
 
-  const comments = useQuery(api.submissions.getCommentsForSubmission, {
-    submissionId,
-  });
   const currentUser = useQuery(api.users.getCurrentUser);
 
   const addComment = useMutation(
@@ -95,6 +96,135 @@ export function SubmissionComments({
       setCommentText(textToSubmit);
     }
   };
+
+  const composerBody = (
+    <div className="space-y-4">
+      <div className="flex items-start gap-3">
+        <Avatar className="mt-0.5 size-8 flex-shrink-0">
+          <AvatarImage src={currentUser?.image ?? undefined} />
+          <AvatarFallback>
+            <div
+              dangerouslySetInnerHTML={{
+                __html: toSvg(currentUser?._id ?? "anon", 32),
+              }}
+            />
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1 space-y-3">
+          <Textarea
+            placeholder="Add your thoughts... use @M:SS to link a time."
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            rows={4}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                void handleAddComment();
+              }
+            }}
+          />
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Press Ctrl/Cmd + Enter to post quickly.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsComposerOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleAddComment()}
+                disabled={!commentText.trim()}
+              >
+                Post comment
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  const triggerButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      size={size}
+      className={className}
+      aria-label="Add comment"
+      title="Add comment"
+    >
+      <MessageSquarePlus className="size-5" />
+    </Button>
+  );
+
+  return isMobile ? (
+    <Sheet open={isComposerOpen} onOpenChange={setIsComposerOpen}>
+      <Button
+        type="button"
+        variant="ghost"
+        size={size}
+        className={className}
+        aria-label="Add comment"
+        title="Add comment"
+        onClick={() => setIsComposerOpen(true)}
+      >
+        <MessageSquarePlus className="size-5" />
+      </Button>
+      <SheetContent
+        side="bottom"
+        className="max-h-[85dvh] rounded-t-3xl px-0 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-0"
+      >
+        <SheetHeader className="border-b px-4 py-4 text-left">
+          <SheetTitle className="text-base">Comment on {submissionTitle}</SheetTitle>
+          <SheetDescription>
+            Keep it short. The latest comments stay visible right under the track.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="overflow-y-auto px-4 py-4">{composerBody}</div>
+      </SheetContent>
+    </Sheet>
+  ) : (
+    <Popover open={isComposerOpen} onOpenChange={setIsComposerOpen}>
+      <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="w-[min(28rem,calc(100vw-2rem))] rounded-2xl border-border/70 p-4"
+      >
+        <div className="mb-3">
+          <p className="text-sm font-semibold text-foreground">
+            Comment on {submissionTitle}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Share a quick reaction without leaving the song list.
+          </p>
+        </div>
+        {composerBody}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function SubmissionComments({
+  submissionId,
+  expandAllByDefault = false,
+  className,
+}: SubmissionCommentsProps) {
+  const [showAllComments, setShowAllComments] = useState(expandAllByDefault);
+  const playerActions = useMusicPlayerStore((state) => state.actions);
+  const comments = useQuery(api.submissions.getCommentsForSubmission, {
+    submissionId,
+  });
 
   const parseTimeToSeconds = (timeStr: string): number => {
     const parts = timeStr.split(":").map(Number);
@@ -154,132 +284,14 @@ export function SubmissionComments({
     if (!comments) return [];
     return [...comments].reverse();
   }, [comments]);
-  const hasComments = orderedComments.length > 0;
   const hiddenCommentCount = Math.max(0, orderedComments.length - 3);
   const visibleComments = useMemo(() => {
     if (showAllComments) return orderedComments;
     return orderedComments.slice(0, 3);
   }, [orderedComments, showAllComments]);
 
-  const composerBody = (
-    <div className="space-y-4">
-      <div className="flex items-start gap-3">
-        <Avatar className="mt-0.5 size-8 flex-shrink-0">
-          <AvatarImage src={currentUser?.image ?? undefined} />
-          <AvatarFallback>
-            <div
-              dangerouslySetInnerHTML={{
-                __html: toSvg(currentUser?._id ?? "anon", 32),
-              }}
-            />
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1 space-y-3">
-          <Textarea
-            placeholder="Add your thoughts... use @M:SS to link a time."
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            rows={4}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                void handleAddComment();
-              }
-            }}
-          />
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              Press Ctrl/Cmd + Enter to post quickly.
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsComposerOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void handleAddComment()}
-                disabled={!commentText.trim()}
-              >
-                Post comment
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const composerTrigger = isAuthenticated ? (
-    isMobile ? (
-      <Sheet open={isComposerOpen} onOpenChange={setIsComposerOpen}>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-8 rounded-full px-3 text-xs sm:text-sm"
-          onClick={() => setIsComposerOpen(true)}
-        >
-          Add comment
-        </Button>
-        <SheetContent
-          side="bottom"
-          className="max-h-[85dvh] rounded-t-3xl px-0 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-0"
-        >
-          <SheetHeader className="border-b px-4 py-4 text-left">
-            <SheetTitle className="text-base">Comment on {submissionTitle}</SheetTitle>
-            <SheetDescription>
-              Keep it short. The latest comments stay visible right under the track.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="overflow-y-auto px-4 py-4">{composerBody}</div>
-        </SheetContent>
-      </Sheet>
-    ) : (
-      <Popover open={isComposerOpen} onOpenChange={setIsComposerOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 rounded-full px-3 text-xs sm:text-sm"
-          >
-            Add comment
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="end"
-          className="w-[min(28rem,calc(100vw-2rem))] rounded-2xl border-border/70 p-4"
-        >
-          <div className="mb-3">
-            <p className="text-sm font-semibold text-foreground">
-              Comment on {submissionTitle}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Share a quick reaction without leaving the song list.
-            </p>
-          </div>
-          {composerBody}
-        </PopoverContent>
-      </Popover>
-    )
-  ) : null;
-
-  if (!hasComments) {
-    if (!isAuthenticated) {
-      return null;
-    }
-
-    return (
-      <div className={cn("px-3 pb-3 md:px-4", className)}>
-        <div className="flex justify-end">{composerTrigger}</div>
-      </div>
-    );
+  if (orderedComments.length === 0) {
+    return null;
   }
 
   return (
@@ -289,9 +301,7 @@ export function SubmissionComments({
         className,
       )}
     >
-      <div className="flex justify-end">{composerTrigger}</div>
-
-      <div className="mt-3 space-y-2">
+      <div className="space-y-2">
         {comments === undefined ? (
           <>
             <div className="h-10 animate-pulse rounded-xl bg-background/70" />
@@ -349,12 +359,6 @@ export function SubmissionComments({
             </>
           )}
         </Button>
-      ) : null}
-
-      {!isAuthenticated ? (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Sign in to join the conversation.
-        </p>
       ) : null}
     </div>
   );

@@ -47,7 +47,10 @@ import {
   formatVoteScore,
   groupVoteSummaryDetailsByScore,
 } from "@/lib/rounds/vote-summary-display";
-import { SubmissionComments } from "./SubmissionComments";
+import {
+  SubmissionCommentComposerButton,
+  SubmissionComments,
+} from "./SubmissionComments";
 
 // A new component for the animated equalizer
 const EqualizerIcon = () => (
@@ -598,6 +601,29 @@ export function SubmissionItem({
                   </Tooltip>
                 </TooltipProvider>
               )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className={compactMobileActionButtonClass}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBookmark();
+                }}
+                aria-label={song.isBookmarked ? "Remove bookmark" : "Bookmark song"}
+              >
+                <Bookmark
+                  className={cn(
+                    compactMobileIconClass,
+                    song.isBookmarked && "fill-primary text-primary",
+                  )}
+                />
+              </Button>
+              <SubmissionCommentComposerButton
+                submissionId={song._id}
+                submissionTitle={song.songTitle}
+                size="icon"
+                className={cn(compactMobileActionButtonClass)}
+              />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -634,15 +660,6 @@ export function SubmissionItem({
                         </a>
                       </DropdownMenuItem>
                     )}
-                  <DropdownMenuItem onSelect={() => onBookmark()}>
-                    <Bookmark
-                      className={cn(
-                        "size-4",
-                        song.isBookmarked && "fill-primary text-primary",
-                      )}
-                    />
-                    {song.isBookmarked ? "Remove bookmark" : "Bookmark song"}
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -850,12 +867,17 @@ export function SubmissionItem({
                 )}
               />
             </Button>
+            <SubmissionCommentComposerButton
+              submissionId={song._id}
+              submissionTitle={song.songTitle}
+              size="icon"
+              className="size-8"
+            />
           </div>
         </div>
       </div>
       <SubmissionComments
         submissionId={song._id}
-        submissionTitle={song.songTitle}
         expandAllByDefault={roundStatus === "finished"}
         className="md:pl-[4.5rem]"
       />
