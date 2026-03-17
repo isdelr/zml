@@ -7,6 +7,10 @@ import { api } from "@/lib/convex/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import type { LeagueData, RoundForLeague, UserVoteStatus } from "@/lib/convex/types";
 import { toErrorMessage } from "@/lib/errors";
+import {
+  calculateVoteStep,
+  getVoteStepErrorMessage,
+} from "@/lib/rounds/vote-step";
 
 const FINAL_CONFIRM_TEXT = "confirm";
 const FINAL_CONFIRMATION_REQUIRED_TEXT =
@@ -76,7 +80,23 @@ export function useRoundVoting({
         const existingVote = newVoteStatus.votes[idx];
         if (!existingVote) return;
         const currentVal = existingVote.vote;
-        const nextVal = currentVal + delta;
+        const effectiveMaxUp = round.maxPositiveVotes ?? league.maxPositiveVotes;
+        const effectiveMaxDown =
+          round.maxNegativeVotes ?? league.maxNegativeVotes;
+        const voteStep = calculateVoteStep({
+          currentVote: currentVal,
+          delta,
+          upvotesUsed: newVoteStatus.upvotesUsed,
+          downvotesUsed: newVoteStatus.downvotesUsed,
+          maxUp: effectiveMaxUp,
+          maxDown: effectiveMaxDown,
+          limitVotesPerSubmission: league.limitVotesPerSubmission === true,
+          maxPositiveVotesPerSubmission: league.maxPositiveVotesPerSubmission,
+          maxNegativeVotesPerSubmission: league.maxNegativeVotesPerSubmission,
+        });
+        if (voteStep.errorCode) return;
+
+        const nextVal = voteStep.nextVote;
         if (nextVal === 0) {
           newVoteStatus.votes.splice(idx, 1);
         } else {
@@ -223,31 +243,30 @@ export function useRoundVoting({
       const currentVote =
         userVoteStatus?.votes.find((vote) => vote.submissionId === submissionId)
           ?.vote ?? 0;
-
-      let nextVote = currentVote + delta;
-      if (league.limitVotesPerSubmission) {
-        if (nextVote > (league.maxPositiveVotesPerSubmission ?? Infinity)) {
-          nextVote = league.maxPositiveVotesPerSubmission ?? nextVote;
-        }
-        if (nextVote < -(league.maxNegativeVotesPerSubmission ?? Infinity)) {
-          nextVote = -(league.maxNegativeVotesPerSubmission ?? nextVote);
-        }
-      }
-      const deltaToSend = (nextVote - currentVote) as -1 | 0 | 1;
-      if (deltaToSend === 0) return;
-
-      const nextUpvotesUsed =
-        upvotesUsed - Math.max(0, currentVote) + Math.max(0, nextVote);
-      const nextDownvotesUsed =
-        downvotesUsed -
-        Math.abs(Math.min(0, currentVote)) +
-        Math.abs(Math.min(0, nextVote));
-
       const effectiveMaxUpClick = round.maxPositiveVotes ?? league.maxPositiveVotes;
       const effectiveMaxDownClick = round.maxNegativeVotes ?? league.maxNegativeVotes;
+      const voteStep = calculateVoteStep({
+        currentVote,
+        delta,
+        upvotesUsed,
+        downvotesUsed,
+        maxUp: effectiveMaxUpClick,
+        maxDown: effectiveMaxDownClick,
+        limitVotesPerSubmission: league.limitVotesPerSubmission === true,
+        maxPositiveVotesPerSubmission: league.maxPositiveVotesPerSubmission,
+        maxNegativeVotesPerSubmission: league.maxNegativeVotesPerSubmission,
+      });
+      if (voteStep.errorCode) {
+        toast.error(getVoteStepErrorMessage(voteStep.errorCode));
+        return;
+      }
+
+      const deltaToSend = (voteStep.nextVote - currentVote) as -1 | 0 | 1;
+      if (deltaToSend === 0) return;
+
       const willBeFinal =
-        nextUpvotesUsed === effectiveMaxUpClick &&
-        nextDownvotesUsed === effectiveMaxDownClick;
+        voteStep.nextUpvotesUsed === effectiveMaxUpClick &&
+        voteStep.nextDownvotesUsed === effectiveMaxDownClick;
 
       if (willBeFinal) {
         if (!canFinalizeVotes) {

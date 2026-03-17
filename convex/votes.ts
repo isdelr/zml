@@ -7,6 +7,10 @@ import { voterCounter } from "./counters";
 import { getVoteLimits } from "../lib/convex-server/voteLimits";
 import { transitionRoundToFinishedWithSideEffects } from "../lib/convex-server/rounds/transitions";
 import { recalculateAndStoreRoundResults } from "../lib/convex-server/leagues/results";
+import {
+  calculateVoteStep,
+  getVoteStepErrorMessage,
+} from "../lib/rounds/vote-step";
 import { B2Storage } from "./b2Storage";
 import { resolveUserAvatarUrl } from "./userAvatar";
 import { getSortedRoundSubmissions } from "../lib/rounds/submission-order";
@@ -359,47 +363,26 @@ export const castVote = mutation({
     const existingVote = allUserVotesInRound.find(
       (v) => v.submissionId === args.submissionId,
     );
-    const otherVotes = allUserVotesInRound.filter(
-      (v) => v.submissionId !== args.submissionId,
-    );
     const current = existingVote?.vote ?? 0;
-    const newVote = current + args.delta;
-
-    if (league.limitVotesPerSubmission) {
-      if (args.delta === 1) {
-        if (newVote > (league.maxPositiveVotesPerSubmission ?? 1)) {
-          throw new Error(
-            "You have reached the maximum number of upvotes for this song.",
-          );
-        }
-      }
-      if (args.delta === -1) {
-        if (Math.abs(newVote) > (league.maxNegativeVotesPerSubmission ?? 0)) {
-          throw new Error(
-            "You have reached the maximum number of downvotes for this song.",
-          );
-        }
-      }
+    const voteStep = calculateVoteStep({
+      currentVote: current,
+      delta: args.delta,
+      upvotesUsed: upUsedSoFar,
+      downvotesUsed: downUsedSoFar,
+      maxUp,
+      maxDown,
+      limitVotesPerSubmission: league.limitVotesPerSubmission === true,
+      maxPositiveVotesPerSubmission: league.maxPositiveVotesPerSubmission,
+      maxNegativeVotesPerSubmission: league.maxNegativeVotesPerSubmission,
+    });
+    if (voteStep.errorCode) {
+      throw new Error(getVoteStepErrorMessage(voteStep.errorCode));
     }
 
-    const otherPos = otherVotes.reduce(
-      (sum, v) => sum + Math.max(0, v.vote),
-      0,
-    );
-    const otherNeg = otherVotes.reduce(
-      (sum, v) => sum + Math.abs(Math.min(0, v.vote)),
-      0,
-    );
-    const newPosUsed = otherPos + Math.max(0, newVote);
-    const newNegUsed = otherNeg + Math.abs(Math.min(0, newVote));
+    const newVote = voteStep.nextVote;
+    const newPosUsed = voteStep.nextUpvotesUsed;
+    const newNegUsed = voteStep.nextDownvotesUsed;
     const willFinalizeVotes = newPosUsed === maxUp && newNegUsed === maxDown;
-
-    if (args.delta === 1 && newPosUsed > maxUp) {
-      throw new Error("No upvotes remaining.");
-    }
-    if (args.delta === -1 && newNegUsed > maxDown) {
-      throw new Error("No downvotes remaining.");
-    }
 
     if (league.enforceListenPercentage) {
       const shouldCheckSubmissionListen =

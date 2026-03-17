@@ -120,4 +120,51 @@ describe("useRoundVoting", () => {
     expect(toast.error).toHaveBeenCalledWith(finalizationBlockedReason);
     expect(result.current.confirmationState.isOpen).toBe(false);
   });
+
+  it("lets users step an upvote down without hitting downvote limits", async () => {
+    const castVote = vi.fn().mockResolvedValue({
+      isFinal: false,
+      message: "Vote saved.",
+    });
+
+    vi.mocked(useQuery).mockReturnValue(
+      createVoteStatus({
+        votes: [
+          {
+            submissionId: "submission-1",
+            vote: 2,
+          },
+        ],
+        upvotesUsed: 2,
+      }),
+    );
+    vi.mocked(useMutation).mockReturnValue({
+      withOptimisticUpdate: vi.fn(() => castVote),
+    } as never);
+
+    const { result } = renderHook(() =>
+      useRoundVoting({
+        round: createRound(),
+        league: createLeague({
+          limitVotesPerSubmission: true,
+          maxPositiveVotesPerSubmission: 2,
+          maxNegativeVotesPerSubmission: 0,
+        }),
+        currentUserId: "user-1" as never,
+      }),
+    );
+
+    await act(async () => {
+      result.current.handleVoteClick("submission-1" as never, -1);
+    });
+
+    await waitFor(() => {
+      expect(castVote).toHaveBeenCalledWith({
+        submissionId: "submission-1",
+        delta: -1,
+        confirmFinal: false,
+      });
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
 });
