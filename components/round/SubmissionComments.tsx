@@ -117,7 +117,7 @@ export function SubmissionComments({
   const renderCommentText = (text: string, compact = false) => {
     if (compact) {
       return (
-        <p className="truncate text-sm text-muted-foreground">
+        <p className="truncate text-sm text-foreground/80">
           {text}
         </p>
       );
@@ -148,13 +148,15 @@ export function SubmissionComments({
     );
   };
 
-  const totalComments = comments?.length ?? 0;
-  const hiddenCommentCount = Math.max(0, totalComments - 3);
-  const visibleComments = useMemo(() => {
+  const orderedComments = useMemo(() => {
     if (!comments) return [];
-    if (showAllComments) return comments;
-    return comments.slice(-3);
-  }, [comments, showAllComments]);
+    return [...comments].reverse();
+  }, [comments]);
+  const hiddenCommentCount = Math.max(0, orderedComments.length - 3);
+  const visibleComments = useMemo(() => {
+    if (showAllComments) return orderedComments;
+    return orderedComments.slice(0, 3);
+  }, [orderedComments, showAllComments]);
 
   const composerBody = (
     <div className="space-y-4">
@@ -226,7 +228,7 @@ export function SubmissionComments({
           side="bottom"
           className="max-h-[85dvh] rounded-t-3xl px-0 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-0"
         >
-          <SheetHeader className="border-b px-4 py-4">
+          <SheetHeader className="border-b px-4 py-4 text-left">
             <SheetTitle className="text-base">Comment on {submissionTitle}</SheetTitle>
             <SheetDescription>
               Keep it short. The latest comments stay visible right under the track.
@@ -273,14 +275,9 @@ export function SubmissionComments({
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Comments
-          </span>
-          <span className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground">
-            {totalComments}
-          </span>
-        </div>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Comments
+        </span>
         {composerTrigger}
       </div>
 
@@ -294,7 +291,7 @@ export function SubmissionComments({
           visibleComments.map((comment) => (
             <div
               key={comment._id}
-              className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/80 px-2.5 py-2"
+              className="flex items-start gap-2 py-1.5"
             >
               <Avatar className="size-7 flex-shrink-0">
                 <AvatarImage src={comment.authorImage ?? undefined} />
@@ -309,10 +306,10 @@ export function SubmissionComments({
               <div className="min-w-0 flex-1">
                 <div
                   className={cn(
-                    "min-w-0 gap-2 text-sm",
+                    "min-w-0 gap-2 text-left text-sm",
                     showAllComments
-                      ? "flex flex-col items-start sm:flex-row sm:items-center"
-                      : "flex items-center",
+                      ? "flex flex-col items-start"
+                      : "flex items-start",
                   )}
                 >
                   <span className="shrink-0 font-medium text-foreground">
@@ -326,7 +323,7 @@ export function SubmissionComments({
             </div>
           ))
         ) : (
-          <div className="rounded-xl border border-dashed border-border/70 bg-background/50 px-3 py-2 text-sm text-muted-foreground">
+          <div className="py-1 text-sm text-muted-foreground">
             No comments yet.
           </div>
         )}
@@ -348,7 +345,7 @@ export function SubmissionComments({
           ) : (
             <>
               <ChevronDown className="size-4" />
-              View {hiddenCommentCount} more comment
+              View {hiddenCommentCount} older comment
               {hiddenCommentCount === 1 ? "" : "s"}
             </>
           )}
