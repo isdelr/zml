@@ -185,7 +185,7 @@ services:
       ENABLE_USER_REGISTRATION: ${GLITCHTIP_ENABLE_USER_REGISTRATION:-false}
       ENABLE_ORGANIZATION_CREATION: ${GLITCHTIP_ENABLE_ORGANIZATION_CREATION:-false}
       GLITCHTIP_MAX_EVENT_LIFE_DAYS: ${GLITCHTIP_MAX_EVENT_LIFE_DAYS:-90}
-    command: ["bin/start-all-in-one.sh"]
+    command: ["./bin/run-all-in-one.sh"]
     expose:
       - "8000"
 
