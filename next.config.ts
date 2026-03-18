@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createBundleAnalyzer from "@next/bundle-analyzer";
+import { withSentryConfig } from "@sentry/nextjs";
 import { withSerwist } from "@serwist/turbopack";
 
 const withBundleAnalyzer = createBundleAnalyzer({
@@ -82,7 +83,7 @@ const nextConfig: NextConfig = {
   },
   images: {
     minimumCacheTTL: 2678400,
-    formats: ["image/webp"],
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "https",
@@ -123,4 +124,13 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSerwist(withBundleAnalyzer(nextConfig));
+export default withSentryConfig(
+  withSerwist(withBundleAnalyzer(nextConfig)),
+  {
+    silent: true,
+    sourcemaps: {
+      disable: true,
+    },
+    telemetry: false,
+  },
+);

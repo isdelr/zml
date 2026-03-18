@@ -2,7 +2,7 @@
 
 import { useAction, useConvex, useMutation } from "convex/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -66,7 +66,10 @@ export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
     resolver: zodResolver(songSubmissionFormSchema),
     defaultValues: defaultSongSubmissionFormValues,
   });
-  const submissionType = form.watch("submissionType");
+  const submissionType = useWatch({
+    control: form.control,
+    name: "submissionType",
+  });
 
   const handleFinalSubmit = async (values: SongSubmissionFormValues) => {
     const toastId = toast.loading("Submitting your masterpiece...");

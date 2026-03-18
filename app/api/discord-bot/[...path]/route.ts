@@ -1,4 +1,5 @@
 import { firstNonEmpty } from "@/lib/env";
+import { captureServerException } from "@/lib/observability/server";
 
 const ALLOWED_PATHS = new Set([
   "leagues",
@@ -57,22 +58,37 @@ async function proxyDiscordBotRequest(
     }
   }
 
-  const upstreamResponse = await fetch(upstreamUrl, {
-    method: request.method,
-    headers,
-    cache: "no-store",
-  });
+  try {
+    const upstreamResponse = await fetch(upstreamUrl, {
+      method: request.method,
+      headers,
+      cache: "no-store",
+    });
 
-  const responseHeaders = new Headers();
-  const contentType = upstreamResponse.headers.get("content-type");
-  if (contentType) {
-    responseHeaders.set("content-type", contentType);
+    const responseHeaders = new Headers();
+    const contentType = upstreamResponse.headers.get("content-type");
+    if (contentType) {
+      responseHeaders.set("content-type", contentType);
+    }
+
+    return new Response(await upstreamResponse.arrayBuffer(), {
+      status: upstreamResponse.status,
+      headers: responseHeaders,
+    });
+  } catch (error) {
+    captureServerException(error, {
+      tags: {
+        route: "/api/discord-bot/[...path]",
+      },
+      extras: {
+        path: path.join("/"),
+      },
+    });
+    return new Response(JSON.stringify({ error: "Upstream request failed." }), {
+      status: 502,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
   }
-
-  return new Response(await upstreamResponse.arrayBuffer(), {
-    status: upstreamResponse.status,
-    headers: responseHeaders,
-  });
 }
 
 export async function GET(

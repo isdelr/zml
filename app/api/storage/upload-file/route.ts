@@ -5,6 +5,7 @@ import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { B2Storage } from "@/convex/b2Storage";
 import { firstNonEmpty } from "@/lib/env";
 import { toErrorMessage } from "@/lib/errors";
+import { captureServerException } from "@/lib/observability/server";
 
 const storage = new B2Storage();
 const convexSiteUrl = firstNonEmpty(
@@ -196,6 +197,15 @@ async function handleRequest(request: Request) {
         return await handleSingleUpload(request, key);
     }
   } catch (error) {
+    captureServerException(error, {
+      tags: {
+        route: "/api/storage/upload-file",
+        action,
+      },
+      extras: {
+        key,
+      },
+    });
     return NextResponse.json(
       {
         error: "Failed to upload file.",

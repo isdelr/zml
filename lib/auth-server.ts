@@ -1,3 +1,5 @@
+import "server-only";
+
 import { getToken } from "@convex-dev/better-auth/utils";
 import { headers } from "next/headers";
 import { firstNonEmpty } from "@/lib/env";

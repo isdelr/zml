@@ -8,6 +8,7 @@ What runs in containers:
 - Convex self-hosted backend
 - Convex dashboard
 - Convex function sync job (`convex dev --once` in prod)
+- GlitchTip (self-hosted frontend/backend error tracking)
 
 What stays external:
 - Backblaze B2 bucket (as requested)
@@ -18,6 +19,7 @@ What stays external:
 - Convex uses the official self-hosted backend/dashboard images and self-hosted CLI flow.
 - File uploads and signed URLs use Backblaze B2's S3-compatible API.
 - OG image generation uses `next/og` (no Vercel package dependency).
+- Error tracking uses self-hosted GlitchTip with Sentry-compatible SDKs.
 
 ## Files added for container workflows
 
@@ -159,15 +161,31 @@ docker compose --env-file .env.docker.prod -f docker-compose.prod.yml up -d --bu
 - `web` on port `3000` (public app URL)
 - `convex-backend` on port `3210` (public Convex URL)
 - optional: `convex-dashboard` on port `6791` (admin/dashboard access)
+ - optional: `glitchtip` on port `8000` (admin/error dashboard)
 3. Do not expose `postgres` publicly; keep it internal to the Docker network.
 4. Set environment variables in Coolify using `.env.docker.prod.example` as the template.
 5. Ensure `NEXT_PUBLIC_CONVEX_URL`, `CONVEX_CLOUD_ORIGIN`, `CONVEX_SITE_ORIGIN`, and `CONVEX_SITE_URL` all match your public Convex backend URL.
+6. If you enable GlitchTip, set both `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` to the project DSN GlitchTip gives you after creating the project.
 
 Notes:
 - Prod compose intentionally uses `expose` (not host `ports`) so Coolify handles ingress/routing.
 - `convex-sync` intentionally idles after a successful sync so orchestrators (including Coolify) keep stack health green.
 - In Coolify, the Compose file is the source of truth for service config; update the file and redeploy when changing service settings.
 - If you ever introduce one-shot sidecar services in this stack, Coolify supports excluding them from deployment health checks via `exclude_from_hc=true` service comments.
+
+## Observability
+
+The app now supports GlitchTip via the Sentry-compatible Next.js SDK:
+- frontend runtime errors
+- server/route-handler errors
+
+Recommended production setup:
+1. Deploy the `glitchtip` and `glitchtip-postgres` services from `docker-compose.prod.yml`.
+2. Open GlitchTip, create a project, and copy the DSN.
+3. Set `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` to that DSN.
+4. Set `GLITCHTIP_DOMAIN` to the public GlitchTip URL and configure the optional email env vars if you want notifications.
+
+If you want observability disabled in a given environment, leave the DSN vars blank.
 
 ## Self-hosting notes
 

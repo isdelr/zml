@@ -1,6 +1,7 @@
 import { getToken } from "@convex-dev/better-auth/utils";
 import { NextResponse } from "next/server";
 import { firstNonEmpty } from "@/lib/env";
+import { captureServerException } from "@/lib/observability/server";
 
 const convexSiteUrl = firstNonEmpty(
   process.env.CONVEX_SITE_URL,
@@ -30,6 +31,11 @@ export async function GET(request: Request) {
     );
   } catch (error) {
     console.error("Session check error:", error);
+    captureServerException(error, {
+      tags: {
+        route: "/api/auth/session",
+      },
+    });
     return new NextResponse(
       JSON.stringify({
         authenticated: false,

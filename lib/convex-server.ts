@@ -1,3 +1,5 @@
+import "server-only";
+
 import { NextjsOptions } from "convex/nextjs";
 import { firstNonEmpty } from "@/lib/env";
 

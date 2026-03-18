@@ -32,7 +32,7 @@ x-postgres-env: &postgres-env
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18.3-alpine
     restart: unless-stopped
     environment:
       <<: *postgres-env
@@ -63,7 +63,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   convex-backend:
-    image: ghcr.io/get-convex/convex-backend:latest
+    image: ghcr.io/get-convex/convex-backend:9776d32898580998866329920d8e3bf481b21c96
     restart: unless-stopped
     depends_on:
       postgres:
@@ -85,7 +85,7 @@ services:
       - convex_data:/convex/data
 
   convex-dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:latest
+    image: ghcr.io/get-convex/convex-dashboard:9776d32898580998866329920d8e3bf481b21c96
     restart: unless-stopped
     depends_on:
       - convex-backend
@@ -112,7 +112,11 @@ services:
       context: .
       target: runner
       args:
+        APP_RELEASE: ${APP_RELEASE:-0.1.0}
         NEXT_PUBLIC_CONVEX_URL: ${NEXT_PUBLIC_CONVEX_URL:?}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}
+        NEXT_PUBLIC_APP_RELEASE: ${APP_RELEASE:-0.1.0}
         NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
         B2_ENDPOINT: ${B2_ENDPOINT:-https://s3.us-east-005.backblazeb2.com}
     restart: unless-stopped
@@ -120,10 +124,16 @@ services:
       convex-backend:
         condition: service_started
     environment:
+      APP_RELEASE: ${APP_RELEASE:-0.1.0}
       B2_ENDPOINT: ${B2_ENDPOINT:-https://s3.us-east-005.backblazeb2.com}
       # Prefer internal Docker network routes for server-side calls.
       CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
       CONVEX_SITE_URL: http://convex-backend:3211
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+      NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}
+      NEXT_PUBLIC_APP_RELEASE: ${APP_RELEASE:-0.1.0}
     healthcheck:
       test:
         [
@@ -140,6 +150,46 @@ services:
     expose:
       - "3000"
 
+  glitchtip-postgres:
+    image: postgres:18.3-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${GLITCHTIP_POSTGRES_USER:-glitchtip}
+      POSTGRES_PASSWORD: ${GLITCHTIP_POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${GLITCHTIP_POSTGRES_DB:-glitchtip}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    healthcheck:
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    volumes:
+      - glitchtip_postgres_data:/var/lib/postgresql/data
+
+  glitchtip:
+    image: glitchtip/glitchtip:6
+    restart: unless-stopped
+    depends_on:
+      glitchtip-postgres:
+        condition: service_healthy
+    environment:
+      PORT: 8000
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:?}
+      GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN:?}
+      DATABASE_URL: postgresql://${GLITCHTIP_POSTGRES_USER:-glitchtip}:${GLITCHTIP_POSTGRES_PASSWORD:?}@glitchtip-postgres:5432/${GLITCHTIP_POSTGRES_DB:-glitchtip}
+      VALKEY_URL: ""
+      EMAIL_URL: ${GLITCHTIP_EMAIL_URL:-}
+      DEFAULT_FROM_EMAIL: ${GLITCHTIP_DEFAULT_FROM_EMAIL:-}
+      ENABLE_USER_REGISTRATION: ${GLITCHTIP_ENABLE_USER_REGISTRATION:-false}
+      ENABLE_ORGANIZATION_CREATION: ${GLITCHTIP_ENABLE_ORGANIZATION_CREATION:-false}
+      GLITCHTIP_MAX_EVENT_LIFE_DAYS: ${GLITCHTIP_MAX_EVENT_LIFE_DAYS:-90}
+    command: ["bin/start-all-in-one.sh"]
+    expose:
+      - "8000"
+
 volumes:
   convex_data:
+  glitchtip_postgres_data:
   postgres_data:

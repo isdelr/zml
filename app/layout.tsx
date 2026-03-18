@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { Suspense } from "react";
 import "./globals.css";
 import { ThemeProvider } from "./ThemeProvider";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { NotificationProvider } from "@/components/providers/NotificationProvider";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
-import { RoutePrefetcher } from "@/components/RoutePrefetcher";
 import { AuthSessionRefresher } from "@/components/providers/AuthSessionRefresher";
 import { NonBlockingErrorBoundary } from "@/components/NonBlockingErrorBoundary";
 import { ConvexConnectionGuard } from "@/components/ConvexConnectionGuard";
@@ -20,6 +20,11 @@ const Toaster = dynamic(() =>
 const MusicPlayer = dynamic(() =>
   import("@/components/MusicPlayer").then((mod) => ({
     default: mod.MusicPlayer,
+  })),
+);
+const ObservabilityProvider = dynamic(() =>
+  import("@/components/providers/ObservabilityProvider").then((mod) => ({
+    default: mod.ObservabilityProvider,
   })),
 );
 
@@ -127,13 +132,14 @@ export default function RootLayout({
           </NonBlockingErrorBoundary>
 
           <ConvexClientProvider>
+            <Suspense fallback={null}>
+              <ObservabilityProvider />
+            </Suspense>
+
             {/* Keep the auth cookie/session warm in PWAs and refresh on focus */}
             <NonBlockingErrorBoundary boundaryName="AuthSessionRefresher">
               <AuthSessionRefresher />
             </NonBlockingErrorBoundary>
-
-            {/* Prefetch key routes early for snappier nav */}
-            <RoutePrefetcher />
 
             <NotificationProvider>
               <ConvexConnectionGuard>

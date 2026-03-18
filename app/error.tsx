@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect, useState } from "react";
 
 const AUTO_RETRY_DELAYS = [3_000, 6_000, 12_000];
@@ -15,6 +16,11 @@ export default function Error({
 
   useEffect(() => {
     console.error(error);
+    Sentry.captureException(error, {
+      tags: {
+        boundary: "app-error",
+      },
+    });
   }, [error]);
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import React from "react";
 
 type NonBlockingErrorBoundaryProps = {
@@ -28,6 +29,11 @@ export class NonBlockingErrorBoundary extends React.Component<
   componentDidCatch(error: unknown) {
     const label = this.props.boundaryName ?? "unknown";
     console.error(`[Boundary:${label}]`, error);
+    Sentry.captureException(error, {
+      tags: {
+        boundary: label,
+      },
+    });
   }
 
   componentDidUpdate(prevProps: NonBlockingErrorBoundaryProps) {

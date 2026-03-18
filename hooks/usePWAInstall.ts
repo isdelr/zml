@@ -76,16 +76,14 @@ export function usePWAInstall() {
     };
   }, [canShowCustomBanner, isAppInstalled, isTemporarilyDismissed]);
 
-  useEffect(() => {
-    if (canShowCustomBanner && !isTemporarilyDismissed && !isAppInstalled) {
-      return;
-    }
-    setPromptEvent(null);
-  }, [canShowCustomBanner, isAppInstalled, isTemporarilyDismissed]);
-
   const isBannerVisible = useMemo(() => {
-    return !isAppInstalled && !!promptEvent && !isTemporarilyDismissed;
-  }, [isAppInstalled, isTemporarilyDismissed, promptEvent]);
+    return (
+      canShowCustomBanner &&
+      !isAppInstalled &&
+      !!promptEvent &&
+      !isTemporarilyDismissed
+    );
+  }, [canShowCustomBanner, isAppInstalled, isTemporarilyDismissed, promptEvent]);
 
   const handleInstallClick = useCallback(async () => {
     if (!promptEvent) return;
@@ -103,6 +101,7 @@ export function usePWAInstall() {
     const now = Date.now();
     localStorage.setItem(PWA_PROMPT_DISMISSED_KEY, now.toString());
     setIsTemporarilyDismissed(true);
+    setPromptEvent(null);
   }, []);
 
   return { isBannerVisible, handleInstallClick, handleDismissClick };

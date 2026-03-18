@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { B2Storage } from "@/convex/b2Storage";
 import { firstNonEmpty } from "@/lib/env";
 import { toErrorMessage } from "@/lib/errors";
+import { captureServerException } from "@/lib/observability/server";
 import {
   isSupportedAudioUploadType,
   SUPPORTED_AUDIO_UPLOAD_EXTENSIONS,
@@ -116,6 +117,15 @@ export async function POST(request: Request) {
       bitrate: AAC_BITRATE,
     });
   } catch (error) {
+    captureServerException(error, {
+      tags: {
+        route: "/api/submissions/upload-song-file",
+      },
+      extras: {
+        fileName: file.name,
+        fileSize: file.size,
+      },
+    });
     return NextResponse.json(
       {
         error: "Failed to process and upload audio file.",

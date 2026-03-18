@@ -12,7 +12,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -59,7 +59,6 @@ export function Sidebar() {
     (state) => state.currentTrackIndex,
   );
   const pathname = usePathname();
-  const router = useRouter();
 
   return (
     <aside
@@ -95,13 +94,7 @@ export function Sidebar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="start">
             <DropdownMenuItem asChild disabled={!currentUser}>
-              <Link
-                href={currentUser ? `/profile/${currentUser._id}` : "#"}
-                onMouseEnter={() => {
-                  if (currentUser)
-                    router.prefetch(`/profile/${currentUser._id}`);
-                }}
-              >
+              <Link href={currentUser ? `/profile/${currentUser._id}` : "#"}>
                 <User className="mr-2 size-4" />
                 <span>Profile</span>
               </Link>
@@ -127,7 +120,6 @@ export function Sidebar() {
           <Link
             key={item.name}
             href={item.href}
-            onMouseEnter={() => router.prefetch(item.href)}
             className={cn(
               "flex items-center gap-4 text-sm font-semibold hover:text-foreground",
               pathname.startsWith(item.href) && "text-primary",
@@ -157,7 +149,6 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              onMouseEnter={() => router.prefetch(item.href)}
               className={cn(
                 "flex items-center gap-4 text-sm font-semibold hover:text-foreground",
                 pathname.startsWith(item.href) && "text-primary",
@@ -187,11 +178,7 @@ export function Sidebar() {
             >
               {showAllLeagues ? "Active only" : "View all"}
             </button>
-            <Link
-              href="/leagues/create"
-              onMouseEnter={() => router.prefetch("/leagues/create")}
-              className="text-muted-foreground hover:text-foreground"
-            >
+            <Link href="/leagues/create" className="text-muted-foreground hover:text-foreground">
               <Plus className="size-4" />
             </Link>
           </div>
@@ -202,7 +189,6 @@ export function Sidebar() {
               <Link
                 key={league._id}
                 href={`/leagues/${league._id}`}
-                onMouseEnter={() => router.prefetch(`/leagues/${league._id}`)}
                 className={cn(
                   "flex items-center gap-3 text-sm font-semibold hover:text-foreground",
                 )}

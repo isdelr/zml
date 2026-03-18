@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { useConvexAuth, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -57,13 +57,10 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   ) as Id<"rounds"> | null;
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const deferredSearchTerm = useDeferredValue(searchTerm.trim());
   const parsedLeagueId = leagueId as Id<"leagues">;
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
-    if (!value) {
-      setDebouncedSearchTerm("");
-    }
   };
 
   const leagueData = useQuery(
@@ -81,20 +78,10 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
     { initialNumItems: 10 },
   );
 
-  useEffect(() => {
-    if (!searchTerm) {
-      return;
-    }
-    const timeoutId = window.setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 250);
-    return () => window.clearTimeout(timeoutId);
-  }, [searchTerm]);
-
   const searchResults = useQuery(
     api.leagueViews.searchInLeague,
-    debouncedSearchTerm
-      ? { leagueId: parsedLeagueId, searchText: debouncedSearchTerm }
+    deferredSearchTerm
+      ? { leagueId: parsedLeagueId, searchText: deferredSearchTerm }
       : "skip",
   );
 
@@ -112,7 +99,6 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
         !searchContainerRef.current.contains(event.target as Node)
       ) {
         setSearchTerm("");
-        setDebouncedSearchTerm("");
       }
     }
     document.addEventListener("mousedown", handleClickOutside);

@@ -1,14 +1,27 @@
 "use client";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 import { useConvexAuth } from "convex/react";
 
 export function AuthSessionRefresher() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const intervalRef = useRef<number | null>(null);
+  const lastPingAtRef = useRef(0);
   const isRefreshingRef = useRef(false);
 
-  const ping = useCallback(async () => {
-    if (isRefreshingRef.current) return;
+  const clearPingInterval = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const ping = useEffectEvent(async (force = false) => {
+    if (!force && (document.visibilityState !== "visible" || !navigator.onLine)) {
+      return;
+    }
+    if (isRefreshingRef.current) {
+      return;
+    }
 
     isRefreshingRef.current = true;
     try {
@@ -22,62 +35,51 @@ export function AuthSessionRefresher() {
       });
 
       if (response.ok) {
-        localStorage.setItem("lastAuthPing", Date.now().toString());
+        lastPingAtRef.current = Date.now();
       }
     } catch (error) {
       console.debug("Session ping failed:", error);
     } finally {
       isRefreshingRef.current = false;
     }
-  }, []);
-
-  const setupInterval = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    if (isAuthenticated) {
-      const PING_INTERVAL = 2 * 60 * 1000; // 2 minutes
-      intervalRef.current = window.setInterval(ping, PING_INTERVAL);
-    }
-  }, [isAuthenticated, ping]);
+  });
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      void ping();
-      setupInterval();
+    clearPingInterval();
+
+    if (isLoading || !isAuthenticated) {
+      return clearPingInterval;
     }
+
+    const PING_INTERVAL = 2 * 60 * 1000;
+    const OFFLINE_THRESHOLD = 5 * 60 * 1000;
+
+    void ping(true);
+    intervalRef.current = window.setInterval(() => {
+      void ping();
+    }, PING_INTERVAL);
 
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible" && isAuthenticated) {
-        const lastPing = localStorage.getItem("lastAuthPing");
         const now = Date.now();
-        const OFFLINE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
 
-        if (!lastPing || now - parseInt(lastPing) > OFFLINE_THRESHOLD) {
+        if (now - lastPingAtRef.current > OFFLINE_THRESHOLD) {
           void ping();
         }
-
-        setupInterval();
       } else {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
+        clearPingInterval();
       }
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("online", onVisibilityChange);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
-
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      window.removeEventListener("online", onVisibilityChange);
+      clearPingInterval();
     };
-  }, [isAuthenticated, isLoading, setupInterval, ping]);
+  }, [isAuthenticated, isLoading]);
 
   return null;
 }

@@ -106,8 +106,11 @@ export function MembersTab({ league, currentUser }: MembersTabProps) {
     setMemberIdPendingKick(null);
   };
 
-  const regularMembers = league.members ?? [];
-  const spectators = league.spectators ?? [];
+  const regularMembers = useMemo(() => league.members ?? [], [league.members]);
+  const spectators = useMemo(
+    () => league.spectators ?? [],
+    [league.spectators],
+  );
   const isOwner = currentUser?._id === league.creatorId;
   const memberPendingKick = useMemo(
     () =>

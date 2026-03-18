@@ -13,7 +13,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": rootDir,
+      "server-only": path.join(rootDir, "tests", "mocks", "server-only.ts"),
     },
   },
 });
-
