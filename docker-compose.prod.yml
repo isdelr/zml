@@ -63,7 +63,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   convex-backend:
-    image: ghcr.io/get-convex/convex-backend:9776d32898580998866329920d8e3bf481b21c96
+    image: ghcr.io/get-convex/convex-backend:${CONVEX_IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -85,7 +85,7 @@ services:
       - convex_data:/convex/data
 
   convex-dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:9776d32898580998866329920d8e3bf481b21c96
+    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       - convex-backend
@@ -178,14 +178,21 @@ services:
       PORT: 8000
       SECRET_KEY: ${GLITCHTIP_SECRET_KEY:?}
       GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN:?}
-      DATABASE_URL: postgresql://${GLITCHTIP_POSTGRES_USER:-glitchtip}:${GLITCHTIP_POSTGRES_PASSWORD:?}@glitchtip-postgres:5432/${GLITCHTIP_POSTGRES_DB:-glitchtip}
+      GLITCHTIP_POSTGRES_USER: ${GLITCHTIP_POSTGRES_USER:-glitchtip}
+      GLITCHTIP_POSTGRES_PASSWORD: ${GLITCHTIP_POSTGRES_PASSWORD:?}
+      GLITCHTIP_POSTGRES_DB: ${GLITCHTIP_POSTGRES_DB:-glitchtip}
       VALKEY_URL: ""
       EMAIL_URL: ${GLITCHTIP_EMAIL_URL:-}
       DEFAULT_FROM_EMAIL: ${GLITCHTIP_DEFAULT_FROM_EMAIL:-}
       ENABLE_USER_REGISTRATION: ${GLITCHTIP_ENABLE_USER_REGISTRATION:-false}
       ENABLE_ORGANIZATION_CREATION: ${GLITCHTIP_ENABLE_ORGANIZATION_CREATION:-false}
       GLITCHTIP_MAX_EVENT_LIFE_DAYS: ${GLITCHTIP_MAX_EVENT_LIFE_DAYS:-90}
-    command: ["./bin/run-all-in-one.sh"]
+    command:
+      - sh
+      - -ec
+      - >-
+        export DATABASE_URL="postgresql://$${GLITCHTIP_POSTGRES_USER}:$$(python -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["GLITCHTIP_POSTGRES_PASSWORD"], safe=""))')@glitchtip-postgres:5432/$${GLITCHTIP_POSTGRES_DB}";
+        exec ./bin/run-all-in-one.sh
     expose:
       - "8000"
 
