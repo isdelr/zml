@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { useMutation } from "convex/react";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
@@ -16,8 +16,15 @@ interface InviteTabProps {
   league: LeagueData;
 }
 
+const noopSubscribe = () => () => {};
+
 export function InviteTab({ league }: InviteTabProps) {
   const manageInviteCode = useMutation(api.leagues.manageInviteCode);
+  const origin = useSyncExternalStore(
+    noopSubscribe,
+    () => window.location.origin,
+    () => "",
+  );
 
   const handleAction = (
     action: "regenerate" | "disable" | "enable",
@@ -31,9 +38,9 @@ export function InviteTab({ league }: InviteTabProps) {
   };
 
   const inviteUrl = useMemo(() => {
-    if (!league.inviteCode || typeof window === "undefined") return "";
-    return `${window.location.origin}/invite/${league.inviteCode}`;
-  }, [league.inviteCode]);
+    if (!league.inviteCode || !origin) return "";
+    return `${origin}/invite/${league.inviteCode}`;
+  }, [league.inviteCode, origin]);
 
   return (
     <div className="space-y-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Search, Users, Copy, Settings, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,8 @@ interface LeagueHeaderProps {
   };
 }
 
+const noopSubscribe = () => () => {};
+
 export function LeagueHeader({
   leagueData,
   searchTerm,
@@ -46,11 +49,24 @@ export function LeagueHeader({
   playerActions,
 }: LeagueHeaderProps) {
   const leaveLeague = useMutation(api.leagues.leaveLeague);
+  const origin = useSyncExternalStore(
+    noopSubscribe,
+    () => window.location.origin,
+    () => "",
+  );
+
+  const inviteUrl = useMemo(() => {
+    if (!leagueData.inviteCode || !origin) {
+      return "";
+    }
+    return `${origin}/invite/${leagueData.inviteCode}`;
+  }, [leagueData.inviteCode, origin]);
 
   const handleCopyInvite = () => {
     if (!leagueData.inviteCode) return;
-    const inviteUrl = `${window.location.origin}/invite/${leagueData.inviteCode}`;
-    navigator.clipboard.writeText(inviteUrl);
+    navigator.clipboard.writeText(
+      inviteUrl || `${window.location.origin}/invite/${leagueData.inviteCode}`,
+    );
     toast.success("Invite link copied to clipboard!");
   };
 
@@ -92,11 +108,7 @@ export function LeagueHeader({
                       <Input
                         id="invite-link"
                         readOnly
-                        value={`${
-                          typeof window !== "undefined"
-                            ? window.location.origin
-                            : ""
-                        }/invite/${leagueData.inviteCode}`}
+                        value={inviteUrl}
                       />
                       <Button
                         size="icon"

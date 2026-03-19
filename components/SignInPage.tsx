@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "./ui/button";
-import { useSearchParams } from "next/navigation";
 import { signInWithDiscord } from "@/lib/auth-client";
 import { DiscordIcon } from "@/components/icons/BrandIcons";
 
@@ -23,20 +22,23 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
     "Your Discord account must have a verified email address to sign in.",
 };
 
-export default function SignInPage() {
-  const searchParams = useSearchParams();
-  const authError = searchParams.get("error");
-  const authErrorDescription = searchParams.get("error_description");
+interface SignInPageProps {
+  authError?: string | null;
+  authErrorDescription?: string | null;
+  redirectUrl?: string | null;
+}
+
+export default function SignInPage({
+  authError = null,
+  authErrorDescription = null,
+  redirectUrl = null,
+}: SignInPageProps) {
   const authErrorMessage = authError
     ? (OAUTH_ERROR_MESSAGES[authError] ??
       authError.replaceAll("_", " ").replace(/^./, (char) => char.toUpperCase()))
     : null;
 
   const handleSignIn = () => {
-    // The redirect URL might be in the query params if the user was sent here
-    // from a protected page.
-    const redirectUrl = searchParams.get("redirect_url");
-
     void signInWithDiscord(redirectUrl || "/explore");
   };
 

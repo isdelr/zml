@@ -1,11 +1,21 @@
 // hooks/useBrowserNotifier.ts
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+"use client";
+
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
 
 const DONT_ASK_AGAIN_KEY = "notification-permission-dont-ask";
 const PROMPT_DISMISSED_KEY = "notification-permission-prompt-dismissed";
 const PROMPT_DISMISSED_TIMEOUT = 7 * 24 * 60 * 60 * 1000;
+const noopSubscribe = () => () => {};
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -91,6 +101,11 @@ async function syncSubscriptionToServer(
 }
 
 export function useBrowserNotifier() {
+  const isHydrated = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
   const [permission, setPermission] = useState<NotificationPermission>(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
       return "default";
@@ -101,8 +116,8 @@ export function useBrowserNotifier() {
   const subscribe = useMutation(api.webPush.subscribe);
   const isSyncingSubscription = useRef(false);
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
-  const [isAppleMobile, setIsAppleMobile] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
+  const [isAppleMobile, setIsAppleMobile] = useState(() => isAppleMobileBrowser());
+  const [isStandalone, setIsStandalone] = useState(() => isStandaloneDisplayMode());
   const [dontAskAgain, setDontAskAgain] = useState(() => {
     if (typeof window === "undefined") {
       return false;
@@ -135,8 +150,6 @@ export function useBrowserNotifier() {
       setIsStandalone(isStandaloneDisplayMode());
     };
 
-    updatePlatformState();
-
     const mediaQuery = window.matchMedia("(display-mode: standalone)");
     const onMediaChange = () => updatePlatformState();
     mediaQuery.addEventListener("change", onMediaChange);
@@ -151,7 +164,7 @@ export function useBrowserNotifier() {
   }, []);
 
   const isPushSupported = useMemo(() => {
-    if (typeof window === "undefined") {
+    if (!isHydrated || typeof window === "undefined") {
       return false;
     }
 
@@ -160,7 +173,7 @@ export function useBrowserNotifier() {
       "serviceWorker" in navigator &&
       "PushManager" in window
     );
-  }, []);
+  }, [isHydrated]);
   const requiresIosInstallForPush = isAppleMobile && !isStandalone;
 
   const syncExistingPushSubscription = useCallback(async () => {
@@ -226,6 +239,10 @@ export function useBrowserNotifier() {
   }, [currentUser?._id, permission, syncExistingPushSubscription]);
 
   const isPromptVisible = useMemo(() => {
+    if (!isHydrated) {
+      return false;
+    }
+
     if (dontAskAgain || isTemporarilyDismissed) {
       return false;
     }
@@ -237,6 +254,7 @@ export function useBrowserNotifier() {
     return permission === "default" && isPushSupported;
   }, [
     dontAskAgain,
+    isHydrated,
     isPushSupported,
     isTemporarilyDismissed,
     permission,

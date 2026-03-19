@@ -1,6 +1,12 @@
 // hooks/usePWAInstall.ts
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: Array<string>;
@@ -14,8 +20,14 @@ interface BeforeInstallPromptEvent extends Event {
 const PWA_PROMPT_DISMISSED_KEY = "pwa-prompt-dismissed-timestamp";
 const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 const MOBILE_INSTALL_BANNER_QUERY = "(max-width: 767px)";
+const noopSubscribe = () => () => {};
 
 export function usePWAInstall() {
+  const isHydrated = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(() => {
     if (typeof window === "undefined") {
@@ -49,9 +61,14 @@ export function usePWAInstall() {
     if (typeof window === "undefined") {
       return;
     }
+    const displayModeMediaQuery = window.matchMedia("(display-mode: standalone)");
     const mobileBannerMediaQuery = window.matchMedia(MOBILE_INSTALL_BANNER_QUERY);
+
     const handleBannerViewportChange = (event: MediaQueryListEvent) => {
       setCanShowCustomBanner(event.matches);
+    };
+    const handleDisplayModeChange = (event: MediaQueryListEvent) => {
+      setIsAppInstalled(event.matches);
     };
     const handleBeforeInstallPrompt = (e: Event) => {
       const shouldDeferPrompt =
@@ -66,10 +83,12 @@ export function usePWAInstall() {
     const handleAppInstalled = () => {
       setIsAppInstalled(true);
     };
+    displayModeMediaQuery.addEventListener("change", handleDisplayModeChange);
     mobileBannerMediaQuery.addEventListener("change", handleBannerViewportChange);
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("appinstalled", handleAppInstalled);
     return () => {
+      displayModeMediaQuery.removeEventListener("change", handleDisplayModeChange);
       mobileBannerMediaQuery.removeEventListener("change", handleBannerViewportChange);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
@@ -78,12 +97,19 @@ export function usePWAInstall() {
 
   const isBannerVisible = useMemo(() => {
     return (
+      isHydrated &&
       canShowCustomBanner &&
       !isAppInstalled &&
       !!promptEvent &&
       !isTemporarilyDismissed
     );
-  }, [canShowCustomBanner, isAppInstalled, isTemporarilyDismissed, promptEvent]);
+  }, [
+    canShowCustomBanner,
+    isHydrated,
+    isAppInstalled,
+    isTemporarilyDismissed,
+    promptEvent,
+  ]);
 
   const handleInstallClick = useCallback(async () => {
     if (!promptEvent) return;
