@@ -1,0 +1,68 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { SubmissionComments } from "@/components/round/SubmissionComments";
+
+const useQueryMock = vi.fn();
+
+vi.mock("convex/react", () => ({
+  useConvexAuth: vi.fn(() => ({ isAuthenticated: false })),
+  useMutation: vi.fn(() => ({
+    withOptimisticUpdate: () => vi.fn(),
+  })),
+  useQuery: (...args: unknown[]) => useQueryMock(...args),
+}));
+
+vi.mock("@/hooks/useMusicPlayerStore", () => ({
+  useMusicPlayerStore: (selector: (state: { actions: { seek: () => void } }) => unknown) =>
+    selector({
+      actions: {
+        seek: vi.fn(),
+      },
+    }),
+}));
+
+describe("SubmissionComments", () => {
+  beforeEach(() => {
+    useQueryMock.mockReset();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("shows the commenter's vote next to their name for finished-round comments", () => {
+    useQueryMock.mockReturnValue([
+      {
+        _id: "comment-1",
+        userId: "user-1",
+        text: "Great pick",
+        authorName: "Alice",
+        authorImage: null,
+        authorVote: 2,
+      },
+    ]);
+
+    render(<SubmissionComments submissionId={"submission-1" as never} />);
+
+    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.getByText("+2")).toBeInTheDocument();
+  });
+
+  it("does not show a vote badge when the round is not finished", () => {
+    useQueryMock.mockReturnValue([
+      {
+        _id: "comment-1",
+        userId: "user-1",
+        text: "Great pick",
+        authorName: "Alice",
+        authorImage: null,
+      },
+    ]);
+
+    render(<SubmissionComments submissionId={"submission-1" as never} />);
+
+    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.queryByText(/^[+-]?\d+$/)).not.toBeInTheDocument();
+  });
+});

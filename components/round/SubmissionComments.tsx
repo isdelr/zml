@@ -37,6 +37,12 @@ interface SubmissionCommentComposerButtonProps {
   size?: "icon" | "sm";
 }
 
+type SubmissionComment = Doc<"comments"> & {
+  authorName: string;
+  authorImage: string | null;
+  authorVote: number | undefined;
+};
+
 export function SubmissionCommentComposerButton({
   submissionId,
   submissionTitle,
@@ -74,7 +80,8 @@ export function SubmissionCommentComposerButton({
       text,
       authorName: currentUser.name ?? "You",
       authorImage: currentUser.image ?? null,
-    } as Doc<"comments"> & { authorName: string; authorImage: string | null };
+      authorVote: undefined,
+    } as SubmissionComment;
 
     const newComments = [...existingComments, optimisticComment];
     localStore.setQuery(
@@ -290,6 +297,8 @@ export function SubmissionComments({
     return orderedComments.slice(0, 3);
   }, [orderedComments, showAllComments]);
 
+  const formatAuthorVote = (vote: number) => (vote > 0 ? `+${vote}` : `${vote}`);
+
   if (orderedComments.length === 0) {
     return null;
   }
@@ -325,9 +334,25 @@ export function SubmissionComments({
               </Avatar>
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-start gap-2 text-left text-sm">
-                  <span className="shrink-0 font-medium text-foreground">
-                    {comment.authorName}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <span className="font-medium text-foreground">
+                      {comment.authorName}
+                    </span>
+                    {typeof comment.authorVote === "number" ? (
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                          comment.authorVote > 0
+                            ? "bg-success/10 text-success"
+                            : comment.authorVote < 0
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {formatAuthorVote(comment.authorVote)}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="min-w-0 flex-1">
                     {renderCommentText(comment.text, !showAllComments)}
                   </div>

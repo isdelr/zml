@@ -946,6 +946,11 @@ export const getCommentsForSubmission = query({
       return [];
     }
 
+    const round = await ctx.db.get("rounds", submission.roundId);
+    if (!round) {
+      return [];
+    }
+
     const comments = await ctx.db
       .query("comments")
       .withIndex("by_submission", (q) =>
@@ -963,6 +968,19 @@ export const getCommentsForSubmission = query({
         .filter((user): user is NonNullable<typeof user> => user !== null)
         .map((user) => [user._id.toString(), user]),
     );
+    const voteByUserId =
+      round.status === "finished"
+        ? new Map(
+            (
+              await ctx.db
+                .query("votes")
+                .withIndex("by_submission_and_user", (q) =>
+                  q.eq("submissionId", args.submissionId),
+                )
+                .collect()
+            ).map((vote) => [vote.userId.toString(), vote.vote]),
+          )
+        : null;
 
     return Promise.all(comments.map(async (comment) => {
       const user = userById.get(comment.userId.toString());
@@ -971,6 +989,7 @@ export const getCommentsForSubmission = query({
         ...comment,
         authorName: user?.name ?? "Anonymous",
         authorImage,
+        authorVote: voteByUserId?.get(comment.userId.toString()) ?? undefined,
       };
     }));
   },
