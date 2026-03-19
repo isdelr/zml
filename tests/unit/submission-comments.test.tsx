@@ -58,7 +58,7 @@ describe("SubmissionComments", () => {
         _creationTime: 1,
         submissionId: "submission-1",
         text: "Great pick",
-        authorName: "Quiet Robin 504",
+        authorName: "Harbor",
         authorImage: null,
         avatarSeed: "anon-1",
       },
@@ -66,7 +66,7 @@ describe("SubmissionComments", () => {
 
     render(<SubmissionComments submissionId={"submission-1" as never} />);
 
-    expect(screen.getByText("Quiet Robin 504")).toBeInTheDocument();
+    expect(screen.getByText("Harbor")).toBeInTheDocument();
     expect(screen.queryByText(/^[+-]?\d+$/)).not.toBeInTheDocument();
   });
 });
