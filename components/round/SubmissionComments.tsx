@@ -8,7 +8,11 @@ import { toast } from "sonner";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Sheet,
   SheetContent,
@@ -46,7 +50,7 @@ type SubmissionComment = {
   submissionId: Id<"submissions">;
   text: string;
   authorName: string;
-  authorImage: null;
+  authorImage: string | null;
   authorVote: number | undefined;
   avatarSeed: string;
 };
@@ -220,10 +224,12 @@ export function SubmissionCommentComposerButton({
         className="max-h-[85dvh] rounded-t-3xl px-0 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-0"
       >
         <SheetHeader className="border-b px-4 py-4 text-left">
-          <SheetTitle className="text-base">Comment on {submissionTitle}</SheetTitle>
+          <SheetTitle className="text-base">
+            Comment on {submissionTitle}
+          </SheetTitle>
           <SheetDescription>
-            Your anonymous round alias will be shown when comments unlock after the
-            round finishes.
+            Your anonymous round alias will be shown when comments unlock after
+            the round finishes.
           </SheetDescription>
         </SheetHeader>
         <div className="overflow-y-auto px-4 py-4">{composerBody}</div>
@@ -239,10 +245,6 @@ export function SubmissionCommentComposerButton({
         <div className="mb-3">
           <p className="text-sm font-semibold text-foreground">
             Comment on {submissionTitle}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Comments stay hidden until the round finishes and reveal with your
-            anonymous round identity.
           </p>
         </div>
         {composerBody}
@@ -284,11 +286,7 @@ export function SubmissionComments({
 
   const renderCommentText = (text: string, compact = false) => {
     if (compact) {
-      return (
-        <p className="truncate text-sm text-foreground/80">
-          {text}
-        </p>
-      );
+      return <p className="truncate text-sm text-foreground/80">{text}</p>;
     }
 
     const timestampRegex = /@(\d{1,2}:\d{2})/g;
@@ -326,7 +324,8 @@ export function SubmissionComments({
     return orderedComments.slice(0, 3);
   }, [orderedComments, showAllComments]);
 
-  const formatAuthorVote = (vote: number) => (vote > 0 ? `+${vote}` : `${vote}`);
+  const formatAuthorVote = (vote: number) =>
+    vote > 0 ? `+${vote}` : `${vote}`;
 
   if (orderedComments.length === 0) {
     return null;
@@ -347,19 +346,16 @@ export function SubmissionComments({
           </>
         ) : visibleComments.length > 0 ? (
           visibleComments.map((comment) => (
-            <div
-              key={comment._id}
-              className="flex items-start gap-2 py-1.5"
-            >
-                <Avatar className="size-7 flex-shrink-0">
-                  <AvatarImage src={comment.authorImage ?? undefined} />
-                  <AvatarFallback>
-                    <div
-                      dangerouslySetInnerHTML={{
-                        __html: toSvg(comment.avatarSeed, 28),
-                      }}
-                    />
-                  </AvatarFallback>
+            <div key={comment._id} className="flex items-start gap-2 py-1.5">
+              <Avatar className="size-7 flex-shrink-0">
+                <AvatarImage src={comment.authorImage ?? undefined} />
+                <AvatarFallback>
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: toSvg(comment.avatarSeed, 28),
+                    }}
+                  />
+                </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-start gap-2 text-left text-sm">

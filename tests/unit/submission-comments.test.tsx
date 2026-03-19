@@ -38,16 +38,16 @@ describe("SubmissionComments", () => {
         _creationTime: 1,
         submissionId: "submission-1",
         text: "Great pick",
-        authorName: "Hidden Falcon 218",
-        authorImage: null,
-        avatarSeed: "anon-1",
+        authorName: "Alice",
+        authorImage: "https://example.com/alice.png",
+        avatarSeed: "user-1",
         authorVote: 2,
       },
     ]);
 
     render(<SubmissionComments submissionId={"submission-1" as never} />);
 
-    expect(screen.getByText("Hidden Falcon 218")).toBeInTheDocument();
+    expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.getByText("+2")).toBeInTheDocument();
   });
 

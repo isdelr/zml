@@ -254,6 +254,8 @@ export default defineSchema({
     submissionId: v.id("submissions"),
     userId: v.id("users"),
     text: v.string(),
+    isAnonymous: v.optional(v.boolean()),
+    revealOnRoundFinished: v.optional(v.boolean()),
   }).index("by_submission", ["submissionId"]),
 
   notifications: defineTable({

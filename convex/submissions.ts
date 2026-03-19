@@ -928,6 +928,8 @@ export const addComment = mutation({
       submissionId: args.submissionId,
       userId,
       text: args.text,
+      isAnonymous: true,
+      revealOnRoundFinished: true,
     });
   },
 });
@@ -950,9 +952,6 @@ export const getCommentsForSubmission = query({
     if (!round) {
       return [];
     }
-    if (round.status !== "finished") {
-      return [];
-    }
 
     const comments = await ctx.db
       .query("comments")
@@ -961,36 +960,68 @@ export const getCommentsForSubmission = query({
       )
       .order("asc")
       .collect();
+    const visibleComments =
+      round.status === "finished"
+        ? comments
+        : comments.filter((comment) => comment.revealOnRoundFinished !== true);
+
+    if (visibleComments.length === 0) {
+      return [];
+    }
+
+    const userById =
+      round.status === "finished"
+        ? new Map(
+            (
+              await Promise.all(
+                [...new Set(visibleComments.map((comment) => comment.userId))]
+                  .map((commentUserId) => ctx.db.get("users", commentUserId)),
+              )
+            )
+              .filter((user): user is NonNullable<typeof user> => user !== null)
+              .map((user) => [user._id.toString(), user]),
+          )
+        : null;
 
     const voteByUserId =
-      new Map(
-        (
-          await ctx.db
-            .query("votes")
-            .withIndex("by_submission_and_user", (q) =>
-              q.eq("submissionId", args.submissionId),
-            )
-            .collect()
-        ).map((vote) => [vote.userId.toString(), vote.vote]),
-      );
+      round.status === "finished"
+        ? new Map(
+            (
+              await ctx.db
+                .query("votes")
+                .withIndex("by_submission_and_user", (q) =>
+                  q.eq("submissionId", args.submissionId),
+                )
+                .collect()
+            ).map((vote) => [vote.userId.toString(), vote.vote]),
+          )
+        : null;
 
-    return comments.map((comment) => {
+    return Promise.all(visibleComments.map(async (comment) => {
       const anonymousIdentity = getAnonymousCommentIdentity(
         submission.roundId.toString(),
         comment.userId.toString(),
       );
+      const user = userById?.get(comment.userId.toString());
+      const isFinished = round.status === "finished";
+      const authorName = isFinished
+        ? (user?.name ?? "Anonymous")
+        : anonymousIdentity.displayName;
+      const avatarSeed = isFinished
+        ? comment.userId.toString()
+        : anonymousIdentity.avatarSeed;
 
       return {
         _id: comment._id,
         _creationTime: comment._creationTime,
         submissionId: comment.submissionId,
         text: comment.text,
-        authorImage: null,
-        authorName: anonymousIdentity.displayName,
-        avatarSeed: anonymousIdentity.avatarSeed,
-        authorVote: voteByUserId.get(comment.userId.toString()) ?? undefined,
+        authorImage: isFinished ? await resolveUserAvatarUrl(storage, user) : null,
+        authorName,
+        avatarSeed,
+        authorVote: voteByUserId?.get(comment.userId.toString()) ?? undefined,
       };
-    });
+    }));
   },
 });
 
