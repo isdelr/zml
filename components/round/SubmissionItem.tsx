@@ -620,6 +620,8 @@ export function SubmissionItem({
               </Button>
               <SubmissionCommentComposerButton
                 submissionId={song._id}
+                roundId={song.roundId}
+                roundStatus={roundStatus}
                 submissionTitle={song.songTitle}
                 size="icon"
                 className={cn(compactMobileActionButtonClass)}
@@ -869,6 +871,8 @@ export function SubmissionItem({
             </Button>
             <SubmissionCommentComposerButton
               submissionId={song._id}
+              roundId={song.roundId}
+              roundStatus={roundStatus}
               submissionTitle={song.songTitle}
               size="icon"
               className="size-8"

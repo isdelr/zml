@@ -6,7 +6,7 @@ type CommentLike = {
   text: string;
   authorName?: string | null;
   authorImage?: string | null;
-  userId: string;
+  avatarSeed: string;
 };
 
 const TIMESTAMP_REGEX = /@(\d{1,2}:\d{2})/;
@@ -48,7 +48,7 @@ export function extractTimestampedWaveformComments(
       text: comment.text.replace(TIMESTAMP_REGEX, "").trim(),
       authorName: comment.authorName ?? "Unknown",
       authorImage: comment.authorImage ?? null,
-      authorId: comment.userId,
+      avatarSeed: comment.avatarSeed,
     });
   });
 

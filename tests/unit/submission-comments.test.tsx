@@ -35,17 +35,19 @@ describe("SubmissionComments", () => {
     useQueryMock.mockReturnValue([
       {
         _id: "comment-1",
-        userId: "user-1",
+        _creationTime: 1,
+        submissionId: "submission-1",
         text: "Great pick",
-        authorName: "Alice",
+        authorName: "Hidden Falcon 218",
         authorImage: null,
+        avatarSeed: "anon-1",
         authorVote: 2,
       },
     ]);
 
     render(<SubmissionComments submissionId={"submission-1" as never} />);
 
-    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.getByText("Hidden Falcon 218")).toBeInTheDocument();
     expect(screen.getByText("+2")).toBeInTheDocument();
   });
 
@@ -53,16 +55,18 @@ describe("SubmissionComments", () => {
     useQueryMock.mockReturnValue([
       {
         _id: "comment-1",
-        userId: "user-1",
+        _creationTime: 1,
+        submissionId: "submission-1",
         text: "Great pick",
-        authorName: "Alice",
+        authorName: "Quiet Robin 504",
         authorImage: null,
+        avatarSeed: "anon-1",
       },
     ]);
 
     render(<SubmissionComments submissionId={"submission-1" as never} />);
 
-    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.getByText("Quiet Robin 504")).toBeInTheDocument();
     expect(screen.queryByText(/^[+-]?\d+$/)).not.toBeInTheDocument();
   });
 });

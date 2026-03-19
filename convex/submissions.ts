@@ -28,6 +28,7 @@ import {
 import { buildSubmissionLyricsFingerprint } from "../lib/convex-server/submissions/lyrics";
 import { firstNonEmpty } from "../lib/env";
 import { formatArtistNames } from "../lib/music/submission-display";
+import { getAnonymousCommentIdentity } from "../lib/comments/anonymous";
 
 const storage = new B2Storage();
 const TROLL_SUBMISSION_BAN_THRESHOLD = 2;
@@ -895,8 +896,8 @@ export const addComment = mutation({
       throw new Error("You must be logged in to comment.");
     }
 
-    const user = await ctx.db.get("users", userId);
-    if (!user) {
+    const commenter = await ctx.db.get("users", userId);
+    if (!commenter) {
       throw new Error("User not found.");
     }
 
@@ -918,9 +919,8 @@ export const addComment = mutation({
       await ctx.scheduler.runAfter(0, internal.notifications.create, {
         userId: submission.userId,
         type: "new_comment",
-        message: `${user.name} commented on your submission for "${submission.songTitle}".`,
+        message: `A new anonymous comment was added to your submission for "${submission.songTitle}".`,
         link: `/leagues/${round.leagueId}/round/${round._id}`,
-        triggeringUserId: userId,
       });
     }
 
@@ -950,6 +950,9 @@ export const getCommentsForSubmission = query({
     if (!round) {
       return [];
     }
+    if (round.status !== "finished") {
+      return [];
+    }
 
     const comments = await ctx.db
       .query("comments")
@@ -959,39 +962,35 @@ export const getCommentsForSubmission = query({
       .order("asc")
       .collect();
 
-    const userIds = [...new Set(comments.map((comment) => comment.userId))];
-    const users = await Promise.all(
-      userIds.map((userId) => ctx.db.get("users", userId)),
-    );
-    const userById = new Map(
-      users
-        .filter((user): user is NonNullable<typeof user> => user !== null)
-        .map((user) => [user._id.toString(), user]),
-    );
     const voteByUserId =
-      round.status === "finished"
-        ? new Map(
-            (
-              await ctx.db
-                .query("votes")
-                .withIndex("by_submission_and_user", (q) =>
-                  q.eq("submissionId", args.submissionId),
-                )
-                .collect()
-            ).map((vote) => [vote.userId.toString(), vote.vote]),
-          )
-        : null;
+      new Map(
+        (
+          await ctx.db
+            .query("votes")
+            .withIndex("by_submission_and_user", (q) =>
+              q.eq("submissionId", args.submissionId),
+            )
+            .collect()
+        ).map((vote) => [vote.userId.toString(), vote.vote]),
+      );
 
-    return Promise.all(comments.map(async (comment) => {
-      const user = userById.get(comment.userId.toString());
-      const authorImage = await resolveUserAvatarUrl(storage, user);
+    return comments.map((comment) => {
+      const anonymousIdentity = getAnonymousCommentIdentity(
+        submission.roundId.toString(),
+        comment.userId.toString(),
+      );
+
       return {
-        ...comment,
-        authorName: user?.name ?? "Anonymous",
-        authorImage,
-        authorVote: voteByUserId?.get(comment.userId.toString()) ?? undefined,
+        _id: comment._id,
+        _creationTime: comment._creationTime,
+        submissionId: comment.submissionId,
+        text: comment.text,
+        authorImage: null,
+        authorName: anonymousIdentity.displayName,
+        avatarSeed: anonymousIdentity.avatarSeed,
+        authorVote: voteByUserId.get(comment.userId.toString()) ?? undefined,
       };
-    }));
+    });
   },
 });
 

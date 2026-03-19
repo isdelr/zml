@@ -20,7 +20,7 @@ export interface WaveformComment {
   text: string;
   authorName: string;
   authorImage: string | null;
-  authorId: string;
+  avatarSeed: string;
 }
 
 interface WaveformProps {
@@ -228,7 +228,7 @@ export function Waveform({
                   <AvatarFallback>
                     <div
                       dangerouslySetInnerHTML={{
-                        __html: toSvg(comment.authorId, 20),
+                        __html: toSvg(comment.avatarSeed, 20),
                       }}
                     />
                   </AvatarFallback>
@@ -249,7 +249,7 @@ export function Waveform({
                     <AvatarFallback>
                       <div
                         dangerouslySetInnerHTML={{
-                          __html: toSvg(comment.authorId, 24),
+                          __html: toSvg(comment.avatarSeed, 24),
                         }}
                       />
                     </AvatarFallback>

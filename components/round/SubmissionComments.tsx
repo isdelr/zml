@@ -23,6 +23,7 @@ import { toErrorMessage } from "@/lib/errors";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, MessageSquarePlus } from "lucide-react";
+import { getAnonymousCommentIdentity } from "@/lib/comments/anonymous";
 
 interface SubmissionCommentsProps {
   submissionId: Id<"submissions">;
@@ -32,19 +33,28 @@ interface SubmissionCommentsProps {
 
 interface SubmissionCommentComposerButtonProps {
   submissionId: Id<"submissions">;
+  roundId: Id<"rounds">;
+  roundStatus: Doc<"rounds">["status"];
   submissionTitle: string;
   className?: string;
   size?: "icon" | "sm";
 }
 
-type SubmissionComment = Doc<"comments"> & {
+type SubmissionComment = {
+  _id: Id<"comments">;
+  _creationTime: number;
+  submissionId: Id<"submissions">;
+  text: string;
   authorName: string;
-  authorImage: string | null;
+  authorImage: null;
   authorVote: number | undefined;
+  avatarSeed: string;
 };
 
 export function SubmissionCommentComposerButton({
   submissionId,
+  roundId,
+  roundStatus,
   submissionTitle,
   className,
   size = "icon",
@@ -56,11 +66,20 @@ export function SubmissionCommentComposerButton({
   const isMobile = width > 0 ? width < 768 : false;
 
   const currentUser = useQuery(api.users.getCurrentUser);
+  const anonymousIdentity = useMemo(
+    () =>
+      getAnonymousCommentIdentity(
+        roundId,
+        currentUser?._id ?? "pending-anonymous-user",
+      ),
+    [currentUser?._id, roundId],
+  );
 
   const addComment = useMutation(
     api.submissions.addComment,
   ).withOptimisticUpdate((localStore, { submissionId, text }) => {
     if (!currentUser) return;
+    if (roundStatus !== "finished") return;
     const existingComments = localStore.getQuery(
       api.submissions.getCommentsForSubmission,
       {
@@ -76,11 +95,11 @@ export function SubmissionCommentComposerButton({
       _id: optimisticCommentId,
       _creationTime: optimisticCreationTime,
       submissionId,
-      userId: currentUser._id,
       text,
-      authorName: currentUser.name ?? "You",
-      authorImage: currentUser.image ?? null,
+      authorName: anonymousIdentity.displayName,
+      authorImage: null,
       authorVote: undefined,
+      avatarSeed: anonymousIdentity.avatarSeed,
     } as SubmissionComment;
 
     const newComments = [...existingComments, optimisticComment];
@@ -108,16 +127,24 @@ export function SubmissionCommentComposerButton({
     <div className="space-y-4">
       <div className="flex items-start gap-3">
         <Avatar className="mt-0.5 size-8 flex-shrink-0">
-          <AvatarImage src={currentUser?.image ?? undefined} />
+          <AvatarImage src={undefined} />
           <AvatarFallback>
             <div
               dangerouslySetInnerHTML={{
-                __html: toSvg(currentUser?._id ?? "anon", 32),
+                __html: toSvg(anonymousIdentity.avatarSeed, 32),
               }}
             />
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1 space-y-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">
+              Posting as {anonymousIdentity.displayName}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Comments stay hidden until the round finishes.
+            </p>
+          </div>
           <Textarea
             placeholder="Add your thoughts... use @M:SS to link a time."
             value={commentText}
@@ -195,7 +222,8 @@ export function SubmissionCommentComposerButton({
         <SheetHeader className="border-b px-4 py-4 text-left">
           <SheetTitle className="text-base">Comment on {submissionTitle}</SheetTitle>
           <SheetDescription>
-            Keep it short. The latest comments stay visible right under the track.
+            Your anonymous round alias will be shown when comments unlock after the
+            round finishes.
           </SheetDescription>
         </SheetHeader>
         <div className="overflow-y-auto px-4 py-4">{composerBody}</div>
@@ -213,7 +241,8 @@ export function SubmissionCommentComposerButton({
             Comment on {submissionTitle}
           </p>
           <p className="text-xs text-muted-foreground">
-            Share a quick reaction without leaving the song list.
+            Comments stay hidden until the round finishes and reveal with your
+            anonymous round identity.
           </p>
         </div>
         {composerBody}
@@ -322,15 +351,15 @@ export function SubmissionComments({
               key={comment._id}
               className="flex items-start gap-2 py-1.5"
             >
-              <Avatar className="size-7 flex-shrink-0">
-                <AvatarImage src={comment.authorImage ?? undefined} />
-                <AvatarFallback>
-                  <div
-                    dangerouslySetInnerHTML={{
-                      __html: toSvg(comment.userId, 28),
-                    }}
-                  />
-                </AvatarFallback>
+                <Avatar className="size-7 flex-shrink-0">
+                  <AvatarImage src={comment.authorImage ?? undefined} />
+                  <AvatarFallback>
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: toSvg(comment.avatarSeed, 28),
+                      }}
+                    />
+                  </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-start gap-2 text-left text-sm">

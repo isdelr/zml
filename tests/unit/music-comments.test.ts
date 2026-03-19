@@ -10,14 +10,14 @@ describe("extractTimestampedWaveformComments", () => {
         text: "Great drop @01:15",
         authorName: "A",
         authorImage: null,
-        userId: "u1",
+        avatarSeed: "anon-1",
       },
       {
         _id: "c2" as Id<"comments">,
         text: "No timestamp here",
         authorName: "B",
         authorImage: null,
-        userId: "u2",
+        avatarSeed: "anon-2",
       },
     ]);
 
@@ -27,7 +27,7 @@ describe("extractTimestampedWaveformComments", () => {
       time: 75,
       text: "Great drop",
       authorName: "A",
-      authorId: "u1",
+      avatarSeed: "anon-1",
     });
   });
 
@@ -36,7 +36,7 @@ describe("extractTimestampedWaveformComments", () => {
       {
         _id: "c1" as Id<"comments">,
         text: "Bad timestamp @1:aa",
-        userId: "u1",
+        avatarSeed: "anon-1",
       },
     ]);
     expect(result).toEqual([]);
