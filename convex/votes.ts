@@ -16,7 +16,7 @@ import { resolveUserAvatarUrl } from "./userAvatar";
 import { getSortedRoundSubmissions } from "../lib/rounds/submission-order";
 import { extractYouTubeVideoId } from "../lib/youtube";
 import { getYouTubePlaylistEntries } from "../lib/music/youtube-queue";
-import { getUnlockedPlaylistSubmissionIds } from "../lib/music/listen-progress";
+import { getUnlockedPlaylistSubmissionIdsByFullDuration } from "../lib/music/listen-progress";
 
 const storage = new B2Storage();
 const FINAL_VOTE_CONFIRMATION_REQUIRED_ERROR =
@@ -118,11 +118,9 @@ async function getUnlockedYouTubePlaylistSubmissionIdSet(
     Math.floor(((session.completedAt ?? now) - session.startedAt) / 1000),
   );
   return new Set(
-    getUnlockedPlaylistSubmissionIds(
+    getUnlockedPlaylistSubmissionIdsByFullDuration(
       playlistEntries,
       elapsedSeconds,
-      league.listenPercentage,
-      league.listenTimeLimitMinutes,
     ).map((submissionId) => submissionId.toString()),
   );
 }

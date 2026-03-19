@@ -16,8 +16,8 @@ import { useRoundVoting } from "@/hooks/useRoundVoting";
 import { RoundStatusAlerts } from "./round/RoundStatusAlerts";
 import { FinalVoteConfirmationDialog } from "./round/FinalVoteConfirmationDialog";
 import {
-  getPlaylistListenUnlocks,
-  getTotalPlaylistRequiredListenSeconds,
+  getPlaylistFullDurationUnlocks,
+  getTotalPlaylistDurationSeconds,
 } from "@/lib/music/listen-progress";
 import { getYouTubePlaylistEntries } from "@/lib/music/youtube-queue";
 
@@ -255,21 +255,17 @@ export function RoundDetail({
     extractYouTubeVideoId,
   );
   const youtubeVideoIds = youtubeEntries.map((entry) => entry.videoId);
-  const youtubeUnlocks = getPlaylistListenUnlocks(
+  const youtubeUnlocks = getPlaylistFullDurationUnlocks(
     youtubeEntries.map((entry) => ({
       submissionIds: entry.submissionIds,
       durationSeconds: entry.durationSec,
     })),
-    league.listenPercentage,
-    league.listenTimeLimitMinutes,
   );
-  const totalYouTubeDurationSec = getTotalPlaylistRequiredListenSeconds(
+  const totalYouTubeDurationSec = getTotalPlaylistDurationSeconds(
     youtubeEntries.map((entry) => ({
       submissionIds: entry.submissionIds,
       durationSeconds: entry.durationSec,
     })),
-    league.listenPercentage,
-    league.listenTimeLimitMinutes,
   );
 
   const { ytInfo, ensureAutoOpenOnce, openPlaylistAndStart } =

@@ -7,6 +7,7 @@ import { Doc } from "./_generated/dataModel";
 import {
   getAllowedProgressJumpSeconds,
   getCappedProgressSeconds,
+  getNormalizedDurationSeconds,
   getRequiredListenTimeSeconds,
   hasCompletedRequiredListenTime,
 } from "../lib/music/listen-progress";
@@ -154,9 +155,6 @@ async function markYouTubeSubmissionsCompletedForUser(
     return 0;
   }
 
-  const listenPercentage =
-    league.listenPercentage !== undefined ? league.listenPercentage : 100;
-
   const allSubmissionsInRound = await ctx.db
     .query("submissions")
     .withIndex("by_round_and_user", (q) => q.eq("roundId", roundId))
@@ -191,11 +189,7 @@ async function markYouTubeSubmissionsCompletedForUser(
     const durationSec = hasFiniteDuration
       ? Math.max(0, Math.floor(submission.duration as number))
       : 180;
-    const requiredListenTime = getRequiredListenTimeSeconds(
-      durationSec,
-      listenPercentage,
-      league.listenTimeLimitMinutes,
-    );
+    const requiredListenTime = getNormalizedDurationSeconds(durationSec);
 
     const existing = progressBySubmissionId.get(subId.toString());
 

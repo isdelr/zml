@@ -27,6 +27,27 @@ function normalizeSeconds(value: number): number {
   return Math.max(0, Math.floor(value));
 }
 
+function getPlaylistUnlocks<TSubmissionId>(
+  entries: PlaylistListenRequirementEntry<TSubmissionId>[],
+  getRequiredListenSeconds: (durationSeconds: number) => number,
+): PlaylistListenUnlock<TSubmissionId>[] {
+  let elapsedRequiredSeconds = 0;
+
+  return entries.map((entry) => {
+    const durationSeconds = getNormalizedDurationSeconds(entry.durationSeconds);
+    const requiredListenSeconds = getRequiredListenSeconds(durationSeconds);
+
+    elapsedRequiredSeconds += requiredListenSeconds;
+
+    return {
+      submissionIds: entry.submissionIds,
+      durationSeconds,
+      requiredListenSeconds,
+      unlockAfterSeconds: elapsedRequiredSeconds,
+    };
+  });
+}
+
 export function getNormalizedDurationSeconds(durationSeconds: number): number {
   return normalizeSeconds(durationSeconds);
 }
@@ -77,25 +98,13 @@ export function getPlaylistListenUnlocks<TSubmissionId>(
   listenPercentage: number | null | undefined,
   listenTimeLimitMinutes: number | null | undefined,
 ): PlaylistListenUnlock<TSubmissionId>[] {
-  let elapsedRequiredSeconds = 0;
-
-  return entries.map((entry) => {
-    const durationSeconds = getNormalizedDurationSeconds(entry.durationSeconds);
-    const requiredListenSeconds = getRequiredListenTimeSeconds(
+  return getPlaylistUnlocks(entries, (durationSeconds) =>
+    getRequiredListenTimeSeconds(
       durationSeconds,
       listenPercentage,
       listenTimeLimitMinutes,
-    );
-
-    elapsedRequiredSeconds += requiredListenSeconds;
-
-    return {
-      submissionIds: entry.submissionIds,
-      durationSeconds,
-      requiredListenSeconds,
-      unlockAfterSeconds: elapsedRequiredSeconds,
-    };
-  });
+    ),
+  );
 }
 
 export function getTotalPlaylistRequiredListenSeconds<TSubmissionId>(
@@ -108,6 +117,21 @@ export function getTotalPlaylistRequiredListenSeconds<TSubmissionId>(
     listenPercentage,
     listenTimeLimitMinutes,
   ).reduce((sum, entry) => sum + entry.requiredListenSeconds, 0);
+}
+
+export function getPlaylistFullDurationUnlocks<TSubmissionId>(
+  entries: PlaylistListenRequirementEntry<TSubmissionId>[],
+): PlaylistListenUnlock<TSubmissionId>[] {
+  return getPlaylistUnlocks(entries, (durationSeconds) => durationSeconds);
+}
+
+export function getTotalPlaylistDurationSeconds<TSubmissionId>(
+  entries: PlaylistListenRequirementEntry<TSubmissionId>[],
+): number {
+  return getPlaylistFullDurationUnlocks(entries).reduce(
+    (sum, entry) => sum + entry.requiredListenSeconds,
+    0,
+  );
 }
 
 export function getUnlockedPlaylistSubmissionIds<TSubmissionId>(
@@ -123,6 +147,17 @@ export function getUnlockedPlaylistSubmissionIds<TSubmissionId>(
     listenPercentage,
     listenTimeLimitMinutes,
   )
+    .filter((entry) => normalizedElapsedSeconds >= entry.unlockAfterSeconds)
+    .flatMap((entry) => entry.submissionIds);
+}
+
+export function getUnlockedPlaylistSubmissionIdsByFullDuration<TSubmissionId>(
+  entries: PlaylistListenRequirementEntry<TSubmissionId>[],
+  elapsedSeconds: number,
+): TSubmissionId[] {
+  const normalizedElapsedSeconds = normalizeSeconds(elapsedSeconds);
+
+  return getPlaylistFullDurationUnlocks(entries)
     .filter((entry) => normalizedElapsedSeconds >= entry.unlockAfterSeconds)
     .flatMap((entry) => entry.submissionIds);
 }

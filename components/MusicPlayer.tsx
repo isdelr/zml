@@ -27,7 +27,7 @@ import {
   openUrlInNewTabWithFallback,
 } from "@/lib/music/youtube-playlist-session";
 import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
-import { getTotalPlaylistRequiredListenSeconds } from "@/lib/music/listen-progress";
+import { getTotalPlaylistDurationSeconds } from "@/lib/music/listen-progress";
 
 const PlayerTrackInfo = dynamicImport(() =>
   import("@/components/player/PlayerTrackInfo").then((mod) => ({
@@ -491,13 +491,11 @@ export function MusicPlayer() {
           startSubmissionId,
         },
       );
-      const totalDurationSec = getTotalPlaylistRequiredListenSeconds(
+      const totalDurationSec = getTotalPlaylistDurationSeconds(
         youtubeEntries.map((entry) => ({
           submissionIds: entry.submissionIds,
           durationSeconds: entry.durationSec,
         })),
-        leagueData?.listenPercentage,
-        leagueData?.listenTimeLimitMinutes,
       );
       const url = buildYouTubeWatchVideosUrl(videoIds);
       if (!url) return false;

@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   getAllowedProgressJumpSeconds,
   getCappedProgressSeconds,
+  getPlaylistFullDurationUnlocks,
   getPlaylistListenUnlocks,
   getRequiredListenTimeSeconds,
+  getTotalPlaylistDurationSeconds,
   getTotalPlaylistRequiredListenSeconds,
   getNextProgressSecondsToSync,
+  getUnlockedPlaylistSubmissionIdsByFullDuration,
   getUnlockedPlaylistSubmissionIds,
   hasCompletedRequiredListenTime,
 } from "@/lib/music/listen-progress";
@@ -110,6 +113,47 @@ describe("listen progress sync helpers", () => {
       "sub-1",
     ]);
     expect(getUnlockedPlaylistSubmissionIds(entries, 270, 50, 10)).toEqual([
+      "sub-1",
+      "sub-2",
+      "sub-2-dup",
+    ]);
+  });
+
+  it("can derive full-duration playlist unlock thresholds for youtube flows", () => {
+    const entries = [
+      { submissionIds: ["sub-1"], durationSeconds: 240.9 },
+      { submissionIds: ["sub-2", "sub-2-dup"], durationSeconds: 300 },
+      { submissionIds: ["sub-3"], durationSeconds: 180 },
+    ];
+
+    expect(
+      getPlaylistFullDurationUnlocks(entries).map((entry) => ({
+        submissionIds: entry.submissionIds,
+        requiredListenSeconds: entry.requiredListenSeconds,
+        unlockAfterSeconds: entry.unlockAfterSeconds,
+      })),
+    ).toEqual([
+      {
+        submissionIds: ["sub-1"],
+        requiredListenSeconds: 240,
+        unlockAfterSeconds: 240,
+      },
+      {
+        submissionIds: ["sub-2", "sub-2-dup"],
+        requiredListenSeconds: 300,
+        unlockAfterSeconds: 540,
+      },
+      {
+        submissionIds: ["sub-3"],
+        requiredListenSeconds: 180,
+        unlockAfterSeconds: 720,
+      },
+    ]);
+    expect(getTotalPlaylistDurationSeconds(entries)).toBe(720);
+    expect(getUnlockedPlaylistSubmissionIdsByFullDuration(entries, 539)).toEqual([
+      "sub-1",
+    ]);
+    expect(getUnlockedPlaylistSubmissionIdsByFullDuration(entries, 540)).toEqual([
       "sub-1",
       "sub-2",
       "sub-2-dup",
