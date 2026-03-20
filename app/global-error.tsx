@@ -2,6 +2,10 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect, useState } from "react";
+import {
+  isChunkLoadError,
+  recoverFromStaleClient,
+} from "@/lib/stale-client-recovery";
 
 const AUTO_RETRY_DELAYS = [3_000, 6_000, 12_000];
 
@@ -13,6 +17,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   const [attempt, setAttempt] = useState(0);
+  const isChunkError = isChunkLoadError(error);
 
   useEffect(() => {
     console.error(error);
@@ -24,6 +29,17 @@ export default function GlobalError({
   }, [error]);
 
   useEffect(() => {
+    if (!isChunkError) return;
+
+    void recoverFromStaleClient({
+      key: "chunk-load",
+      error,
+      unregisterServiceWorkers: true,
+    });
+  }, [error, isChunkError]);
+
+  useEffect(() => {
+    if (isChunkError) return;
     if (attempt >= AUTO_RETRY_DELAYS.length) return;
 
     const timer = setTimeout(() => {
@@ -32,9 +48,9 @@ export default function GlobalError({
     }, AUTO_RETRY_DELAYS[attempt]);
 
     return () => clearTimeout(timer);
-  }, [attempt, reset]);
+  }, [attempt, isChunkError, reset]);
 
-  const isAutoRetrying = attempt < AUTO_RETRY_DELAYS.length;
+  const isAutoRetrying = !isChunkError && attempt < AUTO_RETRY_DELAYS.length;
 
   return (
     <html lang="en">
@@ -71,9 +87,11 @@ export default function GlobalError({
           >
             {isAutoRetrying
               ? "Reconnecting automatically..."
-              : "An unexpected error occurred. This is usually temporary — try again and it should work."}
+              : isChunkError
+                ? "Refreshing to recover the latest app version..."
+                : "An unexpected error occurred. This is usually temporary — try again and it should work."}
           </p>
-          {!isAutoRetrying && (
+          {!isAutoRetrying && !isChunkError && (
             <button
               onClick={() => {
                 setAttempt(0);

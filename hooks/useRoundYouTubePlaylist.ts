@@ -75,7 +75,7 @@ export function useRoundYouTubePlaylist({
 
   const updatePlaylistPresence = useCallback(
     (active: boolean) => {
-      if (active) {
+      if (active && !presenceEnabled) {
         onPresenceStart?.();
       }
       const args = active ? { listeningTo: null, roundId } : { listeningTo: null };
@@ -83,7 +83,7 @@ export function useRoundYouTubePlaylist({
         console.warn("[presence:youtube-playlist] non-fatal failure", error);
       });
     },
-    [onPresenceStart, roundId, updatePresence],
+    [onPresenceStart, presenceEnabled, roundId, updatePresence],
   );
 
   const clearTimer = useCallback(() => {

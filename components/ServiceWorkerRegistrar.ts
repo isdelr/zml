@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { Serwist } from "@serwist/window";
 import { toast } from "sonner";
+import { recoverFromStaleClient } from "@/lib/stale-client-recovery";
 
 declare global {
   interface Window {
@@ -28,27 +29,12 @@ export function ServiceWorkerRegistrar() {
     }
     const serwist = window.serwist;
 
-    const RECOVERY_FLAG = "sw-precache-recovery-attempted";
     const recoverFromBrokenPrecache = async () => {
-      if (sessionStorage.getItem(RECOVERY_FLAG) === "1") return;
-      sessionStorage.setItem(RECOVERY_FLAG, "1");
-      try {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(
-          registrations
-            .filter((registration) => {
-              const candidate =
-                registration.active ?? registration.waiting ?? registration.installing;
-              if (!candidate) return false;
-              return new URL(candidate.scriptURL).pathname.startsWith("/serwist/");
-            })
-            .map((registration) => registration.unregister()),
-        );
-      } catch (error) {
-        console.error("[SW] Recovery failed while unregistering workers", error);
-      } finally {
-        window.location.reload();
-      }
+      await recoverFromStaleClient({
+        key: "sw-precache",
+        error: new Error("bad-precaching-response"),
+        unregisterServiceWorkers: true,
+      });
     };
 
     const onWaiting = () => {

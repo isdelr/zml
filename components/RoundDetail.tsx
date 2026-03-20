@@ -211,6 +211,51 @@ export function RoundDetail({
     [],
   );
 
+  const youtubeEntries = useMemo(
+    () =>
+      getYouTubePlaylistEntries(
+        sortedSubmissions ?? [],
+        extractYouTubeVideoId,
+      ),
+    [sortedSubmissions],
+  );
+  const youtubeVideoIds = useMemo(
+    () => youtubeEntries.map((entry) => entry.videoId),
+    [youtubeEntries],
+  );
+  const youtubeUnlocks = useMemo(
+    () =>
+      getPlaylistFullDurationUnlocks(
+        youtubeEntries.map((entry) => ({
+          submissionIds: entry.submissionIds,
+          durationSeconds: entry.durationSec,
+        })),
+      ),
+    [youtubeEntries],
+  );
+  const totalYouTubeDurationSec = useMemo(
+    () =>
+      getTotalPlaylistDurationSeconds(
+        youtubeEntries.map((entry) => ({
+          submissionIds: entry.submissionIds,
+          durationSeconds: entry.durationSec,
+        })),
+      ),
+    [youtubeEntries],
+  );
+
+  const handleYouTubePresenceStart = useCallback(() => {
+    playerActions.setIsPlaying(false);
+    playerActions.setPresenceSource("youtubePlaylist");
+  }, [playerActions]);
+
+  const handleMarkCompletedLocal = useCallback(
+    (submissionId: Id<"submissions">) => {
+      playerActions.setListenProgress(submissionId.toString(), true);
+    },
+    [playerActions],
+  );
+
   const handlePlaySong = (song: Song, index: number) => {
     // For YouTube submissions, open playlist with that song first
     if (song.submissionType === "youtube") {
@@ -250,24 +295,6 @@ export function RoundDetail({
     [submissions, currentUser],
   );
 
-  const youtubeEntries = getYouTubePlaylistEntries(
-    sortedSubmissions ?? [],
-    extractYouTubeVideoId,
-  );
-  const youtubeVideoIds = youtubeEntries.map((entry) => entry.videoId);
-  const youtubeUnlocks = getPlaylistFullDurationUnlocks(
-    youtubeEntries.map((entry) => ({
-      submissionIds: entry.submissionIds,
-      durationSeconds: entry.durationSec,
-    })),
-  );
-  const totalYouTubeDurationSec = getTotalPlaylistDurationSeconds(
-    youtubeEntries.map((entry) => ({
-      submissionIds: entry.submissionIds,
-      durationSeconds: entry.durationSec,
-    })),
-  );
-
   const { ytInfo, ensureAutoOpenOnce, openPlaylistAndStart } =
     useRoundYouTubePlaylist({
       roundId: round._id,
@@ -276,13 +303,8 @@ export function RoundDetail({
       youtubeUnlocks,
       totalYouTubeDurationSec,
       presenceEnabled: presenceSource === "youtubePlaylist",
-      onPresenceStart: () => {
-        playerActions.setIsPlaying(false);
-        playerActions.setPresenceSource("youtubePlaylist");
-      },
-      onMarkCompletedLocal: (submissionId) => {
-        playerActions.setListenProgress(submissionId.toString(), true);
-      },
+      onPresenceStart: handleYouTubePresenceStart,
+      onMarkCompletedLocal: handleMarkCompletedLocal,
     });
 
   const ytInfoWithPresenceControl = useMemo(

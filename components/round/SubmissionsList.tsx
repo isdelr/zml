@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, Fragment } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, Fragment } from "react";
 import { useMutation } from "convex/react";
 import {
   ArrowDown,
@@ -161,9 +161,20 @@ export function SubmissionsList({
   }, [submissions]);
 
   const ytSentinelRef = useRef<HTMLDivElement | null>(null);
+  const hasReachedYouTubeRef = useRef(false);
+  const hasReachYouTubeHandler = Boolean(onReachYouTube);
+  const handleReachYouTube = useEffectEvent(() => {
+    if (hasReachedYouTubeRef.current) return;
+    hasReachedYouTubeRef.current = true;
+    try {
+      onReachYouTube?.();
+    } catch {}
+  });
+
   useEffect(() => {
-    if (!onReachYouTube) return;
+    if (!hasReachYouTubeHandler) return;
     if (youtubeItems.length === 0) return;
+    if (hasReachedYouTubeRef.current) return;
     const el = ytSentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -171,9 +182,7 @@ export function SubmissionsList({
         const entry = entries[0];
         if (!entry) return;
         if (entry.isIntersecting) {
-          try {
-            onReachYouTube();
-          } catch {}
+          handleReachYouTube();
           observer.disconnect();
         }
       },
@@ -181,7 +190,7 @@ export function SubmissionsList({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [onReachYouTube, youtubeItems.length]);
+  }, [hasReachYouTubeHandler, youtubeItems.length]);
 
   const currentTrack =
     currentTrackIndex !== null ? queue[currentTrackIndex] : null;
