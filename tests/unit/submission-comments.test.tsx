@@ -69,4 +69,35 @@ describe("SubmissionComments", () => {
     expect(screen.getByText("Harbor")).toBeInTheDocument();
     expect(screen.queryByText(/^[+-]?\d+$/)).not.toBeInTheDocument();
   });
+
+  it("shows the most recent comments first for anonymous round comments", () => {
+    useQueryMock.mockReturnValue([
+      {
+        _id: "comment-older",
+        _creationTime: 1,
+        submissionId: "submission-1",
+        text: "Older comment",
+        authorName: "Harbor",
+        authorImage: null,
+        avatarSeed: "anon-older",
+      },
+      {
+        _id: "comment-newer",
+        _creationTime: 2,
+        submissionId: "submission-1",
+        text: "Newest comment",
+        authorName: "Cedar",
+        authorImage: null,
+        avatarSeed: "anon-newer",
+      },
+    ]);
+
+    render(<SubmissionComments submissionId={"submission-1" as never} />);
+
+    expect(
+      screen
+        .getAllByText(/^(Older comment|Newest comment)$/)
+        .map((element) => element.textContent),
+    ).toEqual(["Newest comment", "Older comment"]);
+  });
 });

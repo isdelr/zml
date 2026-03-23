@@ -93,7 +93,7 @@ export function SubmissionCommentComposerButton({
     if (existingComments === undefined) return;
     const optimisticCommentId =
       `optimistic_${submissionId}_${existingComments.length}` as unknown as Id<"comments">;
-    const optimisticCreationTime = existingComments.length;
+    const optimisticCreationTime = Date.now();
 
     const optimisticComment = {
       _id: optimisticCommentId,
@@ -316,7 +316,9 @@ export function SubmissionComments({
 
   const orderedComments = useMemo(() => {
     if (!comments) return [];
-    return [...comments].reverse();
+    return [...comments].sort(
+      (first, second) => second._creationTime - first._creationTime,
+    );
   }, [comments]);
   const hiddenCommentCount = Math.max(0, orderedComments.length - 3);
   const visibleComments = useMemo(() => {
