@@ -1,9 +1,7 @@
-import type { Doc } from "@/convex/_generated/dataModel";
-
 type CommentIdentityVisibilityArgs = {
   isAnonymous?: boolean;
   revealOnRoundFinished?: boolean;
-  roundStatus: Doc<"rounds">["status"];
+  roundStatus: "scheduled" | "submissions" | "voting" | "finished";
 };
 
 export function shouldRevealCommentIdentity({
