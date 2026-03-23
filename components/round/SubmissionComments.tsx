@@ -78,12 +78,22 @@ export function SubmissionCommentComposerButton({
       ),
     [currentUser?._id, roundId],
   );
+  const revealIdentity = roundStatus === "finished";
+  const composerIdentity = revealIdentity
+    ? {
+        avatarSeed: currentUser?._id ?? "pending-user",
+        displayName: currentUser?.name ?? "Anonymous",
+        image: currentUser?.image ?? null,
+      }
+    : {
+        avatarSeed: anonymousIdentity.avatarSeed,
+        displayName: anonymousIdentity.displayName,
+        image: null,
+      };
 
   const addComment = useMutation(
     api.submissions.addComment,
   ).withOptimisticUpdate((localStore, { submissionId, text }) => {
-    if (!currentUser) return;
-    if (roundStatus !== "finished") return;
     const existingComments = localStore.getQuery(
       api.submissions.getCommentsForSubmission,
       {
@@ -93,17 +103,26 @@ export function SubmissionCommentComposerButton({
     if (existingComments === undefined) return;
     const optimisticCommentId =
       `optimistic_${submissionId}_${existingComments.length}` as unknown as Id<"comments">;
-    const optimisticCreationTime = Date.now();
+    const optimisticCreationTime =
+      existingComments.reduce(
+        (latestCreationTime, comment) =>
+          Math.max(latestCreationTime, comment._creationTime),
+        0,
+      ) + 1;
 
     const optimisticComment = {
       _id: optimisticCommentId,
       _creationTime: optimisticCreationTime,
       submissionId,
       text,
-      authorName: anonymousIdentity.displayName,
-      authorImage: null,
+      authorName: revealIdentity
+        ? (currentUser?.name ?? "Anonymous")
+        : anonymousIdentity.displayName,
+      authorImage: revealIdentity ? (currentUser?.image ?? null) : null,
       authorVote: undefined,
-      avatarSeed: anonymousIdentity.avatarSeed,
+      avatarSeed: revealIdentity
+        ? (currentUser?._id ?? "pending-user")
+        : anonymousIdentity.avatarSeed,
     } as SubmissionComment;
 
     const newComments = [...existingComments, optimisticComment];
@@ -131,11 +150,11 @@ export function SubmissionCommentComposerButton({
     <div className="space-y-4">
       <div className="flex items-start gap-3">
         <Avatar className="mt-0.5 size-8 flex-shrink-0">
-          <AvatarImage src={undefined} />
+          <AvatarImage src={composerIdentity.image ?? undefined} />
           <AvatarFallback>
             <div
               dangerouslySetInnerHTML={{
-                __html: toSvg(anonymousIdentity.avatarSeed, 32),
+                __html: toSvg(composerIdentity.avatarSeed, 32),
               }}
             />
           </AvatarFallback>
@@ -143,10 +162,12 @@ export function SubmissionCommentComposerButton({
         <div className="min-w-0 flex-1 space-y-3">
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">
-              Posting as {anonymousIdentity.displayName}
+              Posting as {composerIdentity.displayName}
             </p>
             <p className="text-xs text-muted-foreground">
-              Comments stay hidden until the round finishes.
+              {revealIdentity
+                ? "The round is finished, so your name is shown immediately."
+                : "Your comment appears immediately, but your name stays anonymous until the round finishes."}
             </p>
           </div>
           <Textarea
@@ -228,8 +249,9 @@ export function SubmissionCommentComposerButton({
             Comment on {submissionTitle}
           </SheetTitle>
           <SheetDescription>
-            Your anonymous round alias will be shown when comments unlock after
-            the round finishes.
+            {revealIdentity
+              ? "The round is finished, so your comment posts under your profile."
+              : "Your comment posts immediately under your round alias and reveals your identity when the round finishes."}
           </SheetDescription>
         </SheetHeader>
         <div className="overflow-y-auto px-4 py-4">{composerBody}</div>

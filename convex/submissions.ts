@@ -29,6 +29,7 @@ import { buildSubmissionLyricsFingerprint } from "../lib/convex-server/submissio
 import { firstNonEmpty } from "../lib/env";
 import { formatArtistNames } from "../lib/music/submission-display";
 import { getAnonymousCommentIdentity } from "../lib/comments/anonymous";
+import { shouldRevealCommentIdentity } from "../lib/comments/visibility";
 
 const storage = new B2Storage();
 const TROLL_SUBMISSION_BAN_THRESHOLD = 2;
@@ -916,10 +917,16 @@ export const addComment = mutation({
     }
 
     if (submission.userId !== userId) {
+      const commentIsAnonymous = !shouldRevealCommentIdentity({
+        isAnonymous: true,
+        revealOnRoundFinished: true,
+        roundStatus: round.status,
+      });
+
       await ctx.scheduler.runAfter(0, internal.notifications.create, {
         userId: submission.userId,
         type: "new_comment",
-        message: `A new anonymous comment was added to your submission for "${submission.songTitle}".`,
+        message: `A new ${commentIsAnonymous ? "anonymous " : ""}comment was added to your submission for "${submission.songTitle}".`,
         link: `/leagues/${round.leagueId}/round/${round._id}`,
       });
     }
@@ -960,22 +967,33 @@ export const getCommentsForSubmission = query({
       )
       .order("asc")
       .collect();
-    const visibleComments =
-      round.status === "finished"
-        ? comments
-        : comments.filter((comment) => comment.revealOnRoundFinished !== true);
 
-    if (visibleComments.length === 0) {
+    if (comments.length === 0) {
       return [];
     }
 
+    const revealedCommentUserIds = [
+      ...new Set(
+        comments
+          .filter((comment) =>
+            shouldRevealCommentIdentity({
+              isAnonymous: comment.isAnonymous,
+              revealOnRoundFinished: comment.revealOnRoundFinished,
+              roundStatus: round.status,
+            }),
+          )
+          .map((comment) => comment.userId),
+      ),
+    ];
+
     const userById =
-      round.status === "finished"
+      revealedCommentUserIds.length > 0
         ? new Map(
             (
               await Promise.all(
-                [...new Set(visibleComments.map((comment) => comment.userId))]
-                  .map((commentUserId) => ctx.db.get("users", commentUserId)),
+                revealedCommentUserIds.map((commentUserId) =>
+                  ctx.db.get("users", commentUserId),
+                ),
               )
             )
               .filter((user): user is NonNullable<typeof user> => user !== null)
@@ -997,29 +1015,37 @@ export const getCommentsForSubmission = query({
           )
         : null;
 
-    return Promise.all(visibleComments.map(async (comment) => {
+    return Promise.all(comments.map(async (comment) => {
       const anonymousIdentity = getAnonymousCommentIdentity(
         submission.roundId.toString(),
         comment.userId.toString(),
       );
+      const revealIdentity = shouldRevealCommentIdentity({
+        isAnonymous: comment.isAnonymous,
+        revealOnRoundFinished: comment.revealOnRoundFinished,
+        roundStatus: round.status,
+      });
       const user = userById?.get(comment.userId.toString());
-      const isFinished = round.status === "finished";
-      const authorName = isFinished
-        ? (user?.name ?? "Anonymous")
-        : anonymousIdentity.displayName;
-      const avatarSeed = isFinished
-        ? comment.userId.toString()
-        : anonymousIdentity.avatarSeed;
 
       return {
         _id: comment._id,
         _creationTime: comment._creationTime,
         submissionId: comment.submissionId,
         text: comment.text,
-        authorImage: isFinished ? await resolveUserAvatarUrl(storage, user) : null,
-        authorName,
-        avatarSeed,
-        authorVote: voteByUserId?.get(comment.userId.toString()) ?? undefined,
+        authorImage:
+          revealIdentity && user
+            ? await resolveUserAvatarUrl(storage, user)
+            : null,
+        authorName: revealIdentity
+          ? (user?.name ?? "Anonymous")
+          : anonymousIdentity.displayName,
+        avatarSeed: revealIdentity
+          ? comment.userId.toString()
+          : anonymousIdentity.avatarSeed,
+        authorVote:
+          revealIdentity && round.status === "finished"
+            ? voteByUserId?.get(comment.userId.toString()) ?? undefined
+            : undefined,
       };
     }));
   },
