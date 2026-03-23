@@ -40,7 +40,9 @@ import {
 } from "../lib/rounds/pending-participation";
 import { getVoteLimits } from "../lib/convex-server/voteLimits";
 import {
+  buildRoundStartNowPatches,
   buildRoundShiftPatches,
+  getSubmissionStart,
   hoursToMs,
   ROUND_GAP_MS,
   sortRoundsInLeagueOrder,
@@ -367,7 +369,11 @@ export const getForLeague = query({
 export const manageRoundState = mutation({
   args: {
     roundId: v.id("rounds"),
-    action: v.union(v.literal("startVoting"), v.literal("endVoting")),
+    action: v.union(
+      v.literal("startSubmissions"),
+      v.literal("startVoting"),
+      v.literal("endVoting"),
+    ),
   },
   handler: async (ctx, args) => {
     const round = await ctx.db.get("rounds", args.roundId);
@@ -378,7 +384,73 @@ export const manageRoundState = mutation({
     );
 
     switch (args.action) {
-      case "startVoting":
+      case "startSubmissions": {
+        if (round.status !== "scheduled") {
+          throw new Error("Round is not scheduled.");
+        }
+
+        const leagueRounds = await ctx.db
+          .query("rounds")
+          .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
+          .collect();
+        const sortedRounds = sortRoundsInLeagueOrder(leagueRounds);
+        const roundIndex = sortedRounds.findIndex(
+          (leagueRound) => leagueRound._id === round._id,
+        );
+
+        if (roundIndex === -1) {
+          throw new Error("Round not found in league schedule.");
+        }
+
+        const earlierActiveRound = sortedRounds
+          .slice(0, roundIndex)
+          .find((leagueRound) => leagueRound.status !== "finished");
+
+        if (earlierActiveRound) {
+          throw new Error(
+            "Cannot start this round while an earlier round in the league is still active.",
+          );
+        }
+
+        const shiftPatches = buildRoundStartNowPatches({
+          rounds: sortedRounds.map((leagueRound) => ({
+            ...leagueRound,
+            _id: leagueRound._id.toString(),
+          })),
+          roundId: round._id.toString(),
+          now: Date.now(),
+          submissionHours: league.submissionDeadline,
+        });
+        const currentRoundPatch = shiftPatches.find(
+          ({ roundId }) => roundId === round._id.toString(),
+        )?.patch;
+
+        if (shiftPatches.length > 0) {
+          await Promise.all(
+            shiftPatches.map(({ roundId, patch }) =>
+              ctx.db.patch("rounds", roundId as Id<"rounds">, patch),
+            ),
+          );
+        }
+
+        await transitionRoundToSubmissionsWithSideEffects(
+          ctx,
+          currentRoundPatch
+            ? {
+                ...round,
+                submissionStartsAt:
+                  currentRoundPatch.submissionStartsAt ??
+                  getSubmissionStart(round, league.submissionDeadline),
+                submissionDeadline: currentRoundPatch.submissionDeadline,
+                votingDeadline: currentRoundPatch.votingDeadline,
+              }
+            : round,
+          league,
+          userId,
+        );
+        break;
+      }
+      case "startVoting": {
         if (round.status !== "submissions")
           throw new Error("Round is not in submission phase.");
         if (await hasIncompleteFileSubmissions(ctx, args.roundId)) {
@@ -393,7 +465,8 @@ export const manageRoundState = mutation({
           userId,
         );
         break;
-      case "endVoting":
+      }
+      case "endVoting": {
         if (round.status !== "voting")
           throw new Error("Round is not in voting phase.");
         const submission = await ctx.db
@@ -416,6 +489,7 @@ export const manageRoundState = mutation({
           triggeringUserId: userId,
         });
         break;
+      }
     }
   },
 });

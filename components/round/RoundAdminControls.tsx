@@ -176,6 +176,43 @@ export function RoundAdminControls({
           </>
         )}
 
+        {round.status === "scheduled" && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <InlineAdminButton
+                icon={Flag}
+                title="Open submissions immediately and shift later scheduled rounds to match."
+              >
+                Start submissions now
+              </InlineAdminButton>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Start submissions now?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This opens the round immediately. Its submission and voting
+                  deadlines will shift to start now, and later scheduled rounds
+                  will move with it to preserve the current spacing.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() =>
+                    void handleAction(
+                      manageRoundState,
+                      { roundId: round._id, action: "startSubmissions" },
+                      "Submissions started.",
+                    )
+                  }
+                >
+                  Start submissions
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
         {round.status === "submissions" && (
           <>
             <InlineAdminButton

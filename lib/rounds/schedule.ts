@@ -152,6 +152,44 @@ export function buildRoundShiftPatches<
   });
 }
 
+export function buildRoundStartNowPatches<
+  TRound extends RoundScheduleShape & { _id: string },
+>(args: {
+  rounds: TRound[];
+  roundId: string;
+  now: number;
+  submissionHours: number;
+}): Array<{
+  roundId: string;
+  patch: {
+    submissionStartsAt?: number;
+    submissionDeadline: number;
+    votingDeadline: number;
+  };
+}> {
+  const sortedRounds = sortRoundsInLeagueOrder(args.rounds);
+  const targetRound = sortedRounds.find(
+    (round) => round._id.toString() === args.roundId,
+  );
+
+  if (!targetRound) {
+    return [];
+  }
+
+  const scheduledStart = getSubmissionStart(targetRound, args.submissionHours);
+  const adjustmentMs = args.now - scheduledStart;
+
+  if (adjustmentMs === 0) {
+    return [];
+  }
+
+  return buildRoundShiftPatches({
+    rounds: sortedRounds,
+    roundId: args.roundId,
+    adjustmentMs,
+  });
+}
+
 export function buildScheduledRoundResequencePatches<
   TRound extends RoundScheduleShape & { _id: string },
 >(args: {
