@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GeneralSettingsTab } from "@/components/league/settings/GeneralSettingsTab";
 import { MembersTab } from "@/components/league/settings/MembersTab";
 import { InviteTab } from "@/components/league/settings/InviteTab";
+import { RoundsTab } from "@/components/league/settings/RoundsTab";
 
 type CurrentUser = FunctionReturnType<typeof api.users.getCurrentUser> | undefined;
 
@@ -31,8 +32,9 @@ export function LeagueSettingsDialog({
 }: LeagueSettingsDialogProps) {
   return (
     <Tabs defaultValue="general" className="w-full">
-      <TabsList className="grid w-full grid-cols-3">
+      <TabsList className="grid w-full grid-cols-4">
         <TabsTrigger value="general">General</TabsTrigger>
+        <TabsTrigger value="rounds">Rounds</TabsTrigger>
         <TabsTrigger value="members">Members</TabsTrigger>
         <TabsTrigger value="invite">Invite Link</TabsTrigger>
       </TabsList>
@@ -46,6 +48,19 @@ export function LeagueSettingsDialog({
           </CardHeader>
           <CardContent>
             <GeneralSettingsTab league={league} onClose={onClose} />
+          </CardContent>
+        </Card>
+      </TabsContent>
+      <TabsContent value="rounds">
+        <Card>
+          <CardHeader>
+            <CardTitle>Manage Rounds</CardTitle>
+            <CardDescription>
+              Add future rounds and remove scheduled ones.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RoundsTab league={league} />
           </CardContent>
         </Card>
       </TabsContent>

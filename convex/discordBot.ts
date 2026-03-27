@@ -532,7 +532,9 @@ export const dispatchRoundNotification = internalAction({
   args: {
     leagueId: v.id("leagues"),
     roundId: v.id("rounds"),
+    roundTitle: v.optional(v.string()),
     roundStatus: v.union(
+      v.literal("scheduled"),
       v.literal("submissions"),
       v.literal("voting"),
       v.literal("finished"),
@@ -543,6 +545,7 @@ export const dispatchRoundNotification = internalAction({
       v.literal("transition"),
       v.literal("deadline_changed"),
       v.literal("standings_shift"),
+      v.literal("schedule_changed"),
     ),
     message: v.string(),
     deadlineMs: v.optional(v.number()),
@@ -563,9 +566,11 @@ export const dispatchRoundNotification = internalAction({
       ctx.runQuery(internal.discordBot.getLeagueMetadataForDispatch, {
         leagueId: args.leagueId,
       }),
-      ctx.runQuery(internal.discordBot.getRoundMetadataForDispatch, {
-        roundId: args.roundId,
-      }),
+      args.roundTitle
+        ? Promise.resolve({ title: args.roundTitle })
+        : ctx.runQuery(internal.discordBot.getRoundMetadataForDispatch, {
+            roundId: args.roundId,
+          }),
     ]);
     if (!league || !round) {
       return { dispatched: false, mentionedCount: 0 };

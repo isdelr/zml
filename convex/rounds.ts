@@ -40,8 +40,10 @@ import {
 } from "../lib/rounds/pending-participation";
 import { getVoteLimits } from "../lib/convex-server/voteLimits";
 import {
+  buildLeagueRoundSchedule,
   buildRoundStartNowPatches,
   buildRoundShiftPatches,
+  buildScheduledRoundResequencePatches,
   getSubmissionStart,
   hoursToMs,
   ROUND_GAP_MS,
@@ -106,6 +108,15 @@ async function hasIncompleteFileSubmissions(
     }
     return getSubmissionFileProcessingStatus(submission) !== "ready";
   });
+}
+
+function getNextRoundOrder(rounds: Array<Pick<Doc<"rounds">, "order">>) {
+  return (
+    rounds.reduce(
+      (maxOrder, round) => Math.max(maxOrder, round.order ?? -1),
+      -1,
+    ) + 1
+  );
 }
 
 export const get = query({
@@ -970,6 +981,231 @@ export const updateRound = mutation({
     const { roundId, ...updates } = args;
     await ctx.db.patch("rounds", roundId, updates);
     return "Round updated successfully.";
+  },
+});
+
+export const createRound = mutation({
+  args: {
+    leagueId: v.id("leagues"),
+    title: v.string(),
+    description: v.string(),
+    submissionsPerUser: v.number(),
+    genres: v.array(v.string()),
+    submissionMode: v.optional(
+      v.union(v.literal("single"), v.literal("multi"), v.literal("album")),
+    ),
+    submissionInstructions: v.optional(v.string()),
+    albumConfig: v.optional(
+      v.object({
+        allowPartial: v.optional(v.boolean()),
+        requireReleaseYear: v.optional(v.boolean()),
+        minTracks: v.optional(v.number()),
+        maxTracks: v.optional(v.number()),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { league, userId } = await requireOwnerManagerOrGlobalAdmin(
+      ctx,
+      args.leagueId,
+    );
+
+    const title = args.title.trim();
+    const description = args.description.trim();
+    const submissionInstructions = args.submissionInstructions?.trim() || "";
+    const genres = [...new Set(args.genres.map((genre) => genre.trim()))].filter(
+      (genre) => genre.length > 0,
+    );
+
+    if (title.length < 3) {
+      throw new Error("Title must be at least 3 characters.");
+    }
+    if (description.length < 10) {
+      throw new Error("Description must be at least 10 characters.");
+    }
+    if (args.submissionsPerUser < 1 || args.submissionsPerUser > 5) {
+      throw new Error("Submissions per user must be between 1 and 5.");
+    }
+    if (
+      args.submissionMode === "album" &&
+      args.albumConfig?.minTracks !== undefined &&
+      args.albumConfig?.maxTracks !== undefined &&
+      args.albumConfig.minTracks > args.albumConfig.maxTracks
+    ) {
+      throw new Error("Minimum tracks cannot exceed maximum tracks.");
+    }
+
+    const leagueRounds = await ctx.db
+      .query("rounds")
+      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+      .collect();
+    const sortedRounds = sortRoundsInLeagueOrder(leagueRounds);
+    const nextOrder = getNextRoundOrder(sortedRounds);
+    const existingLastRound =
+      sortedRounds.length > 0 ? sortedRounds[sortedRounds.length - 1] : null;
+
+    const schedule = existingLastRound
+      ? {
+          order: nextOrder,
+          status: "scheduled" as const,
+          submissionStartsAt: existingLastRound.votingDeadline + ROUND_GAP_MS,
+          submissionDeadline:
+            existingLastRound.votingDeadline +
+            ROUND_GAP_MS +
+            hoursToMs(league.submissionDeadline),
+          votingDeadline:
+            existingLastRound.votingDeadline +
+            ROUND_GAP_MS +
+            hoursToMs(league.submissionDeadline) +
+            hoursToMs(league.votingDeadline),
+        }
+      : buildLeagueRoundSchedule({
+          roundCount: 1,
+          startsAt: Date.now(),
+          submissionHours: league.submissionDeadline,
+          votingHours: league.votingDeadline,
+        })[0];
+
+    const roundId = await ctx.db.insert("rounds", {
+      leagueId: args.leagueId,
+      order: schedule.order,
+      title,
+      description,
+      genres,
+      status: schedule.status,
+      submissionStartsAt: schedule.submissionStartsAt,
+      submissionDeadline: schedule.submissionDeadline,
+      votingDeadline: schedule.votingDeadline,
+      submissionsPerUser: args.submissionsPerUser,
+      submissionMode: args.submissionMode ?? "single",
+      submissionInstructions,
+      albumConfig: args.albumConfig,
+    });
+
+    const activeMemberships = (
+      await ctx.db
+        .query("memberships")
+        .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+        .collect()
+    ).filter((membership) => !membership.isBanned && !membership.isSpectator);
+
+    const scheduleMessage =
+      schedule.status === "submissions"
+        ? `A new round "${title}" was added to "${league.name}" and is now open for submissions.`
+        : `A new round "${title}" was added to "${league.name}".`;
+
+    await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundNotification, {
+      leagueId: args.leagueId,
+      roundId,
+      roundTitle: title,
+      roundStatus: schedule.status,
+      reminderKind: "schedule_changed",
+      message: scheduleMessage,
+      deadlineMs:
+        schedule.status === "scheduled"
+          ? schedule.submissionStartsAt
+          : schedule.submissionDeadline,
+      source: `round-schedule:${args.leagueId}:added:${roundId}`,
+      targetUserIds: activeMemberships
+        .filter((membership) => membership.userId !== userId)
+        .map((membership) => membership.userId),
+    });
+
+    return roundId;
+  },
+});
+
+export const deleteRound = mutation({
+  args: {
+    roundId: v.id("rounds"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const round = await ctx.db.get("rounds", args.roundId);
+    if (!round) {
+      throw new Error("Round not found.");
+    }
+
+    const { league, userId } = await requireOwnerManagerOrGlobalAdmin(
+      ctx,
+      round.leagueId,
+    );
+
+    if (round.status !== "scheduled") {
+      throw new Error(
+        "Only scheduled rounds can be removed from a league.",
+      );
+    }
+
+    const leagueRounds = await ctx.db
+      .query("rounds")
+      .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
+      .collect();
+    const remainingRounds = sortRoundsInLeagueOrder(leagueRounds).filter(
+      (leagueRound) => leagueRound._id !== round._id,
+    );
+    const schedulePatches = buildScheduledRoundResequencePatches({
+      rounds: remainingRounds.map((leagueRound) => ({
+        ...leagueRound,
+        _id: leagueRound._id.toString(),
+      })),
+      submissionHours: league.submissionDeadline,
+      votingHours: league.votingDeadline,
+    });
+    const patchByRoundId = new Map<
+      string,
+      {
+        order?: number;
+        submissionStartsAt?: number;
+        submissionDeadline?: number;
+        votingDeadline?: number;
+      }
+    >();
+
+    remainingRounds.forEach((leagueRound, index) => {
+      if (leagueRound.order !== index) {
+        patchByRoundId.set(leagueRound._id.toString(), { order: index });
+      }
+    });
+    schedulePatches.forEach(({ roundId, patch }) => {
+      patchByRoundId.set(roundId, {
+        ...(patchByRoundId.get(roundId) ?? {}),
+        ...patch,
+      });
+    });
+
+    await ctx.db.delete("rounds", round._id);
+
+    await Promise.all(
+      Array.from(patchByRoundId.entries()).map(([roundId, patch]) =>
+        ctx.db.patch("rounds", roundId as Id<"rounds">, patch),
+      ),
+    );
+
+    const activeMemberships = (
+      await ctx.db
+        .query("memberships")
+        .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
+        .collect()
+    ).filter((membership) => !membership.isBanned && !membership.isSpectator);
+
+    await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundNotification, {
+      leagueId: round.leagueId,
+      roundId: round._id,
+      roundTitle: round.title,
+      roundStatus: "scheduled",
+      reminderKind: "schedule_changed",
+      message: `The scheduled round "${round.title}" was removed from "${league.name}". Any later scheduled rounds were moved up to keep the timeline intact.`,
+      source: `round-schedule:${round.leagueId}:removed:${round._id}`,
+      actionUrl: `/leagues/${round.leagueId}`,
+      targetUserIds: activeMemberships
+        .filter((membership) => membership.userId !== userId)
+        .map((membership) => membership.userId),
+    });
+
+    return { success: true };
   },
 });
 

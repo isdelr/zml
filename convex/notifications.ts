@@ -42,6 +42,7 @@ const pushNotificationOverrideValidator = v.object({
 });
 
 const roundStatusValidator = v.union(
+  v.literal("scheduled"),
   v.literal("submissions"),
   v.literal("voting"),
   v.literal("finished"),
@@ -53,6 +54,7 @@ const discordNotificationKindValidator = v.union(
   v.literal("transition"),
   v.literal("deadline_changed"),
   v.literal("standings_shift"),
+  v.literal("schedule_changed"),
 );
 
 type NotificationWriteArgs = {

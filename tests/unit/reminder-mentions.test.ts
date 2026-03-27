@@ -9,6 +9,9 @@ describe("Discord reminder mentions", () => {
     expect(shouldMentionDiscordUsersForReminder("standings_shift")).toBe(
       false,
     );
+    expect(shouldMentionDiscordUsersForReminder("schedule_changed")).toBe(
+      false,
+    );
   });
 
   it("keeps mentions enabled for targeted reminder notifications", () => {
