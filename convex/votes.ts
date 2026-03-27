@@ -17,6 +17,7 @@ import { getSortedRoundSubmissions } from "../lib/rounds/submission-order";
 import { extractYouTubeVideoId } from "../lib/youtube";
 import { getYouTubePlaylistEntries } from "../lib/music/youtube-queue";
 import { getUnlockedPlaylistSubmissionIdsByFullDuration } from "../lib/music/listen-progress";
+import { getVotingEligibilityReason } from "../lib/rounds/voting-participation";
 
 const storage = new B2Storage();
 const FINAL_VOTE_CONFIRMATION_REQUIRED_ERROR =
@@ -164,6 +165,7 @@ export const getForUserInRound = query({
       return {
         hasVoted: false,
         canVote: false,
+        eligibilityReason: "not_authenticated" as const,
         votes: [],
         upvotesUsed: 0,
         downvotesUsed: 0,
@@ -174,6 +176,7 @@ export const getForUserInRound = query({
       return {
         hasVoted: false,
         canVote: false,
+        eligibilityReason: "unavailable" as const,
         votes: [],
         upvotesUsed: 0,
         downvotesUsed: 0,
@@ -188,6 +191,7 @@ export const getForUserInRound = query({
       return {
         hasVoted: false,
         canVote: false,
+        eligibilityReason: "unavailable" as const,
         votes: [],
         upvotesUsed: 0,
         downvotesUsed: 0,
@@ -195,6 +199,12 @@ export const getForUserInRound = query({
     }
 
     const { maxUp, maxDown } = getVoteLimits(round, league);
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_league_and_user", (q) =>
+        q.eq("leagueId", round.leagueId).eq("userId", userId),
+      )
+      .first();
     const userSubmission = await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) =>
@@ -202,6 +212,14 @@ export const getForUserInRound = query({
       )
       .first();
     const canVote = !!userSubmission;
+    const eligibilityReason = getVotingEligibilityReason({
+      hasSubmitted: canVote,
+      joinDate: membership?.joinDate,
+      submissionDeadline: round.submissionDeadline,
+      isSpectator: membership?.isSpectator ?? false,
+      isMember: Boolean(membership),
+      isAuthenticated: true,
+    });
 
     const userVotes = await ctx.db
       .query("votes")
@@ -219,7 +237,14 @@ export const getForUserInRound = query({
     );
     const hasVoted = upvotesUsed === maxUp && downvotesUsed === maxDown;
 
-    return { hasVoted, canVote, votes: userVotes, upvotesUsed, downvotesUsed };
+    return {
+      hasVoted,
+      canVote,
+      eligibilityReason,
+      votes: userVotes,
+      upvotesUsed,
+      downvotesUsed,
+    };
   },
 });
 

@@ -51,6 +51,10 @@ import {
   SubmissionCommentComposerButton,
   SubmissionComments,
 } from "./SubmissionComments";
+import {
+  getVotingRestrictionCopy,
+  type VotingEligibilityReason,
+} from "@/lib/rounds/voting-participation";
 
 // A new component for the animated equalizer
 const EqualizerIcon = () => (
@@ -74,6 +78,7 @@ interface SubmissionItemProps {
   canManageLeague: boolean;
   hasVoted: boolean;
   canVote: boolean;
+  votingEligibilityReason?: VotingEligibilityReason;
   onVoteClick: (delta: 1 | -1) => void;
   onBookmark: () => void;
   onPlaySong: () => void;
@@ -107,6 +112,7 @@ export function SubmissionItem({
   canManageLeague,
   hasVoted,
   canVote,
+  votingEligibilityReason,
   onVoteClick,
   onBookmark,
   onPlaySong,
@@ -161,6 +167,7 @@ export function SubmissionItem({
   const otherListeners = listeners.filter(
     (listener) => listener._id !== currentUser?._id,
   );
+  const votingRestrictionCopy = getVotingRestrictionCopy(votingEligibilityReason);
 
   const isListenRequirementMetForThisSong = useMemo(() => {
     if (song.isTrollSubmission) return true;
@@ -200,7 +207,11 @@ export function SubmissionItem({
   const upvoteDisabledReason = useMemo(() => {
     if (roundStatus !== "voting") return "Voting is not currently open.";
     if (userIsSubmitter) return "You cannot vote on your own submission.";
-    if (!canVote) return "You must submit a song to vote in this round.";
+    if (!canVote)
+      return (
+        votingRestrictionCopy?.voteLockedReason ??
+        "You must submit a song to vote in this round."
+      );
     if (hasVoted) return "Your vote for this round is final.";
     if (song.isTrollSubmission)
       return "You cannot vote on submissions marked as troll submissions.";
@@ -229,12 +240,17 @@ export function SubmissionItem({
     currentVoteValue,
     song,
     isListenRequirementMetForThisSong,
+    votingRestrictionCopy,
   ]);
 
   const downvoteDisabledReason = useMemo(() => {
     if (roundStatus !== "voting") return "Voting is not currently open.";
     if (userIsSubmitter) return "You cannot vote on your own submission.";
-    if (!canVote) return "You must submit a song to vote in this round.";
+    if (!canVote)
+      return (
+        votingRestrictionCopy?.voteLockedReason ??
+        "You must submit a song to vote in this round."
+      );
     if (hasVoted) return "Your vote for this round is final.";
     // Note: Troll submissions can still receive downvotes, so we don't block them here
     if (
@@ -262,6 +278,7 @@ export function SubmissionItem({
     currentVoteValue,
     song,
     isListenRequirementMetForThisSong,
+    votingRestrictionCopy,
   ]);
 
   const songPoints = song.points ?? 0;

@@ -18,6 +18,7 @@ import { AvatarStack } from "@/components/AvatarStack";
 import { Song } from "@/types";
 import { toast } from "sonner";
 import { toErrorMessage } from "@/lib/errors";
+import { getVotingRestrictionCopy } from "@/lib/rounds/voting-participation";
 
 type SubmissionsListPropsSubmissions = FunctionReturnType<
   typeof api.submissions.getForRound
@@ -151,6 +152,9 @@ export function SubmissionsList({
 
   const hasVoted = isVoteFinal || (userVoteStatus?.hasVoted ?? false);
   const canVote = userVoteStatus?.canVote ?? false;
+  const votingRestrictionCopy = getVotingRestrictionCopy(
+    userVoteStatus?.eligibilityReason,
+  );
 
   const youtubeItems = useMemo(() => {
     if (!submissions || submissions.length === 0) return [] as Submission[];
@@ -273,6 +277,7 @@ export function SubmissionsList({
         canManageLeague={canManageLeague}
         hasVoted={hasVoted}
         canVote={canVote}
+        votingEligibilityReason={userVoteStatus?.eligibilityReason}
         onVoteClick={(delta) => onVoteClick(submissionId, delta)}
         onBookmark={() => handleBookmark(submissionId)}
         onPlaySong={() => onPlaySong(toSong(submission), index)}
@@ -332,7 +337,7 @@ export function SubmissionsList({
                 ? "Done Voting"
                 : canVote
                   ? "Voting Open"
-                  : "Voting Locked"}
+                  : (votingRestrictionCopy?.shortStatus ?? "Voting Locked")}
             </div>
 
             {canVote ? (
@@ -348,7 +353,8 @@ export function SubmissionsList({
               </>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Submit a song to unlock voting for this round.
+                {votingRestrictionCopy?.description ??
+                  "Submit a song to unlock voting for this round."}
               </p>
             )}
 

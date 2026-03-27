@@ -3,14 +3,19 @@
 import { Ban, Headphones } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  getVotingRestrictionCopy,
+  type VotingEligibilityReason,
+} from "@/lib/rounds/voting-participation";
 
 interface RoundStatusAlertsProps {
   isSpectator: boolean;
   roundStatus: "scheduled" | "submissions" | "voting" | "finished";
-  userVoteStatus:
+      userVoteStatus:
     | {
         hasVoted: boolean;
         canVote: boolean;
+        eligibilityReason?: VotingEligibilityReason;
       }
     | undefined;
   enforceListenPercentage: boolean;
@@ -24,6 +29,10 @@ export function RoundStatusAlerts({
   enforceListenPercentage,
   songsLeftToListenCount,
 }: RoundStatusAlertsProps) {
+  const restrictionCopy = getVotingRestrictionCopy(
+    userVoteStatus?.eligibilityReason,
+  );
+
   return (
     <>
       {isSpectator ? (
@@ -41,17 +50,19 @@ export function RoundStatusAlerts({
       userVoteStatus &&
       !userVoteStatus.hasVoted &&
       !userVoteStatus.canVote &&
-      !isSpectator ? (
+      !isSpectator &&
+      restrictionCopy ? (
         <Alert className="mb-8 border-warning/50 bg-warning/10 text-warning">
           <Ban className="size-4" />
-          <AlertTitle className="font-bold">Voting Restricted</AlertTitle>
+          <AlertTitle className="font-bold">{restrictionCopy.title}</AlertTitle>
           <AlertDescription className="text-warning/80">
-            You must submit a song to a round to be eligible to vote.
+            {restrictionCopy.description}
           </AlertDescription>
         </Alert>
       ) : null}
 
       {roundStatus === "voting" &&
+      userVoteStatus?.canVote &&
       enforceListenPercentage &&
       songsLeftToListenCount > 0 ? (
         <Alert className="mb-8 border-info/50 bg-info/10 text-info">

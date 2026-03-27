@@ -10,6 +10,7 @@ import { dynamicImport } from "@/components/ui/dynamic-import";
 import { useMemo, useCallback } from "react";
 import { getSortedRoundSubmissions } from "@/lib/rounds/submission-order";
 import { getRoundSubmitterSummary } from "@/lib/rounds/submitter-summary";
+import { getVotingParticipationSummary } from "@/lib/rounds/voting-participation";
 import { extractYouTubeVideoId } from "@/lib/youtube";
 import { useRoundYouTubePlaylist } from "@/hooks/useRoundYouTubePlaylist";
 import { useRoundVoting } from "@/hooks/useRoundVoting";
@@ -332,31 +333,14 @@ export function RoundDetail({
   );
 
   const votingSummary = useMemo(() => {
-    const finalizedVoters =
-      voters?.map((voter) => ({
-        _id: voter._id.toString(),
-        name: voter.name ?? null,
-        image: voter.image ?? null,
-      })) ?? [];
-
-    const finalizedVoterIds = new Set(
-      finalizedVoters.map((voter) => voter._id ?? ""),
-    );
-
-    const missingVoters =
-      (league.members ?? [])
-        .filter((member) => !finalizedVoterIds.has(member._id.toString()))
-        .map((member) => ({
-          _id: member._id.toString(),
-          name: member.name ?? null,
-          image: member.image ?? null,
-        })) ?? [];
-
-    return {
-      finalizedVoters,
-      missingVoters,
-    };
-  }, [league.members, voters]);
+    return getVotingParticipationSummary({
+      members: league.members ?? [],
+      submissions,
+      finalizedVoterIds:
+        voters?.map((voter) => voter._id.toString()) ?? [],
+      submissionDeadline: round.submissionDeadline,
+    });
+  }, [league.members, round.submissionDeadline, submissions, voters]);
 
   const participationGroups = useMemo(() => {
     if (round.status === "submissions" && !league.isSpectator) {
@@ -381,16 +365,32 @@ export function RoundDetail({
     }
 
     if (round.status === "voting") {
-      return [
+      const groups = [
         {
           label: "Voted",
           users: votingSummary.finalizedVoters,
         },
         {
-          label: "Not voted",
-          users: votingSummary.missingVoters,
+          label: "Still voting",
+          users: votingSummary.pendingVoters,
         },
       ];
+
+      if (votingSummary.listeningOnlyMembers.length > 0) {
+        groups.push({
+          label: "Listening only",
+          users: votingSummary.listeningOnlyMembers,
+        });
+      }
+
+      if (votingSummary.lateJoiners.length > 0) {
+        groups.push({
+          label: "Joined late",
+          users: votingSummary.lateJoiners,
+        });
+      }
+
+      return groups;
     }
 
     return undefined;
@@ -400,7 +400,9 @@ export function RoundDetail({
     missingSubmitters,
     round.status,
     votingSummary.finalizedVoters,
-    votingSummary.missingVoters,
+    votingSummary.lateJoiners,
+    votingSummary.listeningOnlyMembers,
+    votingSummary.pendingVoters,
   ]);
 
   const formatDuration = (totalSeconds: number) => {
@@ -416,6 +418,11 @@ export function RoundDetail({
     }
     return parts.join(" ");
   };
+
+  const shouldShowSubmissionPanel =
+    !league.isSpectator &&
+    round.status !== "scheduled" &&
+    (round.status === "submissions" || (mySubmissions?.length ?? 0) > 0);
 
   return (
     <section>
@@ -451,7 +458,7 @@ export function RoundDetail({
         }
       />
 
-      {!league.isSpectator && round.status !== "scheduled" && (
+      {shouldShowSubmissionPanel && (
         <div className="mt-8 mb-12">
           <SubmissionForm
             round={round}
@@ -474,6 +481,7 @@ export function RoundDetail({
                 ? {
                     hasVoted: true,
                     canVote: false,
+                    eligibilityReason: "spectator",
                     votes: [],
                     upvotesUsed: 0,
                     downvotesUsed: 0,

@@ -579,6 +579,7 @@ export const get = query({
           _id: v.id("users"),
           name: v.optional(v.string()),
           image: v.optional(v.string()),
+          joinDate: v.optional(v.number()),
         }),
       ),
       spectators: v.array(
@@ -586,6 +587,7 @@ export const get = query({
           _id: v.id("users"),
           name: v.optional(v.string()),
           image: v.optional(v.string()),
+          joinDate: v.optional(v.number()),
         }),
       ),
       activeMemberCount: v.number(),
@@ -677,12 +679,14 @@ export const getInviteInfo = query({
         v.object({
           name: v.optional(v.string()),
           image: v.optional(v.string()),
+          joinDate: v.optional(v.number()),
         }),
       ),
       spectators: v.array(
         v.object({
           name: v.optional(v.string()),
           image: v.optional(v.string()),
+          joinDate: v.optional(v.number()),
         }),
       ),
     }),
@@ -718,10 +722,12 @@ export const getInviteInfo = query({
       members: members.map((member) => ({
         name: member.name,
         image: member.image,
+        joinDate: member.joinDate,
       })),
       spectators: spectators.map((spectator) => ({
         name: spectator.name,
         image: spectator.image,
+        joinDate: spectator.joinDate,
       })),
     };
   },

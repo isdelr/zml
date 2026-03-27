@@ -28,6 +28,9 @@ export function RoundParticipationSummary({
         <div key={group.label} className="flex items-center gap-3">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             {group.label}
+            <span className="ml-1 text-[10px] tracking-[0.08em]">
+              ({group.users.length})
+            </span>
           </span>
           {group.users.length > 0 ? (
             <AvatarStack users={group.users} />
