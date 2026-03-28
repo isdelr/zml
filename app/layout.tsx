@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import localFont from "next/font/local";
 import { Suspense } from "react";
 import "./globals.css";
 import { ThemeProvider } from "./ThemeProvider";
-import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { NotificationProvider } from "@/components/providers/NotificationProvider";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
@@ -26,32 +24,6 @@ const ObservabilityProvider = dynamic(() =>
     default: mod.ObservabilityProvider,
   })),
 );
-
-const geistSans = localFont({
-  src: "./fonts/geist/GeistSans-Variable.woff2",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-  display: "swap",
-});
-
-const geistMono = localFont({
-  src: "./fonts/geist/GeistMono-Variable.woff2",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-  display: "swap",
-  adjustFontFallback: false,
-  fallback: [
-    "ui-monospace",
-    "SFMono-Regular",
-    "Roboto Mono",
-    "Menlo",
-    "Monaco",
-    "Liberation Mono",
-    "DejaVu Sans Mono",
-    "Courier New",
-    "monospace",
-  ],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://zml.app"),
@@ -112,13 +84,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={cn(
-          geistSans.variable,
-          geistMono.variable,
-          "antialiased overflow-x-hidden",
-        )}
-      >
+      <body className="antialiased overflow-x-hidden">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
