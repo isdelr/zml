@@ -1,37 +1,11 @@
 import type { GenericCtx } from "@convex-dev/better-auth/utils";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth";
-import type { OAuth2Tokens } from "better-auth";
 import type { HttpRouter } from "convex/server";
 import type { DataModel } from "./_generated/dataModel";
 import authConfig from "./auth.config";
-import { getAllowedDiscordServerIdsFromEnv } from "../lib/discord/server-access";
 import { authComponent, getAuthUserId } from "./authCore";
-
-type DiscordProfile = {
-  id: string;
-  username: string;
-  global_name: string | null;
-  email: string | null;
-  verified: boolean;
-  avatar: string | null;
-  discriminator: string;
-};
-
-type DiscordGuild = {
-  id: string;
-};
-
-type DiscordUserInfoResult = {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    image: string;
-    emailVerified: boolean;
-  };
-  data: DiscordProfile;
-};
+import { getDiscordUserInfo } from "../lib/auth/discord-user-info";
 
 const getConvexSiteUrl = () => {
   const siteUrl = process.env.CONVEX_SITE_URL;
@@ -53,80 +27,11 @@ const getAuthSecret = () => {
   );
 };
 
-const resolveDiscordAvatarUrl = (profile: DiscordProfile) => {
-  if (profile.avatar === null) {
-    const defaultAvatarNumber =
-      profile.discriminator === "0"
-        ? Number(BigInt(profile.id) >> BigInt(22)) % 6
-        : Number.parseInt(profile.discriminator, 10) % 5;
-    return `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNumber}.png`;
-  }
-  const format = profile.avatar.startsWith("a_") ? "gif" : "png";
-  return `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.${format}`;
-};
-
-const assertDiscordGuildMembership = async (accessToken: string) => {
-  const requiredServerIds = getAllowedDiscordServerIdsFromEnv();
-  if (requiredServerIds.length === 0) {
-    throw new Error("DISCORD_SERVER_ID is required and must include at least one server.");
-  }
-
-  const guildsResponse = await fetch("https://discord.com/api/users/@me/guilds", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!guildsResponse.ok) {
-    throw new Error(
-      `Failed to fetch Discord guild membership (${guildsResponse.status}).`,
-    );
-  }
-
-  const guilds = (await guildsResponse.json()) as DiscordGuild[];
-  const isMember = guilds.some((guild) =>
-    requiredServerIds.includes(guild.id),
-  );
-  if (!isMember) {
-    throw new Error(
-      "You must be a member of the required Discord server to sign in.",
-    );
-  }
-};
-
-const getDiscordUserInfo = async (token: OAuth2Tokens) => {
-  try {
-    if (!token.accessToken) {
-      throw new Error("Discord OAuth response did not include an access token.");
-    }
-
-    await assertDiscordGuildMembership(token.accessToken);
-
-    const profileResponse = await fetch("https://discord.com/api/users/@me", {
-      headers: { Authorization: `Bearer ${token.accessToken}` },
-    });
-    if (!profileResponse.ok) {
-      throw new Error(`Failed to fetch Discord profile (${profileResponse.status}).`);
-    }
-
-    const profile = (await profileResponse.json()) as DiscordProfile;
-    if (!profile.email) {
-      throw new Error("Discord account must have a verified email to sign in.");
-    }
-
-    return {
-      user: {
-        id: profile.id,
-        name: profile.global_name ?? profile.username,
-        email: profile.email,
-        image: resolveDiscordAvatarUrl(profile),
-        emailVerified: Boolean(profile.verified),
-      },
-      data: profile,
-    } satisfies DiscordUserInfoResult;
-  } catch (error) {
-    console.error("[Auth][Discord] Failed to resolve user info during OAuth callback.", error);
-    // Returning null lets Better Auth redirect with an OAuth error instead of returning HTTP 500.
-    return null;
-  }
-};
+const getAuthRateLimitConfig = () => ({
+  enabled: process.env.NODE_ENV === "production",
+  window: 60,
+  max: 20,
+});
 
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 
@@ -143,6 +48,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
     account: {
       updateAccountOnSignIn: true,
     },
+    rateLimit: getAuthRateLimitConfig(),
     database: authComponent.adapter(ctx),
     socialProviders: {
       discord: {

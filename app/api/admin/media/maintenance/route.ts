@@ -6,15 +6,10 @@ import { firstNonEmpty } from "@/lib/env";
 import { toErrorMessage } from "@/lib/errors";
 
 const storage = new B2Storage();
-const convex = new ConvexHttpClient(
-  firstNonEmpty(
-    process.env.CONVEX_SELF_HOSTED_URL,
-    process.env.NEXT_PUBLIC_CONVEX_URL,
-  )!,
-);
-const adminConvex = convex as ConvexHttpClient & {
-  setAdminAuth(token: string): void;
-};
+const convexUrl = firstNonEmpty(
+  process.env.CONVEX_SELF_HOSTED_URL,
+  process.env.NEXT_PUBLIC_CONVEX_URL,
+)!;
 
 const getStorageReferenceSnapshotRef = makeFunctionReference<
   "query",
@@ -103,8 +98,19 @@ async function listBucketKeys(
 }
 
 async function getReferenceSnapshot() {
-  adminConvex.setAdminAuth(process.env.CONVEX_SELF_HOSTED_ADMIN_KEY!);
+  const convex = new ConvexHttpClient(convexUrl) as ConvexHttpClient & {
+    setAdminAuth(token: string): void;
+  };
+  convex.setAdminAuth(process.env.CONVEX_SELF_HOSTED_ADMIN_KEY!);
   return convex.query(getStorageReferenceSnapshotRef, {});
+}
+
+function createAdminConvexClient() {
+  const convex = new ConvexHttpClient(convexUrl) as ConvexHttpClient & {
+    setAdminAuth(token: string): void;
+  };
+  convex.setAdminAuth(process.env.CONVEX_SELF_HOSTED_ADMIN_KEY!);
+  return convex;
 }
 
 export const runtime = "nodejs";
@@ -135,7 +141,7 @@ export async function POST(request: Request) {
 
   try {
     if (action === "cleanup-stale-uploads") {
-      adminConvex.setAdminAuth(process.env.CONVEX_SELF_HOSTED_ADMIN_KEY!);
+      const convex = createAdminConvexClient();
       const result = await convex.action(cleanupStaleStorageUploadsRef, {
         ...(typeof maxAgeMs === "number" ? { maxAgeMs } : {}),
         limit,
@@ -144,7 +150,7 @@ export async function POST(request: Request) {
     }
 
     if (action === "reconcile") {
-      adminConvex.setAdminAuth(process.env.CONVEX_SELF_HOSTED_ADMIN_KEY!);
+      const convex = createAdminConvexClient();
       const staleCleanup = await convex.action(cleanupStaleStorageUploadsRef, {
         ...(typeof maxAgeMs === "number" ? { maxAgeMs } : {}),
         limit,
@@ -199,7 +205,7 @@ export async function POST(request: Request) {
       deletedCount += 1;
     }
 
-    adminConvex.setAdminAuth(process.env.CONVEX_SELF_HOSTED_ADMIN_KEY!);
+    const convex = createAdminConvexClient();
     await convex.mutation(markStorageUploadsDeletedRef, {
       keys: keysToDelete,
     });

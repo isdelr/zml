@@ -16,9 +16,29 @@ import { generateWaveformJsonFromAudioFile } from "@/lib/submission/server-wavef
 
 const storage = new B2Storage();
 
-type MigrationPayload = {
+type ProcessSubmissionAudioPayload = {
   songFileKey?: string;
 };
+
+function requireSubmissionProcessingSecret(request: Request) {
+  const expected = process.env.SUBMISSION_PROCESSING_SECRET;
+  if (!expected) {
+    return NextResponse.json(
+      { error: "SUBMISSION_PROCESSING_SECRET is not configured." },
+      { status: 500 },
+    );
+  }
+
+  const authHeader = request.headers.get("authorization");
+  const provided =
+    authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+
+  if (!provided || provided !== expected) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  return null;
+}
 
 async function writeBodyToDisk(body: unknown, filePath: string) {
   if (!body) {
@@ -37,13 +57,18 @@ async function writeBodyToDisk(body: unknown, filePath: string) {
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  let payload: MigrationPayload;
+  const authError = requireSubmissionProcessingSecret(request);
+  if (authError) {
+    return authError;
+  }
+
+  let payload: ProcessSubmissionAudioPayload;
   try {
-    payload = (await request.json()) as MigrationPayload;
+    payload = (await request.json()) as ProcessSubmissionAudioPayload;
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Invalid migration payload.",
+        error: "Invalid audio-processing payload.",
         message: toErrorMessage(error),
       },
       { status: 400 },
@@ -86,7 +111,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Failed to migrate song file.",
+        error: "Failed to process submission audio.",
         message: toErrorMessage(error),
       },
       { status: 500 },

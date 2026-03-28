@@ -26,31 +26,4 @@ export const backfillSubmissionsAggregate = migrations.define({
   },
 });
 
-export const migrateExistingCommentsToAnonymous = migrations.define({
-  table: "comments",
-  migrateOne: async (ctx, doc) => {
-    if (doc.isAnonymous === true && doc.revealOnRoundFinished === false) {
-      return;
-    }
-
-    await ctx.db.patch(doc._id, {
-      isAnonymous: true,
-      revealOnRoundFinished: false,
-    });
-  },
-});
-
-export const backfillAnonymousCommentIdentityReveal = migrations.define({
-  table: "comments",
-  migrateOne: async (ctx, doc) => {
-    if (doc.isAnonymous !== true || doc.revealOnRoundFinished !== false) {
-      return;
-    }
-
-    await ctx.db.patch(doc._id, {
-      revealOnRoundFinished: true,
-    });
-  },
-});
-
 export const run = migrations.runner();

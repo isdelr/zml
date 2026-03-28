@@ -1,11 +1,13 @@
 import { createWriteStream, promises as fs } from "node:fs";
 import { pipeline } from "node:stream/promises";
+import { getToken } from "@convex-dev/better-auth/utils";
 import { ConvexHttpClient } from "convex/browser";
 import { NextResponse } from "next/server";
 import { Id } from "@/convex/_generated/dataModel";
 import { B2Storage } from "@/convex/b2Storage";
 import { api } from "@/lib/convex/api";
 import { toErrorMessage } from "@/lib/errors";
+import { firstNonEmpty } from "@/lib/env";
 import { verifyMediaAccessToken } from "@/lib/media/delivery";
 import {
   buildTempAudioPath,
@@ -14,18 +16,49 @@ import { generateWaveformJsonFromAudioFile } from "@/lib/submission/server-wavef
 import { storageBodyToNodeReadable } from "@/lib/storage/object-body";
 
 const storage = new B2Storage();
-const convex = new ConvexHttpClient(
-  (process.env.CONVEX_SELF_HOSTED_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL)!,
-);
+const convexUrl = firstNonEmpty(
+  process.env.CONVEX_SELF_HOSTED_URL,
+  process.env.NEXT_PUBLIC_CONVEX_URL,
+)!;
+const convexSiteUrl = firstNonEmpty(
+  process.env.CONVEX_SITE_URL,
+  process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
+  "http://localhost:3211",
+)!;
 
 type GenerateWaveformPayload = {
   submissionId?: string;
   mediaUrl?: string;
 };
 
+function createConvexClient() {
+  return new ConvexHttpClient(convexUrl);
+}
+
+function isValidWaveformJson(waveformJson: string | null | undefined) {
+  if (!waveformJson) {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(waveformJson);
+    return Boolean(parsed && typeof parsed === "object" && !Array.isArray(parsed));
+  } catch {
+    return false;
+  }
+}
+
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const { token } = await getToken(convexSiteUrl, request.headers);
+  if (!token) {
+    return NextResponse.json(
+      { error: "Authentication required." },
+      { status: 401 },
+    );
+  }
+
   let payload: GenerateWaveformPayload;
   try {
     payload = (await request.json()) as GenerateWaveformPayload;
@@ -43,6 +76,27 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Missing required fields: submissionId and mediaUrl." },
       { status: 400 },
+    );
+  }
+
+  const convex = createConvexClient();
+  convex.setAuth(token);
+
+  try {
+    const cachedWaveform = await convex.query(api.submissions.getWaveform, {
+      submissionId: payload.submissionId as Id<"submissions">,
+    });
+    const waveformJson = cachedWaveform?.waveform;
+    if (isValidWaveformJson(waveformJson)) {
+      return NextResponse.json({ waveformJson });
+    }
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "You are not allowed to generate a waveform for this submission.",
+        message: toErrorMessage(error),
+      },
+      { status: 403 },
     );
   }
 

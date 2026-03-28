@@ -47,11 +47,11 @@ const TROLL_SUBMISSION_BAN_THRESHOLD = 2;
 const TROLL_SUBMISSION_POINTS_PENALTY = 10;
 const EXACT_DUPLICATE_MATCH_LIMIT = 50;
 const FUZZY_DUPLICATE_MATCH_LIMIT = 30;
-const DEFAULT_AUDIO_MIGRATION_BATCH_SIZE = 25;
-const MAX_AUDIO_MIGRATION_BATCH_SIZE = 100;
 const DEFAULT_PENDING_AUDIO_PROCESSING_BATCH_SIZE = 10;
 const MAX_PENDING_AUDIO_PROCESSING_BATCH_SIZE = 25;
 const SUBMISSION_AUDIO_PROCESSING_STALE_MS = 15 * 60 * 1000;
+const INTERNAL_SUBMISSION_AUDIO_ROUTE =
+  "/api/internal/submissions/process-audio";
 const purgeSubmissionMediaCacheRef = makeFunctionReference<
   "action",
   { submissionId: Id<"submissions"> }
@@ -78,6 +78,22 @@ const getSubmissionMediaAccessStateRef = makeFunctionReference<
     viewerUserId: Id<"users"> | null;
   }
 >;
+const storeWaveformInternalRef = makeFunctionReference<
+  "mutation",
+  {
+    submissionId: Id<"submissions">;
+    waveformJson?: string;
+  }
+>(
+  "submissions:storeWaveformInternal",
+) as unknown as FunctionReference<
+  "mutation",
+  "internal",
+  {
+    submissionId: Id<"submissions">;
+    waveformJson?: string;
+  }
+>;
 
 export const submissionFileProcessingStatusValues = [
   "queued",
@@ -89,28 +105,6 @@ export const submissionFileProcessingStatusValues = [
 type SubmissionFileProcessingStatus =
   (typeof submissionFileProcessingStatusValues)[number];
 
-type AudioMigrationCandidate = {
-  submissionId: Id<"submissions">;
-  songFileKey: string;
-};
-
-type AudioMigrationResultItem = {
-  submissionId: Id<"submissions">;
-  key: string;
-};
-
-type AudioMigrationFailureItem = {
-  submissionId: Id<"submissions">;
-  error: string;
-};
-
-type AudioMigrationRunResult = {
-  processed: number;
-  migrated: AudioMigrationResultItem[];
-  failed: AudioMigrationFailureItem[];
-  remaining: number;
-};
-
 type PendingSubmissionAudioCandidate = {
   submissionId: Id<"submissions">;
   originalSongFileKey: string;
@@ -119,6 +113,13 @@ type PendingSubmissionAudioCandidate = {
 type PendingSubmissionAudioQueueRunResult = {
   requeued: number;
   attempted: number;
+};
+
+type SubmissionAudioProcessingResult = {
+  key?: string;
+  waveformJson?: string;
+  error?: string;
+  message?: string;
 };
 
 function getSubmissionFileProcessingStatus(
@@ -147,6 +148,52 @@ async function scheduleSubmissionAudioProcessing(
       submissionId,
     },
   );
+}
+
+function getSubmissionProcessingSecret() {
+  const secret = process.env.SUBMISSION_PROCESSING_SECRET;
+  if (!secret) {
+    throw new Error(
+      "SUBMISSION_PROCESSING_SECRET is required for internal audio processing.",
+    );
+  }
+
+  return secret;
+}
+
+async function processSubmissionAudioFile(
+  siteUrl: string,
+  songFileKey: string,
+): Promise<SubmissionAudioProcessingResult & { key: string }> {
+  const response = await fetch(`${siteUrl}${INTERNAL_SUBMISSION_AUDIO_ROUTE}`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${getSubmissionProcessingSecret()}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ songFileKey }),
+  });
+  const responseText = await response.text();
+  let payload: SubmissionAudioProcessingResult;
+  try {
+    payload = JSON.parse(responseText) as SubmissionAudioProcessingResult;
+  } catch {
+    payload = {};
+  }
+
+  if (!response.ok || !payload.key) {
+    throw new Error(
+      payload.message ??
+        payload.error ??
+        (responseText ||
+          `Submission audio processing failed with status ${response.status}.`),
+    );
+  }
+
+  return {
+    ...payload,
+    key: payload.key,
+  };
 }
 
 async function scheduleSubmissionFileDeletion(
@@ -1249,6 +1296,31 @@ export const storeWaveform = mutation({
     waveformJson: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated.");
+    }
+
+    const submission = await ctx.db.get("submissions", args.submissionId);
+    if (!submission) {
+      throw new Error("Submission not found");
+    }
+
+    const { canView } = await canViewLeague(ctx, submission.leagueId, userId);
+    if (!canView) {
+      throw new Error("Not authorized to access this submission.");
+    }
+
+    await ctx.runMutation(storeWaveformInternalRef, args);
+  },
+});
+
+export const storeWaveformInternal = internalMutation({
+  args: {
+    submissionId: v.id("submissions"),
+    waveformJson: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     if (!args.waveformJson) {
       return;
     }
@@ -1276,8 +1348,22 @@ export const storeWaveform = mutation({
 export const getWaveform = query({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return null;
+    }
+
     const submission = await ctx.db.get("submissions", args.submissionId);
-    return submission ? { waveform: submission.waveform } : null;
+    if (!submission) {
+      return null;
+    }
+
+    const { canView } = await canViewLeague(ctx, submission.leagueId, userId);
+    if (!canView) {
+      return null;
+    }
+
+    return { waveform: submission.waveform };
   },
 });
 
@@ -1563,33 +1649,7 @@ export const processQueuedSubmissionAudio = internalAction({
     let convertedSongFileKey: string | null = null;
 
     try {
-      const response = await fetch(`${siteUrl}/api/submissions/migrate-song-file`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ songFileKey: sourceKey }),
-      });
-      const responseText = await response.text();
-      let payload: {
-        key?: string;
-        waveformJson?: string;
-        error?: string;
-        message?: string;
-      };
-      try {
-        payload = JSON.parse(responseText) as typeof payload;
-      } catch {
-        payload = {};
-      }
-      if (!response.ok || !payload.key) {
-        throw new Error(
-          payload.message ??
-            payload.error ??
-            (responseText ||
-              `Queued submission processing failed with status ${response.status}.`),
-        );
-      }
+      const payload = await processSubmissionAudioFile(siteUrl, sourceKey);
 
       convertedSongFileKey = payload.key;
       const completionResult = await ctx.runMutation(
@@ -1622,7 +1682,7 @@ export const processQueuedSubmissionAudio = internalAction({
 
       if (payload.waveformJson) {
         try {
-          await ctx.runMutation(api.submissions.storeWaveform, {
+          await ctx.runMutation(storeWaveformInternalRef, {
             submissionId: args.submissionId,
             waveformJson: payload.waveformJson,
           });
@@ -1729,62 +1789,6 @@ export const processPendingSubmissionAudioQueue = internalAction({
   },
 });
 
-export const listAudioMigrationCandidates = internalQuery({
-  args: { limit: v.number() },
-  handler: async (ctx, args) => {
-    const submissions = await ctx.db.query("submissions").collect();
-    return submissions
-      .filter(
-        (submission) =>
-          submission.submissionType === "file" &&
-          typeof submission.songFileKey === "string" &&
-          submission.songFileKey.endsWith(".opus"),
-      )
-      .slice(0, args.limit)
-      .map((submission) => ({
-        submissionId: submission._id,
-        songFileKey: submission.songFileKey!,
-      }));
-  },
-});
-
-export const countAudioMigrationCandidates = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const submissions = await ctx.db.query("submissions").collect();
-    return submissions.filter(
-      (submission) =>
-        submission.submissionType === "file" &&
-        typeof submission.songFileKey === "string" &&
-        submission.songFileKey.endsWith(".opus"),
-    ).length;
-  },
-});
-
-export const applyAudioMigration = internalMutation({
-  args: {
-    submissionId: v.id("submissions"),
-    newSongFileKey: v.string(),
-    oldSongFileKey: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const submission = await ctx.db.get("submissions", args.submissionId);
-    if (!submission || submission.submissionType !== "file") {
-      throw new Error("Submission is not a file upload.");
-    }
-    if (submission.songFileKey !== args.oldSongFileKey) {
-      throw new Error("Submission audio key changed during migration.");
-    }
-
-    await ctx.db.patch("submissions", args.submissionId, {
-      songFileKey: args.newSongFileKey,
-      songFileLegacyKey:
-        submission.songFileLegacyKey ?? args.oldSongFileKey,
-    });
-    await scheduleSubmissionMediaCachePurge(ctx, args.submissionId);
-  },
-});
-
 export const getPresignedSongUrl = action({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args): Promise<string | null> => {
@@ -1814,98 +1818,6 @@ export const getPresignedSongUrl = action({
       storageKey: mediaAccessState.songFileKey,
       scope: buildMediaScope(mediaAccessState.allowPublic, userId),
     });
-  },
-});
-
-export const migrateStoredSongsToAac = internalAction({
-  args: {
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args): Promise<AudioMigrationRunResult> => {
-    const siteUrl = firstNonEmpty(process.env.SITE_URL, "http://localhost:3000");
-    if (!siteUrl) {
-      throw new Error("SITE_URL is required for audio migration.");
-    }
-
-    const limit = Math.max(
-      1,
-      Math.min(
-        args.limit ?? DEFAULT_AUDIO_MIGRATION_BATCH_SIZE,
-        MAX_AUDIO_MIGRATION_BATCH_SIZE,
-      ),
-    );
-
-    const candidates: AudioMigrationCandidate[] = await ctx.runQuery(
-      internal.submissions.listAudioMigrationCandidates,
-      { limit },
-    );
-
-    const migrated: AudioMigrationResultItem[] = [];
-    const failed: AudioMigrationFailureItem[] = [];
-
-    for (const candidate of candidates) {
-      try {
-        const response = await fetch(
-          `${siteUrl}/api/submissions/migrate-song-file`,
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({ songFileKey: candidate.songFileKey }),
-          },
-        );
-        const responseText = await response.text();
-        let payload: {
-          key?: string;
-          waveformJson?: string;
-          error?: string;
-          message?: string;
-        };
-        try {
-          payload = JSON.parse(responseText) as typeof payload;
-        } catch {
-          payload = {};
-        }
-        if (!response.ok || !payload.key) {
-          throw new Error(
-            payload.message ??
-              payload.error ??
-              (responseText ||
-                `Migration route failed with status ${response.status}.`),
-          );
-        }
-
-        await ctx.runMutation(internal.submissions.applyAudioMigration, {
-          submissionId: candidate.submissionId,
-          newSongFileKey: payload.key,
-          oldSongFileKey: candidate.songFileKey,
-        });
-        if (payload.waveformJson) {
-          await ctx.runMutation(api.submissions.storeWaveform, {
-            submissionId: candidate.submissionId,
-            waveformJson: payload.waveformJson,
-          });
-        }
-        migrated.push({ submissionId: candidate.submissionId, key: payload.key });
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unknown migration error.";
-        failed.push({ submissionId: candidate.submissionId, error: message });
-      }
-    }
-
-    const remaining: number = await ctx.runQuery(
-      internal.submissions.countAudioMigrationCandidates,
-      {},
-    );
-
-    return {
-      processed: candidates.length,
-      migrated,
-      failed,
-      remaining,
-    };
   },
 });
 
