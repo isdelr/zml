@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useId, useRef } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FileAudio, ImagePlus, Music, X } from "lucide-react";
 import { toast } from "sonner";
@@ -40,6 +41,15 @@ export function SongManualTab({
   albumArtPreview,
   setAlbumArtPreview,
 }: SongManualTabProps) {
+  const albumArtInputId = useId();
+  const albumArtInputRef = useRef<HTMLInputElement>(null);
+
+  const revokePreviewUrl = (previewUrl: string) => {
+    if (previewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(previewUrl);
+    }
+  };
+
   return (
     <TabsContent value="manual" className="mt-6">
       <div className="space-y-6">
@@ -93,63 +103,96 @@ export function SongManualTab({
               return (
                 <FormItem>
                   <FormLabel>Album Art</FormLabel>
-                  {albumArtPreview ? (
-                    <div className="relative">
-                      <Image
-                        src={albumArtPreview}
-                        alt="Album art preview"
-                        width={192}
-                        height={192}
-                        className="aspect-square w-48 rounded-md object-cover"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute -right-2 -top-2 z-10 size-6 rounded-full"
-                        onClick={() => {
-                          form.setValue("albumArtFile", undefined);
-                          URL.revokeObjectURL(albumArtPreview);
-                          setAlbumArtPreview("");
-                        }}
-                      >
-                        <X className="size-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <FormControl>
-                      <label className="flex h-48 w-48 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary">
-                        <ImagePlus className="size-8" />
-                        <span className="text-sm font-medium">
-                          Click to upload image
-                        </span>
-                        <Input
-                          type="file"
-                          style={{ top: 0, left: 0 }}
-                          className="sr-only"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              if (file.size > MAX_IMAGE_SIZE_BYTES) {
-                                toast.error(
-                                  `Image is too large. Max size: ${MAX_IMAGE_SIZE_MB}MB.`,
-                                );
-                                return;
-                              }
-                              onChange(file);
-                              const newPreviewUrl = URL.createObjectURL(file);
-                              if (albumArtPreview) {
-                                URL.revokeObjectURL(albumArtPreview);
-                              }
-                              setAlbumArtPreview(newPreviewUrl);
+                  <FormControl>
+                    <div className="space-y-3">
+                      <Input
+                        id={albumArtInputId}
+                        ref={albumArtInputRef}
+                        type="file"
+                        style={{ top: 0, left: 0 }}
+                        className="sr-only"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > MAX_IMAGE_SIZE_BYTES) {
+                              toast.error(
+                                `Image is too large. Max size: ${MAX_IMAGE_SIZE_MB}MB.`,
+                              );
+                              e.target.value = "";
+                              return;
                             }
-                          }}
-                          {...rest}
-                        />
-                      </label>
-                    </FormControl>
-                  )}
+                            onChange(file);
+                            const newPreviewUrl = URL.createObjectURL(file);
+                            if (albumArtPreview) {
+                              revokePreviewUrl(albumArtPreview);
+                            }
+                            setAlbumArtPreview(newPreviewUrl);
+                          }
+                        }}
+                        {...rest}
+                      />
+
+                      {albumArtPreview ? (
+                        <>
+                          <div className="relative w-fit">
+                            <label
+                              htmlFor={albumArtInputId}
+                              className="block cursor-pointer"
+                            >
+                              <Image
+                                src={albumArtPreview}
+                                alt="Album art preview"
+                                width={192}
+                                height={192}
+                                className="aspect-square w-48 rounded-md object-cover"
+                              />
+                              <div className="absolute inset-0 flex items-end rounded-md bg-black/45 p-3 text-sm font-medium text-white opacity-0 transition-opacity hover:opacity-100">
+                                Change image
+                              </div>
+                            </label>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -right-2 -top-2 z-10 size-6 rounded-full"
+                              onClick={() => {
+                                form.setValue("albumArtFile", undefined, {
+                                  shouldValidate: true,
+                                });
+                                revokePreviewUrl(albumArtPreview);
+                                setAlbumArtPreview("");
+                                if (albumArtInputRef.current) {
+                                  albumArtInputRef.current.value = "";
+                                }
+                              }}
+                            >
+                              <X className="size-4" />
+                            </Button>
+                          </div>
+
+                          <Button type="button" variant="outline" asChild>
+                            <label
+                              htmlFor={albumArtInputId}
+                              className="cursor-pointer"
+                            >
+                              Change image
+                            </label>
+                          </Button>
+                        </>
+                      ) : (
+                        <label
+                          htmlFor={albumArtInputId}
+                          className="flex h-48 w-48 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary"
+                        >
+                          <ImagePlus className="size-8" />
+                          <span className="text-sm font-medium">
+                            Click to upload image
+                          </span>
+                        </label>
+                      )}
+                    </div>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               );
