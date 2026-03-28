@@ -35,6 +35,17 @@ export function useAudioPlaybackSync({
   refreshAudioUrl: (silent?: boolean) => Promise<void>;
   handleAudioError: () => Promise<void>;
 } {
+  const getComparableUrl = useCallback((url: string | null) => {
+    if (!url || typeof window === "undefined") {
+      return url;
+    }
+
+    try {
+      return new URL(url, window.location.href).href;
+    } catch {
+      return url;
+    }
+  }, []);
   const lastOpenedTrackIdRef = useRef<string | null>(null);
   const prevTrackIdRef = useRef<string | null>(null);
   const pendingSeekTimeRef = useRef<number | null>(null);
@@ -159,7 +170,10 @@ export function useAudioPlaybackSync({
     let loadedMetadataHandler: (() => void) | null = null;
 
     const handlePlayback = async () => {
-      if (effectiveSongUrl && audioElement.src !== effectiveSongUrl) {
+      if (
+        effectiveSongUrl &&
+        getComparableUrl(audioElement.src) !== getComparableUrl(effectiveSongUrl)
+      ) {
         const isRefresh = sameTrack;
         try {
           audioElement.src = effectiveSongUrl;
@@ -206,6 +220,7 @@ export function useAudioPlaybackSync({
     audioRef,
     currentTrack,
     effectiveSongUrl,
+    getComparableUrl,
     isExternalLink,
     isPlaying,
     setIsPlaying,

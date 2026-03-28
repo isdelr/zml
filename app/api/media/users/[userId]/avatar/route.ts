@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { serveMediaStorageAsset } from "@/lib/media/serve-submission-media";
+import { getPublicUserAvatarKey } from "@/lib/media/public-media";
+import { serveMediaStorageKey } from "@/lib/media/serve-submission-media";
 
 export const runtime = "nodejs";
 
@@ -8,8 +9,13 @@ export async function GET(
   context: { params: Promise<{ userId: string }> },
 ) {
   const { userId } = await context.params;
-  return serveMediaStorageAsset(request, {
-    tokenSubjectId: `avatar:${userId}`,
+  const storageKey = await getPublicUserAvatarKey(userId);
+  if (!storageKey) {
+    return new Response("Not found", { status: 404 });
+  }
+
+  return serveMediaStorageKey(request, {
+    storageKey,
     resourceId: `avatar-${userId}`,
     assetKind: "art",
   });
@@ -20,8 +26,13 @@ export async function HEAD(
   context: { params: Promise<{ userId: string }> },
 ) {
   const { userId } = await context.params;
-  return serveMediaStorageAsset(request, {
-    tokenSubjectId: `avatar:${userId}`,
+  const storageKey = await getPublicUserAvatarKey(userId);
+  if (!storageKey) {
+    return new Response(null, { status: 404 });
+  }
+
+  return serveMediaStorageKey(request, {
+    storageKey,
     resourceId: `avatar-${userId}`,
     assetKind: "art",
   });

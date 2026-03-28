@@ -214,6 +214,10 @@ export async function buildSubmissionMediaUrl(input: {
   storageKey: string;
   scope: MediaAccessScope;
 }): Promise<string> {
+  if (input.assetKind === "art") {
+    return buildSubmissionMediaPath(input.submissionId, input.assetKind);
+  }
+
   return buildTokenizedMediaUrl({
     tokenSubjectId: input.submissionId,
     path: buildSubmissionMediaPath(input.submissionId, input.assetKind),
@@ -228,26 +232,14 @@ export async function buildRoundImageMediaUrl(input: {
   storageKey: string;
   scope: MediaAccessScope;
 }): Promise<string> {
-  return buildTokenizedMediaUrl({
-    tokenSubjectId: `round:${input.roundId}`,
-    path: buildRoundImageMediaPath(input.roundId),
-    assetKind: "art",
-    storageKey: input.storageKey,
-    scope: input.scope,
-  });
+  return buildRoundImageMediaPath(input.roundId);
 }
 
 export async function buildUserAvatarMediaUrl(input: {
   userId: string;
   storageKey: string;
 }): Promise<string> {
-  return buildTokenizedMediaUrl({
-    tokenSubjectId: `avatar:${input.userId}`,
-    path: buildUserAvatarMediaPath(input.userId),
-    assetKind: "art",
-    storageKey: input.storageKey,
-    scope: { type: "public" },
-  });
+  return buildUserAvatarMediaPath(input.userId);
 }
 
 async function buildTokenizedMediaUrl(input: {

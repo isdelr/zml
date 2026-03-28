@@ -198,6 +198,15 @@ export const getRoundMetadata = query({
   },
 });
 
+export const getPublicImageKey = query({
+  args: { roundId: v.id("rounds") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const round = await ctx.db.get("rounds", args.roundId);
+    return round?.imageKey ?? null;
+  },
+});
+
 export const getForLeague = query({
   args: {
     leagueId: v.id("leagues"),

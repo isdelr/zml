@@ -1,10 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { useAction } from "convex/react";
-import { api } from "@/lib/convex/api";
 import { Song } from "@/types";
 import { buildTrackMetadataText } from "@/lib/music/submission-display";
-import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -35,67 +31,7 @@ export function PlayerTrackInfo({
   onToggleContextView,
   isContextViewOpen,
 }: PlayerTrackInfoProps) {
-  const getPresignedAlbumArtUrl = useAction(
-    api.submissions.getPresignedAlbumArtUrl
-  );
-
-  const [effectiveUrl, setEffectiveUrl] = useState<string | null>(
-    currentTrack?.albumArtUrl ?? null
-  );
-  const refreshTimeoutRef = useRef<number | null>(null);
-
-  const scheduleRefresh = (url?: string | null) => {
-    if (refreshTimeoutRef.current) {
-      window.clearTimeout(refreshTimeoutRef.current);
-      refreshTimeoutRef.current = null;
-    }
-    if (!currentTrack || currentTrack.submissionType !== "file") return;
-    const expiry = parsePresignedUrlExpiry(url);
-    const SAFETY_MS = 60_000;
-    let delay: number;
-    if (expiry) {
-      delay = Math.max(0, expiry - SAFETY_MS - Date.now());
-    } else {
-      // Fallback periodic refresh every 30 minutes for file submissions
-      delay = 30 * 60 * 1000;
-    }
-    refreshTimeoutRef.current = window.setTimeout(async () => {
-      try {
-        const newUrl = await getPresignedAlbumArtUrl({
-          submissionId: currentTrack._id,
-        });
-        if (newUrl) {
-          // Prefetch to avoid flicker
-          const img = new window.Image();
-          img.onload = () => {
-            setEffectiveUrl(newUrl);
-            scheduleRefresh(newUrl);
-          };
-          img.src = newUrl;
-        } else {
-          // stop scheduling if cannot refresh
-        }
-      } catch {
-        // silent
-      }
-    }, delay);
-  };
-
-  useEffect(() => {
-    setEffectiveUrl(currentTrack?.albumArtUrl ?? null);
-    scheduleRefresh(currentTrack?.albumArtUrl ?? null);
-    return () => {
-      if (refreshTimeoutRef.current) {
-        window.clearTimeout(refreshTimeoutRef.current);
-        refreshTimeoutRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTrack?._id]);
-
-  if (!currentTrack) return null;
-
-  const src = effectiveUrl ?? currentTrack.albumArtUrl;
+  const src = currentTrack.albumArtUrl;
   const metadataText = buildTrackMetadataText(
     currentTrack.artist,
     currentTrack.albumName,

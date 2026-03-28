@@ -1308,6 +1308,23 @@ export const getWaveform = query({
   },
 });
 
+export const getPublicAlbumArtKey = query({
+  args: { submissionId: v.id("submissions") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const submission = await ctx.db.get("submissions", args.submissionId);
+    if (
+      !submission ||
+      submission.submissionType !== "file" ||
+      !submission.albumArtKey
+    ) {
+      return null;
+    }
+
+    return submission.albumArtKey;
+  },
+});
+
 export const getSubmissionById = internalQuery({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args) => {

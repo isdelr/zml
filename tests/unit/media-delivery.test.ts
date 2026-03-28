@@ -62,8 +62,6 @@ describe("media delivery helpers", () => {
   });
 
   it("builds a relative media URL when no delivery base URL is configured", async () => {
-    process.env.MEDIA_ACCESS_SECRET = "test-media-secret";
-
     const url = await buildSubmissionMediaUrl({
       submissionId: "submission-123",
       assetKind: "art",
@@ -73,6 +71,21 @@ describe("media delivery helpers", () => {
 
     const parsed = new URL(url, "http://localhost");
     expect(parsed.pathname).toBe("/api/media/submissions/submission-123/art");
+    expect(parsed.search).toBe("");
+  });
+
+  it("keeps audio URLs tokenized", async () => {
+    process.env.MEDIA_ACCESS_SECRET = "test-media-secret";
+
+    const url = await buildSubmissionMediaUrl({
+      submissionId: "submission-123",
+      assetKind: "audio",
+      storageKey: "submissions/audio/test.mp3",
+      scope: { type: "public" },
+    });
+
+    const parsed = new URL(url, "http://localhost");
+    expect(parsed.pathname).toBe("/api/media/submissions/submission-123/audio");
     expect(parsed.searchParams.get("mediaToken")).toBeTruthy();
     expect(parsed.searchParams.get("mediaExpires")).toBeTruthy();
   });

@@ -7,7 +7,7 @@ import {
 import { getAuthUserId } from "./authCore";
 import { membershipsByUser, submissionsByUser } from "./aggregates";
 import { B2Storage } from "./b2Storage";
-import { resolveUserAvatarUrl } from "./userAvatar";
+import { isAvatarObjectKey, resolveUserAvatarUrl } from "./userAvatar";
 
 const storage = new B2Storage();
 
@@ -141,6 +141,19 @@ export const getProfile = query({
       },
       leagues: filteredLeaguesData,
     };
+  },
+});
+
+export const getPublicAvatarKey = query({
+  args: { userId: v.id("users") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get("users", args.userId);
+    if (!user || !isAvatarObjectKey(user.image)) {
+      return null;
+    }
+
+    return user.image;
   },
 });
 

@@ -33,14 +33,6 @@ describe("serveMediaStorageAsset", () => {
   });
 
   it("keeps public inline artwork cacheable", async () => {
-    verifyMediaAccessTokenMock.mockResolvedValue({
-      v: 1,
-      submissionId: "submission-1",
-      assetKind: "art",
-      storageKey: "submissions/art/test.webp",
-      scope: "public",
-      expiresAt: Date.now() + 60_000,
-    });
     headObjectMock.mockResolvedValue({
       ContentType: "image/webp",
       ContentLength: 123,
@@ -49,16 +41,16 @@ describe("serveMediaStorageAsset", () => {
       $metadata: { httpStatusCode: 200 },
     });
 
-    const { serveMediaStorageAsset } = await import(
+    const { serveMediaStorageKey } = await import(
       "@/lib/media/serve-submission-media"
     );
-    const response = await serveMediaStorageAsset(
+    const response = await serveMediaStorageKey(
       new NextRequest(
-        "http://localhost/api/media/submissions/submission-1/art?mediaToken=test",
+        "http://localhost/api/media/submissions/submission-1/art",
         { method: "HEAD" },
       ),
       {
-        tokenSubjectId: "submission-1",
+        storageKey: "submissions/art/test.webp",
         resourceId: "submission-1",
         assetKind: "art",
       },
@@ -123,41 +115,36 @@ describe("serveMediaStorageAsset", () => {
     expect(response.headers.get("Vary")).toBe("Range");
   });
 
-  it("marks user-scoped artwork as no-store", async () => {
-    verifyMediaAccessTokenMock.mockResolvedValue({
-      v: 1,
-      submissionId: "submission-1",
-      assetKind: "art",
-      storageKey: "submissions/art/private.webp",
-      scope: "user",
-      userId: "user-1",
-      expiresAt: Date.now() + 60_000,
-    });
+  it("keeps inline artwork cacheable without a media token", async () => {
     headObjectMock.mockResolvedValue({
       ContentType: "image/webp",
       ContentLength: 123,
       $metadata: { httpStatusCode: 200 },
     });
 
-    const { serveMediaStorageAsset } = await import(
+    const { serveMediaStorageKey } = await import(
       "@/lib/media/serve-submission-media"
     );
-    const response = await serveMediaStorageAsset(
+    const response = await serveMediaStorageKey(
       new NextRequest(
-        "http://localhost/api/media/submissions/submission-1/art?mediaToken=test",
+        "http://localhost/api/media/submissions/submission-1/art",
         { method: "HEAD" },
       ),
       {
-        tokenSubjectId: "submission-1",
+        storageKey: "submissions/art/private.webp",
         resourceId: "submission-1",
         assetKind: "art",
       },
     );
 
-    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
-    expect(response.headers.get("CDN-Cache-Control")).toBe("private, no-store");
+    expect(response.headers.get("Cache-Control")).toBe(
+      "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+    );
+    expect(response.headers.get("CDN-Cache-Control")).toBe(
+      "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+    );
     expect(response.headers.get("Cloudflare-CDN-Cache-Control")).toBe(
-      "private, no-store",
+      "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
     );
   });
 });

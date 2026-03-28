@@ -17,12 +17,10 @@ const MEDIA_PRIVATE_CACHE_CONTROL = "private, no-store";
 
 function resolveMediaCacheControl(input: {
   assetKind: MediaAssetKind;
-  scope: "public" | "user";
   disposition: "inline" | "attachment";
 }) {
   if (
     input.assetKind === "audio" ||
-    input.scope === "user" ||
     input.disposition === "attachment"
   ) {
     return MEDIA_PRIVATE_CACHE_CONTROL;
@@ -129,55 +127,28 @@ async function validateMediaToken(
   return payload;
 }
 
-export async function serveMediaStorageAsset(
-  request: NextRequest,
+export async function serveMediaStorageKey(
+  _request: NextRequest,
   input: {
-    tokenSubjectId: string;
+    storageKey: string;
     resourceId: string;
     assetKind: MediaAssetKind;
     disposition?: "inline" | "attachment";
   },
 ) {
-  let tokenPayload: Awaited<ReturnType<typeof validateMediaToken>> | null = null;
-
-  try {
-    tokenPayload = await validateMediaToken(
-      request,
-      input.tokenSubjectId,
-      input.assetKind,
-    );
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Failed to validate media token.",
-        message: toErrorMessage(error),
-      },
-      { status: 500 },
-    );
-  }
-
-  if (!tokenPayload) {
-    return NextResponse.json(
-      { error: "Missing, invalid, or expired media token." },
-      { status: 403 },
-    );
-  }
-
-  const storageKey = tokenPayload.storageKey;
   const disposition = input.disposition ?? "inline";
   const cacheControl = resolveMediaCacheControl({
     assetKind: input.assetKind,
-    scope: tokenPayload.scope,
     disposition,
   });
 
   try {
-    if (request.method === "HEAD") {
-      const headResponse = await storage.headObject(storageKey);
+    if (_request.method === "HEAD") {
+      const headResponse = await storage.headObject(input.storageKey);
       const headers = new Headers();
       const contentType = headResponse.ContentType ?? null;
       const filename = `${input.resourceId}-${input.assetKind}${getFilenameExtension(
-        storageKey,
+        input.storageKey,
         contentType,
         input.assetKind,
       )}`;
@@ -198,8 +169,8 @@ export async function serveMediaStorageAsset(
       });
     }
 
-    const range = request.headers.get("range") ?? undefined;
-    const objectResponse = await storage.getObject(storageKey, {
+    const range = _request.headers.get("range") ?? undefined;
+    const objectResponse = await storage.getObject(input.storageKey, {
       range,
     });
 
@@ -213,7 +184,7 @@ export async function serveMediaStorageAsset(
     const headers = new Headers();
     const contentType = objectResponse.ContentType ?? null;
     const filename = `${input.resourceId}-${input.assetKind}${getFilenameExtension(
-      storageKey,
+      input.storageKey,
       contentType,
       input.assetKind,
     )}`;
@@ -256,4 +227,46 @@ export async function serveMediaStorageAsset(
       { status: statusCode },
     );
   }
+}
+
+export async function serveMediaStorageAsset(
+  request: NextRequest,
+  input: {
+    tokenSubjectId: string;
+    resourceId: string;
+    assetKind: MediaAssetKind;
+    disposition?: "inline" | "attachment";
+  },
+) {
+  let tokenPayload: Awaited<ReturnType<typeof validateMediaToken>> | null = null;
+
+  try {
+    tokenPayload = await validateMediaToken(
+      request,
+      input.tokenSubjectId,
+      input.assetKind,
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "Failed to validate media token.",
+        message: toErrorMessage(error),
+      },
+      { status: 500 },
+    );
+  }
+
+  if (!tokenPayload) {
+    return NextResponse.json(
+      { error: "Missing, invalid, or expired media token." },
+      { status: 403 },
+    );
+  }
+
+  return serveMediaStorageKey(request, {
+    storageKey: tokenPayload.storageKey,
+    resourceId: input.resourceId,
+    assetKind: input.assetKind,
+    disposition: input.disposition,
+  });
 }
