@@ -11,8 +11,25 @@ import {
 import { storageBodyToWebReadableStream } from "@/lib/storage/object-body";
 
 const storage = new B2Storage();
-const MEDIA_CACHE_CONTROL =
+const MEDIA_SHARED_CACHE_CONTROL =
   "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400";
+const MEDIA_PRIVATE_CACHE_CONTROL = "private, no-store";
+
+function resolveMediaCacheControl(input: {
+  assetKind: MediaAssetKind;
+  scope: "public" | "user";
+  disposition: "inline" | "attachment";
+}) {
+  if (
+    input.assetKind === "audio" ||
+    input.scope === "user" ||
+    input.disposition === "attachment"
+  ) {
+    return MEDIA_PRIVATE_CACHE_CONTROL;
+  }
+
+  return MEDIA_SHARED_CACHE_CONTROL;
+}
 
 function getFilenameExtension(
   storageKey: string,
@@ -46,6 +63,7 @@ function getFilenameExtension(
 function setStandardMediaHeaders(
   headers: Headers,
   input: {
+    cacheControl: string;
     contentType?: string | null;
     contentLength?: number | null;
     contentRange?: string | null;
@@ -55,9 +73,11 @@ function setStandardMediaHeaders(
     filename?: string | null;
   },
 ) {
-  headers.set("Cache-Control", MEDIA_CACHE_CONTROL);
-  headers.set("CDN-Cache-Control", MEDIA_CACHE_CONTROL);
+  headers.set("Cache-Control", input.cacheControl);
+  headers.set("CDN-Cache-Control", input.cacheControl);
+  headers.set("Cloudflare-CDN-Cache-Control", input.cacheControl);
   headers.set("Accept-Ranges", "bytes");
+  headers.set("Vary", "Range");
   headers.set("X-Content-Type-Options", "nosniff");
 
   if (input.contentType) {
@@ -145,6 +165,11 @@ export async function serveMediaStorageAsset(
 
   const storageKey = tokenPayload.storageKey;
   const disposition = input.disposition ?? "inline";
+  const cacheControl = resolveMediaCacheControl({
+    assetKind: input.assetKind,
+    scope: tokenPayload.scope,
+    disposition,
+  });
 
   try {
     if (request.method === "HEAD") {
@@ -158,6 +183,7 @@ export async function serveMediaStorageAsset(
       )}`;
 
       setStandardMediaHeaders(headers, {
+        cacheControl,
         contentType,
         contentLength: headResponse.ContentLength ?? null,
         etag: headResponse.ETag ?? null,
@@ -193,6 +219,7 @@ export async function serveMediaStorageAsset(
     )}`;
 
     setStandardMediaHeaders(headers, {
+      cacheControl,
       contentType,
       contentLength: objectResponse.ContentLength ?? null,
       contentRange: objectResponse.ContentRange ?? null,
