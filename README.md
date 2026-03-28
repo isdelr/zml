@@ -114,6 +114,9 @@ cp .env.docker.prod.example .env.docker.prod
 - `NEXT_PUBLIC_CONVEX_URL` (public Convex URL)
 - `CONVEX_SELF_HOSTED_ADMIN_KEY`
 - `INSTANCE_SECRET`
+- `NEXT_PUBLIC_MEDIA_DELIVERY_BASE_URL`
+- `MEDIA_DELIVERY_BASE_URL`
+- `MEDIA_ACCESS_SECRET`
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `CONVEX_POSTGRES_DB`
 - Discord, JWT/JWKS, B2, VAPID, API keys
 - `B2_BUCKET`, `B2_ENDPOINT`, `B2_REGION`, `B2_KEY_ID`, `B2_APPLICATION_KEY`
@@ -144,7 +147,7 @@ docker compose --env-file .env.docker.prod -f docker-compose.prod.yml up -d --bu
 What happens in prod compose:
 - `postgres` starts and becomes healthy
 - `convex-backend` starts
-- `convex-sync` syncs runtime env vars to Convex, pushes Convex functions/schema, then stays alive as a healthy gate service
+- `convex-sync` syncs runtime env vars to Convex, including media delivery/signing vars, pushes Convex functions/schema, then stays alive as a healthy gate service
 - `web` starts only after `convex-sync` is healthy
 
 For app updates:
