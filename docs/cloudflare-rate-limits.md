@@ -5,9 +5,8 @@
 - The required orange-cloud hostnames are:
   - the browser app hostname, such as `zml.app`
   - the public Convex hostname from `NEXT_PUBLIC_CONVEX_URL`
-  - the media hostname from `MEDIA_DELIVERY_BASE_URL` or `NEXT_PUBLIC_MEDIA_DELIVERY_BASE_URL`
 
-If the Convex or media hostname bypasses Cloudflare, app-wide DDoS and bandwidth protection is incomplete.
+If the Convex hostname bypasses Cloudflare, app-wide DDoS and bandwidth protection is incomplete. Media now uses the app's same-origin `/api/media/*` routes, so protect that traffic under the main app hostname.
 
 ## Baseline Controls
 - Enable Cloudflare Managed WAF on all public hostnames.
@@ -43,10 +42,9 @@ If the Convex or media hostname bypasses Cloudflare, app-wide DDoS and bandwidth
 - Exclude websocket upgrade requests so live queries and subscriptions keep working.
 - Start in log-only mode, then enforce once you confirm normal app traffic fits comfortably below the threshold.
 
-### Media Hostname
-- Use a separate high-threshold rule for download and range-request traffic.
+### App Media Routes
+- Use a separate high-threshold rule for `/api/media/*` download and range-request traffic.
 - Keep thresholds much higher than API routes so normal streaming and seeking are not penalized.
-- Pair this with Cloudflare caching for stable media URLs when possible.
 
 ## Rollout
 1. Turn on rules in log/simulate mode first.

@@ -42,7 +42,6 @@ for (const key of requiredSelfHostedVars) {
 
 const variablesToSync = [
   "SITE_URL",
-  "MEDIA_DELIVERY_BASE_URL",
   "MEDIA_ACCESS_SECRET",
   "MEDIA_ACCESS_TTL_SECONDS",
   "DISCORD_CLIENT_ID",

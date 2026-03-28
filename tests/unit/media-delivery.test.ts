@@ -63,8 +63,6 @@ describe("media delivery helpers", () => {
 
   it("builds a relative media URL when no delivery base URL is configured", async () => {
     process.env.MEDIA_ACCESS_SECRET = "test-media-secret";
-    delete process.env.MEDIA_DELIVERY_BASE_URL;
-    delete process.env.SITE_URL;
 
     const url = await buildSubmissionMediaUrl({
       submissionId: "submission-123",
@@ -77,22 +75,5 @@ describe("media delivery helpers", () => {
     expect(parsed.pathname).toBe("/api/media/submissions/submission-123/art");
     expect(parsed.searchParams.get("mediaToken")).toBeTruthy();
     expect(parsed.searchParams.get("mediaExpires")).toBeTruthy();
-  });
-
-  it("builds an absolute media URL when a delivery base URL is configured", async () => {
-    process.env.MEDIA_ACCESS_SECRET = "test-media-secret";
-    process.env.MEDIA_DELIVERY_BASE_URL = "https://media.example.com";
-
-    const url = await buildSubmissionMediaUrl({
-      submissionId: "submission-123",
-      assetKind: "audio",
-      storageKey: "submissions/audio/test.m4a",
-      scope: { type: "public" },
-    });
-
-    const parsed = new URL(url);
-    expect(parsed.origin).toBe("https://media.example.com");
-    expect(parsed.pathname).toBe("/api/media/submissions/submission-123/audio");
-    expect(parsed.searchParams.get("mediaToken")).toBeTruthy();
   });
 });

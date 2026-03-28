@@ -57,8 +57,8 @@ function setStandardMediaHeaders(
 ) {
   headers.set("Cache-Control", MEDIA_CACHE_CONTROL);
   headers.set("CDN-Cache-Control", MEDIA_CACHE_CONTROL);
-  headers.set("Cloudflare-CDN-Cache-Control", MEDIA_CACHE_CONTROL);
   headers.set("Accept-Ranges", "bytes");
+  headers.set("X-Content-Type-Options", "nosniff");
 
   if (input.contentType) {
     headers.set("Content-Type", input.contentType);

@@ -29,10 +29,6 @@ import {
 import { buildSubmissionLyricsFingerprint } from "../lib/convex-server/submissions/lyrics";
 import { firstNonEmpty } from "../lib/env";
 import {
-  canPurgeCloudflareMediaCache,
-  purgeCloudflareMediaCache,
-} from "../lib/media/cloudflare-cache";
-import {
   buildSubmissionMediaUrl,
   resolveMediaAccessScope,
   type MediaAccessScope,
@@ -53,16 +49,6 @@ const MAX_PENDING_AUDIO_PROCESSING_BATCH_SIZE = 25;
 const SUBMISSION_AUDIO_PROCESSING_STALE_MS = 15 * 60 * 1000;
 const INTERNAL_SUBMISSION_AUDIO_ROUTE =
   "/api/internal/submissions/process-audio";
-const purgeSubmissionMediaCacheRef = makeFunctionReference<
-  "action",
-  { submissionId: Id<"submissions"> }
->(
-  "submissions:purgeSubmissionMediaCache",
-) as unknown as FunctionReference<
-  "action",
-  "internal",
-  { submissionId: Id<"submissions"> }
->;
 const getSubmissionMediaAccessStateRef = makeFunctionReference<
   "query",
   {
@@ -213,19 +199,6 @@ async function scheduleSubmissionFileDeletion(
   });
   await ctx.scheduler.runAfter(0, internal.files.markStorageUploadsDeleted, {
     keys: uniqueKeys,
-  });
-}
-
-async function scheduleSubmissionMediaCachePurge(
-  ctx: Pick<MutationCtx, "scheduler">,
-  submissionId: Id<"submissions">,
-) {
-  if (!canPurgeCloudflareMediaCache()) {
-    return;
-  }
-
-  await ctx.scheduler.runAfter(0, purgeSubmissionMediaCacheRef, {
-    submissionId,
   });
 }
 
@@ -813,19 +786,6 @@ export const editSong = mutation({
       keysToDelete,
       "stale submission file",
     );
-    const shouldPurgeMediaCache =
-      (oldDoc.submissionType === "file" || args.submissionType === "file") &&
-      (
-        oldDoc.submissionType !== args.submissionType ||
-        previousAlbumArtKey !== nextAlbumArtKey ||
-        previousSongFileKey !== nextSongFileKey ||
-        previousOriginalSongFileKey !== nextOriginalSongFileKey
-      );
-
-    if (shouldPurgeMediaCache) {
-      await scheduleSubmissionMediaCachePurge(ctx, submissionId);
-    }
-
     if (
       args.submissionType === "file" &&
       typeof args.songFileKey === "string" &&
@@ -856,22 +816,6 @@ export const deleteSubmissionFiles = internalAction({
       } catch (error) {
         console.error(`Failed to delete ${args.failureLabel} "${key}"`, error);
       }
-    }
-  },
-});
-
-export const purgeSubmissionMediaCache = internalAction({
-  args: {
-    submissionId: v.id("submissions"),
-  },
-  handler: async (_ctx, args) => {
-    try {
-      await purgeCloudflareMediaCache(args.submissionId);
-    } catch (error) {
-      console.error(
-        `Failed to purge Cloudflare media cache for submission "${args.submissionId}"`,
-        error,
-      );
     }
   },
 });
@@ -1568,7 +1512,6 @@ export const completeQueuedSubmissionAudioProcessing = internalMutation({
         newDoc.roundId,
         newDoc.userId,
       );
-      await scheduleSubmissionMediaCachePurge(ctx, args.submissionId);
     }
 
     return {

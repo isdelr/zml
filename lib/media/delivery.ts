@@ -1,5 +1,3 @@
-import { firstNonEmpty } from "../env";
-
 export type MediaAssetKind = "audio" | "art";
 
 type PublicMediaScope = {
@@ -42,10 +40,8 @@ const MEDIA_ACCESS_TOKEN_VERSION = 1;
 const DEFAULT_MEDIA_ACCESS_TTL_SECONDS = 60 * 60;
 
 function getMediaAccessSecret(): string {
-  const secret = firstNonEmpty(
-    process.env.MEDIA_ACCESS_SECRET,
-    process.env.INSTANCE_SECRET,
-  );
+  const secret =
+    process.env.MEDIA_ACCESS_SECRET ?? process.env.INSTANCE_SECRET ?? null;
 
   if (!secret) {
     throw new Error(
@@ -120,19 +116,6 @@ async function signPayload(
   );
 
   return bytesToBase64Url(new Uint8Array(signature));
-}
-
-function getMediaDeliveryBaseUrl(): string | null {
-  return (
-    firstNonEmpty(
-      process.env.MEDIA_DELIVERY_BASE_URL,
-      process.env.NEXT_PUBLIC_MEDIA_DELIVERY_BASE_URL,
-      process.env.SITE_URL,
-    )?.replace(
-      /\/+$/u,
-      "",
-    ) ?? null
-  );
 }
 
 export function buildSubmissionMediaPath(
@@ -280,18 +263,10 @@ async function buildTokenizedMediaUrl(input: {
     storageKey: input.storageKey,
     scope: input.scope,
   });
-  const url = new URL(
-    input.path,
-    getMediaDeliveryBaseUrl() ?? "http://localhost",
-  );
+  const url = new URL(input.path, "http://localhost");
 
   url.searchParams.set("mediaToken", token);
   url.searchParams.set("mediaExpires", `${expiresAt}`);
 
-  const baseUrl = getMediaDeliveryBaseUrl();
-  if (!baseUrl) {
-    return `${url.pathname}${url.search}`;
-  }
-
-  return url.toString();
+  return `${url.pathname}${url.search}`;
 }

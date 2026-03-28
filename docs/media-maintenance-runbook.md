@@ -63,8 +63,7 @@ curl -X POST "https://zml.app/api/admin/media/maintenance" \
 ## Safe migration order
 
 1. Deploy the new app and Convex functions.
-2. Deploy the Cloudflare Worker and Cache Rule.
-3. Verify new playback/image URLs are using `media.zml.app`.
-4. Run `cleanup-stale-uploads`.
-5. Run `audit-orphans` and inspect the sample keys.
-6. Run `delete-orphans` in small batches until `orphanedKeyCount` reaches zero.
+2. Verify new playback and image URLs are using the app's `/api/media/...` routes.
+3. Run `cleanup-stale-uploads`.
+4. Run `audit-orphans` and inspect the sample keys.
+5. Run `delete-orphans` in small batches until `orphanedKeyCount` reaches zero.
