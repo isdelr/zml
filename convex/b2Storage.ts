@@ -5,6 +5,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
   UploadPartCommand,
@@ -265,5 +266,25 @@ export class B2Storage {
         Key: key,
       }),
     );
+  }
+
+  async listObjects(options?: { prefix?: string; continuationToken?: string; maxKeys?: number }) {
+    const config = getStorageConfig();
+    const response = await getStorageClient().send(
+      new ListObjectsV2Command({
+        Bucket: config.bucket,
+        Prefix: options?.prefix,
+        ContinuationToken: options?.continuationToken,
+        MaxKeys: options?.maxKeys,
+      }),
+    );
+
+    return {
+      keys: (response.Contents ?? [])
+        .map((item) => item.Key)
+        .filter((key): key is string => typeof key === "string" && key.length > 0),
+      nextContinuationToken: response.NextContinuationToken ?? null,
+      isTruncated: response.IsTruncated ?? false,
+    };
   }
 }

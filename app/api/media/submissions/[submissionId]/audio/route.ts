@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { serveSubmissionMediaAsset } from "@/lib/media/serve-submission-media";
+import { serveMediaStorageAsset } from "@/lib/media/serve-submission-media";
 
 export const runtime = "nodejs";
 
@@ -8,8 +8,9 @@ export async function GET(
   context: { params: Promise<{ submissionId: string }> },
 ) {
   const { submissionId } = await context.params;
-  return serveSubmissionMediaAsset(request, {
-    submissionId,
+  return serveMediaStorageAsset(request, {
+    tokenSubjectId: submissionId,
+    resourceId: `submission-${submissionId}`,
     assetKind: "audio",
   });
 }
@@ -19,8 +20,9 @@ export async function HEAD(
   context: { params: Promise<{ submissionId: string }> },
 ) {
   const { submissionId } = await context.params;
-  return serveSubmissionMediaAsset(request, {
-    submissionId,
+  return serveMediaStorageAsset(request, {
+    tokenSubjectId: submissionId,
+    resourceId: `submission-${submissionId}`,
     assetKind: "audio",
   });
 }

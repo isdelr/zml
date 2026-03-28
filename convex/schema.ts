@@ -11,6 +11,22 @@ const notificationMetadataValidator = v.object({
   seedNamespace: v.optional(v.string()),
   source: v.optional(v.string()),
 });
+const storageUploadKindValidator = v.union(
+  v.literal("league_image"),
+  v.literal("submission_file"),
+);
+const storageUploadStatusValidator = v.union(
+  v.literal("reserved"),
+  v.literal("uploaded"),
+  v.literal("claimed"),
+  v.literal("aborted"),
+  v.literal("deleted"),
+);
+const storageUploadClaimTypeValidator = v.union(
+  v.literal("round_image"),
+  v.literal("submission_album_art"),
+  v.literal("submission_audio_original"),
+);
 
 export default defineSchema({
   pushSubscriptions: defineTable({
@@ -298,4 +314,20 @@ export default defineSchema({
   })
     .index("by_league_and_user", ["leagueId", "userId"])
     .index("by_league_and_points", ["leagueId", "totalPoints"]),
+  storageUploads: defineTable({
+    key: v.string(),
+    ownerUserId: v.id("users"),
+    kind: storageUploadKindValidator,
+    status: storageUploadStatusValidator,
+    claimType: v.optional(storageUploadClaimTypeValidator),
+    claimId: v.optional(v.string()),
+    createdAt: v.number(),
+    uploadedAt: v.optional(v.number()),
+    claimedAt: v.optional(v.number()),
+    deletedAt: v.optional(v.number()),
+    lastCheckedAt: v.optional(v.number()),
+  })
+    .index("by_key", ["key"])
+    .index("by_owner", ["ownerUserId"])
+    .index("by_status_and_created_at", ["status", "createdAt"]),
 });

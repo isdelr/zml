@@ -1,8 +1,8 @@
 import type { Doc } from "./_generated/dataModel";
 import { B2Storage } from "./b2Storage";
+import { buildUserAvatarMediaUrl } from "../lib/media/delivery";
 
 export const AVATAR_KEY_PREFIX = "avatars/";
-const AVATAR_URL_EXPIRY_SECONDS = 60 * 60 * 24 * 7;
 export type AvatarObjectKey = `${typeof AVATAR_KEY_PREFIX}${string}`;
 
 type UserAvatarFields = Pick<Doc<"users">, "image" | "providerImageUrl">;
@@ -18,7 +18,7 @@ export function buildAvatarObjectKey(userId: string): AvatarObjectKey {
 }
 
 export async function resolveUserAvatarUrl(
-  storage: B2Storage,
+  _storage: B2Storage,
   user: UserAvatarFields | null | undefined,
 ): Promise<string | null> {
   if (!user) {
@@ -28,8 +28,9 @@ export async function resolveUserAvatarUrl(
   const imageValue = user.image;
   if (isAvatarObjectKey(imageValue)) {
     try {
-      return await storage.getUrl(imageValue, {
-        expiresIn: AVATAR_URL_EXPIRY_SECONDS,
+      return await buildUserAvatarMediaUrl({
+        userId: imageValue.slice(AVATAR_KEY_PREFIX.length).replace(/\.webp$/u, ""),
+        storageKey: imageValue,
       });
     } catch (error) {
       console.error(`Failed to resolve avatar key "${imageValue}"`, error);

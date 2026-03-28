@@ -65,14 +65,14 @@ async function sign(encodedPayload: string, secret: string): Promise<string> {
 
 async function verifyToken(
   token: string,
-  env: Env,
+  secret: string,
 ): Promise<MediaTokenPayload | null> {
   const [encodedPayload, signature] = token.split(".");
   if (!encodedPayload || !signature) {
     return null;
   }
 
-  const expectedSignature = await sign(encodedPayload, env.MEDIA_ACCESS_SECRET);
+  const expectedSignature = await sign(encodedPayload, secret);
   if (signature !== expectedSignature) {
     return null;
   }
@@ -98,20 +98,20 @@ export default {
       return new Response("Method not allowed.", { status: 405 });
     }
 
-    const url = new URL(request.url);
-    const mediaToken = url.searchParams.get("mediaToken");
+    const requestUrl = new URL(request.url);
+    const mediaToken = requestUrl.searchParams.get("mediaToken");
     if (!mediaToken) {
       return new Response("Missing media token.", { status: 403 });
     }
 
-    const payload = await verifyToken(mediaToken, env);
+    const payload = await verifyToken(mediaToken, env.MEDIA_ACCESS_SECRET);
     if (!payload) {
       return new Response("Invalid or expired media token.", { status: 403 });
     }
 
     const originBaseUrl = new URL(env.ORIGIN_BASE_URL);
-    const originUrl = new URL(url.pathname, originBaseUrl);
-    originUrl.search = url.search;
+    const originUrl = new URL(requestUrl.pathname, originBaseUrl);
+    originUrl.search = requestUrl.search;
 
     return fetch(
       new Request(originUrl.toString(), {

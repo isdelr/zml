@@ -50,6 +50,7 @@ import {
   ROUND_GAP_MS,
   sortRoundsInLeagueOrder,
 } from "../lib/rounds/schedule";
+import { buildRoundImageMediaUrl } from "../lib/media/delivery";
 
 const storage = new B2Storage();
 const MAX_ROUND_DEADLINE_REMINDER_MS = Math.max(
@@ -92,6 +93,21 @@ async function canViewLeague(
     .first();
 
   return { league, canView: Boolean(membership) };
+}
+
+function buildRoundImageScope(
+  allowPublic: boolean,
+  viewerUserId: Id<"users"> | null,
+) {
+  if (viewerUserId) {
+    return { type: "user" as const, userId: viewerUserId };
+  }
+
+  if (allowPublic) {
+    return { type: "public" as const };
+  }
+
+  return null;
 }
 
 async function hasIncompleteFileSubmissions(
@@ -168,9 +184,14 @@ export const getRoundMetadata = query({
       return null;
     }
     const includeImageUrl = args.includeImageUrl ?? true;
+    const imageScope = buildRoundImageScope(league.isPublic, userId);
     const imageUrl = round.imageKey
-      ? includeImageUrl
-        ? await storage.getUrl(round.imageKey)
+      ? includeImageUrl && imageScope
+        ? await buildRoundImageMediaUrl({
+            roundId: round._id,
+            storageKey: round.imageKey,
+            scope: imageScope,
+          })
         : null
       : null;
     return {
@@ -346,7 +367,13 @@ export const getForLeague = query({
 
         const artUrl =
           includeArt && round.imageKey && artStorage
-            ? await artStorage.getUrl(round.imageKey)
+            ? await buildRoundImageMediaUrl({
+                roundId: round._id,
+                storageKey: round.imageKey,
+                scope: buildRoundImageScope(league.isPublic, userId) ?? {
+                  type: "public",
+                },
+              })
             : null;
         const expectedTrackCount = leagueMemberCount * requiredPerUser;
 
@@ -939,6 +966,14 @@ export const updateRound = mutation({
         .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
         .collect();
       if (submissions.length > 0) {
+        const submissionKeysToDelete = submissions.flatMap((submission) =>
+          [
+            submission.albumArtKey,
+            submission.songFileKey,
+            submission.originalSongFileKey,
+            submission.songFileLegacyKey,
+          ].filter((key): key is string => Boolean(key)),
+        );
         const commentsBySubmission = await Promise.all(
           submissions.map((submission) =>
             ctx.db
@@ -963,6 +998,15 @@ export const updateRound = mutation({
             ]);
           }),
         );
+        if (submissionKeysToDelete.length > 0) {
+          await ctx.scheduler.runAfter(0, internal.submissions.deleteSubmissionFiles, {
+            keys: [...new Set(submissionKeysToDelete)],
+            failureLabel: "deleted round submission file",
+          });
+          await ctx.scheduler.runAfter(0, internal.files.markStorageUploadsDeleted, {
+            keys: [...new Set(submissionKeysToDelete)],
+          });
+        }
         await ctx.scheduler.runAfter(
           0,
           internal.notifications.createForLeagueAndDispatchDiscord,
@@ -1187,6 +1231,15 @@ export const deleteRound = mutation({
     });
 
     await ctx.db.delete("rounds", round._id);
+    if (round.imageKey) {
+      await ctx.scheduler.runAfter(0, internal.submissions.deleteSubmissionFiles, {
+        keys: [round.imageKey],
+        failureLabel: "deleted round image",
+      });
+      await ctx.scheduler.runAfter(0, internal.files.markStorageUploadsDeleted, {
+        keys: [round.imageKey],
+      });
+    }
 
     await Promise.all(
       Array.from(patchByRoundId.entries()).map(([roundId, patch]) =>

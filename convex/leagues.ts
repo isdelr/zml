@@ -4,6 +4,7 @@ import {
   mutation,
   query,
   internalMutation,
+  type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
 import { getAuthUserId } from "./authCore";
@@ -28,6 +29,7 @@ import {
   MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
   MAX_LEAGUE_UPVOTES_PER_MEMBER,
 } from "../lib/leagues/vote-limits";
+import { buildRoundImageMediaUrl } from "../lib/media/delivery";
 
 const storage = new B2Storage();
 
@@ -94,6 +96,21 @@ async function canViewLeague(
   return { league, canView: Boolean(membership) };
 }
 
+function buildRoundImageScope(
+  allowPublic: boolean,
+  viewerUserId: Id<"users"> | null,
+) {
+  if (viewerUserId) {
+    return { type: "user" as const, userId: viewerUserId };
+  }
+
+  if (allowPublic) {
+    return { type: "public" as const };
+  }
+
+  return null;
+}
+
 const publicLeaguePreviewValidator = v.object({
   _id: v.id("leagues"),
   _creationTime: v.number(),
@@ -122,6 +139,7 @@ const exploreLeaguePreviewValidator = v.object({
 async function buildLeaguePreview(
   ctx: QueryCtx,
   league: Doc<"leagues">,
+  viewerUserId: Id<"users"> | null,
 ): Promise<{
   _id: Id<"leagues">;
   _creationTime: number;
@@ -152,7 +170,15 @@ async function buildLeaguePreview(
             if (!round.imageKey) {
               return null;
             }
-            return await storage.getUrl(round.imageKey);
+            const scope = buildRoundImageScope(league.isPublic, viewerUserId);
+            if (!scope) {
+              return null;
+            }
+            return await buildRoundImageMediaUrl({
+              roundId: round._id,
+              storageKey: round.imageKey,
+              scope,
+            });
           }),
         )
       ).filter((art): art is string => art !== null),
@@ -173,6 +199,23 @@ async function buildLeaguePreview(
     roundArt,
     isActive,
   };
+}
+
+async function claimRoundImageUpload(
+  ctx: Pick<MutationCtx, "runMutation">,
+  input: {
+    key: string;
+    ownerUserId: Id<"users">;
+    roundId: Id<"rounds">;
+  },
+) {
+  await ctx.runMutation(internal.files.claimStorageUpload, {
+    key: input.key,
+    ownerUserId: input.ownerUserId,
+    kind: "league_image",
+    claimType: "round_image",
+    claimId: input.roundId,
+  });
 }
 
 export const addLeagueManager = mutation({
@@ -376,6 +419,13 @@ export const create = mutation({
         submissionInstructions: round.submissionInstructions,
         albumConfig: round.albumConfig,
       });
+      if (round.imageKey) {
+        await claimRoundImageUpload(ctx, {
+          key: round.imageKey,
+          ownerUserId: userId,
+          roundId,
+        });
+      }
 
       if (schedule.status === "submissions") {
         await ctx.scheduler.runAfter(0, internal.notifications.create, {
@@ -404,7 +454,7 @@ export const getPublicLeagues = query({
       .take(limit);
 
     return await Promise.all(
-      publicLeagues.map((league) => buildLeaguePreview(ctx, league)),
+      publicLeagues.map((league) => buildLeaguePreview(ctx, league, null)),
     );
   },
 });
@@ -454,13 +504,13 @@ export const getExploreLeagues = query({
       await Promise.all([
         Promise.all(
           publicLeagues.map(async (league) => ({
-            ...(await buildLeaguePreview(ctx, league)),
+            ...(await buildLeaguePreview(ctx, league, userId ?? null)),
             visibility: "public" as const,
           })),
         ),
         Promise.all(
           joinedPrivateLeagueDocs.map(async (league) => ({
-            ...(await buildLeaguePreview(ctx, league)),
+            ...(await buildLeaguePreview(ctx, league, userId ?? null)),
             visibility: "private" as const,
           })),
         ),

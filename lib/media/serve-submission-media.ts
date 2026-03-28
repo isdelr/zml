@@ -85,7 +85,7 @@ function setStandardMediaHeaders(
 
 async function validateMediaToken(
   request: NextRequest,
-  submissionId: string,
+  tokenSubjectId: string,
   assetKind: MediaAssetKind,
 ) {
   const mediaToken = request.nextUrl.searchParams.get("mediaToken");
@@ -99,7 +99,7 @@ async function validateMediaToken(
   }
 
   if (
-    payload.submissionId !== submissionId ||
+    payload.submissionId !== tokenSubjectId ||
     payload.assetKind !== assetKind ||
     payload.expiresAt <= Date.now()
   ) {
@@ -109,18 +109,20 @@ async function validateMediaToken(
   return payload;
 }
 
-export async function serveSubmissionMediaAsset(
+export async function serveMediaStorageAsset(
   request: NextRequest,
   input: {
-    submissionId: string;
+    tokenSubjectId: string;
+    resourceId: string;
     assetKind: MediaAssetKind;
   },
 ) {
-  let tokenPayload;
+  let tokenPayload: Awaited<ReturnType<typeof validateMediaToken>> | null = null;
+
   try {
     tokenPayload = await validateMediaToken(
       request,
-      input.submissionId,
+      input.tokenSubjectId,
       input.assetKind,
     );
   } catch (error) {
@@ -141,14 +143,15 @@ export async function serveSubmissionMediaAsset(
   }
 
   const shouldDownload = request.nextUrl.searchParams.get("download") === "1";
+  const storageKey = tokenPayload.storageKey;
 
   try {
     if (request.method === "HEAD") {
-      const headResponse = await storage.headObject(tokenPayload.storageKey);
+      const headResponse = await storage.headObject(storageKey);
       const headers = new Headers();
       const contentType = headResponse.ContentType ?? null;
-      const filename = `submission-${input.submissionId}-${input.assetKind}${getFilenameExtension(
-        tokenPayload.storageKey,
+      const filename = `${input.resourceId}-${input.assetKind}${getFilenameExtension(
+        storageKey,
         contentType,
         input.assetKind,
       )}`;
@@ -169,7 +172,7 @@ export async function serveSubmissionMediaAsset(
     }
 
     const range = request.headers.get("range") ?? undefined;
-    const objectResponse = await storage.getObject(tokenPayload.storageKey, {
+    const objectResponse = await storage.getObject(storageKey, {
       range,
     });
 
@@ -182,8 +185,8 @@ export async function serveSubmissionMediaAsset(
 
     const headers = new Headers();
     const contentType = objectResponse.ContentType ?? null;
-    const filename = `submission-${input.submissionId}-${input.assetKind}${getFilenameExtension(
-      tokenPayload.storageKey,
+    const filename = `${input.resourceId}-${input.assetKind}${getFilenameExtension(
+      storageKey,
       contentType,
       input.assetKind,
     )}`;

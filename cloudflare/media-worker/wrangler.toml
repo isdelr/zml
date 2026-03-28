@@ -1,0 +1,11 @@
+name = "zml-media-worker"
+main = "src/index.ts"
+compatibility_date = "2026-03-28"
+workers_dev = false
+
+[[routes]]
+pattern = "media.zml.app"
+custom_domain = true
+
+[vars]
+ORIGIN_BASE_URL = "https://zml.app"

@@ -25,4 +25,11 @@ crons.interval(
   { limit: 10 },
 );
 
+crons.interval(
+  "Cleanup stale storage uploads",
+  { hours: 6 },
+  internal.files.cleanupStaleStorageUploads,
+  { limit: 100 },
+);
+
 export default crons;

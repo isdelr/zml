@@ -1,4 +1,4 @@
-import { firstNonEmpty } from "@/lib/env";
+import { firstNonEmpty } from "../env";
 
 export type MediaAssetKind = "audio" | "art";
 
@@ -109,7 +109,11 @@ async function signPayload(
 
 function getMediaDeliveryBaseUrl(): string | null {
   return (
-    firstNonEmpty(process.env.MEDIA_DELIVERY_BASE_URL, process.env.SITE_URL)?.replace(
+    firstNonEmpty(
+      process.env.MEDIA_DELIVERY_BASE_URL,
+      process.env.NEXT_PUBLIC_MEDIA_DELIVERY_BASE_URL,
+      process.env.SITE_URL,
+    )?.replace(
       /\/+$/u,
       "",
     ) ?? null
@@ -121,6 +125,14 @@ export function buildSubmissionMediaPath(
   assetKind: MediaAssetKind,
 ): string {
   return `/api/media/submissions/${submissionId}/${assetKind}`;
+}
+
+export function buildRoundImageMediaPath(roundId: string): string {
+  return `/api/media/rounds/${roundId}/image`;
+}
+
+export function buildUserAvatarMediaPath(userId: string): string {
+  return `/api/media/users/${userId}/avatar`;
 }
 
 export async function createMediaAccessToken(input: {
@@ -200,9 +212,57 @@ export async function buildSubmissionMediaUrl(input: {
   storageKey: string;
   scope: MediaAccessScope;
 }): Promise<string> {
-  const { token, expiresAt } = await createMediaAccessToken(input);
+  return buildTokenizedMediaUrl({
+    tokenSubjectId: input.submissionId,
+    path: buildSubmissionMediaPath(input.submissionId, input.assetKind),
+    assetKind: input.assetKind,
+    storageKey: input.storageKey,
+    scope: input.scope,
+  });
+}
+
+export async function buildRoundImageMediaUrl(input: {
+  roundId: string;
+  storageKey: string;
+  scope: MediaAccessScope;
+}): Promise<string> {
+  return buildTokenizedMediaUrl({
+    tokenSubjectId: `round:${input.roundId}`,
+    path: buildRoundImageMediaPath(input.roundId),
+    assetKind: "art",
+    storageKey: input.storageKey,
+    scope: input.scope,
+  });
+}
+
+export async function buildUserAvatarMediaUrl(input: {
+  userId: string;
+  storageKey: string;
+}): Promise<string> {
+  return buildTokenizedMediaUrl({
+    tokenSubjectId: `avatar:${input.userId}`,
+    path: buildUserAvatarMediaPath(input.userId),
+    assetKind: "art",
+    storageKey: input.storageKey,
+    scope: { type: "public" },
+  });
+}
+
+async function buildTokenizedMediaUrl(input: {
+  tokenSubjectId: string;
+  path: string;
+  assetKind: MediaAssetKind;
+  storageKey: string;
+  scope: MediaAccessScope;
+}): Promise<string> {
+  const { token, expiresAt } = await createMediaAccessToken({
+    submissionId: input.tokenSubjectId,
+    assetKind: input.assetKind,
+    storageKey: input.storageKey,
+    scope: input.scope,
+  });
   const url = new URL(
-    buildSubmissionMediaPath(input.submissionId, input.assetKind),
+    input.path,
     getMediaDeliveryBaseUrl() ?? "http://localhost",
   );
 

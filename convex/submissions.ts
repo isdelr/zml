@@ -163,6 +163,9 @@ async function scheduleSubmissionFileDeletion(
     keys: uniqueKeys,
     failureLabel,
   });
+  await ctx.scheduler.runAfter(0, internal.files.markStorageUploadsDeleted, {
+    keys: uniqueKeys,
+  });
 }
 
 async function scheduleSubmissionMediaCachePurge(
@@ -175,6 +178,26 @@ async function scheduleSubmissionMediaCachePurge(
 
   await ctx.scheduler.runAfter(0, purgeSubmissionMediaCacheRef, {
     submissionId,
+  });
+}
+
+async function claimSubmissionUpload(
+  ctx: Pick<MutationCtx, "runMutation">,
+  input: {
+    key: string;
+    ownerUserId: Id<"users">;
+    claimType:
+      | "submission_album_art"
+      | "submission_audio_original";
+    claimId: string;
+  },
+) {
+  await ctx.runMutation(internal.files.claimStorageUpload, {
+    key: input.key,
+    ownerUserId: input.ownerUserId,
+    kind: "submission_file",
+    claimType: input.claimType,
+    claimId: input.claimId,
   });
 }
 
@@ -482,6 +505,18 @@ export const submitSong = mutation({
         fileProcessingStatus: "queued",
         fileProcessingQueuedAt: now,
       });
+      await claimSubmissionUpload(ctx, {
+        key: args.albumArtKey,
+        ownerUserId: userId,
+        claimType: "submission_album_art",
+        claimId: submissionId,
+      });
+      await claimSubmissionUpload(ctx, {
+        key: args.songFileKey,
+        ownerUserId: userId,
+        claimType: "submission_audio_original",
+        claimId: submissionId,
+      });
     } else {
       if (!args.songLink || !args.albumArtUrlValue) {
         throw new Error(
@@ -672,6 +707,31 @@ export const editSong = mutation({
     });
     const shouldInvalidateLyrics =
       previousLyricsFingerprint !== nextLyricsFingerprint;
+
+    if (
+      args.submissionType === "file" &&
+      args.albumArtKey &&
+      args.albumArtKey !== previousAlbumArtKey
+    ) {
+      await claimSubmissionUpload(ctx, {
+        key: args.albumArtKey,
+        ownerUserId: userId,
+        claimType: "submission_album_art",
+        claimId: submissionId,
+      });
+    }
+    if (
+      args.submissionType === "file" &&
+      args.songFileKey &&
+      args.songFileKey !== previousOriginalSongFileKey
+    ) {
+      await claimSubmissionUpload(ctx, {
+        key: args.songFileKey,
+        ownerUserId: userId,
+        claimType: "submission_audio_original",
+        claimId: submissionId,
+      });
+    }
 
     if (shouldInvalidateLyrics) {
       updates.lyrics = undefined;

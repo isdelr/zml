@@ -8,6 +8,7 @@ import { toErrorMessage } from "@/lib/errors";
 import { captureServerException } from "@/lib/observability/server";
 
 const storage = new B2Storage();
+const ALLOWED_UPLOAD_KEY_PREFIXES = ["uploads/submissions/", "rounds/images/"];
 const convexSiteUrl = firstNonEmpty(
   process.env.CONVEX_SITE_URL,
   process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
@@ -24,6 +25,10 @@ function getRequestKey(request: Request) {
 function getRequestAction(request: Request) {
   const url = new URL(request.url);
   return url.searchParams.get("action")?.trim() ?? "upload";
+}
+
+function isAllowedManagedUploadKey(key: string) {
+  return ALLOWED_UPLOAD_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 
 function getContentLength(request: Request) {
@@ -178,6 +183,12 @@ async function handleRequest(request: Request) {
   const key = getRequestKey(request);
   if (!key) {
     return NextResponse.json({ error: "Missing storage key." }, { status: 400 });
+  }
+  if (!isAllowedManagedUploadKey(key)) {
+    return NextResponse.json(
+      { error: "Storage key is not allowed for app-managed uploads." },
+      { status: 400 },
+    );
   }
 
   const action = getRequestAction(request);

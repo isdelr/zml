@@ -5,24 +5,24 @@ export const runtime = "nodejs";
 
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ submissionId: string }> },
+  context: { params: Promise<{ roundId: string }> },
 ) {
-  const { submissionId } = await context.params;
+  const { roundId } = await context.params;
   return serveMediaStorageAsset(request, {
-    tokenSubjectId: submissionId,
-    resourceId: `submission-${submissionId}`,
+    tokenSubjectId: `round:${roundId}`,
+    resourceId: `round-${roundId}`,
     assetKind: "art",
   });
 }
 
 export async function HEAD(
   request: NextRequest,
-  context: { params: Promise<{ submissionId: string }> },
+  context: { params: Promise<{ roundId: string }> },
 ) {
-  const { submissionId } = await context.params;
+  const { roundId } = await context.params;
   return serveMediaStorageAsset(request, {
-    tokenSubjectId: submissionId,
-    resourceId: `submission-${submissionId}`,
+    tokenSubjectId: `round:${roundId}`,
+    resourceId: `round-${roundId}`,
     assetKind: "art",
   });
 }

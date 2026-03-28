@@ -25,6 +25,7 @@ import type * as leagueViews from "../leagueViews.js";
 import type * as leagues from "../leagues.js";
 import type * as listenProgress from "../listenProgress.js";
 import type * as lyrics from "../lyrics.js";
+import type * as mediaMaintenance from "../mediaMaintenance.js";
 import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
 import type * as presence from "../presence.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   leagues: typeof leagues;
   listenProgress: typeof listenProgress;
   lyrics: typeof lyrics;
+  mediaMaintenance: typeof mediaMaintenance;
   migrations: typeof migrations;
   notifications: typeof notifications;
   presence: typeof presence;

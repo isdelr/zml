@@ -1,5 +1,7 @@
-import { firstNonEmpty } from "@/lib/env";
-import { buildSubmissionMediaPath } from "@/lib/media/delivery";
+import { firstNonEmpty } from "../env";
+import {
+  buildSubmissionMediaPath,
+} from "./delivery";
 
 function getCloudflareZoneId(): string | null {
   return firstNonEmpty(process.env.CLOUDFLARE_ZONE_ID) ?? null;
@@ -11,7 +13,11 @@ function getCloudflareApiToken(): string | null {
 
 function getMediaPurgeBaseUrl(): string | null {
   return (
-    firstNonEmpty(process.env.MEDIA_DELIVERY_BASE_URL, process.env.SITE_URL)?.replace(
+    firstNonEmpty(
+      process.env.MEDIA_ORIGIN_BASE_URL,
+      process.env.SITE_URL,
+      process.env.MEDIA_DELIVERY_BASE_URL,
+    )?.replace(
       /\/+$/u,
       "",
     ) ?? null
@@ -32,10 +38,18 @@ export function getSubmissionMediaPurgeUrls(submissionId: string): string[] {
     return [];
   }
 
-  return ["audio", "art"].map((assetKind) => {
-    const path = buildSubmissionMediaPath(submissionId, assetKind as "audio" | "art");
-    return new URL(path, `${baseUrl}/`).toString();
-  });
+  const audioUrl = new URL(
+    buildSubmissionMediaPath(submissionId, "audio"),
+    `${baseUrl}/`,
+  );
+  const audioDownloadUrl = new URL(audioUrl.toString());
+  audioDownloadUrl.searchParams.set("download", "1");
+  const artUrl = new URL(
+    buildSubmissionMediaPath(submissionId, "art"),
+    `${baseUrl}/`,
+  );
+
+  return [audioUrl.toString(), audioDownloadUrl.toString(), artUrl.toString()];
 }
 
 export async function purgeCloudflareMediaCache(
