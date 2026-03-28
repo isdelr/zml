@@ -115,6 +115,7 @@ export async function serveMediaStorageAsset(
     tokenSubjectId: string;
     resourceId: string;
     assetKind: MediaAssetKind;
+    disposition?: "inline" | "attachment";
   },
 ) {
   let tokenPayload: Awaited<ReturnType<typeof validateMediaToken>> | null = null;
@@ -142,8 +143,8 @@ export async function serveMediaStorageAsset(
     );
   }
 
-  const shouldDownload = request.nextUrl.searchParams.get("download") === "1";
   const storageKey = tokenPayload.storageKey;
+  const disposition = input.disposition ?? "inline";
 
   try {
     if (request.method === "HEAD") {
@@ -161,7 +162,7 @@ export async function serveMediaStorageAsset(
         contentLength: headResponse.ContentLength ?? null,
         etag: headResponse.ETag ?? null,
         lastModified: headResponse.LastModified ?? null,
-        disposition: shouldDownload ? "attachment" : "inline",
+        disposition,
         filename,
       });
 
@@ -197,7 +198,7 @@ export async function serveMediaStorageAsset(
       contentRange: objectResponse.ContentRange ?? null,
       etag: objectResponse.ETag ?? null,
       lastModified: objectResponse.LastModified ?? null,
-      disposition: shouldDownload ? "attachment" : "inline",
+      disposition,
       filename,
     });
 

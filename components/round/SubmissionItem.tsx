@@ -27,6 +27,7 @@ import {
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { useMemo } from "react";
 import { api } from "@/lib/convex/api";
+import { buildSubmissionAudioDownloadPath } from "@/lib/media/delivery";
 import { Song } from "@/types";
 import type { LeagueData } from "@/lib/convex/types";
 import { AvatarStack } from "../AvatarStack";
@@ -66,10 +67,10 @@ const EqualizerIcon = () => (
   </div>
 );
 
-function buildDownloadUrl(url: string): string {
+function buildDownloadUrl(url: string, submissionId: string): string {
   try {
     const parsed = new URL(url, "http://localhost");
-    parsed.searchParams.set("download", "1");
+    parsed.pathname = buildSubmissionAudioDownloadPath(submissionId);
 
     if (/^https?:\/\//u.test(url)) {
       return parsed.toString();
@@ -685,7 +686,7 @@ export function SubmissionItem({
                     song.songFileUrl && (
                       <DropdownMenuItem asChild>
                         <a
-                          href={buildDownloadUrl(song.songFileUrl)}
+                          href={buildDownloadUrl(song.songFileUrl, song._id)}
                           download
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -843,7 +844,7 @@ export function SubmissionItem({
                 </a>
               ) : song.submissionType === "file" && song.songFileUrl ? (
                 <a
-                  href={buildDownloadUrl(song.songFileUrl)}
+                  href={buildDownloadUrl(song.songFileUrl, song._id)}
                   download
                   onClick={(e) => e.stopPropagation()}
                   title="Download audio file"

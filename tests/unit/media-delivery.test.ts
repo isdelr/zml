@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  buildSubmissionAudioDownloadPath,
   buildSubmissionMediaPath,
   buildSubmissionMediaUrl,
   createMediaAccessToken,
@@ -16,6 +17,12 @@ describe("media delivery helpers", () => {
   it("builds the stable media path for a submission asset", () => {
     expect(buildSubmissionMediaPath("submission-123", "audio")).toBe(
       "/api/media/submissions/submission-123/audio",
+    );
+  });
+
+  it("builds the stable download path for submission audio", () => {
+    expect(buildSubmissionAudioDownloadPath("submission-123")).toBe(
+      "/api/media/submissions/submission-123/audio/download",
     );
   });
 

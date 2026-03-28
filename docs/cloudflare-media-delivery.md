@@ -3,6 +3,7 @@
 This repo now serves file-submission audio and album art from stable app paths:
 
 - `/api/media/submissions/:submissionId/audio`
+- `/api/media/submissions/:submissionId/audio/download`
 - `/api/media/submissions/:submissionId/art`
 - `/api/media/rounds/:roundId/image`
 - `/api/media/users/:userId/avatar`
@@ -35,10 +36,11 @@ Optional maintenance endpoint:
    - `ORIGIN_BASE_URL`
 4. Add a Cache Rule on the app origin hostname for `/api/media/*` that:
    - makes requests eligible for cache
-   - excludes `mediaToken` and `mediaExpires` from the cache key query string
+   - ignores the query string
+   - optionally sorts query strings for consistency
 5. Route the media hostname through the worker.
 
-The worker validates the signed query token, then fetches the app origin. Cloudflare caches the origin subrequest under the origin hostname, so the cache rule on `zml.app` needs to ignore the rotating auth query params.
+The worker validates the signed query token, then fetches the app origin. Cloudflare caches the origin subrequest under the origin hostname, so the cache rule on `zml.app` should ignore the rotating auth query params. Downloads now use a dedicated `/audio/download` path, so ignoring the query string does not mix download responses with inline playback/image responses.
 
 ## Coolify note
 
@@ -46,7 +48,7 @@ If your Next.js image is built by Coolify, set `NEXT_PUBLIC_MEDIA_DELIVERY_BASE_
 
 ## App behavior
 
-- Audio playback/download refresh calls now mint fresh stable media URLs instead of direct B2 presigned URLs.
+- Audio playback refresh calls now mint fresh stable media URLs instead of direct B2 presigned URLs, and downloads use the dedicated `/audio/download` path on the same tokenized URL flow.
 - Cached avatars and round images now also use the same media hostname flow instead of direct B2 URLs.
 - File-upload waveform generation happens server-side and stores the JSON waveform in Convex.
 - File replacement paths schedule Cloudflare purge calls against the origin URLs so updated media does not stay cached indefinitely.

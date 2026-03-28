@@ -1,5 +1,6 @@
 import { firstNonEmpty } from "../env";
 import {
+  buildSubmissionAudioDownloadPath,
   buildSubmissionMediaPath,
 } from "./delivery";
 
@@ -43,7 +44,7 @@ export function getSubmissionMediaPurgeUrls(submissionId: string): string[] {
     `${baseUrl}/`,
   );
   const audioDownloadUrl = new URL(audioUrl.toString());
-  audioDownloadUrl.searchParams.set("download", "1");
+  audioDownloadUrl.pathname = buildSubmissionAudioDownloadPath(submissionId);
   const artUrl = new URL(
     buildSubmissionMediaPath(submissionId, "art"),
     `${baseUrl}/`,

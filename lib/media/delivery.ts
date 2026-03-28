@@ -127,6 +127,10 @@ export function buildSubmissionMediaPath(
   return `/api/media/submissions/${submissionId}/${assetKind}`;
 }
 
+export function buildSubmissionAudioDownloadPath(submissionId: string): string {
+  return `/api/media/submissions/${submissionId}/audio/download`;
+}
+
 export function buildRoundImageMediaPath(roundId: string): string {
   return `/api/media/rounds/${roundId}/image`;
 }
