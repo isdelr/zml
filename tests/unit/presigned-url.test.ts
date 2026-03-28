@@ -12,6 +12,13 @@ describe("presigned url helpers", () => {
     expect(expiry).toBe(Date.UTC(2026, 1, 8, 12, 15, 0));
   });
 
+  it("parses mediaExpires from stable media URLs", () => {
+    const expiry = parsePresignedUrlExpiry(
+      "https://media.example.com/api/media/submissions/abc/audio?mediaExpires=1770000000000&mediaToken=test",
+    );
+    expect(expiry).toBe(1770000000000);
+  });
+
   it("falls back to default delay when expiry is missing", () => {
     expect(getPresignedUrlRefreshDelayMs(null)).toBe(15 * 60 * 1000);
   });
@@ -24,4 +31,3 @@ describe("presigned url helpers", () => {
     );
   });
 });
-

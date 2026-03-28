@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useEffect, useState } from "react";
+import { useQuery } from "convex/react";
 import WaveformData from "waveform-data";
 import { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/lib/convex/api";
+import { toErrorMessage } from "@/lib/errors";
 import { Song } from "@/types";
 
 type UseSubmissionWaveformArgs = {
@@ -30,9 +31,6 @@ export function useSubmissionWaveform({
 } {
   const [waveformData, setWaveformData] = useState<WaveformData | null>(null);
   const [isWaveformLoading, setIsWaveformLoading] = useState(false);
-  const audioContextRef = useRef<AudioContext | null>(null);
-
-  const storeWaveform = useMutation(api.submissions.storeWaveform);
   const cachedWaveform = useQuery(
     api.submissions.getWaveform,
     currentTrack && currentTrack.submissionType === "file"
@@ -41,17 +39,16 @@ export function useSubmissionWaveform({
   );
 
   useEffect(() => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext();
+    if (currentTrack?.submissionType === "file" && effectiveSongUrl) {
+      return;
     }
-  }, []);
+
+    setWaveformData(null);
+    setIsWaveformLoading(false);
+  }, [currentTrack?.submissionType, effectiveSongUrl]);
 
   useEffect(() => {
-    if (
-      currentTrack?.submissionType !== "file" ||
-      !effectiveSongUrl ||
-      !audioContextRef.current
-    ) {
+    if (currentTrack?.submissionType !== "file" || !effectiveSongUrl) {
       return;
     }
 
@@ -66,28 +63,27 @@ export function useSubmissionWaveform({
     }
 
     const generateWaveformFromUrl = async (url: string): Promise<WaveformData> => {
-      const proxyUrl = `/api/storage-proxy?url=${encodeURIComponent(url)}`;
-      const response = await fetch(proxyUrl, { cache: "no-store" });
-      if (!response.ok) {
-        throw new Error(`Waveform fetch failed with status ${response.status}`);
-      }
-      const buffer = await response.arrayBuffer();
-      return new Promise<WaveformData>((resolve, reject) => {
-        WaveformData.createFromAudio(
-          {
-            audio_context: audioContextRef.current!,
-            array_buffer: buffer,
-            scale: 1024,
-          },
-          (err, waveform) => {
-            if (err || !waveform) {
-              reject(err ?? new Error("Waveform generation failed"));
-              return;
-            }
-            resolve(waveform);
-          },
-        );
+      const response = await fetch("/api/submissions/generate-waveform", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          submissionId: currentTrack._id,
+          mediaUrl: url,
+        }),
       });
+      if (!response.ok) {
+        const responseText = await response.text();
+        throw new Error(
+          responseText || `Waveform generation failed with status ${response.status}`,
+        );
+      }
+      const payload = (await response.json()) as { waveformJson?: string };
+      if (!payload.waveformJson) {
+        throw new Error("Waveform generation response is missing waveformJson.");
+      }
+      return WaveformData.create(JSON.parse(payload.waveformJson));
     };
 
     const run = async () => {
@@ -119,12 +115,6 @@ export function useSubmissionWaveform({
           setWaveformData(waveform);
           setIsWaveformLoading(false);
         });
-        storeWaveform({
-          submissionId: currentTrack._id,
-          waveformJson: JSON.stringify(waveform.toJSON()),
-        }).catch((error) => {
-          console.warn("Failed to store waveform:", error);
-        });
       } catch (initialError) {
         try {
           const refreshedUrl = await getPresignedSongUrl({
@@ -143,18 +133,15 @@ export function useSubmissionWaveform({
             setWaveformData(waveform);
             setIsWaveformLoading(false);
           });
-          storeWaveform({
-            submissionId: currentTrack._id,
-            waveformJson: JSON.stringify(waveform.toJSON()),
-          }).catch((error) => {
-            console.warn("Failed to store waveform:", error);
-          });
         } catch (retryError) {
           queueMicrotask(() => {
             if (isCancelled) return;
             setIsWaveformLoading(false);
           });
-          console.warn("Waveform generation failed:", retryError);
+          console.warn(
+            "Waveform generation failed:",
+            toErrorMessage(retryError, toErrorMessage(initialError)),
+          );
         }
       }
     };
@@ -169,7 +156,6 @@ export function useSubmissionWaveform({
     currentTrack?.submissionType,
     effectiveSongUrl,
     cachedWaveform,
-    storeWaveform,
     getPresignedSongUrl,
     onPresignedUrlRefreshed,
     currentTrack,

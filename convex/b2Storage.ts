@@ -4,6 +4,7 @@ import {
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
   UploadPartCommand,
@@ -145,6 +146,27 @@ export class B2Storage {
     );
     setCachedSignedUrl(cacheKey, url);
     return url;
+  }
+
+  async getObject(key: string, options?: { range?: string }) {
+    const config = getStorageConfig();
+    return await getStorageClient().send(
+      new GetObjectCommand({
+        Bucket: config.bucket,
+        Key: key,
+        Range: options?.range,
+      }),
+    );
+  }
+
+  async headObject(key: string) {
+    const config = getStorageConfig();
+    return await getStorageClient().send(
+      new HeadObjectCommand({
+        Bucket: config.bucket,
+        Key: key,
+      }),
+    );
   }
 
   async generateUploadUrl(customKey?: string) {

@@ -5,6 +5,7 @@ import { useAction } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Song } from "@/types";
 import { buildTrackMetadataText } from "@/lib/music/submission-display";
+import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -43,36 +44,13 @@ export function PlayerTrackInfo({
   );
   const refreshTimeoutRef = useRef<number | null>(null);
 
-  const parseExpiryFromUrl = (url?: string | null): number | null => {
-    if (!url) return null;
-    try {
-      const u = new URL(url);
-      const expires = u.searchParams.get("X-Amz-Expires");
-      const date = u.searchParams.get("X-Amz-Date");
-      if (expires && date) {
-        const year = Number(date.slice(0, 4));
-        const month = Number(date.slice(4, 6)) - 1;
-        const day = Number(date.slice(6, 8));
-        const hour = Number(date.slice(9, 11));
-        const min = Number(date.slice(11, 13));
-        const sec = Number(date.slice(13, 15));
-        const startMs = Date.UTC(year, month, day, hour, min, sec);
-        const expSec = Number(expires);
-        if (!isNaN(startMs) && !isNaN(expSec)) {
-          return startMs + expSec * 1000;
-        }
-      }
-    } catch {}
-    return null;
-  };
-
   const scheduleRefresh = (url?: string | null) => {
     if (refreshTimeoutRef.current) {
       window.clearTimeout(refreshTimeoutRef.current);
       refreshTimeoutRef.current = null;
     }
     if (!currentTrack || currentTrack.submissionType !== "file") return;
-    const expiry = parseExpiryFromUrl(url);
+    const expiry = parsePresignedUrlExpiry(url);
     const SAFETY_MS = 60_000;
     let delay: number;
     if (expiry) {

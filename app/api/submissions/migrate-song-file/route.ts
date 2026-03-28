@@ -6,11 +6,13 @@ import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { NextResponse } from "next/server";
 import { B2Storage } from "@/convex/b2Storage";
 import { toErrorMessage } from "@/lib/errors";
+import { storageBodyToNodeReadable } from "@/lib/storage/object-body";
 import {
   AAC_CONTENT_TYPE,
   buildTempAudioPath,
   transcodeToAac,
 } from "@/lib/submission/audio-transcode";
+import { generateWaveformJsonFromAudioFile } from "@/lib/submission/server-waveform";
 
 const storage = new B2Storage();
 
@@ -18,14 +20,17 @@ type MigrationPayload = {
   songFileKey?: string;
 };
 
-async function writeResponseToDisk(response: Response, filePath: string) {
-  if (!response.body) {
+async function writeBodyToDisk(body: unknown, filePath: string) {
+  if (!body) {
     throw new Error("Missing source audio body.");
   }
 
-  const inputStream = Readable.fromWeb(
-    response.body as unknown as NodeReadableStream<Uint8Array>,
-  );
+  const inputStream =
+    body instanceof Readable
+      ? body
+      : Readable.fromWeb(
+          body as unknown as NodeReadableStream<Uint8Array>,
+        );
   await pipeline(inputStream, createWriteStream(filePath));
 }
 
@@ -56,23 +61,15 @@ export async function POST(request: Request) {
   const outputPath = buildTempAudioPath(".m4a");
 
   try {
-    const sourceUrl = await storage.getUrl(payload.songFileKey);
-    const sourceResponse = await fetch(sourceUrl, {
-      cache: "no-store",
-      redirect: "follow",
-    });
-    if (!sourceResponse.ok) {
-      return NextResponse.json(
-        {
-          error: "Failed to fetch source audio.",
-          status: sourceResponse.status,
-        },
-        { status: 502 },
-      );
-    }
-
-    await writeResponseToDisk(sourceResponse, inputPath);
+    const sourceObject = await storage.getObject(payload.songFileKey);
+    await writeBodyToDisk(
+      sourceObject.Body
+        ? storageBodyToNodeReadable(sourceObject.Body)
+        : null,
+      inputPath,
+    );
     await transcodeToAac(inputPath, outputPath);
+    const waveformJson = await generateWaveformJsonFromAudioFile(outputPath);
 
     const newKey = `submissions/audio/${randomUUID()}.m4a`;
     const { size: outputSize } = await fs.stat(outputPath);
@@ -84,6 +81,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       key: newKey,
       contentType: AAC_CONTENT_TYPE,
+      waveformJson,
     });
   } catch (error) {
     return NextResponse.json(

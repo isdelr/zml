@@ -66,6 +66,21 @@ const EqualizerIcon = () => (
   </div>
 );
 
+function buildDownloadUrl(url: string): string {
+  try {
+    const parsed = new URL(url, "http://localhost");
+    parsed.searchParams.set("download", "1");
+
+    if (/^https?:\/\//u.test(url)) {
+      return parsed.toString();
+    }
+
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return url;
+  }
+}
+
 interface SubmissionItemProps {
   song: Song;
   index: number;
@@ -670,7 +685,7 @@ export function SubmissionItem({
                     song.songFileUrl && (
                       <DropdownMenuItem asChild>
                         <a
-                          href={song.songFileUrl}
+                          href={buildDownloadUrl(song.songFileUrl)}
                           download
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -828,7 +843,7 @@ export function SubmissionItem({
                 </a>
               ) : song.submissionType === "file" && song.songFileUrl ? (
                 <a
-                  href={song.songFileUrl}
+                  href={buildDownloadUrl(song.songFileUrl)}
                   download
                   onClick={(e) => e.stopPropagation()}
                   title="Download audio file"

@@ -6,6 +6,14 @@ export function parsePresignedUrlExpiry(url?: string | null): number | null {
 
   try {
     const parsed = new URL(url);
+    const mediaExpires = parsed.searchParams.get("mediaExpires");
+    if (mediaExpires) {
+      const expiryMs = Number(mediaExpires);
+      if (Number.isFinite(expiryMs) && expiryMs > 0) {
+        return expiryMs;
+      }
+    }
+
     const expires = parsed.searchParams.get("X-Amz-Expires");
     const date = parsed.searchParams.get("X-Amz-Date");
     if (!expires || !date) return null;
@@ -39,4 +47,3 @@ export function getPresignedUrlRefreshDelayMs(
   if (!expiryMs) return fallbackRefreshMs;
   return Math.max(0, expiryMs - safetyWindowMs - nowMs);
 }
-

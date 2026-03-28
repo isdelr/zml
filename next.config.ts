@@ -18,6 +18,18 @@ const storageHostname = (() => {
     return storageEndpoint.replace(/^https?:\/\//, "");
   }
 })();
+const mediaDeliveryBaseUrl = process.env.MEDIA_DELIVERY_BASE_URL ?? null;
+const mediaDeliveryUrl = (() => {
+  if (!mediaDeliveryBaseUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(mediaDeliveryBaseUrl);
+  } catch {
+    return null;
+  }
+})();
 const distDir = process.env.NEXT_DIST_DIR;
 const DEFAULT_PROXY_CLIENT_MAX_BODY_SIZE_BYTES =
   3 * 1024 * 1024 * 1024 + 16 * 1024 * 1024;
@@ -85,6 +97,16 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 2678400,
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
+      ...(mediaDeliveryUrl
+        ? [
+            {
+              protocol: mediaDeliveryUrl.protocol.replace(":", "") as "http" | "https",
+              hostname: mediaDeliveryUrl.hostname,
+              port: mediaDeliveryUrl.port,
+              pathname: "/**",
+            },
+          ]
+        : []),
       {
         protocol: "https",
         hostname: storageHostname,

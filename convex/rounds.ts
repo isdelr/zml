@@ -1249,6 +1249,10 @@ export const getVoteSummary = query({
     if (!round || round.status !== "finished") {
       return [];
     }
+    const league = await ctx.db.get("leagues", round.leagueId);
+    if (!league) {
+      return [];
+    }
 
     const { canView } = await canViewLeague(ctx, round.leagueId, userId);
     if (!canView) {
@@ -1333,6 +1337,10 @@ export const getVoteSummary = query({
         const { albumArtUrl } = await resolveSubmissionMediaUrls(
           storage,
           submission,
+          {
+            allowPublic: league.isPublic,
+            viewerUserId: userId,
+          },
         );
 
         const submittedByImage = await resolveUserAvatarUrl(storage, submitter);

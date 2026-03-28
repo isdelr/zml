@@ -119,6 +119,10 @@ export const searchInLeague = query({
         const { albumArtUrl, songFileUrl } = await resolveSubmissionMediaUrls(
           storage,
           submission,
+          {
+            allowPublic: league.isPublic,
+            viewerUserId: userId,
+          },
         );
         return {
           _id: submission._id,

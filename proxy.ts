@@ -13,6 +13,8 @@ const PUBLIC_ROUTE_PATTERNS = [
   /^\/api\/auth\/session$/,
   /^\/api\/auth(?:\/.*)?$/,
   /^\/api\/discord-bot(?:\/.*)?$/,
+  /^\/api\/media(?:\/.*)?$/,
+  /^\/api\/submissions\/generate-waveform$/,
   /^\/api\/submissions\/migrate-song-file$/,
   /^\/manifest\.(?:webmanifest|json|js)$/,
   /^\/robots\.txt$/,

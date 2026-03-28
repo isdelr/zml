@@ -1,5 +1,6 @@
 // File: convex/submissions.ts
 // convex/submissions.ts
+import { makeFunctionReference, type FunctionReference } from "convex/server";
 import { v } from "convex/values";
 import {
   mutation,
@@ -13,7 +14,7 @@ import {
 } from "./_generated/server";
 import { getAuthUserId } from "./authCore";
 import { B2Storage } from "./b2Storage";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { submissionsByUser } from "./aggregates";
 import { submissionCounter } from "./counters";
@@ -27,6 +28,14 @@ import {
 } from "../lib/convex-server/submissions/normalize";
 import { buildSubmissionLyricsFingerprint } from "../lib/convex-server/submissions/lyrics";
 import { firstNonEmpty } from "../lib/env";
+import {
+  canPurgeCloudflareMediaCache,
+  purgeCloudflareMediaCache,
+} from "../lib/media/cloudflare-cache";
+import {
+  buildSubmissionMediaUrl,
+  type MediaAccessScope,
+} from "../lib/media/delivery";
 import { formatArtistNames } from "../lib/music/submission-display";
 import { getAnonymousCommentIdentity } from "../lib/comments/anonymous";
 import { shouldRevealCommentIdentity } from "../lib/comments/visibility";
@@ -43,6 +52,32 @@ const MAX_AUDIO_MIGRATION_BATCH_SIZE = 100;
 const DEFAULT_PENDING_AUDIO_PROCESSING_BATCH_SIZE = 10;
 const MAX_PENDING_AUDIO_PROCESSING_BATCH_SIZE = 25;
 const SUBMISSION_AUDIO_PROCESSING_STALE_MS = 15 * 60 * 1000;
+const purgeSubmissionMediaCacheRef = makeFunctionReference<
+  "action",
+  { submissionId: Id<"submissions"> }
+>(
+  "submissions:purgeSubmissionMediaCache",
+) as unknown as FunctionReference<
+  "action",
+  "internal",
+  { submissionId: Id<"submissions"> }
+>;
+const getSubmissionMediaAccessStateRef = makeFunctionReference<
+  "query",
+  {
+    submissionId: Id<"submissions">;
+    viewerUserId: Id<"users"> | null;
+  }
+>(
+  "submissions:getSubmissionMediaAccessState",
+) as unknown as FunctionReference<
+  "query",
+  "internal",
+  {
+    submissionId: Id<"submissions">;
+    viewerUserId: Id<"users"> | null;
+  }
+>;
 
 export const submissionFileProcessingStatusValues = [
   "queued",
@@ -130,6 +165,19 @@ async function scheduleSubmissionFileDeletion(
   });
 }
 
+async function scheduleSubmissionMediaCachePurge(
+  ctx: Pick<MutationCtx, "scheduler">,
+  submissionId: Id<"submissions">,
+) {
+  if (!canPurgeCloudflareMediaCache()) {
+    return;
+  }
+
+  await ctx.scheduler.runAfter(0, purgeSubmissionMediaCacheRef, {
+    submissionId,
+  });
+}
+
 async function canViewLeague(
   ctx: Pick<QueryCtx, "db">,
   leagueId: Id<"leagues">,
@@ -156,6 +204,21 @@ async function canViewLeague(
     .first();
 
   return { league, canView: Boolean(membership) };
+}
+
+function buildMediaScope(
+  allowPublic: boolean,
+  viewerUserId: Id<"users"> | null,
+): MediaAccessScope {
+  if (viewerUserId) {
+    return { type: "user", userId: viewerUserId };
+  }
+
+  if (allowPublic) {
+    return { type: "public" };
+  }
+
+  throw new Error("Cannot build media scope for a private anonymous viewer.");
 }
 
 async function updateSubmissionTrollPenalty(
@@ -646,6 +709,18 @@ export const editSong = mutation({
       keysToDelete,
       "stale submission file",
     );
+    const shouldPurgeMediaCache =
+      (oldDoc.submissionType === "file" || args.submissionType === "file") &&
+      (
+        oldDoc.submissionType !== args.submissionType ||
+        previousAlbumArtKey !== nextAlbumArtKey ||
+        previousSongFileKey !== nextSongFileKey ||
+        previousOriginalSongFileKey !== nextOriginalSongFileKey
+      );
+
+    if (shouldPurgeMediaCache) {
+      await scheduleSubmissionMediaCachePurge(ctx, submissionId);
+    }
 
     if (
       args.submissionType === "file" &&
@@ -677,6 +752,22 @@ export const deleteSubmissionFiles = internalAction({
       } catch (error) {
         console.error(`Failed to delete ${args.failureLabel} "${key}"`, error);
       }
+    }
+  },
+});
+
+export const purgeSubmissionMediaCache = internalAction({
+  args: {
+    submissionId: v.id("submissions"),
+  },
+  handler: async (_ctx, args) => {
+    try {
+      await purgeCloudflareMediaCache(args.submissionId);
+    } catch (error) {
+      console.error(
+        `Failed to purge Cloudflare media cache for submission "${args.submissionId}"`,
+        error,
+      );
     }
   },
 });
@@ -748,6 +839,10 @@ export const getForRound = query({
         const { albumArtUrl, songFileUrl } = await resolveSubmissionMediaUrls(
           storage,
           submission,
+          {
+            allowPublic: league.isPublic,
+            viewerUserId: userId,
+          },
         );
 
         let points = 0;
@@ -862,6 +957,10 @@ export const getMySubmissions = query({
         const { albumArtUrl, songFileUrl } = await resolveSubmissionMediaUrls(
           storage,
           submission,
+          {
+            allowPublic: league.isPublic,
+            viewerUserId: userId,
+          },
         );
 
         let result: { type: string; points: number; penaltyApplied?: boolean };
@@ -1129,6 +1228,43 @@ export const getSubmissionById = internalQuery({
   },
 });
 
+export const getSubmissionMediaAccessState = internalQuery({
+  args: {
+    submissionId: v.id("submissions"),
+    viewerUserId: v.union(v.id("users"), v.null()),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      canView: v.boolean(),
+      allowPublic: v.boolean(),
+      submissionType: v.union(v.literal("file"), v.literal("youtube")),
+      songFileKey: v.union(v.string(), v.null()),
+      albumArtKey: v.union(v.string(), v.null()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const submission = await ctx.db.get("submissions", args.submissionId);
+    if (!submission) {
+      return null;
+    }
+
+    const { league, canView } = await canViewLeague(
+      ctx,
+      submission.leagueId,
+      args.viewerUserId,
+    );
+
+    return {
+      canView,
+      allowPublic: league?.isPublic ?? false,
+      submissionType: submission.submissionType,
+      songFileKey: submission.songFileKey ?? null,
+      albumArtKey: submission.albumArtKey ?? null,
+    };
+  },
+});
+
 export const listPendingSubmissionAudioCandidates = internalQuery({
   args: {
     status: v.union(
@@ -1289,6 +1425,7 @@ export const completeQueuedSubmissionAudioProcessing = internalMutation({
         newDoc.roundId,
         newDoc.userId,
       );
+      await scheduleSubmissionMediaCachePurge(ctx, args.submissionId);
     }
 
     return {
@@ -1376,6 +1513,7 @@ export const processQueuedSubmissionAudio = internalAction({
       const responseText = await response.text();
       let payload: {
         key?: string;
+        waveformJson?: string;
         error?: string;
         message?: string;
       };
@@ -1420,6 +1558,20 @@ export const processQueuedSubmissionAudio = internalAction({
           }
         }
         return { processed: false };
+      }
+
+      if (payload.waveformJson) {
+        try {
+          await ctx.runMutation(api.submissions.storeWaveform, {
+            submissionId: args.submissionId,
+            waveformJson: payload.waveformJson,
+          });
+        } catch (error) {
+          console.error(
+            `Failed to store generated waveform for submission "${args.submissionId}"`,
+            error,
+          );
+        }
       }
 
       for (const key of keysToDelete) {
@@ -1564,34 +1716,44 @@ export const applyAudioMigration = internalMutation({
       throw new Error("Submission audio key changed during migration.");
     }
 
-    await ctx.db.patch(args.submissionId, {
+    await ctx.db.patch("submissions", args.submissionId, {
       songFileKey: args.newSongFileKey,
       songFileLegacyKey:
         submission.songFileLegacyKey ?? args.oldSongFileKey,
     });
+    await scheduleSubmissionMediaCachePurge(ctx, args.submissionId);
   },
 });
 
 export const getPresignedSongUrl = action({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args): Promise<string | null> => {
-    const submission: Doc<"submissions"> | null = await ctx.runQuery(
-      internal.submissions.getSubmissionById,
+    const userId = await getAuthUserId(ctx);
+    const mediaAccessState = await ctx.runQuery(
+      getSubmissionMediaAccessStateRef,
       {
         submissionId: args.submissionId,
+        viewerUserId: userId,
       },
     );
     if (
-      !submission ||
-      submission.submissionType !== "file" ||
-      !submission.songFileKey
+      !mediaAccessState ||
+      !mediaAccessState.canView ||
+      mediaAccessState.submissionType !== "file" ||
+      !mediaAccessState.songFileKey
     ) {
       console.error(
         "Could not generate URL: Submission is not a file or key is missing.",
       );
       return null;
     }
-    return await storage.getUrl(submission.songFileKey);
+
+    return await buildSubmissionMediaUrl({
+      submissionId: args.submissionId,
+      assetKind: "audio",
+      storageKey: mediaAccessState.songFileKey,
+      scope: buildMediaScope(mediaAccessState.allowPublic, userId),
+    });
   },
 });
 
@@ -1636,6 +1798,7 @@ export const migrateStoredSongsToAac = internalAction({
         const responseText = await response.text();
         let payload: {
           key?: string;
+          waveformJson?: string;
           error?: string;
           message?: string;
         };
@@ -1658,6 +1821,12 @@ export const migrateStoredSongsToAac = internalAction({
           newSongFileKey: payload.key,
           oldSongFileKey: candidate.songFileKey,
         });
+        if (payload.waveformJson) {
+          await ctx.runMutation(api.submissions.storeWaveform, {
+            submissionId: candidate.submissionId,
+            waveformJson: payload.waveformJson,
+          });
+        }
         migrated.push({ submissionId: candidate.submissionId, key: payload.key });
       } catch (error) {
         const message =
@@ -1683,19 +1852,27 @@ export const migrateStoredSongsToAac = internalAction({
 export const getPresignedAlbumArtUrl = action({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args): Promise<string | null> => {
-    const submission: Doc<"submissions"> | null = await ctx.runQuery(
-      internal.submissions.getSubmissionById,
+    const userId = await getAuthUserId(ctx);
+    const mediaAccessState = await ctx.runQuery(
+      getSubmissionMediaAccessStateRef,
       {
         submissionId: args.submissionId,
+        viewerUserId: userId,
       },
     );
-    if (!submission || !submission.albumArtKey) {
+    if (!mediaAccessState || !mediaAccessState.canView || !mediaAccessState.albumArtKey) {
       console.error(
         "Could not generate album art URL: albumArtKey is missing.",
       );
       return null;
     }
-    return await storage.getUrl(submission.albumArtKey);
+
+    return await buildSubmissionMediaUrl({
+      submissionId: args.submissionId,
+      assetKind: "art",
+      storageKey: mediaAccessState.albumArtKey,
+      scope: buildMediaScope(mediaAccessState.allowPublic, userId),
+    });
   },
 });
 

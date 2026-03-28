@@ -90,6 +90,10 @@ export const getBookmarkedSongs = query({
         const { albumArtUrl, songFileUrl } = await resolveSubmissionMediaUrls(
           storage,
           submission,
+          {
+            allowPublic: league.isPublic,
+            viewerUserId: userId,
+          },
         );
 
         return {
