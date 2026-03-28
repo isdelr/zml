@@ -25,9 +25,9 @@ import {
   hasPendingSubmissionProcessing,
   isSubmissionPlayable,
 } from "@/lib/submission/file-processing";
+import { MediaImage } from "@/components/ui/media-image";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Edit, Play } from "lucide-react";
-import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -79,12 +79,13 @@ function MySubmissionRow({
       <div className="p-3 transition-colors hover:bg-accent/40">
         <div className="md:hidden">
           <div className="flex items-center gap-3">
-            <Image
+            <MediaImage
               src={submission.albumArtUrl ?? FALLBACK_ALBUM_ART}
               alt={submission.songTitle}
               width={48}
               height={48}
               className="shrink-0 rounded"
+              fallbackSrc={FALLBACK_ALBUM_ART}
             />
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{submission.songTitle}</p>
@@ -134,12 +135,13 @@ function MySubmissionRow({
           </div>
 
           <div className="flex min-w-0 items-center gap-4">
-            <Image
+            <MediaImage
               src={submission.albumArtUrl ?? FALLBACK_ALBUM_ART}
               alt={submission.songTitle}
               width={40}
               height={40}
               className="shrink-0 rounded"
+              fallbackSrc={FALLBACK_ALBUM_ART}
             />
             <div className="min-w-0">
               <p className="truncate font-semibold">{submission.songTitle}</p>
@@ -376,12 +378,13 @@ export function SubmissionForm({
                       className="overflow-hidden rounded-md border-2 border-background bg-muted"
                       style={{ zIndex: resolvedSubmissions.length - index }}
                     >
-                      <Image
+                      <MediaImage
                         src={submission.albumArtUrl ?? FALLBACK_ALBUM_ART}
                         alt={submission.songTitle}
                         width={36}
                         height={36}
                         className="size-9 object-cover"
+                        fallbackSrc={FALLBACK_ALBUM_ART}
                       />
                     </div>
                   ))}
