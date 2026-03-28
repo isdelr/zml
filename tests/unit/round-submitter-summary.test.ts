@@ -22,4 +22,20 @@ describe("getRoundSubmitterSummary", () => {
     expect(result.completedSubmitters.map((member) => member.name)).toEqual(["A"]);
     expect(result.missingSubmitters.map((member) => member.name)).toEqual(["B", "C"]);
   });
+
+  it("treats album and multi-track rounds as one completion per collection", () => {
+    const submissions = [
+      { userId: "u1", collectionId: "collection-1" },
+      { userId: "u1", collectionId: "collection-1" },
+      { userId: "u2", collectionId: "collection-2" },
+    ];
+
+    const result = getRoundSubmitterSummary(members, submissions, 1, "album");
+
+    expect(result.completedSubmitters.map((member) => member.name)).toEqual([
+      "A",
+      "B",
+    ]);
+    expect(result.missingSubmitters.map((member) => member.name)).toEqual(["C"]);
+  });
 });

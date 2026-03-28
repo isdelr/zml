@@ -20,6 +20,7 @@ import {
   type MultiSongSubmissionFormOutput,
 } from "@/lib/submission/multi-form";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Form } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UploadProgressStatus } from "@/components/submission/UploadProgressStatus";
@@ -33,12 +34,14 @@ interface MultiSongSubmissionFormProps {
   round: Doc<"rounds">;
   maxSongs: number;
   currentCount: number;
+  willAutoStartVotingOnLinkSubmit?: boolean;
 }
 
 export function MultiSongSubmissionForm({
   round,
   maxSongs,
   currentCount,
+  willAutoStartVotingOnLinkSubmit = false,
 }: MultiSongSubmissionFormProps) {
   const roundId = round._id;
   const submitSong = useMutation(api.submissions.submitSong);
@@ -109,6 +112,7 @@ export function MultiSongSubmissionForm({
             comment: track.comment,
             collectionId,
             collectionType: "multi",
+            collectionTotalTracks: values.tracks.length,
           });
 
           setUploadStatus({
@@ -137,6 +141,7 @@ export function MultiSongSubmissionForm({
             comment: track.comment,
             collectionId,
             collectionType: "multi",
+            collectionTotalTracks: values.tracks.length,
           });
 
           setUploadProgress(Math.round(((i + 1) / totalTracks) * 100));
@@ -252,6 +257,16 @@ export function MultiSongSubmissionForm({
             description={uploadStatus?.description}
             progress={uploadProgress}
           />
+
+          {submissionType === "link" && willAutoStartVotingOnLinkSubmit ? (
+            <Alert className="border-warning/50 bg-warning/10 text-warning">
+              <AlertTitle>This submission starts voting</AlertTitle>
+              <AlertDescription className="text-warning/90">
+                This collection completes the round, so voting will begin
+                immediately after you submit it.
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
           <Button
             type="submit"

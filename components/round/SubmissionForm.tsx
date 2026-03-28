@@ -18,6 +18,8 @@ import {
 import { Doc } from "@/convex/_generated/dataModel";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { buildTrackMetadataText } from "@/lib/music/submission-display";
+import { willSubmissionImmediatelyStartVoting } from "@/lib/rounds/auto-voting-warning";
+import { getUserSubmissionCompletionCount } from "@/lib/rounds/submission-completion";
 import {
   getSubmissionFileProcessingStatus,
   hasPendingSubmissionProcessing,
@@ -42,6 +44,8 @@ interface SubmissionFormProps {
   roundStatus: "scheduled" | "voting" | "finished" | "submissions";
   currentUser: Doc<"users"> | null | undefined;
   mySubmissions: SubmissionWithUrls[] | undefined;
+  allSubmissions: SubmissionWithUrls[] | undefined;
+  activeMemberCount: number;
   leagueName: string;
 }
 
@@ -67,6 +71,8 @@ function MySubmissionRow({
     submission.albumName,
     submission.year,
   );
+  const canEdit =
+    roundStatus === "scheduled" || roundStatus === "submissions";
 
   return (
     <div className="border-b border-border last:border-b-0">
@@ -94,7 +100,7 @@ function MySubmissionRow({
             <SubmissionProcessingStatus submission={submission} compact />
 
             <div className="flex items-center gap-2">
-              {roundStatus === "submissions" ? (
+              {canEdit ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -150,7 +156,7 @@ function MySubmissionRow({
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            {roundStatus === "submissions" ? (
+            {canEdit ? (
               <Button
                 type="button"
                 variant="outline"
@@ -186,6 +192,8 @@ export function SubmissionForm({
   roundStatus,
   currentUser,
   mySubmissions,
+  allSubmissions,
+  activeMemberCount,
   leagueName,
 }: SubmissionFormProps) {
   const [editingSubmission, setEditingSubmission] =
@@ -194,22 +202,24 @@ export function SubmissionForm({
   const { actions: playerActions } = useMusicPlayerStore();
   const previousStatusesRef = useRef<Record<string, string>>({});
   const resolvedSubmissions = mySubmissions ?? EMPTY_SUBMISSIONS;
+  const resolvedAllSubmissions = allSubmissions ?? EMPTY_SUBMISSIONS;
 
   const submissionsPerUser = round.submissionsPerUser ?? 1;
-
-  let submissionCount = resolvedSubmissions.length;
-  if (round.submissionMode === "album" || round.submissionMode === "multi") {
-    const uniqueCollections = new Set(
-      resolvedSubmissions
-        .filter((submission) => submission.collectionId)
-        .map((submission) => submission.collectionId),
-    );
-    submissionCount = uniqueCollections.size;
-  }
+  const submissionMode = round.submissionMode ?? "single";
+  const submissionCount =
+    currentUser !== null && currentUser !== undefined
+      ? getUserSubmissionCompletionCount(
+          resolvedSubmissions,
+          submissionMode,
+          currentUser._id,
+        )
+      : 0;
 
   const canSubmitMore = submissionCount < submissionsPerUser;
   const hasMultipleTracks = resolvedSubmissions.length > 1;
   const isExpanded = !hasMultipleTracks || isMultiExpanded;
+  const canEditSubmissions =
+    roundStatus === "scheduled" || roundStatus === "submissions";
 
   const canPlay = (submission: SubmissionWithUrls) =>
     isSubmissionPlayable({
@@ -235,6 +245,47 @@ export function SubmissionForm({
       .filter(Boolean)
       .join(", ");
   }, [resolvedSubmissions]);
+  const hasIncompleteFileSubmissions = useMemo(() => {
+    return resolvedAllSubmissions.some((submission) => {
+      if (submission.submissionType !== "file") {
+        return false;
+      }
+
+      return (
+        getSubmissionFileProcessingStatus({
+          submissionType: submission.submissionType,
+          songFileKey: submission.songFileKey ?? null,
+          fileProcessingStatus: submission.fileProcessingStatus,
+        }) !== "ready"
+      );
+    });
+  }, [resolvedAllSubmissions]);
+  const willAutoStartVotingOnLinkSubmit = useMemo(() => {
+    if (!currentUser) {
+      return false;
+    }
+
+    return willSubmissionImmediatelyStartVoting({
+      roundStatus,
+      isFirstRound: (round.order ?? -1) === 0,
+      submissionMode,
+      submissionsPerUser,
+      activeMemberCount,
+      currentUserId: currentUser._id,
+      submissions: resolvedAllSubmissions,
+      additionalSubmissionUnits: 1,
+      hasIncompleteFileSubmissions,
+    });
+  }, [
+    activeMemberCount,
+    currentUser,
+    hasIncompleteFileSubmissions,
+    resolvedAllSubmissions,
+    round.order,
+    roundStatus,
+    submissionMode,
+    submissionsPerUser,
+  ]);
 
   useEffect(() => {
     const nextStatuses: Record<string, string> = {};
@@ -378,17 +429,24 @@ export function SubmissionForm({
         </div>
       ) : null}
 
-      {canSubmitMore && roundStatus === "submissions" ? (
+      {canSubmitMore && canEditSubmissions ? (
         round.submissionMode === "album" ? (
-          <AlbumSubmissionForm round={round} />
+          <AlbumSubmissionForm
+            round={round}
+            willAutoStartVotingOnLinkSubmit={willAutoStartVotingOnLinkSubmit}
+          />
         ) : round.submissionMode === "multi" ? (
           <MultiSongSubmissionForm
             round={round}
             maxSongs={submissionsPerUser}
             currentCount={submissionCount}
+            willAutoStartVotingOnLinkSubmit={willAutoStartVotingOnLinkSubmit}
           />
         ) : (
-          <SongSubmissionForm round={round} />
+          <SongSubmissionForm
+            round={round}
+            willAutoStartVotingOnLinkSubmit={willAutoStartVotingOnLinkSubmit}
+          />
         )
       ) : null}
 

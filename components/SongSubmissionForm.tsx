@@ -33,13 +33,18 @@ import { SongManualTab } from "@/components/submission/song/SongManualTab";
 import { SongLinkTab } from "@/components/submission/song/SongLinkTab";
 import { SongCommentField } from "@/components/submission/song/SongCommentField";
 import { UploadProgressStatus } from "@/components/submission/UploadProgressStatus";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toErrorMessage } from "@/lib/errors";
 
 interface SongSubmissionFormProps {
   round: Doc<"rounds">;
+  willAutoStartVotingOnLinkSubmit?: boolean;
 }
 
-export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
+export function SongSubmissionForm({
+  round,
+  willAutoStartVotingOnLinkSubmit = false,
+}: SongSubmissionFormProps) {
   const roundId = round._id;
   const convex = useConvex();
   const submitSong = useMutation(api.submissions.submitSong);
@@ -271,6 +276,16 @@ export function SongSubmissionForm({ round }: SongSubmissionFormProps) {
             />
 
             <SongCommentField form={form} />
+
+            {submissionType === "link" && willAutoStartVotingOnLinkSubmit ? (
+              <Alert className="border-warning/50 bg-warning/10 text-warning">
+                <AlertTitle>This submission starts voting</AlertTitle>
+                <AlertDescription className="text-warning/90">
+                  This is the final required submission for the round, so voting
+                  will begin immediately after you submit it.
+                </AlertDescription>
+              </Alert>
+            ) : null}
 
             <UploadProgressStatus
               isVisible={uploadState !== null}

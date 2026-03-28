@@ -328,8 +328,9 @@ export function RoundDetail({
         league.members ?? [],
         submissions,
         submissionsPerUser,
+        round.submissionMode ?? "single",
       ),
-    [league.members, submissions, submissionsPerUser],
+    [league.members, round.submissionMode, submissions, submissionsPerUser],
   );
 
   const votingSummary = useMemo(() => {
@@ -421,8 +422,9 @@ export function RoundDetail({
 
   const shouldShowSubmissionPanel =
     !league.isSpectator &&
-    round.status !== "scheduled" &&
-    (round.status === "submissions" || (mySubmissions?.length ?? 0) > 0);
+    (round.status === "scheduled" ||
+      round.status === "submissions" ||
+      (mySubmissions?.length ?? 0) > 0);
 
   return (
     <section>
@@ -465,6 +467,8 @@ export function RoundDetail({
             roundStatus={round.status}
             currentUser={currentUser}
             mySubmissions={mySubmissions}
+            allSubmissions={submissions}
+            activeMemberCount={league.activeMemberCount}
             leagueName={league.name}
           />
         </div>

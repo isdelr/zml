@@ -20,6 +20,7 @@ import {
   type AlbumSubmissionFormOutput,
 } from "@/lib/submission/album-form";
 import { Form } from "@/components/ui/form";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlbumArtUploadField } from "@/components/submission/album/AlbumArtUploadField";
@@ -33,9 +34,13 @@ import { toErrorMessage } from "@/lib/errors";
 
 interface AlbumSubmissionFormProps {
   round: Doc<"rounds">;
+  willAutoStartVotingOnLinkSubmit?: boolean;
 }
 
-export function AlbumSubmissionForm({ round }: AlbumSubmissionFormProps) {
+export function AlbumSubmissionForm({
+  round,
+  willAutoStartVotingOnLinkSubmit = false,
+}: AlbumSubmissionFormProps) {
   const roundId = round._id;
   const submitSong = useMutation(api.submissions.submitSong);
   const getSongMetadataFromLink = useAction(api.submissions.getSongMetadataFromLink);
@@ -274,6 +279,16 @@ export function AlbumSubmissionForm({ round }: AlbumSubmissionFormProps) {
             description={uploadStatus?.description}
             progress={uploadProgress}
           />
+
+          {submissionType === "link" && willAutoStartVotingOnLinkSubmit ? (
+            <Alert className="border-warning/50 bg-warning/10 text-warning">
+              <AlertTitle>This submission starts voting</AlertTitle>
+              <AlertDescription className="text-warning/90">
+                This album completes the round, so voting will begin
+                immediately after you submit it.
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
           <Button type="submit" className="w-full" disabled={isSubmitting} size="lg">
             {isSubmitting ? (

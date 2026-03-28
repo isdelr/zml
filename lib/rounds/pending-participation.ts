@@ -1,3 +1,5 @@
+import { getSubmissionCompletionCountsByUser } from "@/lib/rounds/submission-completion";
+
 type IdLike = string | { toString(): string };
 
 type MemberLike = {
@@ -6,6 +8,7 @@ type MemberLike = {
 
 type SubmissionLike = {
   userId: IdLike;
+  collectionId?: string | null;
 };
 
 type VoteLike = {
@@ -18,6 +21,7 @@ type PendingParticipationArgs = {
   members: MemberLike[] | undefined;
   submissions: SubmissionLike[] | undefined;
   submissionsPerUser: number;
+  submissionMode?: "single" | "multi" | "album";
   votes?: VoteLike[] | undefined;
   maxUp?: number;
   maxDown?: number;
@@ -29,17 +33,17 @@ export function getPendingSubmissionParticipantIds(
   members: MemberLike[] | undefined,
   submissions: SubmissionLike[] | undefined,
   submissionsPerUser: number,
+  submissionMode: "single" | "multi" | "album" = "single",
 ): string[] {
   const memberIds = (members ?? []).map((member) => toId(member._id));
   if (memberIds.length === 0) {
     return [];
   }
 
-  const submissionCounts = new Map<string, number>();
-  for (const submission of submissions ?? []) {
-    const userId = toId(submission.userId);
-    submissionCounts.set(userId, (submissionCounts.get(userId) ?? 0) + 1);
-  }
+  const submissionCounts = getSubmissionCompletionCountsByUser(
+    submissions,
+    submissionMode,
+  );
 
   return memberIds.filter(
     (memberId) => (submissionCounts.get(memberId) ?? 0) < submissionsPerUser,
@@ -95,6 +99,7 @@ export function getPendingRoundParticipantIds(
       args.members,
       args.submissions,
       args.submissionsPerUser,
+      args.submissionMode ?? "single",
     );
   }
 

@@ -16,6 +16,33 @@ describe("pending participation helpers", () => {
     ).toEqual(["u2", "u3"]);
   });
 
+  it("counts multi and album submissions by collection", () => {
+    expect(
+      getPendingSubmissionParticipantIds(
+        [{ _id: "u1" }, { _id: "u2" }],
+        [
+          { userId: "u1", collectionId: "c1" },
+          { userId: "u1", collectionId: "c1" },
+          { userId: "u2", collectionId: "c2" },
+        ],
+        1,
+        "multi",
+      ),
+    ).toEqual([]);
+
+    expect(
+      getPendingSubmissionParticipantIds(
+        [{ _id: "u1" }, { _id: "u2" }],
+        [
+          { userId: "u1", collectionId: "album-1" },
+          { userId: "u1", collectionId: "album-1" },
+        ],
+        1,
+        "album",
+      ),
+    ).toEqual(["u2"]);
+  });
+
   it("returns only eligible submitters who still need to finish voting", () => {
     expect(
       getPendingVotingParticipantIds(
@@ -51,6 +78,7 @@ describe("pending participation helpers", () => {
         members: [{ _id: "u1" }, { _id: "u2" }],
         submissions: [{ userId: "u1" }],
         submissionsPerUser: 1,
+        submissionMode: "single",
       }),
     ).toEqual(["u2"]);
 

@@ -22,6 +22,7 @@ import {
   transitionRoundToFinishedWithSideEffects,
   transitionRoundToVotingWithSideEffects,
 } from "../lib/convex-server/rounds/transitions";
+import { maybeAutoStartVotingAfterSubmissionCompletion } from "../lib/convex-server/rounds/auto-transition";
 import { resolveSubmissionMediaUrls } from "../lib/convex-server/submissions/media";
 import { B2Storage } from "./b2Storage";
 import { resolveUserAvatarUrl } from "./userAvatar";
@@ -358,7 +359,7 @@ export const getForLeague = query({
           ...round,
           art: artUrl,
           leagueName,
-          submissionCount, // total submitted tracks from counter
+          submissionCount: round.status === "scheduled" ? 0 : submissionCount,
           expectedTrackCount,
           leagueMemberCount,
           voterCount,
@@ -444,7 +445,7 @@ export const manageRoundState = mutation({
           );
         }
 
-        await transitionRoundToSubmissionsWithSideEffects(
+        const didTransition = await transitionRoundToSubmissionsWithSideEffects(
           ctx,
           currentRoundPatch
             ? {
@@ -459,6 +460,13 @@ export const manageRoundState = mutation({
           league,
           userId,
         );
+        if (didTransition) {
+          await maybeAutoStartVotingAfterSubmissionCompletion(
+            ctx,
+            round._id,
+            userId,
+          );
+        }
         break;
       }
       case "startVoting": {
@@ -580,6 +588,7 @@ export const adjustRoundTime = mutation({
         activeMembers,
         submissions,
         round.submissionsPerUser ?? 1,
+        round.submissionMode ?? "single",
       );
       const newSubmissionDeadline = currentRoundPatch.submissionDeadline;
       if (newSubmissionDeadline < now) {
@@ -735,6 +744,7 @@ export const sendParticipationReminder = mutation({
         activeMembers,
         submissions,
         round.submissionsPerUser ?? 1,
+        round.submissionMode ?? "single",
       );
       type = "round_submission";
       message = `Reminder: submit your song${(round.submissionsPerUser ?? 1) > 1 ? "s" : ""} for "${round.title}" in "${league.name}".`;
@@ -1630,6 +1640,7 @@ export const getDeadlineReminderContexts = internalQuery({
         members: activeMembersByLeague.get(round.leagueId.toString()) ?? [],
         submissions: submissionsByRoundId.get(round._id.toString()) ?? [],
         submissionsPerUser: round.submissionsPerUser ?? 1,
+        submissionMode: round.submissionMode ?? "single",
         votes: votesByRoundId.get(round._id.toString()) ?? [],
         ...getVoteLimits(round, league),
       }).map((userId) => userId as Id<"users">);
@@ -1778,7 +1789,14 @@ export const transitionRoundToSubmissions = internalMutation({
 
     const league = await ctx.db.get("leagues", round.leagueId);
     if (league) {
-      await transitionRoundToSubmissionsWithSideEffects(ctx, round, league);
+      const didTransition = await transitionRoundToSubmissionsWithSideEffects(
+        ctx,
+        round,
+        league,
+      );
+      if (didTransition) {
+        await maybeAutoStartVotingAfterSubmissionCompletion(ctx, roundId);
+      }
     }
   },
 });

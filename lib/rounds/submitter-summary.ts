@@ -1,3 +1,5 @@
+import { getSubmissionCompletionCountsByUser } from "@/lib/rounds/submission-completion";
+
 type MemberLike = {
   _id: string | { toString(): string };
   name?: string | null;
@@ -6,6 +8,7 @@ type MemberLike = {
 
 type SubmissionLike = {
   userId: string | { toString(): string };
+  collectionId?: string | null;
 };
 
 type SubmitterInfo = {
@@ -17,6 +20,7 @@ export function getRoundSubmitterSummary(
   members: MemberLike[] | undefined,
   submissions: SubmissionLike[] | undefined,
   submissionsPerUser: number,
+  submissionMode: "single" | "multi" | "album" = "single",
 ): {
   completedSubmitters: SubmitterInfo[];
   missingSubmitters: SubmitterInfo[];
@@ -36,11 +40,7 @@ export function getRoundSubmitterSummary(
     };
   }
 
-  const counts = new Map<string, number>();
-  for (const submission of submissions) {
-    const userId = submission.userId.toString();
-    counts.set(userId, (counts.get(userId) ?? 0) + 1);
-  }
+  const counts = getSubmissionCompletionCountsByUser(submissions, submissionMode);
 
   const completed = allMembers.filter(
     (member) => (counts.get(member._id.toString()) ?? 0) >= submissionsPerUser,

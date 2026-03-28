@@ -30,6 +30,8 @@ import { firstNonEmpty } from "../lib/env";
 import { formatArtistNames } from "../lib/music/submission-display";
 import { getAnonymousCommentIdentity } from "../lib/comments/anonymous";
 import { shouldRevealCommentIdentity } from "../lib/comments/visibility";
+import { maybeAutoStartVotingAfterSubmissionCompletion } from "../lib/convex-server/rounds/auto-transition";
+import { getUserSubmissionCompletionCount } from "../lib/rounds/submission-completion";
 
 const storage = new B2Storage();
 const TROLL_SUBMISSION_BAN_THRESHOLD = 2;
@@ -304,9 +306,10 @@ export const submitSong = mutation({
 
     const round = await ctx.db.get("rounds", args.roundId);
     if (!round) throw new Error("Round not found.");
-    if (round.status !== "submissions")
+    if (round.status !== "scheduled" && round.status !== "submissions")
       throw new Error("Submissions are not open.");
     if (
+      round.status === "submissions" &&
       round.submissionStartsAt !== undefined &&
       round.submissionStartsAt > Date.now()
     ) {
@@ -347,31 +350,28 @@ export const submitSong = mutation({
       )
       .collect();
 
-    // For album/multi rounds, count unique collections instead of individual tracks
-    let submissionCount = existingSubmissions.length;
-    if (round.submissionMode === "album" || round.submissionMode === "multi") {
-      const uniqueCollections = new Set(
-        existingSubmissions
-          .filter((s) => s.collectionId)
-          .map((s) => s.collectionId),
-      );
-      submissionCount = uniqueCollections.size;
-
-      // If submitting a new collection, check if user would exceed limit
-      if (args.collectionId && !uniqueCollections.has(args.collectionId)) {
-        if (submissionCount >= submissionsPerUser) {
-          throw new Error(
-            `You have already submitted the maximum of ${submissionsPerUser} album(s).`,
-          );
-        }
-      }
-    } else {
-      // For single song rounds, count individual submissions
-      if (existingSubmissions.length >= submissionsPerUser) {
+    const submissionMode = round.submissionMode ?? "single";
+    const submissionCount = getUserSubmissionCompletionCount(
+      existingSubmissions,
+      submissionMode,
+      userId,
+    );
+    if (submissionMode === "album" || submissionMode === "multi") {
+      const collectionId = args.collectionId?.trim();
+      const hasExistingCollection =
+        !!collectionId &&
+        existingSubmissions.some(
+          (submission) => submission.collectionId === collectionId,
+        );
+      if (collectionId && !hasExistingCollection && submissionCount >= submissionsPerUser) {
         throw new Error(
-          `You have already submitted the maximum of ${submissionsPerUser} song(s).`,
+          `You have already submitted the maximum of ${submissionsPerUser} album(s).`,
         );
       }
+    } else if (submissionCount >= submissionsPerUser) {
+      throw new Error(
+        `You have already submitted the maximum of ${submissionsPerUser} song(s).`,
+      );
     }
 
     const formattedArtist = formatArtistNames(args.artist);
@@ -440,6 +440,27 @@ export const submitSong = mutation({
     if (args.submissionType === "file") {
       await scheduleSubmissionAudioProcessing(ctx, submissionId);
     }
+    let shouldEvaluateAutoStart = true;
+    if (
+      submissionMode !== "single" &&
+      args.collectionId &&
+      typeof args.collectionTotalTracks === "number"
+    ) {
+      const collectionSubmissions = await ctx.db
+        .query("submissions")
+        .withIndex("by_collection", (q) => q.eq("collectionId", args.collectionId!))
+        .collect();
+      shouldEvaluateAutoStart =
+        collectionSubmissions.length >= args.collectionTotalTracks;
+    }
+
+    if (shouldEvaluateAutoStart) {
+      await maybeAutoStartVotingAfterSubmissionCompletion(
+        ctx,
+        args.roundId,
+        userId,
+      );
+    }
   },
 });
 
@@ -470,9 +491,9 @@ export const editSong = mutation({
 
     const round = await ctx.db.get("rounds", submission.roundId);
     if (!round) throw new Error("Round not found.");
-    if (round.status !== "submissions") {
+    if (round.status !== "scheduled" && round.status !== "submissions") {
       throw new Error(
-        "You can only edit submissions during the submission phase.",
+        "You can only edit submissions before voting begins.",
       );
     }
 
@@ -634,6 +655,12 @@ export const editSong = mutation({
       await scheduleSubmissionAudioProcessing(ctx, submissionId);
     }
 
+    await maybeAutoStartVotingAfterSubmissionCompletion(
+      ctx,
+      submission.roundId,
+      userId,
+    );
+
     return "Submission updated successfully.";
   },
 });
@@ -668,10 +695,16 @@ export const getForRound = query({
     );
     if (!league || !canView) return [];
 
-    const submissions = await ctx.db
+    const submissions = (
+      await ctx.db
       .query("submissions")
       .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-      .collect();
+      .collect()
+    ).filter((submission) =>
+      round.status === "scheduled"
+        ? userId !== null && submission.userId === userId
+        : true,
+    );
     if (submissions.length === 0) return [];
 
     const userIds = [
@@ -1251,6 +1284,11 @@ export const completeQueuedSubmissionAudioProcessing = internalMutation({
     const newDoc = await ctx.db.get("submissions", args.submissionId);
     if (newDoc) {
       await submissionsByUser.replace(ctx, oldDoc, newDoc);
+      await maybeAutoStartVotingAfterSubmissionCompletion(
+        ctx,
+        newDoc.roundId,
+        newDoc.userId,
+      );
     }
 
     return {

@@ -98,7 +98,7 @@ export function SongManualTab({
           <FormField
             control={form.control}
             name="albumArtFile"
-            render={({ field: { onChange, value, ...rest } }) => {
+            render={({ field: { onChange, value, ref, ...rest } }) => {
               void value;
               return (
                 <FormItem>
@@ -107,7 +107,10 @@ export function SongManualTab({
                     <div className="space-y-3">
                       <Input
                         id={albumArtInputId}
-                        ref={albumArtInputRef}
+                        ref={(node) => {
+                          albumArtInputRef.current = node;
+                          ref(node);
+                        }}
                         type="file"
                         style={{ top: 0, left: 0 }}
                         className="sr-only"

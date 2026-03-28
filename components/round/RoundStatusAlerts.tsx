@@ -11,7 +11,7 @@ import {
 interface RoundStatusAlertsProps {
   isSpectator: boolean;
   roundStatus: "scheduled" | "submissions" | "voting" | "finished";
-      userVoteStatus:
+  userVoteStatus:
     | {
         hasVoted: boolean;
         canVote: boolean;
@@ -90,7 +90,8 @@ export function RoundStatusAlerts({
         <Alert className="mb-8 border-muted bg-muted/40 text-foreground">
           <AlertTitle className="font-bold">Round Not Open Yet</AlertTitle>
           <AlertDescription className="text-muted-foreground">
-            This round is scheduled and will open for submissions automatically.
+            This round is scheduled, but you can already lock in your
+            submission now and keep editing it until voting begins.
           </AlertDescription>
         </Alert>
       ) : null}

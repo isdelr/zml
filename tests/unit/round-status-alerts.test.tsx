@@ -27,4 +27,21 @@ describe("RoundStatusAlerts", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Listening Requirement")).not.toBeInTheDocument();
   });
+
+  it("explains scheduled presubmissions", () => {
+    render(
+      <RoundStatusAlerts
+        isSpectator={false}
+        roundStatus="scheduled"
+        userVoteStatus={undefined}
+        enforceListenPercentage={false}
+        songsLeftToListenCount={0}
+      />,
+    );
+
+    expect(screen.getByText("Round Not Open Yet")).toBeInTheDocument();
+    expect(
+      screen.getByText(/you can already lock in your submission now/i),
+    ).toBeInTheDocument();
+  });
 });
