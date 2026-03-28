@@ -1,5 +1,5 @@
 import type { OAuth2Tokens } from "better-auth";
-import { getAllowedDiscordServerIdsFromEnv } from "@/lib/discord/server-access";
+import { getAllowedDiscordServerIdsFromEnv } from "../discord/server-access";
 
 type DiscordProfile = {
   id: string;

@@ -101,6 +101,7 @@ services:
     build:
       context: .
       target: dev
+    exclude_from_hc: true
     restart: "no"
     depends_on:
       - convex-backend
@@ -124,8 +125,8 @@ services:
         B2_ENDPOINT: ${B2_ENDPOINT:-https://s3.us-east-005.backblazeb2.com}
     restart: unless-stopped
     depends_on:
-      convex-backend:
-        condition: service_started
+      convex-sync:
+        condition: service_completed_successfully
     environment:
       APP_RELEASE: ${APP_RELEASE:-0.1.0}
       B2_ENDPOINT: ${B2_ENDPOINT:-https://s3.us-east-005.backblazeb2.com}
