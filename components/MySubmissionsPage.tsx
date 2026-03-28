@@ -10,7 +10,6 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "./ui/button";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
@@ -22,6 +21,7 @@ import { YouTubeIcon } from "@/components/icons/BrandIcons";
 import { SubmissionProcessingStatus } from "@/components/submission/SubmissionProcessingStatus";
 import { isSubmissionPlayable } from "@/lib/submission/file-processing";
 import { buildTrackMetadataText } from "@/lib/music/submission-display";
+import { MediaImage } from "@/components/ui/media-image";
 
 const getResultIcon = (result: { type: string; points: number }) => {
   switch (result.type) {
@@ -178,7 +178,7 @@ export function MySubmissionsPage() {
                                 {index + 1}
                               </span>
                               <div className="flex min-w-0 items-center gap-4">
-                                <Image
+                                <MediaImage
                                   src={
                                     submission.albumArtUrl ||
                                     "/icons/web-app-manifest-192x192.png"
@@ -187,6 +187,7 @@ export function MySubmissionsPage() {
                                   width={40}
                                   height={40}
                                   className="aspect-square rounded object-cover"
+                                  fallbackSrc="/icons/web-app-manifest-192x192.png"
                                 />
                                 <div className="min-w-0 flex-1">
                                   <p className="font-semibold text-foreground whitespace-normal break-words [overflow-wrap:anywhere] lg:truncate lg:whitespace-nowrap">

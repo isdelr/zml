@@ -23,6 +23,21 @@ export type MediaAccessTokenPayload = {
   expiresAt: number;
 };
 
+export function resolveMediaAccessScope(
+  allowPublic: boolean,
+  viewerUserId: string | null | undefined,
+): MediaAccessScope | null {
+  if (allowPublic) {
+    return { type: "public" };
+  }
+
+  if (viewerUserId) {
+    return { type: "user", userId: viewerUserId };
+  }
+
+  return null;
+}
+
 const MEDIA_ACCESS_TOKEN_VERSION = 1;
 const DEFAULT_MEDIA_ACCESS_TTL_SECONDS = 60 * 60;
 

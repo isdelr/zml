@@ -50,7 +50,10 @@ import {
   ROUND_GAP_MS,
   sortRoundsInLeagueOrder,
 } from "../lib/rounds/schedule";
-import { buildRoundImageMediaUrl } from "../lib/media/delivery";
+import {
+  buildRoundImageMediaUrl,
+  resolveMediaAccessScope,
+} from "../lib/media/delivery";
 
 const storage = new B2Storage();
 const MAX_ROUND_DEADLINE_REMINDER_MS = Math.max(
@@ -99,15 +102,7 @@ function buildRoundImageScope(
   allowPublic: boolean,
   viewerUserId: Id<"users"> | null,
 ) {
-  if (viewerUserId) {
-    return { type: "user" as const, userId: viewerUserId };
-  }
-
-  if (allowPublic) {
-    return { type: "public" as const };
-  }
-
-  return null;
+  return resolveMediaAccessScope(allowPublic, viewerUserId);
 }
 
 async function hasIncompleteFileSubmissions(

@@ -1,6 +1,6 @@
-import Image from "next/image";
 import { toSvg } from "jdenticon";
 import { cn } from "@/lib/utils";
+import { MediaImage } from "@/components/ui/media-image";
 
 interface LeagueArtworkProps {
   leagueId: string;
@@ -31,13 +31,22 @@ export function LeagueArtwork({
           className,
         )}
       >
-        <Image
+        <MediaImage
           src={art}
           alt={leagueName}
           fill
           priority={priority}
           sizes={sizes}
           className="object-cover"
+          renderFallback={() => (
+            <div
+              className="generated-art size-full bg-muted"
+              aria-label={leagueName}
+              dangerouslySetInnerHTML={{
+                __html: toSvg(leagueId, 256),
+              }}
+            />
+          )}
         />
       </div>
     );
@@ -51,13 +60,22 @@ export function LeagueArtwork({
           className,
         )}
       >
-        <Image
+        <MediaImage
           src={collageSources[0]}
           alt={leagueName}
           fill
           priority={priority}
           sizes={sizes}
           className="object-cover"
+          renderFallback={() => (
+            <div
+              className="generated-art size-full bg-muted"
+              aria-label={leagueName}
+              dangerouslySetInnerHTML={{
+                __html: toSvg(leagueId, 256),
+              }}
+            />
+          )}
         />
       </div>
     );
@@ -81,12 +99,13 @@ export function LeagueArtwork({
               key={`${src}-${index}`}
               className="relative overflow-hidden bg-muted"
             >
-              <Image
+              <MediaImage
                 src={src}
                 alt={`${leagueName} round artwork ${index + 1}`}
                 fill
                 sizes={sizes}
                 className="object-cover"
+                fallbackSrc="/icons/web-app-manifest-192x192.png"
               />
             </div>
           ))}

@@ -13,9 +13,9 @@ import {
   AlertTriangle,
   Download,
 } from "lucide-react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MediaImage } from "@/components/ui/media-image";
 import { toSvg } from "jdenticon";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import {
@@ -529,12 +529,13 @@ export function SubmissionItem({
               className="relative flex-shrink-0 cursor-pointer"
               onClick={onPlaySong}
             >
-              <Image
+              <MediaImage
                 src={song.albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
                 alt={song.songTitle}
                 width={48}
                 height={48}
                 className="rounded"
+                fallbackSrc="/icons/web-app-manifest-192x192.png"
               />
               {otherListeners && otherListeners.length > 0 && (
                 <div className="absolute bottom-0 right-0 origin-bottom-right scale-90">
@@ -742,12 +743,13 @@ export function SubmissionItem({
             onClick={onPlaySong}
           >
             <div className="relative flex-shrink-0">
-              <Image
+              <MediaImage
                 src={song.albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
                 alt={song.songTitle}
                 width={40}
                 height={40}
                 className="rounded"
+                fallbackSrc="/icons/web-app-manifest-192x192.png"
               />
               {otherListeners && otherListeners.length > 0 && (
                 <div className="absolute bottom-[-4px] right-[-4px] origin-bottom-right scale-65">

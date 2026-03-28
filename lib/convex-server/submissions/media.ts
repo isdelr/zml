@@ -2,7 +2,7 @@ import type { Doc } from "../../../convex/_generated/dataModel";
 import type { B2Storage } from "../../../convex/b2Storage";
 import {
   buildSubmissionMediaUrl,
-  type MediaAccessScope,
+  resolveMediaAccessScope,
 } from "../../media/delivery";
 
 export async function resolveSubmissionMediaUrls(
@@ -18,12 +18,13 @@ export async function resolveSubmissionMediaUrls(
       return { albumArtUrl: null, songFileUrl: null };
     }
 
-    const scope: MediaAccessScope =
-      access.allowPublic && !access.viewerUserId
-        ? { type: "public" }
-        : access.viewerUserId
-          ? { type: "user", userId: access.viewerUserId }
-          : { type: "public" };
+    const scope = resolveMediaAccessScope(
+      access.allowPublic,
+      access.viewerUserId,
+    );
+    if (!scope) {
+      return { albumArtUrl: null, songFileUrl: null };
+    }
 
     const [albumArtUrl, songFileUrl] = await Promise.all([
       submission.albumArtKey

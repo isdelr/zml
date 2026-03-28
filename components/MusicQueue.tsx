@@ -1,13 +1,13 @@
 "use client";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Play, Pause, ListMusic } from "lucide-react";
 import { Button } from "./ui/button";
 import { Song } from "@/types";
 import { OverflowText } from "@/components/ui/overflow-text";
 import { buildTrackMetadataText } from "@/lib/music/submission-display";
+import { MediaImage } from "@/components/ui/media-image";
 
 interface MusicQueueProps {
   isOpen: boolean;
@@ -56,12 +56,13 @@ export function MusicQueue({ isOpen, onOpenChange }: MusicQueueProps) {
                     className={cn("group flex items-center gap-4 rounded-md p-2 hover:bg-accent", isThisSongCurrent && "bg-accent")}
                   >
                     <div className="relative flex-shrink-0">
-                      <Image
+                      <MediaImage
                         src={song.albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
                         alt={song.songTitle}
                         width={48}
                         height={48}
                         className="rounded-md"
+                        fallbackSrc="/icons/web-app-manifest-192x192.png"
                       />
                       <Button
                         variant="ghost"

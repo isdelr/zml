@@ -2,12 +2,12 @@
 import { Doc } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
-import Image from "next/image";
 import { toSvg } from "jdenticon";
 import { Song } from "@/types";
 import { formatDeadline } from "@/lib/utils";
 import { RoundParticipationSummary } from "@/components/round/RoundParticipationSummary";
 import type { ReactNode } from "react";
+import { MediaImage } from "@/components/ui/media-image";
 
 type Participant = {
   _id?: string;
@@ -57,12 +57,18 @@ export function RoundHeader({
   return (
     <div className="mb-8 flex flex-col gap-6 xl:flex-row xl:gap-8">
       {round.art ? (
-        <Image
+        <MediaImage
           src={round.art}
           alt="Round Art"
           width={256}
           height={256}
           className="aspect-square h-auto w-full max-w-sm flex-shrink-0 rounded-md object-cover xl:h-64 xl:w-64"
+          renderFallback={() => (
+            <div
+              className="generated-art aspect-square h-auto w-full max-w-sm flex-shrink-0 rounded-md bg-muted xl:h-64 xl:w-64"
+              dangerouslySetInnerHTML={{ __html: toSvg(round._id, 256) }}
+            />
+          )}
         />
       ) : (
         <div

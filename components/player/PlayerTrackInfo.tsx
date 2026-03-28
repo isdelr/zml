@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/lib/convex/api";
@@ -17,6 +16,7 @@ import {
 import { OverflowText } from "@/components/ui/overflow-text";
 import { Bookmark, EllipsisVertical, List, PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MediaImage } from "@/components/ui/media-image";
 
 interface PlayerTrackInfoProps {
   currentTrack: Song;
@@ -105,12 +105,13 @@ export function PlayerTrackInfo({
   return (
     <div className="flex w-full min-w-0 items-center gap-3 md:w-1/4">
       {src ? (
-        <Image
+        <MediaImage
           src={src}
           alt={currentTrack.songTitle}
           width={48}
           height={48}
           className="flex-shrink-0 rounded-md"
+          fallbackSrc="/icons/web-app-manifest-192x192.png"
         />
       ) : null}
       <div className="min-w-0 flex-1">

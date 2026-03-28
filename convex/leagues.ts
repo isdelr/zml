@@ -29,7 +29,10 @@ import {
   MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
   MAX_LEAGUE_UPVOTES_PER_MEMBER,
 } from "../lib/leagues/vote-limits";
-import { buildRoundImageMediaUrl } from "../lib/media/delivery";
+import {
+  buildRoundImageMediaUrl,
+  resolveMediaAccessScope,
+} from "../lib/media/delivery";
 
 const storage = new B2Storage();
 
@@ -100,15 +103,7 @@ function buildRoundImageScope(
   allowPublic: boolean,
   viewerUserId: Id<"users"> | null,
 ) {
-  if (viewerUserId) {
-    return { type: "user" as const, userId: viewerUserId };
-  }
-
-  if (allowPublic) {
-    return { type: "public" as const };
-  }
-
-  return null;
+  return resolveMediaAccessScope(allowPublic, viewerUserId);
 }
 
 const publicLeaguePreviewValidator = v.object({

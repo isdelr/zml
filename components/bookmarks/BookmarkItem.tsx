@@ -2,12 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import { Bookmark, Play } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { Id } from "@/convex/_generated/dataModel";
 import type { BookmarkedSong } from "@/lib/convex/types";
 import { YouTubeIcon } from "@/components/icons/BrandIcons";
 import { buildTrackMetadataText } from "@/lib/music/submission-display";
+import { MediaImage } from "@/components/ui/media-image";
 
 interface BookmarkItemProps {
   song: BookmarkedSong;
@@ -37,12 +37,13 @@ export function BookmarkItem({
         {index + 1}
       </span>
       <div className="flex items-center gap-4">
-        <Image
+        <MediaImage
           src={song.albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
           alt={song.songTitle}
           width={40}
           height={40}
           className="aspect-square rounded object-cover"
+          fallbackSrc="/icons/web-app-manifest-192x192.png"
         />
         <div>
           <p className="font-semibold text-foreground">{song.songTitle}</p>

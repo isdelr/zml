@@ -1,7 +1,6 @@
 "use client";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { Button } from "./ui/button";
@@ -14,6 +13,7 @@ import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toErrorMessage } from "@/lib/errors";
 import { buildTrackMetadataText } from "@/lib/music/submission-display";
+import { MediaImage } from "@/components/ui/media-image";
 
 const FRIENDLY_LYRICS_ERROR =
   "Lyrics are unavailable for this song right now. Please try again later.";
@@ -157,12 +157,13 @@ export function NowPlayingView() {
   const NowPlayingContent = () => (
     <div className="flex-grow space-y-6">
       <div className="relative">
-        <Image
+        <MediaImage
           src={albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
           alt={songTitle}
           width={352}
           height={352}
           className="rounded-lg aspect-square object-cover w-full"
+          fallbackSrc="/icons/web-app-manifest-192x192.png"
         />
       </div>
       <div className="flex justify-between items-start">

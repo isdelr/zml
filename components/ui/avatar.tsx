@@ -21,12 +21,16 @@ function rememberStableAvatarSrc(cacheKey: string, src: string) {
 
 function getPresignedAvatarCacheKey(src: string): string | null {
   try {
-    const url = new URL(src)
-    if (!url.searchParams.has("X-Amz-Signature")) {
+    const url = new URL(src, "http://localhost")
+    const hasSignedQuery =
+      url.searchParams.has("X-Amz-Signature") || url.searchParams.has("mediaToken")
+    if (!hasSignedQuery) {
       return null
     }
 
-    const avatarPath = /\/avatars\/[^/?#]+$/u.exec(url.pathname)?.[0]
+    const avatarPath =
+      /\/avatars\/[^/?#]+$/u.exec(url.pathname)?.[0] ??
+      /\/api\/media\/users\/[^/?#]+\/avatar$/u.exec(url.pathname)?.[0]
     if (!avatarPath) {
       return null
     }

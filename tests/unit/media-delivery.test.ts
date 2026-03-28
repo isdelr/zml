@@ -4,6 +4,7 @@ import {
   buildSubmissionMediaPath,
   buildSubmissionMediaUrl,
   createMediaAccessToken,
+  resolveMediaAccessScope,
   verifyMediaAccessToken,
 } from "@/lib/media/delivery";
 
@@ -47,6 +48,17 @@ describe("media delivery helpers", () => {
       userId: "user-456",
       expiresAt,
     });
+  });
+
+  it("prefers public scope for publicly viewable media", () => {
+    expect(resolveMediaAccessScope(true, "user-456")).toEqual({
+      type: "public",
+    });
+    expect(resolveMediaAccessScope(false, "user-456")).toEqual({
+      type: "user",
+      userId: "user-456",
+    });
+    expect(resolveMediaAccessScope(false, null)).toBeNull();
   });
 
   it("builds a relative media URL when no delivery base URL is configured", async () => {

@@ -34,6 +34,7 @@ import {
 } from "../lib/media/cloudflare-cache";
 import {
   buildSubmissionMediaUrl,
+  resolveMediaAccessScope,
   type MediaAccessScope,
 } from "../lib/media/delivery";
 import { formatArtistNames } from "../lib/music/submission-display";
@@ -280,15 +281,11 @@ function buildMediaScope(
   allowPublic: boolean,
   viewerUserId: Id<"users"> | null,
 ): MediaAccessScope {
-  if (viewerUserId) {
-    return { type: "user", userId: viewerUserId };
+  const scope = resolveMediaAccessScope(allowPublic, viewerUserId);
+  if (!scope) {
+    throw new Error("Cannot build media scope for a private anonymous viewer.");
   }
-
-  if (allowPublic) {
-    return { type: "public" };
-  }
-
-  throw new Error("Cannot build media scope for a private anonymous viewer.");
+  return scope;
 }
 
 async function updateSubmissionTrollPenalty(
