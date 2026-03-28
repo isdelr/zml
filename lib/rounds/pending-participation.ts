@@ -1,4 +1,4 @@
-import { getSubmissionCompletionCountsByUser } from "@/lib/rounds/submission-completion";
+import { getSubmissionCompletionCountsByUser } from "./submission-completion";
 
 type IdLike = string | { toString(): string };
 

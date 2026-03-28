@@ -33,8 +33,18 @@ function requireEnv(name) {
   return value;
 }
 
+function requireConvexUrl() {
+  return (
+    process.env.CONVEX_SELF_HOSTED_URL ??
+    process.env.NEXT_PUBLIC_CONVEX_URL ??
+    process.env.SERVICE_URL_CONVEX_BACKEND ??
+    process.env.CONVEX_CLOUD_ORIGIN ??
+    requireEnv("CONVEX_SELF_HOSTED_URL")
+  );
+}
+
 function createAdminClient() {
-  const convexUrl = requireEnv("CONVEX_SELF_HOSTED_URL");
+  const convexUrl = requireConvexUrl();
   const adminKey = requireEnv("CONVEX_SELF_HOSTED_ADMIN_KEY");
   const client = new ConvexHttpClient(convexUrl);
   client.setAdminAuth(adminKey);
@@ -42,7 +52,7 @@ function createAdminClient() {
 }
 
 function createUserClient(userId) {
-  const convexUrl = requireEnv("CONVEX_SELF_HOSTED_URL");
+  const convexUrl = requireConvexUrl();
   const adminKey = requireEnv("CONVEX_SELF_HOSTED_ADMIN_KEY");
   const client = new ConvexHttpClient(convexUrl);
   client.setAdminAuth(adminKey, {
@@ -53,7 +63,7 @@ function createUserClient(userId) {
 }
 
 function createUnauthClient() {
-  const convexUrl = requireEnv("CONVEX_SELF_HOSTED_URL");
+  const convexUrl = requireConvexUrl();
   return new ConvexHttpClient(convexUrl);
 }
 

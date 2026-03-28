@@ -1,8 +1,8 @@
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import type { MutationCtx } from "../../../convex/_generated/server";
-import { getSubmissionFileProcessingStatus } from "@/lib/submission/file-processing";
-import { sortRoundsInLeagueOrder } from "@/lib/rounds/schedule";
-import { getPendingSubmissionParticipantIds } from "@/lib/rounds/pending-participation";
+import { getSubmissionFileProcessingStatus } from "../../submission/file-processing";
+import { sortRoundsInLeagueOrder } from "../../rounds/schedule";
+import { getPendingSubmissionParticipantIds } from "../../rounds/pending-participation";
 import { transitionRoundToVotingWithSideEffects } from "./transitions";
 
 function hasIncompleteFileSubmissions(

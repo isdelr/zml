@@ -14,10 +14,24 @@ for (const envFile of envCandidates) {
   dotenv.config({ path: envPath, override: false });
 }
 
-const requiredSelfHostedVars = [
-  "CONVEX_SELF_HOSTED_URL",
-  "CONVEX_SELF_HOSTED_ADMIN_KEY",
-];
+const derivedSelfHostedUrl =
+  process.env.CONVEX_SELF_HOSTED_URL ??
+  process.env.NEXT_PUBLIC_CONVEX_URL ??
+  process.env.SERVICE_URL_CONVEX_BACKEND ??
+  process.env.CONVEX_CLOUD_ORIGIN;
+
+if (derivedSelfHostedUrl && !process.env.CONVEX_SELF_HOSTED_URL) {
+  process.env.CONVEX_SELF_HOSTED_URL = derivedSelfHostedUrl;
+}
+
+const requiredSelfHostedVars = ["CONVEX_SELF_HOSTED_ADMIN_KEY"];
+
+if (!process.env.CONVEX_SELF_HOSTED_URL) {
+  console.log(
+    "[convex-env-sync] Skipping: missing Convex backend URL. Set CONVEX_SELF_HOSTED_URL, NEXT_PUBLIC_CONVEX_URL, SERVICE_URL_CONVEX_BACKEND, or CONVEX_CLOUD_ORIGIN.",
+  );
+  process.exit(0);
+}
 
 for (const key of requiredSelfHostedVars) {
   if (!process.env[key]) {
