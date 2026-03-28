@@ -9,7 +9,6 @@ import { NotificationProvider } from "@/components/providers/NotificationProvide
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { AuthSessionRefresher } from "@/components/providers/AuthSessionRefresher";
 import { NonBlockingErrorBoundary } from "@/components/NonBlockingErrorBoundary";
-import { ConvexConnectionGuard } from "@/components/ConvexConnectionGuard";
 
 const ConvexClientProvider = dynamic(
   () => import("@/components/ConvexClientProvider"),
@@ -142,11 +141,9 @@ export default function RootLayout({
             </NonBlockingErrorBoundary>
 
             <NotificationProvider>
-              <ConvexConnectionGuard>
-                <main className="min-h-dvh pb-[env(safe-area-inset-bottom)] md:pb-0">
-                  {children}
-                </main>
-              </ConvexConnectionGuard>
+              <main className="min-h-dvh pb-[env(safe-area-inset-bottom)] md:pb-0">
+                {children}
+              </main>
               <Toaster />
               <NonBlockingErrorBoundary boundaryName="MusicPlayer">
                 <MusicPlayer />
