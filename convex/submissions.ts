@@ -95,6 +95,7 @@ type SubmissionFileProcessingStatus =
 type PendingSubmissionAudioCandidate = {
   submissionId: Id<"submissions">;
   originalSongFileKey: string;
+  fileProcessingError: string | null;
 };
 
 type PendingSubmissionAudioQueueRunResult = {
@@ -108,6 +109,20 @@ type SubmissionAudioProcessingResult = {
   error?: string;
   message?: string;
 };
+
+const RETRIABLE_SUBMISSION_AUDIO_ERROR_PATTERNS = [
+  /SUBMISSION_PROCESSING_SECRET/i,
+  /INTERNAL_SITE_URL/i,
+  /SITE_URL is required/i,
+  /not configured/i,
+  /^Unauthorized\.?$/i,
+  /\bfetch failed\b/i,
+  /\bECONN(?:REFUSED|RESET)\b/i,
+  /\bENOTFOUND\b/i,
+  /\bEHOSTUNREACH\b/i,
+  /\bETIMEDOUT\b/i,
+  /failed with status 5\d{2}/i,
+] as const;
 
 function getSubmissionFileProcessingStatus(
   submission: Pick<
@@ -148,18 +163,49 @@ function getSubmissionProcessingSecret() {
   return secret;
 }
 
+function getSubmissionAudioProcessorBaseUrl() {
+  const siteUrl = firstNonEmpty(
+    process.env.INTERNAL_SITE_URL,
+    process.env.SITE_URL,
+    "http://localhost:3000",
+  );
+  if (!siteUrl) {
+    throw new Error(
+      "INTERNAL_SITE_URL or SITE_URL is required for queued submission processing.",
+    );
+  }
+
+  return siteUrl.replace(/\/+$/u, "");
+}
+
+function isRetriableSubmissionAudioProcessingError(message: string) {
+  return RETRIABLE_SUBMISSION_AUDIO_ERROR_PATTERNS.some((pattern) =>
+    pattern.test(message),
+  );
+}
+
 async function processSubmissionAudioFile(
   siteUrl: string,
   songFileKey: string,
 ): Promise<SubmissionAudioProcessingResult & { key: string }> {
-  const response = await fetch(`${siteUrl}${INTERNAL_SUBMISSION_AUDIO_ROUTE}`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${getSubmissionProcessingSecret()}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ songFileKey }),
-  });
+  const processorUrl = `${siteUrl}${INTERNAL_SUBMISSION_AUDIO_ROUTE}`;
+  let response: Response;
+  try {
+    response = await fetch(processorUrl, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${getSubmissionProcessingSecret()}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ songFileKey }),
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown network failure.";
+    throw new Error(
+      `Failed to reach internal submission audio processor at ${processorUrl}: ${message}`,
+    );
+  }
   const responseText = await response.text();
   let payload: SubmissionAudioProcessingResult;
   try {
@@ -1404,6 +1450,7 @@ export const listPendingSubmissionAudioCandidates = internalQuery({
       .map((submission) => ({
         submissionId: submission._id,
         originalSongFileKey: submission.originalSongFileKey!,
+        fileProcessingError: submission.fileProcessingError ?? null,
       }));
   },
 });
@@ -1473,6 +1520,39 @@ export const requeueStaleSubmissionAudioProcessing = internalMutation({
       fileProcessingError: undefined,
       fileProcessingQueuedAt: Date.now(),
       fileProcessingStartedAt: undefined,
+    });
+    const newDoc = await ctx.db.get("submissions", args.submissionId);
+    if (newDoc) {
+      await submissionsByUser.replace(ctx, oldDoc, newDoc);
+    }
+    return true;
+  },
+});
+
+export const requeueFailedSubmissionAudioProcessing = internalMutation({
+  args: {
+    submissionId: v.id("submissions"),
+    expectedSourceKey: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const submission = await ctx.db.get("submissions", args.submissionId);
+    if (
+      !submission ||
+      submission.submissionType !== "file" ||
+      submission.fileProcessingStatus !== "failed" ||
+      submission.originalSongFileKey !== args.expectedSourceKey
+    ) {
+      return false;
+    }
+
+    const oldDoc = submission;
+    await ctx.db.patch("submissions", args.submissionId, {
+      fileProcessingStatus: "queued",
+      fileProcessingError: undefined,
+      fileProcessingQueuedAt: Date.now(),
+      fileProcessingStartedAt: undefined,
+      fileProcessingCompletedAt: undefined,
     });
     const newDoc = await ctx.db.get("submissions", args.submissionId);
     if (newDoc) {
@@ -1598,10 +1678,7 @@ export const processQueuedSubmissionAudio = internalAction({
       return { processed: false };
     }
 
-    const siteUrl = firstNonEmpty(process.env.SITE_URL, "http://localhost:3000");
-    if (!siteUrl) {
-      throw new Error("SITE_URL is required for queued submission processing.");
-    }
+    const siteUrl = getSubmissionAudioProcessorBaseUrl();
 
     let convertedSongFileKey: string | null = null;
 
@@ -1673,11 +1750,27 @@ export const processQueuedSubmissionAudio = internalAction({
       }
       const message =
         error instanceof Error ? error.message : "Unknown conversion failure.";
-      await ctx.runMutation(internal.submissions.failQueuedSubmissionAudioProcessing, {
-        submissionId: args.submissionId,
-        expectedSourceKey: sourceKey,
-        errorMessage: message,
-      });
+      console.error(
+        `Queued submission audio processing failed for ${args.submissionId}: ${message}`,
+      );
+      if (isRetriableSubmissionAudioProcessingError(message)) {
+        await ctx.runMutation(
+          internal.submissions.requeueStaleSubmissionAudioProcessing,
+          {
+            submissionId: args.submissionId,
+            expectedSourceKey: sourceKey,
+          },
+        );
+      } else {
+        await ctx.runMutation(
+          internal.submissions.failQueuedSubmissionAudioProcessing,
+          {
+            submissionId: args.submissionId,
+            expectedSourceKey: sourceKey,
+            errorMessage: message,
+          },
+        );
+      }
       return { processed: false, error: message };
     }
   },
@@ -1716,15 +1809,43 @@ export const processPendingSubmissionAudioQueue = internalAction({
         },
       );
     }
+    let requeued = staleCandidates.length;
 
-    const queuedCandidates: PendingSubmissionAudioCandidate[] =
-      await ctx.runQuery(
+    const failedCandidates: PendingSubmissionAudioCandidate[] = await ctx.runQuery(
       internal.submissions.listPendingSubmissionAudioCandidates,
       {
-        status: "queued",
+        status: "failed",
         limit,
       },
     );
+    for (const candidate of failedCandidates) {
+      if (
+        !isRetriableSubmissionAudioProcessingError(
+          candidate.fileProcessingError ?? "",
+        )
+      ) {
+        continue;
+      }
+      const didRequeue = await ctx.runMutation(
+        internal.submissions.requeueFailedSubmissionAudioProcessing,
+        {
+          submissionId: candidate.submissionId,
+          expectedSourceKey: candidate.originalSongFileKey,
+        },
+      );
+      if (didRequeue) {
+        requeued += 1;
+      }
+    }
+
+    const queuedCandidates: PendingSubmissionAudioCandidate[] =
+      await ctx.runQuery(
+        internal.submissions.listPendingSubmissionAudioCandidates,
+        {
+          status: "queued",
+          limit,
+        },
+      );
 
     for (const candidate of queuedCandidates) {
       try {
@@ -1740,7 +1861,7 @@ export const processPendingSubmissionAudioQueue = internalAction({
     }
 
     return {
-      requeued: staleCandidates.length,
+      requeued,
       attempted: queuedCandidates.length,
     };
   },

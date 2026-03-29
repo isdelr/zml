@@ -42,6 +42,7 @@ for (const key of requiredSelfHostedVars) {
 
 const variablesToSync = [
   "SITE_URL",
+  "INTERNAL_SITE_URL",
   "MEDIA_ACCESS_SECRET",
   "MEDIA_ACCESS_TTL_SECONDS",
   "DISCORD_CLIENT_ID",
@@ -60,6 +61,7 @@ const variablesToSync = [
   "VAPID_PRIVATE_KEY",
   "YOUTUBE_API_KEY",
   "GENIUS_ACCESS_TOKEN",
+  "SUBMISSION_PROCESSING_SECRET",
   "DEV_SEED_ENABLED",
   "INSTANCE_SECRET",
 ];
