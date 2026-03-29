@@ -11,6 +11,7 @@ function isSignedMediaUrl(src: ImageProps["src"]): boolean {
   try {
     const url = new URL(src, "http://localhost");
     return (
+      url.pathname.startsWith("/api/media/") ||
       url.searchParams.has("mediaToken") || url.searchParams.has("X-Amz-Signature")
     );
   } catch {
