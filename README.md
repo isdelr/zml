@@ -171,6 +171,7 @@ docker compose --env-file .env.docker.prod -f docker-compose.prod.yml up -d --bu
 Notes:
 - Prod compose intentionally uses `expose` (not host `ports`) so Coolify handles ingress/routing.
 - `convex-sync` is a one-shot deployment step and is excluded from Coolify health aggregation so a successful exit does not keep the stack unhealthy.
+- `convex-dashboard` and `glitchtip` define explicit health checks so Coolify does not have to infer admin-service readiness; GlitchTip's probe also sends its configured public `Host` header to avoid false `403` health failures.
 - In Coolify, the Compose file is the source of truth for service config; update the file and redeploy when changing service settings.
 - If you ever introduce one-shot sidecar services in this stack, Coolify supports excluding them from deployment health checks via `exclude_from_hc=true` service comments.
 

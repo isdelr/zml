@@ -94,6 +94,18 @@ services:
       - convex-backend
     environment:
       NEXT_PUBLIC_DEPLOYMENT_URL: ${NEXT_PUBLIC_CONVEX_URL:?}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const http=require('http');const req=http.get('http://127.0.0.1:6791/',(res)=>process.exit(res.statusCode>=200&&res.statusCode<400?0:1));req.on('error',()=>process.exit(1));req.setTimeout(5000,()=>{req.destroy();process.exit(1);});",
+        ]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 12
     expose:
       - "6791"
 
@@ -204,6 +216,16 @@ services:
       - >-
         export DATABASE_URL="postgresql://$${GLITCHTIP_POSTGRES_USER}:$$(python -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["GLITCHTIP_POSTGRES_PASSWORD"], safe=""))')@glitchtip-postgres:5432/$${GLITCHTIP_POSTGRES_DB}";
         exec ./bin/run-all-in-one.sh
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import http.client, os, sys, urllib.parse; host = urllib.parse.urlparse(os.environ['GLITCHTIP_DOMAIN']).netloc or os.environ['GLITCHTIP_DOMAIN']; conn = http.client.HTTPConnection('127.0.0.1', 8000, timeout=5); conn.request('GET', '/', headers={'Host': host}); res = conn.getresponse(); sys.exit(0 if 200 <= res.status < 400 else 1)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 18
     expose:
       - "8000"
 
