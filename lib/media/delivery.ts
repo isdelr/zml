@@ -125,6 +125,23 @@ export function buildSubmissionMediaPath(
   return `/api/media/submissions/${submissionId}/${assetKind}`;
 }
 
+function buildMediaCacheVersion(value: string): string {
+  let hash = 5381;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) + hash + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash.toString(36);
+}
+
+function appendMediaCacheVersion(path: string, storageKey: string): string {
+  const url = new URL(path, "http://localhost");
+  url.searchParams.set("v", buildMediaCacheVersion(storageKey));
+
+  return `${url.pathname}${url.search}`;
+}
+
 export function buildSubmissionAudioDownloadPath(submissionId: string): string {
   return `/api/media/submissions/${submissionId}/audio/download`;
 }
@@ -215,7 +232,10 @@ export async function buildSubmissionMediaUrl(input: {
   scope: MediaAccessScope;
 }): Promise<string> {
   if (input.assetKind === "art") {
-    return buildSubmissionMediaPath(input.submissionId, input.assetKind);
+    return appendMediaCacheVersion(
+      buildSubmissionMediaPath(input.submissionId, input.assetKind),
+      input.storageKey,
+    );
   }
 
   return buildTokenizedMediaUrl({

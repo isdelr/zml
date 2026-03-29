@@ -71,7 +71,31 @@ describe("media delivery helpers", () => {
 
     const parsed = new URL(url, "http://localhost");
     expect(parsed.pathname).toBe("/api/media/submissions/submission-123/art");
-    expect(parsed.search).toBe("");
+    expect(parsed.searchParams.get("v")).toBeTruthy();
+  });
+
+  it("changes the public artwork URL when the storage key changes", async () => {
+    const firstUrl = await buildSubmissionMediaUrl({
+      submissionId: "submission-123",
+      assetKind: "art",
+      storageKey: "submissions/art/test-a.webp",
+      scope: { type: "public" },
+    });
+
+    const secondUrl = await buildSubmissionMediaUrl({
+      submissionId: "submission-123",
+      assetKind: "art",
+      storageKey: "submissions/art/test-b.webp",
+      scope: { type: "public" },
+    });
+
+    const firstParsed = new URL(firstUrl, "http://localhost");
+    const secondParsed = new URL(secondUrl, "http://localhost");
+
+    expect(firstParsed.pathname).toBe(secondParsed.pathname);
+    expect(firstParsed.searchParams.get("v")).not.toBe(
+      secondParsed.searchParams.get("v"),
+    );
   });
 
   it("keeps audio URLs tokenized", async () => {
