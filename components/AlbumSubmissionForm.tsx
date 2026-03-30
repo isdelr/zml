@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 
 import { api } from "@/lib/convex/api";
+import type { SongLinkMetadata } from "@/lib/convex/types";
 import { Doc } from "@/convex/_generated/dataModel";
 import { useUploadFile } from "@/lib/storage/useUploadFile";
 import { useUploadSubmissionSongFile } from "@/lib/storage/useUploadSubmissionSongFile";
@@ -30,6 +31,10 @@ import { AlbumNameArtistFields } from "@/components/submission/album/AlbumNameAr
 import { AlbumNotesField } from "@/components/submission/album/AlbumNotesField";
 import { AlbumReleaseYearField } from "@/components/submission/album/AlbumReleaseYearField";
 import { UploadProgressStatus } from "@/components/submission/UploadProgressStatus";
+import {
+  YouTubeRegionRestrictionDialog,
+  type YouTubeRegionRestrictionDialogItem,
+} from "@/components/submission/YouTubeRegionRestrictionDialog";
 import { toErrorMessage } from "@/lib/errors";
 
 interface AlbumSubmissionFormProps {
@@ -37,29 +42,44 @@ interface AlbumSubmissionFormProps {
   willAutoStartVotingOnLinkSubmit?: boolean;
 }
 
+type PendingAlbumSubmission = {
+  values: AlbumSubmissionFormOutput;
+  metadata: Array<SongLinkMetadata | null>;
+};
+
 export function AlbumSubmissionForm({
   round,
   willAutoStartVotingOnLinkSubmit = false,
 }: AlbumSubmissionFormProps) {
   const roundId = round._id;
   const submitSong = useMutation(api.submissions.submitSong);
-  const getSongMetadataFromLink = useAction(api.submissions.getSongMetadataFromLink);
+  const getSongMetadataFromLink = useAction(
+    api.submissions.getSongMetadataFromLink,
+  );
   const uploadFile = useUploadFile({
     generateUploadUrl: api.files.generateSubmissionFileUploadUrl,
     syncMetadata: api.files.syncSubmissionFileMetadata,
   });
   const uploadSubmissionSongFile = useUploadSubmissionSongFile();
 
-  const [albumArtPreview, setAlbumArtPreview] =
-    useState<string>("");
+  const [albumArtPreview, setAlbumArtPreview] = useState<string>("");
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<{
     title: string;
     description?: string;
   } | null>(null);
+  const [regionWarningState, setRegionWarningState] = useState<{
+    isOpen: boolean;
+    items: YouTubeRegionRestrictionDialogItem[];
+    pendingSubmission: PendingAlbumSubmission | null;
+  }>({ isOpen: false, items: [], pendingSubmission: null });
 
-  const form = useForm<AlbumSubmissionFormInput, unknown, AlbumSubmissionFormOutput>({
+  const form = useForm<
+    AlbumSubmissionFormInput,
+    unknown,
+    AlbumSubmissionFormOutput
+  >({
     resolver: zodResolver(albumSubmissionFormSchema),
     defaultValues: defaultAlbumSubmissionFormValues,
   });
@@ -70,7 +90,10 @@ export function AlbumSubmissionForm({
   });
   const submissionType = form.watch("submissionType");
 
-  const handleFinalSubmit = async (values: AlbumSubmissionFormOutput) => {
+  const handleFinalSubmit = async (
+    values: AlbumSubmissionFormOutput,
+    prefetchedMetadata?: Array<SongLinkMetadata | null>,
+  ) => {
     setIsSubmitting(true);
     const toastId = toast.loading(
       `Submitting album with ${values.tracks.length} tracks...`,
@@ -138,7 +161,9 @@ export function AlbumSubmissionForm({
           const trackProgress = Math.round(((i + 0.5) / totalTracks) * 100);
           setUploadProgress(trackProgress);
 
-          const metadata = await getSongMetadataFromLink({ link: track.songLink });
+          const metadata =
+            prefetchedMetadata?.[i] ??
+            (await getSongMetadataFromLink({ link: track.songLink }));
 
           await submitSong({
             roundId,
@@ -146,7 +171,7 @@ export function AlbumSubmissionForm({
             songTitle: track.songTitle || metadata.songTitle,
             artist: track.artist || values.albumArtist,
             songLink: track.songLink,
-            albumArtUrlValue: metadata.albumArtUrl,
+            albumArtUrlValue: metadata.albumArtUrl ?? undefined,
             duration: metadata.duration,
             comment: undefined,
             collectionId,
@@ -185,7 +210,61 @@ export function AlbumSubmissionForm({
     }
   };
 
+  const continueWithRegionRestrictions = async (
+    pendingSubmission: PendingAlbumSubmission,
+  ) => {
+    const items = pendingSubmission.metadata.flatMap((metadata, index) => {
+      const blockedRegions = metadata?.regionRestriction?.blockedRegions ?? [];
+      if (blockedRegions.length === 0) {
+        return [];
+      }
+
+      const track = pendingSubmission.values.tracks[index];
+      const trackNumber = track?.trackNumber ?? index + 1;
+
+      return [
+        {
+          label: `Track ${trackNumber}`,
+          songTitle: track?.songTitle || metadata?.songTitle || "Unknown title",
+          artist:
+            track?.artist ||
+            pendingSubmission.values.albumArtist ||
+            metadata?.artist ||
+            "Unknown artist",
+          blockedRegions,
+        },
+      ];
+    });
+
+    if (items.length > 0) {
+      setRegionWarningState({
+        isOpen: true,
+        items,
+        pendingSubmission,
+      });
+      return;
+    }
+
+    await handleFinalSubmit(
+      pendingSubmission.values,
+      pendingSubmission.metadata,
+    );
+  };
+
   async function onSubmit(values: AlbumSubmissionFormOutput) {
+    if (values.submissionType === "link") {
+      const metadata = await Promise.all(
+        values.tracks.map((track) =>
+          track.songLink
+            ? getSongMetadataFromLink({ link: track.songLink })
+            : Promise.resolve(null),
+        ),
+      );
+
+      await continueWithRegionRestrictions({ values, metadata });
+      return;
+    }
+
     await handleFinalSubmit(values);
   }
 
@@ -213,100 +292,145 @@ export function AlbumSubmissionForm({
   };
 
   return (
-    <div className="rounded-lg border bg-card p-6">
-      <h2 className="text-2xl font-bold">Submit Your Album</h2>
-      <p className="mb-6 text-muted-foreground">
-        Upload multiple tracks as an album submission.
-        {minTracks && maxTracks && ` (${minTracks}-${maxTracks} tracks required)`}
-        {minTracks && !maxTracks && ` (at least ${minTracks} tracks required)`}
-        {!minTracks && maxTracks && ` (up to ${maxTracks} tracks)`}
-      </p>
+    <>
+      <YouTubeRegionRestrictionDialog
+        open={regionWarningState.isOpen}
+        items={regionWarningState.items}
+        onOpenChange={(isOpen) =>
+          setRegionWarningState((prev) => ({ ...prev, isOpen }))
+        }
+        onCancel={() =>
+          setRegionWarningState({
+            isOpen: false,
+            items: [],
+            pendingSubmission: null,
+          })
+        }
+        onConfirm={() => {
+          const pendingSubmission = regionWarningState.pendingSubmission;
+          setRegionWarningState({
+            isOpen: false,
+            items: [],
+            pendingSubmission: null,
+          });
+          if (pendingSubmission) {
+            void handleFinalSubmit(
+              pendingSubmission.values,
+              pendingSubmission.metadata,
+            );
+          }
+        }}
+      />
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Tabs
-            defaultValue="manual"
-            className="w-full"
-            onValueChange={(value) =>
-              form.setValue("submissionType", value as "manual" | "link")
-            }
-          >
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="manual">Manual Upload</TabsTrigger>
-              <TabsTrigger value="link">YouTube Links</TabsTrigger>
-            </TabsList>
+      <div className="rounded-lg border bg-card p-6">
+        <h2 className="text-2xl font-bold">Submit Your Album</h2>
+        <p className="mb-6 text-muted-foreground">
+          Upload multiple tracks as an album submission.
+          {minTracks &&
+            maxTracks &&
+            ` (${minTracks}-${maxTracks} tracks required)`}
+          {minTracks &&
+            !maxTracks &&
+            ` (at least ${minTracks} tracks required)`}
+          {!minTracks && maxTracks && ` (up to ${maxTracks} tracks)`}
+        </p>
 
-            <TabsContent value="manual" className="mt-6 space-y-6">
-              <AlbumNameArtistFields form={form} />
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <Tabs
+              defaultValue="manual"
+              className="w-full"
+              onValueChange={(value) =>
+                form.setValue("submissionType", value as "manual" | "link")
+              }
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="manual">Manual Upload</TabsTrigger>
+                <TabsTrigger value="link">YouTube Links</TabsTrigger>
+              </TabsList>
 
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {requireReleaseYear ? <AlbumReleaseYearField form={form} /> : null}
-                <AlbumArtUploadField
+              <TabsContent value="manual" className="mt-6 space-y-6">
+                <AlbumNameArtistFields form={form} />
+
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  {requireReleaseYear ? (
+                    <AlbumReleaseYearField form={form} />
+                  ) : null}
+                  <AlbumArtUploadField
+                    form={form}
+                    albumArtPreview={albumArtPreview}
+                    setAlbumArtPreview={setAlbumArtPreview}
+                  />
+                </div>
+
+                <AlbumNotesField form={form} />
+
+                <AlbumManualTracksSection
                   form={form}
+                  fields={fields}
+                  onAddTrack={handleAddTrack}
+                  onRemoveTrack={handleRemoveTrack}
                   albumArtPreview={albumArtPreview}
                   setAlbumArtPreview={setAlbumArtPreview}
                 />
-              </div>
+              </TabsContent>
 
-              <AlbumNotesField form={form} />
+              <TabsContent value="link" className="mt-6 space-y-6">
+                <AlbumNameArtistFields form={form} />
+                {requireReleaseYear ? (
+                  <AlbumReleaseYearField form={form} />
+                ) : null}
+                <AlbumNotesField form={form} />
+                <AlbumLinkTracksSection
+                  form={form}
+                  fields={fields}
+                  onAddTrack={handleAddTrack}
+                  onRemoveTrack={handleRemoveTrack}
+                />
+              </TabsContent>
+            </Tabs>
 
-              <AlbumManualTracksSection
-                form={form}
-                fields={fields}
-                onAddTrack={handleAddTrack}
-                onRemoveTrack={handleRemoveTrack}
-                albumArtPreview={albumArtPreview}
-                setAlbumArtPreview={setAlbumArtPreview}
-              />
-            </TabsContent>
+            <UploadProgressStatus
+              isVisible={isSubmitting && uploadProgress > 0}
+              title={uploadStatus?.title ?? "Uploading songs"}
+              description={uploadStatus?.description}
+              progress={uploadProgress}
+            />
 
-            <TabsContent value="link" className="mt-6 space-y-6">
-              <AlbumNameArtistFields form={form} />
-              {requireReleaseYear ? <AlbumReleaseYearField form={form} /> : null}
-              <AlbumNotesField form={form} />
-              <AlbumLinkTracksSection
-                form={form}
-                fields={fields}
-                onAddTrack={handleAddTrack}
-                onRemoveTrack={handleRemoveTrack}
-              />
-            </TabsContent>
-          </Tabs>
+            {submissionType === "link" && willAutoStartVotingOnLinkSubmit ? (
+              <Alert className="border-warning/50 bg-warning/10 text-warning">
+                <AlertTitle>This submission starts voting</AlertTitle>
+                <AlertDescription className="text-warning/90">
+                  This album completes the round, so voting will begin
+                  immediately after you submit it.
+                </AlertDescription>
+              </Alert>
+            ) : null}
 
-          <UploadProgressStatus
-            isVisible={isSubmitting && uploadProgress > 0}
-            title={uploadStatus?.title ?? "Uploading songs"}
-            description={uploadStatus?.description}
-            progress={uploadProgress}
-          />
-
-          {submissionType === "link" && willAutoStartVotingOnLinkSubmit ? (
-            <Alert className="border-warning/50 bg-warning/10 text-warning">
-              <AlertTitle>This submission starts voting</AlertTitle>
-              <AlertDescription className="text-warning/90">
-                This album completes the round, so voting will begin
-                immediately after you submit it.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          <Button type="submit" className="w-full" disabled={isSubmitting} size="lg">
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                {submissionType === "manual"
-                  ? `Uploading... ${uploadProgress}%`
-                  : `Submitting... ${uploadProgress}%`}
-              </>
-            ) : (
-              <>
-                {submissionType === "manual" ? "Upload" : "Submit"} Album ({fields.length} track
-                {fields.length !== 1 ? "s" : ""})
-              </>
-            )}
-          </Button>
-        </form>
-      </Form>
-    </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isSubmitting}
+              size="lg"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  {submissionType === "manual"
+                    ? `Uploading... ${uploadProgress}%`
+                    : `Submitting... ${uploadProgress}%`}
+                </>
+              ) : (
+                <>
+                  {submissionType === "manual" ? "Upload" : "Submit"} Album (
+                  {fields.length} track
+                  {fields.length !== 1 ? "s" : ""})
+                </>
+              )}
+            </Button>
+          </form>
+        </Form>
+      </div>
+    </>
   );
 }

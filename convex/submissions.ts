@@ -14,11 +14,16 @@ import {
 } from "./_generated/server";
 import { getAuthUserId } from "./authCore";
 import { B2Storage } from "./b2Storage";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { submissionsByUser } from "./aggregates";
 import { submissionCounter } from "./counters";
-import { getYouTubeVideoId } from "../lib/convex-server/submissions/youtube";
+import {
+  getYouTubeSupportedRegions,
+  getYouTubeVideoId,
+  parseYouTubeDurationSeconds,
+  resolveBlockedYouTubeRegions,
+} from "../lib/convex-server/submissions/youtube";
 import { resolveSubmissionMediaUrls } from "../lib/convex-server/submissions/media";
 import { resolveUserAvatarUrl } from "./userAvatar";
 import {
@@ -55,9 +60,7 @@ const getSubmissionMediaAccessStateRef = makeFunctionReference<
     submissionId: Id<"submissions">;
     viewerUserId: Id<"users"> | null;
   }
->(
-  "submissions:getSubmissionMediaAccessState",
-) as unknown as FunctionReference<
+>("submissions:getSubmissionMediaAccessState") as unknown as FunctionReference<
   "query",
   "internal",
   {
@@ -71,9 +74,7 @@ const storeWaveformInternalRef = makeFunctionReference<
     submissionId: Id<"submissions">;
     waveformJson?: string;
   }
->(
-  "submissions:storeWaveformInternal",
-) as unknown as FunctionReference<
+>("submissions:storeWaveformInternal") as unknown as FunctionReference<
   "mutation",
   "internal",
   {
@@ -253,9 +254,7 @@ async function claimSubmissionUpload(
   input: {
     key: string;
     ownerUserId: Id<"users">;
-    claimType:
-      | "submission_album_art"
-      | "submission_audio_original";
+    claimType: "submission_album_art" | "submission_audio_original";
     claimId: string;
   },
 ) {
@@ -384,40 +383,77 @@ export const getSongMetadataFromLink = action({
         throw new Error("YouTube API key is not set in environment variables.");
       }
 
-      const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`;
+      const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+      url.searchParams.set("part", "snippet,contentDetails");
+      url.searchParams.set("id", videoId);
+      url.searchParams.set("key", apiKey);
+
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch video data from YouTube API.");
       }
-      const data = await response.json();
+      const data = (await response.json()) as {
+        items?: Array<{
+          snippet?: {
+            title?: string;
+            channelTitle?: string;
+            thumbnails?: {
+              high?: { url?: string };
+              default?: { url?: string };
+            };
+          };
+          contentDetails?: {
+            duration?: string;
+            regionRestriction?: {
+              allowed?: string[];
+              blocked?: string[];
+            };
+          };
+        }>;
+      };
       if (!data.items || data.items.length === 0) {
         throw new Error("Could not find YouTube video with that link.");
       }
 
       const snippet = data.items[0].snippet;
       const contentDetails = data.items[0].contentDetails;
+      const regionRestriction = contentDetails?.regionRestriction;
+      let resolvedRegionRestriction: {
+        blockedRegions: Array<{
+          code: string;
+          name: string;
+        }>;
+      } | null = null;
 
-      const parseISO8601Duration = (durationString: string) => {
-        const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
-        const matches = durationString.match(regex);
-        if (!matches) return 0;
-        const hours = parseInt(matches[1] || "0", 10);
-        const minutes = parseInt(matches[2] || "0", 10);
-        const seconds = parseInt(matches[3] || "0", 10);
-        return hours * 3600 + minutes * 60 + seconds;
-      };
+      if (regionRestriction) {
+        try {
+          const supportedRegions = await getYouTubeSupportedRegions(apiKey);
+          const blockedRegions = resolveBlockedYouTubeRegions(
+            regionRestriction,
+            supportedRegions,
+          );
+
+          if (blockedRegions.length > 0) {
+            resolvedRegionRestriction = { blockedRegions };
+          }
+        } catch (error) {
+          console.error(
+            `Failed to resolve YouTube region restrictions for video ${videoId}:`,
+            error,
+          );
+        }
+      }
 
       return {
-        songTitle: snippet.title,
-        artist: snippet.channelTitle,
+        songTitle: snippet?.title ?? "Unknown title",
+        artist: snippet?.channelTitle ?? "Unknown artist",
         albumArtUrl:
-          snippet.thumbnails?.high?.url ||
-          snippet.thumbnails?.default?.url ||
+          snippet?.thumbnails?.high?.url ||
+          snippet?.thumbnails?.default?.url ||
           null,
         submissionType: "youtube" as const,
-        duration: contentDetails.duration
-          ? parseISO8601Duration(contentDetails.duration)
-          : 0,
+        duration: parseYouTubeDurationSeconds(contentDetails?.duration),
+        regionRestriction: resolvedRegionRestriction,
       };
     }
 
@@ -512,7 +548,11 @@ export const submitSong = mutation({
         existingSubmissions.some(
           (submission) => submission.collectionId === collectionId,
         );
-      if (collectionId && !hasExistingCollection && submissionCount >= submissionsPerUser) {
+      if (
+        collectionId &&
+        !hasExistingCollection &&
+        submissionCount >= submissionsPerUser
+      ) {
         throw new Error(
           `You have already submitted the maximum of ${submissionsPerUser} album(s).`,
         );
@@ -524,7 +564,8 @@ export const submitSong = mutation({
     }
 
     const formattedArtist = formatArtistNames(args.artist);
-    const albumName = args.albumName?.trim() || args.collectionName?.trim() || undefined;
+    const albumName =
+      args.albumName?.trim() || args.collectionName?.trim() || undefined;
 
     const baseSubmissionData = {
       leagueId: round.leagueId,
@@ -609,7 +650,9 @@ export const submitSong = mutation({
     ) {
       const collectionSubmissions = await ctx.db
         .query("submissions")
-        .withIndex("by_collection", (q) => q.eq("collectionId", args.collectionId!))
+        .withIndex("by_collection", (q) =>
+          q.eq("collectionId", args.collectionId!),
+        )
         .collect();
       shouldEvaluateAutoStart =
         collectionSubmissions.length >= args.collectionTotalTracks;
@@ -653,9 +696,7 @@ export const editSong = mutation({
     const round = await ctx.db.get("rounds", submission.roundId);
     if (!round) throw new Error("Round not found.");
     if (round.status !== "scheduled" && round.status !== "submissions") {
-      throw new Error(
-        "You can only edit submissions before voting begins.",
-      );
+      throw new Error("You can only edit submissions before voting begins.");
     }
 
     const oldDoc = submission;
@@ -705,7 +746,9 @@ export const editSong = mutation({
       updates.songFileLegacyKey = undefined;
       updates.fileProcessingStatus = args.songFileKey ? "queued" : undefined;
       updates.fileProcessingError = undefined;
-      updates.fileProcessingQueuedAt = args.songFileKey ? Date.now() : undefined;
+      updates.fileProcessingQueuedAt = args.songFileKey
+        ? Date.now()
+        : undefined;
       updates.fileProcessingStartedAt = undefined;
       updates.fileProcessingCompletedAt = undefined;
     }
@@ -882,9 +925,9 @@ export const getForRound = query({
 
     const submissions = (
       await ctx.db
-      .query("submissions")
-      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
-      .collect()
+        .query("submissions")
+        .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
+        .collect()
     ).filter((submission) =>
       round.status === "scheduled"
         ? userId !== null && submission.userId === userId
@@ -949,8 +992,9 @@ export const getForRound = query({
           }
         }
 
-        const submittedByImage =
-          isAnonymous ? null : await resolveUserAvatarUrl(storage, user);
+        const submittedByImage = isAnonymous
+          ? null
+          : await resolveUserAvatarUrl(storage, user);
 
         return {
           ...submission,
@@ -1241,39 +1285,41 @@ export const getCommentsForSubmission = query({
           )
         : null;
 
-    return Promise.all(comments.map(async (comment) => {
-      const anonymousIdentity = getAnonymousCommentIdentity(
-        submission.roundId.toString(),
-        comment.userId.toString(),
-      );
-      const revealIdentity = shouldRevealCommentIdentity({
-        isAnonymous: comment.isAnonymous,
-        revealOnRoundFinished: comment.revealOnRoundFinished,
-        roundStatus: round.status,
-      });
-      const user = userById?.get(comment.userId.toString());
+    return Promise.all(
+      comments.map(async (comment) => {
+        const anonymousIdentity = getAnonymousCommentIdentity(
+          submission.roundId.toString(),
+          comment.userId.toString(),
+        );
+        const revealIdentity = shouldRevealCommentIdentity({
+          isAnonymous: comment.isAnonymous,
+          revealOnRoundFinished: comment.revealOnRoundFinished,
+          roundStatus: round.status,
+        });
+        const user = userById?.get(comment.userId.toString());
 
-      return {
-        _id: comment._id,
-        _creationTime: comment._creationTime,
-        submissionId: comment.submissionId,
-        text: comment.text,
-        authorImage:
-          revealIdentity && user
-            ? await resolveUserAvatarUrl(storage, user)
-            : null,
-        authorName: revealIdentity
-          ? (user?.name ?? "Anonymous")
-          : anonymousIdentity.displayName,
-        avatarSeed: revealIdentity
-          ? comment.userId.toString()
-          : anonymousIdentity.avatarSeed,
-        authorVote:
-          revealIdentity && round.status === "finished"
-            ? voteByUserId?.get(comment.userId.toString()) ?? undefined
-            : undefined,
-      };
-    }));
+        return {
+          _id: comment._id,
+          _creationTime: comment._creationTime,
+          submissionId: comment.submissionId,
+          text: comment.text,
+          authorImage:
+            revealIdentity && user
+              ? await resolveUserAvatarUrl(storage, user)
+              : null,
+          authorName: revealIdentity
+            ? (user?.name ?? "Anonymous")
+            : anonymousIdentity.displayName,
+          avatarSeed: revealIdentity
+            ? comment.userId.toString()
+            : anonymousIdentity.avatarSeed,
+          authorVote:
+            revealIdentity && round.status === "finished"
+              ? (voteByUserId?.get(comment.userId.toString()) ?? undefined)
+              : undefined,
+        };
+      }),
+    );
   },
 });
 
@@ -1655,9 +1701,12 @@ export const processQueuedSubmissionAudio = internalAction({
     submissionId: v.id("submissions"),
   },
   handler: async (ctx, args) => {
-    const submission = await ctx.runQuery(internal.submissions.getSubmissionById, {
-      submissionId: args.submissionId,
-    });
+    const submission = await ctx.runQuery(
+      internal.submissions.getSubmissionById,
+      {
+        submissionId: args.submissionId,
+      },
+    );
     if (
       !submission ||
       submission.submissionType !== "file" ||
@@ -1732,7 +1781,10 @@ export const processQueuedSubmissionAudio = internalAction({
         try {
           await storage.deleteObject(key);
         } catch (error) {
-          console.error(`Failed to delete processed submission file "${key}"`, error);
+          console.error(
+            `Failed to delete processed submission file "${key}"`,
+            error,
+          );
         }
       }
 
@@ -1780,10 +1832,7 @@ export const processPendingSubmissionAudioQueue = internalAction({
   args: {
     limit: v.optional(v.number()),
   },
-  handler: async (
-    ctx,
-    args,
-  ): Promise<PendingSubmissionAudioQueueRunResult> => {
+  handler: async (ctx, args): Promise<PendingSubmissionAudioQueueRunResult> => {
     const limit = Math.max(
       1,
       Math.min(
@@ -1792,14 +1841,15 @@ export const processPendingSubmissionAudioQueue = internalAction({
       ),
     );
 
-    const staleCandidates: PendingSubmissionAudioCandidate[] = await ctx.runQuery(
-      internal.submissions.listPendingSubmissionAudioCandidates,
-      {
-        status: "converting",
-        limit,
-        staleBefore: Date.now() - SUBMISSION_AUDIO_PROCESSING_STALE_MS,
-      },
-    );
+    const staleCandidates: PendingSubmissionAudioCandidate[] =
+      await ctx.runQuery(
+        internal.submissions.listPendingSubmissionAudioCandidates,
+        {
+          status: "converting",
+          limit,
+          staleBefore: Date.now() - SUBMISSION_AUDIO_PROCESSING_STALE_MS,
+        },
+      );
     for (const candidate of staleCandidates) {
       await ctx.runMutation(
         internal.submissions.requeueStaleSubmissionAudioProcessing,
@@ -1811,13 +1861,14 @@ export const processPendingSubmissionAudioQueue = internalAction({
     }
     let requeued = staleCandidates.length;
 
-    const failedCandidates: PendingSubmissionAudioCandidate[] = await ctx.runQuery(
-      internal.submissions.listPendingSubmissionAudioCandidates,
-      {
-        status: "failed",
-        limit,
-      },
-    );
+    const failedCandidates: PendingSubmissionAudioCandidate[] =
+      await ctx.runQuery(
+        internal.submissions.listPendingSubmissionAudioCandidates,
+        {
+          status: "failed",
+          limit,
+        },
+      );
     for (const candidate of failedCandidates) {
       if (
         !isRetriableSubmissionAudioProcessingError(
@@ -1910,7 +1961,11 @@ export const getPresignedAlbumArtUrl = action({
         viewerUserId: userId,
       },
     );
-    if (!mediaAccessState || !mediaAccessState.canView || !mediaAccessState.albumArtKey) {
+    if (
+      !mediaAccessState ||
+      !mediaAccessState.canView ||
+      !mediaAccessState.albumArtKey
+    ) {
       console.error(
         "Could not generate album art URL: albumArtKey is missing.",
       );

@@ -8,7 +8,10 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { api } from "@/lib/convex/api";
-import type { DuplicateSubmissionWarning } from "@/lib/convex/types";
+import type {
+  DuplicateSubmissionWarning,
+  SongLinkMetadata,
+} from "@/lib/convex/types";
 import { Doc } from "@/convex/_generated/dataModel";
 import { useUploadFile } from "@/lib/storage/useUploadFile";
 import { useUploadSubmissionSongFile } from "@/lib/storage/useUploadSubmissionSongFile";
@@ -21,6 +24,10 @@ import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PotentialDuplicateDialog } from "@/components/submission/PotentialDuplicateDialog";
+import {
+  YouTubeRegionRestrictionDialog,
+  type YouTubeRegionRestrictionDialogItem,
+} from "@/components/submission/YouTubeRegionRestrictionDialog";
 import { EditBasicsFields } from "@/components/submission/edit/EditBasicsFields";
 import { EditCommentField } from "@/components/submission/edit/EditCommentField";
 import { EditFileTab } from "@/components/submission/edit/EditFileTab";
@@ -37,6 +44,11 @@ interface EditSubmissionFormProps {
   submission: SubmissionFull;
   onSubmitted: () => void;
 }
+
+type PendingSubmissionEdit = {
+  values: EditSubmissionFormValues;
+  metadata: SongLinkMetadata | null;
+};
 
 export function EditSubmissionForm({
   submission,
@@ -65,8 +77,13 @@ export function EditSubmissionForm({
   const [warningState, setWarningState] = useState<{
     isOpen: boolean;
     data: DuplicateSubmissionWarning | null;
-    valuesToSubmit: EditSubmissionFormValues | null;
-  }>({ isOpen: false, data: null, valuesToSubmit: null });
+    pendingSubmission: PendingSubmissionEdit | null;
+  }>({ isOpen: false, data: null, pendingSubmission: null });
+  const [regionWarningState, setRegionWarningState] = useState<{
+    isOpen: boolean;
+    items: YouTubeRegionRestrictionDialogItem[];
+    pendingSubmission: PendingSubmissionEdit | null;
+  }>({ isOpen: false, items: [], pendingSubmission: null });
   const [uploadState, setUploadState] = useState<{
     title: string;
     description?: string;
@@ -145,15 +162,18 @@ export function EditSubmissionForm({
     };
   }, [watchedLink, form, getSongMetadataFromLink]);
 
-  const handleFinalSubmit = async (values: EditSubmissionFormValues) => {
+  const handleFinalSubmit = async (
+    values: EditSubmissionFormValues,
+    metadataOverride?: SongLinkMetadata | null,
+  ) => {
     const toastId = toast.loading("Updating your submission...");
     try {
       if (values.submissionType === "link") {
         if (!values.songLink) throw new Error("Link is missing.");
 
-        const metadata = await getSongMetadataFromLink({
-          link: values.songLink,
-        });
+        const metadata =
+          metadataOverride ??
+          (await getSongMetadataFromLink({ link: values.songLink }));
         await editSong({
           submissionId: submission._id,
           songTitle: values.songTitle,
@@ -163,7 +183,7 @@ export function EditSubmissionForm({
           comment: values.comment,
           submissionType: metadata.submissionType,
           songLink: values.songLink,
-          albumArtUrlValue: metadata.albumArtUrl,
+          albumArtUrlValue: metadata.albumArtUrl ?? undefined,
           duration: metadata.duration,
           albumArtKey: null,
           songFileKey: null,
@@ -247,9 +267,51 @@ export function EditSubmissionForm({
     }
   };
 
+  const continueWithRegionRestrictions = async (
+    pendingSubmission: PendingSubmissionEdit,
+  ) => {
+    const blockedRegions =
+      pendingSubmission.metadata?.regionRestriction?.blockedRegions ?? [];
+
+    if (blockedRegions.length > 0) {
+      setRegionWarningState({
+        isOpen: true,
+        items: [
+          {
+            songTitle:
+              pendingSubmission.values.songTitle ||
+              pendingSubmission.metadata?.songTitle ||
+              "Unknown title",
+            artist:
+              pendingSubmission.values.artist ||
+              pendingSubmission.metadata?.artist ||
+              "Unknown artist",
+            blockedRegions,
+          },
+        ],
+        pendingSubmission,
+      });
+      return;
+    }
+
+    await handleFinalSubmit(
+      pendingSubmission.values,
+      pendingSubmission.metadata,
+    );
+  };
+
   async function onSubmit(values: EditSubmissionFormValues) {
-    const toastId = toast.loading("Checking for duplicates...");
+    const toastId = toast.loading("Checking submission...");
     try {
+      let metadata: SongLinkMetadata | null = null;
+
+      if (values.submissionType === "link") {
+        if (!values.songLink) {
+          throw new Error("Link is missing.");
+        }
+        metadata = await getSongMetadataFromLink({ link: values.songLink });
+      }
+
       const duplicates = await convex.query(
         api.submissions.checkForPotentialDuplicates,
         {
@@ -264,12 +326,12 @@ export function EditSubmissionForm({
         setWarningState({
           isOpen: true,
           data: duplicates,
-          valuesToSubmit: values,
+          pendingSubmission: { values, metadata },
         });
         toast.dismiss(toastId);
       } else {
         toast.dismiss(toastId);
-        await handleFinalSubmit(values);
+        await continueWithRegionRestrictions({ values, metadata });
       }
     } catch (error) {
       const errorMessage = toErrorMessage(error);
@@ -297,14 +359,52 @@ export function EditSubmissionForm({
           setWarningState((prev) => ({ ...prev, isOpen }))
         }
         onCancel={() =>
-          setWarningState({ isOpen: false, data: null, valuesToSubmit: null })
+          setWarningState({
+            isOpen: false,
+            data: null,
+            pendingSubmission: null,
+          })
         }
         onConfirm={() => {
-          if (warningState.valuesToSubmit) {
-            handleFinalSubmit(warningState.valuesToSubmit);
+          const pendingSubmission = warningState.pendingSubmission;
+          setWarningState({
+            isOpen: false,
+            data: null,
+            pendingSubmission: null,
+          });
+          if (pendingSubmission) {
+            void continueWithRegionRestrictions(pendingSubmission);
           }
-          setWarningState({ isOpen: false, data: null, valuesToSubmit: null });
         }}
+      />
+      <YouTubeRegionRestrictionDialog
+        open={regionWarningState.isOpen}
+        items={regionWarningState.items}
+        onOpenChange={(isOpen) =>
+          setRegionWarningState((prev) => ({ ...prev, isOpen }))
+        }
+        onCancel={() =>
+          setRegionWarningState({
+            isOpen: false,
+            items: [],
+            pendingSubmission: null,
+          })
+        }
+        onConfirm={() => {
+          const pendingSubmission = regionWarningState.pendingSubmission;
+          setRegionWarningState({
+            isOpen: false,
+            items: [],
+            pendingSubmission: null,
+          });
+          if (pendingSubmission) {
+            void handleFinalSubmit(
+              pendingSubmission.values,
+              pendingSubmission.metadata,
+            );
+          }
+        }}
+        confirmLabel="Save Anyway"
       />
 
       <div className="rounded-lg bg-card p-6">

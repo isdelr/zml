@@ -8,7 +8,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { api } from "@/lib/convex/api";
-import type { DuplicateSubmissionWarning } from "@/lib/convex/types";
+import type {
+  DuplicateSubmissionWarning,
+  SongLinkMetadata,
+} from "@/lib/convex/types";
 import { Doc } from "@/convex/_generated/dataModel";
 import { useUploadFile } from "@/lib/storage/useUploadFile";
 import { useUploadSubmissionSongFile } from "@/lib/storage/useUploadSubmissionSongFile";
@@ -29,6 +32,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PotentialDuplicateDialog } from "@/components/submission/PotentialDuplicateDialog";
+import {
+  YouTubeRegionRestrictionDialog,
+  type YouTubeRegionRestrictionDialogItem,
+} from "@/components/submission/YouTubeRegionRestrictionDialog";
 import { SongManualTab } from "@/components/submission/song/SongManualTab";
 import { SongLinkTab } from "@/components/submission/song/SongLinkTab";
 import { SongCommentField } from "@/components/submission/song/SongCommentField";
@@ -41,6 +48,11 @@ interface SongSubmissionFormProps {
   willAutoStartVotingOnLinkSubmit?: boolean;
 }
 
+type PendingSongSubmission = {
+  values: SongSubmissionFormValues;
+  metadata: SongLinkMetadata | null;
+};
+
 export function SongSubmissionForm({
   round,
   willAutoStartVotingOnLinkSubmit = false,
@@ -48,7 +60,9 @@ export function SongSubmissionForm({
   const roundId = round._id;
   const convex = useConvex();
   const submitSong = useMutation(api.submissions.submitSong);
-  const getSongMetadataFromLink = useAction(api.submissions.getSongMetadataFromLink);
+  const getSongMetadataFromLink = useAction(
+    api.submissions.getSongMetadataFromLink,
+  );
   const uploadFile = useUploadFile({
     generateUploadUrl: api.files.generateSubmissionFileUploadUrl,
     syncMetadata: api.files.syncSubmissionFileMetadata,
@@ -64,8 +78,13 @@ export function SongSubmissionForm({
   const [warningState, setWarningState] = useState<{
     isOpen: boolean;
     data: DuplicateSubmissionWarning | null;
-    valuesToSubmit: SongSubmissionFormValues | null;
-  }>({ isOpen: false, data: null, valuesToSubmit: null });
+    pendingSubmission: PendingSongSubmission | null;
+  }>({ isOpen: false, data: null, pendingSubmission: null });
+  const [regionWarningState, setRegionWarningState] = useState<{
+    isOpen: boolean;
+    items: YouTubeRegionRestrictionDialogItem[];
+    pendingSubmission: PendingSongSubmission | null;
+  }>({ isOpen: false, items: [], pendingSubmission: null });
 
   const form = useForm<SongSubmissionFormValues>({
     resolver: zodResolver(songSubmissionFormSchema),
@@ -76,7 +95,10 @@ export function SongSubmissionForm({
     name: "submissionType",
   });
 
-  const handleFinalSubmit = async (values: SongSubmissionFormValues) => {
+  const handleFinalSubmit = async (
+    values: SongSubmissionFormValues,
+    metadataOverride?: SongLinkMetadata | null,
+  ) => {
     const toastId = toast.loading("Submitting your masterpiece...");
     try {
       if (
@@ -124,7 +146,9 @@ export function SongSubmissionForm({
           duration: values.duration,
         });
       } else if (values.submissionType === "link" && values.songLink) {
-        const metadata = await getSongMetadataFromLink({ link: values.songLink });
+        const metadata =
+          metadataOverride ??
+          (await getSongMetadataFromLink({ link: values.songLink }));
 
         await submitSong({
           roundId,
@@ -134,7 +158,7 @@ export function SongSubmissionForm({
           albumName: undefined,
           year: values.year,
           songLink: values.songLink,
-          albumArtUrlValue: metadata.albumArtUrl,
+          albumArtUrlValue: metadata.albumArtUrl ?? undefined,
           comment: values.comment,
           duration: metadata.duration,
         });
@@ -157,25 +181,56 @@ export function SongSubmissionForm({
     }
   };
 
+  const continueWithRegionRestrictions = async (
+    pendingSubmission: PendingSongSubmission,
+  ) => {
+    const blockedRegions =
+      pendingSubmission.metadata?.regionRestriction?.blockedRegions ?? [];
+
+    if (blockedRegions.length > 0) {
+      setRegionWarningState({
+        isOpen: true,
+        items: [
+          {
+            songTitle: pendingSubmission.metadata?.songTitle ?? "Unknown title",
+            artist: pendingSubmission.metadata?.artist ?? "Unknown artist",
+            blockedRegions,
+          },
+        ],
+        pendingSubmission,
+      });
+      return;
+    }
+
+    await handleFinalSubmit(
+      pendingSubmission.values,
+      pendingSubmission.metadata,
+    );
+  };
+
   async function onSubmit(values: SongSubmissionFormValues) {
     const toastId = toast.loading("Checking submission...");
     try {
       let title = "";
       let artist = "";
+      let metadata: SongLinkMetadata | null = null;
 
       if (values.submissionType === "manual") {
         title = values.songTitle || "";
         artist = values.artist || "";
       } else if (values.songLink) {
-        const metadata = await getSongMetadataFromLink({ link: values.songLink });
+        metadata = await getSongMetadataFromLink({ link: values.songLink });
         title = metadata.songTitle;
         artist = metadata.artist;
       }
 
       if (!title || !artist) {
-        toast.error("Song title and artist are required to check for duplicates.", {
-          id: toastId,
-        });
+        toast.error(
+          "Song title and artist are required to check for duplicates.",
+          {
+            id: toastId,
+          },
+        );
         return;
       }
 
@@ -192,12 +247,12 @@ export function SongSubmissionForm({
         setWarningState({
           isOpen: true,
           data: duplicates,
-          valuesToSubmit: values,
+          pendingSubmission: { values, metadata },
         });
         toast.dismiss(toastId);
       } else {
         toast.dismiss(toastId);
-        await handleFinalSubmit(values);
+        await continueWithRegionRestrictions({ values, metadata });
       }
     } catch (error) {
       const errorMessage = toErrorMessage(error);
@@ -214,19 +269,58 @@ export function SongSubmissionForm({
           setWarningState((prev) => ({ ...prev, isOpen }))
         }
         onCancel={() =>
-          setWarningState({ isOpen: false, data: null, valuesToSubmit: null })
+          setWarningState({
+            isOpen: false,
+            data: null,
+            pendingSubmission: null,
+          })
         }
         onConfirm={() => {
-          if (warningState.valuesToSubmit) {
-            handleFinalSubmit(warningState.valuesToSubmit);
+          const pendingSubmission = warningState.pendingSubmission;
+          setWarningState({
+            isOpen: false,
+            data: null,
+            pendingSubmission: null,
+          });
+          if (pendingSubmission) {
+            void continueWithRegionRestrictions(pendingSubmission);
           }
-          setWarningState({ isOpen: false, data: null, valuesToSubmit: null });
+        }}
+      />
+      <YouTubeRegionRestrictionDialog
+        open={regionWarningState.isOpen}
+        items={regionWarningState.items}
+        onOpenChange={(isOpen) =>
+          setRegionWarningState((prev) => ({ ...prev, isOpen }))
+        }
+        onCancel={() =>
+          setRegionWarningState({
+            isOpen: false,
+            items: [],
+            pendingSubmission: null,
+          })
+        }
+        onConfirm={() => {
+          const pendingSubmission = regionWarningState.pendingSubmission;
+          setRegionWarningState({
+            isOpen: false,
+            items: [],
+            pendingSubmission: null,
+          });
+          if (pendingSubmission) {
+            void handleFinalSubmit(
+              pendingSubmission.values,
+              pendingSubmission.metadata,
+            );
+          }
         }}
       />
 
       <div className="rounded-lg border bg-card p-6">
         <h2 className="text-2xl font-bold">Submit Your Track</h2>
-        <p className="mb-6 text-muted-foreground">Choose your submission method.</p>
+        <p className="mb-6 text-muted-foreground">
+          Choose your submission method.
+        </p>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <Tabs
@@ -265,7 +359,9 @@ export function SongSubmissionForm({
                       value={typeof field.value === "number" ? field.value : ""}
                       onChange={(e) =>
                         field.onChange(
-                          e.target.value === "" ? undefined : Number(e.target.value),
+                          e.target.value === ""
+                            ? undefined
+                            : Number(e.target.value),
                         )
                       }
                     />
