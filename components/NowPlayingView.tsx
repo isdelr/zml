@@ -7,7 +7,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import { useWindowSize } from "@/hooks/useWindowSize";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -32,24 +32,33 @@ export function NowPlayingView() {
   const track = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
   const { width } = useWindowSize();
   const isDesktopRail = width >= 1400;
+  const lyricsCacheRef = useRef<Record<string, string>>({});
+  const lyricsCacheKey = track
+    ? `${track._id}:${track.artist}:${track.songTitle}`
+    : null;
+  const cachedLyrics = lyricsCacheKey
+    ? lyricsCacheRef.current[lyricsCacheKey] ?? null
+    : null;
 
   // Lyrics fetching state & action
   const getLyrics = useAction(api.lyrics.getForSubmission);
-  const [lyrics, setLyrics] = useState<string | null>(track?.lyrics ?? null);
+  const [lyrics, setLyrics] = useState<string | null>(
+    track?.lyrics ?? cachedLyrics ?? null,
+  );
   const [isLyricsLoading, setIsLyricsLoading] = useState(false);
   const [lyricsError, setLyricsError] = useState<string | null>(null);
 
   // Reset lyrics state when track changes
   useEffect(() => {
-    setLyrics(track?.lyrics ?? null);
+    setLyrics(track?.lyrics ?? cachedLyrics ?? null);
     setLyricsError(null);
     setIsLyricsLoading(false);
-  }, [track?._id, track?.lyrics]);
+  }, [cachedLyrics, lyricsCacheKey, track?.lyrics]);
 
   // Fetch lyrics when Now Playing opens or track changes and lyrics are missing
   useEffect(() => {
-    if (!track || !isContextViewOpen) return;
-    if (lyrics && lyrics.length > 0) return;
+    if (!track || !isContextViewOpen || !lyricsCacheKey) return;
+    if (track.lyrics || cachedLyrics) return;
     let cancelled = false;
     (async () => {
       try {
@@ -58,6 +67,9 @@ export function NowPlayingView() {
           submissionId: track._id as Id<"submissions">,
         });
         if (cancelled) return;
+        if (result) {
+          lyricsCacheRef.current[lyricsCacheKey] = result;
+        }
         setLyrics(result);
       } catch (error) {
         if (cancelled) return;
@@ -70,7 +82,7 @@ export function NowPlayingView() {
     return () => {
       cancelled = true;
     };
-  }, [track, track?._id, isContextViewOpen, getLyrics, lyrics]);
+  }, [cachedLyrics, getLyrics, isContextViewOpen, lyricsCacheKey, track]);
 
   // Derived lyric parsing and timing
   const currentTime = useMusicPlayerStore((s) => s.currentTime);
