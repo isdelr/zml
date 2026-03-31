@@ -21,6 +21,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { toSvg } from "jdenticon";
 import React from "react";
 import { toErrorMessage } from "@/lib/errors";
@@ -28,6 +29,7 @@ import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, MessageSquarePlus } from "lucide-react";
 import { getAnonymousCommentIdentity } from "@/lib/comments/anonymous";
+import { shouldRevealCommentContent } from "@/lib/comments/visibility";
 
 interface SubmissionCommentsProps {
   submissionId: Id<"submissions">;
@@ -64,6 +66,8 @@ export function SubmissionCommentComposerButton({
   size = "icon",
 }: SubmissionCommentComposerButtonProps) {
   const [commentText, setCommentText] = useState("");
+  const [revealContentOnRoundFinished, setRevealContentOnRoundFinished] =
+    useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const { isAuthenticated } = useConvexAuth();
   const { width } = useWindowSize();
@@ -78,8 +82,19 @@ export function SubmissionCommentComposerButton({
       ),
     [currentUser?._id, roundId],
   );
-  const revealIdentity = roundStatus === "finished";
-  const composerIdentity = revealIdentity
+  const showCommentImmediately = shouldRevealCommentContent({
+    revealContentOnRoundFinished,
+    roundStatus,
+  });
+  const revealIdentityInComposer =
+    roundStatus === "finished" || revealContentOnRoundFinished;
+  const composerVisibilityDescription =
+    roundStatus === "finished"
+      ? "The round is finished, so your name and comment show immediately."
+      : revealContentOnRoundFinished
+        ? "Your comment stays hidden until voting ends, then appears under your profile."
+        : "Your comment appears immediately, but your name stays anonymous until the round finishes.";
+  const composerIdentity = revealIdentityInComposer
     ? {
         avatarSeed: currentUser?._id ?? "pending-user",
         displayName: currentUser?.name ?? "Anonymous",
@@ -93,52 +108,72 @@ export function SubmissionCommentComposerButton({
 
   const addComment = useMutation(
     api.submissions.addComment,
-  ).withOptimisticUpdate((localStore, { submissionId, text }) => {
-    const existingComments = localStore.getQuery(
-      api.submissions.getCommentsForSubmission,
-      {
+  ).withOptimisticUpdate(
+    (localStore, { submissionId, text, revealContentOnRoundFinished }) => {
+      if (
+        !shouldRevealCommentContent({
+          revealContentOnRoundFinished,
+          roundStatus,
+        })
+      ) {
+        return;
+      }
+
+      const existingComments = localStore.getQuery(
+        api.submissions.getCommentsForSubmission,
+        {
+          submissionId,
+        },
+      );
+      if (existingComments === undefined) return;
+
+      const optimisticCommentId =
+        `optimistic_${submissionId}_${existingComments.length}` as unknown as Id<"comments">;
+      const optimisticCreationTime =
+        existingComments.reduce(
+          (latestCreationTime, comment) =>
+            Math.max(latestCreationTime, comment._creationTime),
+          0,
+        ) + 1;
+
+      const optimisticComment = {
+        _id: optimisticCommentId,
+        _creationTime: optimisticCreationTime,
         submissionId,
-      },
-    );
-    if (existingComments === undefined) return;
-    const optimisticCommentId =
-      `optimistic_${submissionId}_${existingComments.length}` as unknown as Id<"comments">;
-    const optimisticCreationTime =
-      existingComments.reduce(
-        (latestCreationTime, comment) =>
-          Math.max(latestCreationTime, comment._creationTime),
-        0,
-      ) + 1;
+        text,
+        authorName: revealIdentityInComposer
+          ? (currentUser?.name ?? "Anonymous")
+          : anonymousIdentity.displayName,
+        authorImage: revealIdentityInComposer
+          ? (currentUser?.image ?? null)
+          : null,
+        authorVote: undefined,
+        avatarSeed: revealIdentityInComposer
+          ? (currentUser?._id ?? "pending-user")
+          : anonymousIdentity.avatarSeed,
+      } as SubmissionComment;
 
-    const optimisticComment = {
-      _id: optimisticCommentId,
-      _creationTime: optimisticCreationTime,
-      submissionId,
-      text,
-      authorName: revealIdentity
-        ? (currentUser?.name ?? "Anonymous")
-        : anonymousIdentity.displayName,
-      authorImage: revealIdentity ? (currentUser?.image ?? null) : null,
-      authorVote: undefined,
-      avatarSeed: revealIdentity
-        ? (currentUser?._id ?? "pending-user")
-        : anonymousIdentity.avatarSeed,
-    } as SubmissionComment;
-
-    const newComments = [...existingComments, optimisticComment];
-    localStore.setQuery(
-      api.submissions.getCommentsForSubmission,
-      { submissionId },
-      newComments,
-    );
-  });
+      const newComments = [...existingComments, optimisticComment];
+      localStore.setQuery(
+        api.submissions.getCommentsForSubmission,
+        { submissionId },
+        newComments,
+      );
+    },
+  );
 
   const handleAddComment = async () => {
     const textToSubmit = commentText.trim();
     if (!textToSubmit) return;
     setCommentText("");
     try {
-      await addComment({ submissionId, text: textToSubmit });
+      await addComment({
+        submissionId,
+        text: textToSubmit,
+        revealContentOnRoundFinished:
+          revealContentOnRoundFinished || undefined,
+      });
+      setRevealContentOnRoundFinished(false);
       setIsComposerOpen(false);
     } catch (error: unknown) {
       toast.error(toErrorMessage(error, "Failed to post comment."));
@@ -165,9 +200,7 @@ export function SubmissionCommentComposerButton({
               Posting as {composerIdentity.displayName}
             </p>
             <p className="text-xs text-muted-foreground">
-              {revealIdentity
-                ? "The round is finished, so your name is shown immediately."
-                : "Your comment appears immediately, but your name stays anonymous until the round finishes."}
+              {composerVisibilityDescription}
             </p>
           </div>
           <Textarea
@@ -182,9 +215,29 @@ export function SubmissionCommentComposerButton({
               }
             }}
           />
+          {roundStatus !== "finished" ? (
+            <div className="flex items-start justify-between gap-3 rounded-xl border border-border/70 bg-muted/35 p-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  Show only after voting ends
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Useful for bigger or self-identifying thoughts. The
+                  submission owner gets notified when it unlocks.
+                </p>
+              </div>
+              <Switch
+                checked={revealContentOnRoundFinished}
+                onCheckedChange={setRevealContentOnRoundFinished}
+                aria-label="Show comment only after voting ends"
+              />
+            </div>
+          ) : null}
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
-              Press Ctrl/Cmd + Enter to post quickly.
+              {showCommentImmediately
+                ? "Press Ctrl/Cmd + Enter to post quickly."
+                : "Press Ctrl/Cmd + Enter to queue it for the end of voting."}
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -201,7 +254,7 @@ export function SubmissionCommentComposerButton({
                 onClick={() => void handleAddComment()}
                 disabled={!commentText.trim()}
               >
-                Post comment
+                {showCommentImmediately ? "Post comment" : "Post for later"}
               </Button>
             </div>
           </div>
@@ -249,9 +302,7 @@ export function SubmissionCommentComposerButton({
             Comment on {submissionTitle}
           </SheetTitle>
           <SheetDescription>
-            {revealIdentity
-              ? "The round is finished, so your comment posts under your profile."
-              : "Your comment posts immediately under your round alias and reveals your identity when the round finishes."}
+            {composerVisibilityDescription}
           </SheetDescription>
         </SheetHeader>
         <div className="overflow-y-auto px-4 py-4">{composerBody}</div>

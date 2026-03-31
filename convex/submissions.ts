@@ -40,7 +40,10 @@ import {
 } from "../lib/media/delivery";
 import { formatArtistNames } from "../lib/music/submission-display";
 import { getAnonymousCommentIdentity } from "../lib/comments/anonymous";
-import { shouldRevealCommentIdentity } from "../lib/comments/visibility";
+import {
+  shouldRevealCommentContent,
+  shouldRevealCommentIdentity,
+} from "../lib/comments/visibility";
 import { maybeAutoStartVotingAfterSubmissionCompletion } from "../lib/convex-server/rounds/auto-transition";
 import { getUserSubmissionCompletionCount } from "../lib/rounds/submission-completion";
 
@@ -1160,6 +1163,7 @@ export const addComment = mutation({
   args: {
     submissionId: v.id("submissions"),
     text: v.string(),
+    revealContentOnRoundFinished: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -1186,7 +1190,14 @@ export const addComment = mutation({
       throw new Error("Round not found.");
     }
 
-    if (submission.userId !== userId) {
+    const revealContentOnRoundFinished =
+      args.revealContentOnRoundFinished === true;
+    const showCommentImmediately = shouldRevealCommentContent({
+      revealContentOnRoundFinished,
+      roundStatus: round.status,
+    });
+
+    if (submission.userId !== userId && showCommentImmediately) {
       const commentIsAnonymous = !shouldRevealCommentIdentity({
         isAnonymous: true,
         revealOnRoundFinished: true,
@@ -1207,6 +1218,7 @@ export const addComment = mutation({
       text: args.text,
       isAnonymous: true,
       revealOnRoundFinished: true,
+      revealContentOnRoundFinished: revealContentOnRoundFinished || undefined,
     });
   },
 });
@@ -1242,9 +1254,20 @@ export const getCommentsForSubmission = query({
       return [];
     }
 
+    const visibleComments = comments.filter((comment) =>
+      shouldRevealCommentContent({
+        revealContentOnRoundFinished: comment.revealContentOnRoundFinished,
+        roundStatus: round.status,
+      }),
+    );
+
+    if (visibleComments.length === 0) {
+      return [];
+    }
+
     const revealedCommentUserIds = [
       ...new Set(
-        comments
+        visibleComments
           .filter((comment) =>
             shouldRevealCommentIdentity({
               isAnonymous: comment.isAnonymous,
@@ -1286,7 +1309,7 @@ export const getCommentsForSubmission = query({
         : null;
 
     return Promise.all(
-      comments.map(async (comment) => {
+      visibleComments.map(async (comment) => {
         const anonymousIdentity = getAnonymousCommentIdentity(
           submission.roundId.toString(),
           comment.userId.toString(),
@@ -1320,6 +1343,143 @@ export const getCommentsForSubmission = query({
         };
       }),
     );
+  },
+});
+
+function formatRevealedCommentNotificationMessage({
+  commentCount,
+  submissionCount,
+  submissionTitle,
+}: {
+  commentCount: number;
+  submissionCount: number;
+  submissionTitle: string | null;
+}) {
+  const verb = commentCount === 1 ? "is" : "are";
+  const commentLabel = `${commentCount} comment${commentCount === 1 ? "" : "s"}`;
+
+  if (submissionCount === 1 && submissionTitle) {
+    return `${commentLabel} ${verb} now visible on your submission for "${submissionTitle}" now that voting has ended.`;
+  }
+
+  return `${commentLabel} ${verb} now visible on your submissions now that voting has ended.`;
+}
+
+export const notifyRevealedCommentsForRound = internalMutation({
+  args: {
+    roundId: v.id("rounds"),
+  },
+  returns: v.object({
+    notificationCount: v.number(),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    notificationCount: number;
+  }> => {
+    const round = await ctx.db.get("rounds", args.roundId);
+    if (!round || round.status !== "finished") {
+      return { notificationCount: 0 };
+    }
+
+    const submissions = await ctx.db
+      .query("submissions")
+      .withIndex("by_round_and_user", (q) => q.eq("roundId", args.roundId))
+      .collect();
+
+    if (submissions.length === 0) {
+      return { notificationCount: 0 };
+    }
+
+    const revealedCommentRecipients = new Map<
+      string,
+      {
+        userId: Id<"users">;
+        commentCount: number;
+        submissionCount: number;
+        submissionTitle: string | null;
+      }
+    >();
+
+    for (const submission of submissions) {
+      const delayedCommentCount = (
+        await ctx.db
+          .query("comments")
+          .withIndex("by_submission", (q) =>
+            q.eq("submissionId", submission._id),
+          )
+          .collect()
+      ).filter(
+        (comment) =>
+          comment.revealContentOnRoundFinished === true &&
+          comment.userId !== submission.userId,
+      ).length;
+
+      if (delayedCommentCount === 0) {
+        continue;
+      }
+
+      const existingRecipient = revealedCommentRecipients.get(
+        submission.userId.toString(),
+      );
+
+      if (existingRecipient) {
+        existingRecipient.commentCount += delayedCommentCount;
+        existingRecipient.submissionCount += 1;
+        existingRecipient.submissionTitle = null;
+        continue;
+      }
+
+      revealedCommentRecipients.set(submission.userId.toString(), {
+        userId: submission.userId,
+        commentCount: delayedCommentCount,
+        submissionCount: 1,
+        submissionTitle: submission.songTitle,
+      });
+    }
+
+    const notifications = [...revealedCommentRecipients.values()].map(
+      (recipient) => {
+        const message = formatRevealedCommentNotificationMessage({
+          commentCount: recipient.commentCount,
+          submissionCount: recipient.submissionCount,
+          submissionTitle: recipient.submissionTitle,
+        });
+
+        return {
+          userId: recipient.userId,
+          type: "new_comment" as const,
+          message,
+          link: `/leagues/${round.leagueId}/round/${round._id}`,
+          metadata: {
+            source: `revealed-comments:${round._id}:${recipient.userId}`,
+          },
+          pushNotificationOverride: {
+            title: "More Comments Revealed",
+            body: message,
+          },
+        };
+      },
+    );
+
+    if (notifications.length === 0) {
+      return { notificationCount: 0 };
+    }
+
+    const createdNotifications: {
+      notificationId: Id<"notifications">;
+      userId: Id<"users">;
+      type: "new_comment" | "round_submission" | "round_voting" | "round_finished";
+      source: string | null;
+    }[] = await ctx.runMutation(
+      internal.notifications.createManyUniqueBySource,
+      {
+        notifications,
+      },
+    );
+
+    return { notificationCount: createdNotifications.length };
   },
 });
 

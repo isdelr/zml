@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { shouldRevealCommentIdentity } from "@/lib/comments/visibility";
+import {
+  shouldRevealCommentContent,
+  shouldRevealCommentIdentity,
+} from "@/lib/comments/visibility";
 
 describe("shouldRevealCommentIdentity", () => {
   it("keeps anonymous comments anonymous before the round finishes", () => {
@@ -40,5 +43,33 @@ describe("shouldRevealCommentIdentity", () => {
         roundStatus: "finished",
       }),
     ).toBe(false);
+  });
+});
+
+describe("shouldRevealCommentContent", () => {
+  it("keeps delayed comments hidden before the round finishes", () => {
+    expect(
+      shouldRevealCommentContent({
+        revealContentOnRoundFinished: true,
+        roundStatus: "voting",
+      }),
+    ).toBe(false);
+  });
+
+  it("reveals delayed comments after the round finishes", () => {
+    expect(
+      shouldRevealCommentContent({
+        revealContentOnRoundFinished: true,
+        roundStatus: "finished",
+      }),
+    ).toBe(true);
+  });
+
+  it("shows regular comments immediately", () => {
+    expect(
+      shouldRevealCommentContent({
+        roundStatus: "submissions",
+      }),
+    ).toBe(true);
   });
 });

@@ -89,6 +89,9 @@ export async function transitionRoundToFinishedWithSideEffects(
   await ctx.scheduler.runAfter(0, internal.leagues.calculateAndStoreResults, {
     roundId: round._id,
   });
+  await ctx.scheduler.runAfter(0, internal.submissions.notifyRevealedCommentsForRound, {
+    roundId: round._id,
+  });
   await ctx.scheduler.runAfter(0, internal.notifications.createForLeagueAndDispatchDiscord, {
     leagueId: league._id,
     roundId: round._id,
