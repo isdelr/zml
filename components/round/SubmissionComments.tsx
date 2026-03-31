@@ -170,8 +170,7 @@ export function SubmissionCommentComposerButton({
       await addComment({
         submissionId,
         text: textToSubmit,
-        revealContentOnRoundFinished:
-          revealContentOnRoundFinished || undefined,
+        revealContentOnRoundFinished: revealContentOnRoundFinished || undefined,
       });
       setRevealContentOnRoundFinished(false);
       setIsComposerOpen(false);
@@ -220,10 +219,6 @@ export function SubmissionCommentComposerButton({
               <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground">
                   Show only after voting ends
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Useful for bigger or self-identifying thoughts. The
-                  submission owner gets notified when it unlocks.
                 </p>
               </div>
               <Switch
@@ -301,9 +296,7 @@ export function SubmissionCommentComposerButton({
           <SheetTitle className="text-base">
             Comment on {submissionTitle}
           </SheetTitle>
-          <SheetDescription>
-            {composerVisibilityDescription}
-          </SheetDescription>
+          <SheetDescription>{composerVisibilityDescription}</SheetDescription>
         </SheetHeader>
         <div className="overflow-y-auto px-4 py-4">{composerBody}</div>
       </SheetContent>
