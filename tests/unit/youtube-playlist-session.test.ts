@@ -146,7 +146,7 @@ describe("youtube playlist session helpers", () => {
     ).toBe(true);
     expect(open).not.toHaveBeenCalled();
     expect(assign).toHaveBeenCalledWith(
-      "intent://www.youtube.com/watch_videos?video_ids=abc123,def456#Intent;scheme=https;package=com.google.android.youtube;S.browser_fallback_url=https%3A%2F%2Fwww.youtube.com%2Fwatch_videos%3Fvideo_ids%3Dabc123%2Cdef456;end",
+      "https://www.youtube.com/watch?v=abc123&playlist=def456",
     );
   });
 });

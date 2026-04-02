@@ -3,8 +3,6 @@ export function isYouTubeLink(link?: string | null): boolean {
   return link.includes("youtube.com") || link.includes("youtu.be");
 }
 
-const YOUTUBE_ANDROID_PACKAGE = "com.google.android.youtube";
-
 export type YouTubeOpenTarget = {
   url: string;
   useCurrentTab: boolean;
@@ -50,6 +48,65 @@ export function buildYouTubeWatchVideosUrl(videoIds: string[]): string | null {
   return `https://www.youtube.com/watch_videos?video_ids=${ids.join(",")}`;
 }
 
+export function extractYouTubePlaylistVideoIds(url?: string | null): string[] {
+  if (!url) return [];
+
+  try {
+    const parsedUrl = new URL(url);
+    const host = parsedUrl.hostname.replace(/^www\./, "");
+
+    if (
+      host !== "youtube.com" &&
+      host !== "m.youtube.com" &&
+      host !== "music.youtube.com"
+    ) {
+      return [];
+    }
+
+    if (parsedUrl.pathname === "/watch_videos") {
+      const rawIds = parsedUrl.searchParams.get("video_ids");
+      if (!rawIds) return [];
+      return rawIds
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .slice(0, 50);
+    }
+
+    if (parsedUrl.pathname === "/watch") {
+      const firstId = parsedUrl.searchParams.get("v")?.trim();
+      const playlistIds =
+        parsedUrl.searchParams
+          .get("playlist")
+          ?.split(",")
+          .map((id) => id.trim())
+          .filter(Boolean) ?? [];
+
+      return [firstId, ...playlistIds].filter(
+        (id): id is string => Boolean(id),
+      );
+    }
+  } catch {
+    return [];
+  }
+
+  return [];
+}
+
+export function buildYouTubeAppWatchUrl(videoIds: string[]): string | null {
+  if (videoIds.length === 0) return null;
+  const ids = videoIds.slice(0, 50);
+  const [firstId, ...remainingIds] = ids;
+  if (!firstId) return null;
+
+  const params = new URLSearchParams({ v: firstId });
+  if (remainingIds.length > 0) {
+    params.set("playlist", remainingIds.join(","));
+  }
+
+  return `https://www.youtube.com/watch?${params.toString()}`;
+}
+
 function getUserAgent(userAgent?: string | null): string {
   if (userAgent !== undefined && userAgent !== null) {
     return userAgent;
@@ -60,29 +117,12 @@ function getUserAgent(userAgent?: string | null): string {
   return navigator.userAgent;
 }
 
-function isAndroidUserAgent(userAgent: string): boolean {
-  return /Android/i.test(userAgent);
-}
-
 function isAppleMobileUserAgent(userAgent: string): boolean {
   return /iPhone|iPad|iPod/i.test(userAgent);
 }
 
-export function buildAndroidIntentUrl(
-  url: string,
-  packageName = YOUTUBE_ANDROID_PACKAGE,
-): string | null {
-  try {
-    const parsedUrl = new URL(url);
-    const scheme = parsedUrl.protocol.replace(/:$/, "");
-    if (scheme !== "https" && scheme !== "http") {
-      return null;
-    }
-
-    return `intent://${parsedUrl.host}${parsedUrl.pathname}${parsedUrl.search}#Intent;scheme=${scheme};package=${packageName};S.browser_fallback_url=${encodeURIComponent(url)};end`;
-  } catch {
-    return null;
-  }
+function isAndroidUserAgent(userAgent: string): boolean {
+  return /Android/i.test(userAgent);
 }
 
 export function getYouTubeOpenTarget(
@@ -95,15 +135,12 @@ export function getYouTubeOpenTarget(
     return { url, useCurrentTab: false };
   }
 
-  if (isAndroidUserAgent(userAgent)) {
+  if (isAndroidUserAgent(userAgent) || isAppleMobileUserAgent(userAgent)) {
+    const appWatchUrl = buildYouTubeAppWatchUrl(extractYouTubePlaylistVideoIds(url));
     return {
-      url: buildAndroidIntentUrl(url) ?? url,
+      url: appWatchUrl ?? url,
       useCurrentTab: true,
     };
-  }
-
-  if (isAppleMobileUserAgent(userAgent)) {
-    return { url, useCurrentTab: true };
   }
 
   return { url, useCurrentTab: false };

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildAndroidIntentUrl,
+  buildYouTubeAppWatchUrl,
   buildYouTubeWatchVideosUrl,
   extractYouTubeVideoId,
+  extractYouTubePlaylistVideoIds,
   getYouTubeOpenTarget,
   isYouTubeLink,
 } from "@/lib/youtube";
@@ -35,18 +36,23 @@ describe("youtube helpers", () => {
     expect(url?.split("video_ids=")[1]?.split(",").length).toBe(50);
   });
 
-  it("builds Android intent urls with a browser fallback", () => {
+  it("extracts playlist video ids from watch_videos urls", () => {
     expect(
-      buildAndroidIntentUrl(
+      extractYouTubePlaylistVideoIds(
         "https://www.youtube.com/watch_videos?video_ids=abc123,def456",
       ),
-    ).toBe(
-      "intent://www.youtube.com/watch_videos?video_ids=abc123,def456#Intent;scheme=https;package=com.google.android.youtube;S.browser_fallback_url=https%3A%2F%2Fwww.youtube.com%2Fwatch_videos%3Fvideo_ids%3Dabc123%2Cdef456;end",
+    ).toEqual(["abc123", "def456"]);
+  });
+
+  it("builds app-friendly watch urls from video ids", () => {
+    expect(buildYouTubeAppWatchUrl(["abc123", "def456", "ghi789"])).toBe(
+      "https://www.youtube.com/watch?v=abc123&playlist=def456%2Cghi789",
     );
   });
 
-  it("prefers mobile app targets for supported mobile browsers", () => {
-    const url = "https://www.youtube.com/watch_videos?video_ids=abc123,def456";
+  it("prefers mobile app-friendly https targets for supported mobile browsers", () => {
+    const url =
+      "https://www.youtube.com/watch_videos?video_ids=abc123,def456,ghi789";
 
     expect(
       getYouTubeOpenTarget(url, {
@@ -54,7 +60,7 @@ describe("youtube helpers", () => {
           "Mozilla/5.0 (Linux; Android 14; Pixel 9) AppleWebKit/537.36 Chrome/135.0.0.0 Mobile Safari/537.36",
       }),
     ).toEqual({
-      url: buildAndroidIntentUrl(url),
+      url: "https://www.youtube.com/watch?v=abc123&playlist=def456%2Cghi789",
       useCurrentTab: true,
     });
 
@@ -64,7 +70,7 @@ describe("youtube helpers", () => {
           "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 Version/18.3 Mobile/15E148 Safari/604.1",
       }),
     ).toEqual({
-      url,
+      url: "https://www.youtube.com/watch?v=abc123&playlist=def456%2Cghi789",
       useCurrentTab: true,
     });
 
