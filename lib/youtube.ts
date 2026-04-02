@@ -3,6 +3,17 @@ export function isYouTubeLink(link?: string | null): boolean {
   return link.includes("youtube.com") || link.includes("youtu.be");
 }
 
+const YOUTUBE_ANDROID_PACKAGE = "com.google.android.youtube";
+
+export type YouTubeOpenTarget = {
+  url: string;
+  useCurrentTab: boolean;
+};
+
+type YouTubeOpenTargetOptions = {
+  userAgent?: string | null;
+};
+
 export function extractYouTubeVideoId(url?: string | null): string | null {
   if (!url) return null;
 
@@ -37,4 +48,63 @@ export function buildYouTubeWatchVideosUrl(videoIds: string[]): string | null {
   if (videoIds.length === 0) return null;
   const ids = videoIds.slice(0, 50);
   return `https://www.youtube.com/watch_videos?video_ids=${ids.join(",")}`;
+}
+
+function getUserAgent(userAgent?: string | null): string {
+  if (userAgent !== undefined && userAgent !== null) {
+    return userAgent;
+  }
+  if (typeof navigator === "undefined") {
+    return "";
+  }
+  return navigator.userAgent;
+}
+
+function isAndroidUserAgent(userAgent: string): boolean {
+  return /Android/i.test(userAgent);
+}
+
+function isAppleMobileUserAgent(userAgent: string): boolean {
+  return /iPhone|iPad|iPod/i.test(userAgent);
+}
+
+export function buildAndroidIntentUrl(
+  url: string,
+  packageName = YOUTUBE_ANDROID_PACKAGE,
+): string | null {
+  try {
+    const parsedUrl = new URL(url);
+    const scheme = parsedUrl.protocol.replace(/:$/, "");
+    if (scheme !== "https" && scheme !== "http") {
+      return null;
+    }
+
+    return `intent://${parsedUrl.host}${parsedUrl.pathname}${parsedUrl.search}#Intent;scheme=${scheme};package=${packageName};S.browser_fallback_url=${encodeURIComponent(url)};end`;
+  } catch {
+    return null;
+  }
+}
+
+export function getYouTubeOpenTarget(
+  url: string,
+  options: YouTubeOpenTargetOptions = {},
+): YouTubeOpenTarget {
+  const userAgent = getUserAgent(options.userAgent);
+
+  if (!isYouTubeLink(url)) {
+    return { url, useCurrentTab: false };
+  }
+
+  if (isAndroidUserAgent(userAgent)) {
+    return {
+      url: buildAndroidIntentUrl(url) ?? url,
+      useCurrentTab: true,
+    };
+  }
+
+  if (isAppleMobileUserAgent(userAgent)) {
+    return { url, useCurrentTab: true };
+  }
+
+  return { url, useCurrentTab: false };
 }

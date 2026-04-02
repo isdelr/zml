@@ -6,7 +6,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/lib/convex/api";
 import { type PlaylistListenUnlock } from "@/lib/music/listen-progress";
 import { buildYouTubeWatchVideosUrl } from "@/lib/youtube";
-import { openUrlInNewTabWithFallback } from "@/lib/music/youtube-playlist-session";
+import { openYouTubeUrlWithAppFallback } from "@/lib/music/youtube-playlist-session";
 
 type UseRoundYouTubePlaylistArgs = {
   roundId: Id<"rounds">;
@@ -241,7 +241,7 @@ export function useRoundYouTubePlaylist({
   const openYouTubePlaylist = useCallback((orderedIds: string[]) => {
     const url = buildYouTubeWatchVideosUrl(orderedIds);
     if (!url) return;
-    openUrlInNewTabWithFallback(url);
+    openYouTubeUrlWithAppFallback(url);
   }, []);
 
   const openPlaylistAndStart = useCallback(

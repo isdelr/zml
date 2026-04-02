@@ -26,7 +26,7 @@ import { useListenProgressSync } from "@/hooks/useListenProgressSync";
 import { usePlayerBookmark } from "@/hooks/usePlayerBookmark";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import {
-  openUrlInNewTabWithFallback,
+  openYouTubeUrlWithAppFallback,
 } from "@/lib/music/youtube-playlist-session";
 import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
 import { getTotalPlaylistDurationSeconds } from "@/lib/music/listen-progress";
@@ -555,9 +555,7 @@ export function MusicPlayer() {
       if (totalDurationSec > 0) {
         updatePlaylistPresence(roundId);
       }
-      return openUrlInNewTabWithFallback(url, {
-        fallbackToCurrentTab: true,
-      });
+      return openYouTubeUrlWithAppFallback(url);
     },
     [
       actions,

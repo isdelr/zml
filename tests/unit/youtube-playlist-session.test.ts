@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getRoundYouTubePlaylistSessionSnapshot,
+  openYouTubeUrlWithAppFallback,
   openUrlInNewTabWithFallback,
   startRoundYouTubePlaylistSession,
 } from "@/lib/music/youtube-playlist-session";
@@ -123,5 +124,29 @@ describe("youtube playlist session helpers", () => {
       }),
     ).toBe(true);
     expect(assign).toHaveBeenCalledWith("https://example.com");
+  });
+
+  it("prefers current-tab navigation for mobile youtube targets", () => {
+    const assign = vi.fn();
+    const open = vi.fn(() => null);
+
+    vi.stubGlobal("window", {
+      open,
+      location: { assign },
+    });
+    vi.stubGlobal("navigator", {
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 14; Pixel 9) AppleWebKit/537.36 Chrome/135.0.0.0 Mobile Safari/537.36",
+    });
+
+    expect(
+      openYouTubeUrlWithAppFallback(
+        "https://www.youtube.com/watch_videos?video_ids=abc123,def456",
+      ),
+    ).toBe(true);
+    expect(open).not.toHaveBeenCalled();
+    expect(assign).toHaveBeenCalledWith(
+      "intent://www.youtube.com/watch_videos?video_ids=abc123,def456#Intent;scheme=https;package=com.google.android.youtube;S.browser_fallback_url=https%3A%2F%2Fwww.youtube.com%2Fwatch_videos%3Fvideo_ids%3Dabc123%2Cdef456;end",
+    );
   });
 });

@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { useMutation, useQuery } from "convex/react";
 import { useRoundYouTubePlaylist } from "@/hooks/useRoundYouTubePlaylist";
-import { openUrlInNewTabWithFallback } from "@/lib/music/youtube-playlist-session";
+import { openYouTubeUrlWithAppFallback } from "@/lib/music/youtube-playlist-session";
 
 vi.mock("convex/react", () => ({
   useMutation: vi.fn(),
@@ -10,7 +10,7 @@ vi.mock("convex/react", () => ({
 }));
 
 vi.mock("@/lib/music/youtube-playlist-session", () => ({
-  openUrlInNewTabWithFallback: vi.fn(),
+  openYouTubeUrlWithAppFallback: vi.fn(),
 }));
 
 describe("useRoundYouTubePlaylist", () => {
@@ -85,19 +85,19 @@ describe("useRoundYouTubePlaylist", () => {
     });
 
     await waitFor(() => {
-      expect(openUrlInNewTabWithFallback).toHaveBeenCalledWith(
+      expect(openYouTubeUrlWithAppFallback).toHaveBeenCalledWith(
         "https://www.youtube.com/watch_videos?video_ids=abc123,def456",
       );
     });
 
-    vi.mocked(openUrlInNewTabWithFallback).mockClear();
+    vi.mocked(openYouTubeUrlWithAppFallback).mockClear();
 
     await act(async () => {
       result.current.openPlaylistAndStart(["def456", "abc123"]);
     });
 
     await waitFor(() => {
-      expect(openUrlInNewTabWithFallback).toHaveBeenCalledWith(
+      expect(openYouTubeUrlWithAppFallback).toHaveBeenCalledWith(
         "https://www.youtube.com/watch_videos?video_ids=def456,abc123",
       );
     });

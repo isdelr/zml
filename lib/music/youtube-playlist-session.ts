@@ -1,10 +1,13 @@
 "use client";
 
+import { getYouTubeOpenTarget } from "@/lib/youtube";
+
 export const YOUTUBE_PLAYLIST_SESSION_EVENT =
   "zml:youtube-playlist-session";
 
 type OpenUrlOptions = {
   fallbackToCurrentTab?: boolean;
+  preferCurrentTab?: boolean;
 };
 
 type StorageReadWrite = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -194,6 +197,10 @@ export function openUrlInNewTabWithFallback(
   options: OpenUrlOptions = {},
 ) {
   if (typeof window === "undefined") return false;
+  if (options.preferCurrentTab) {
+    window.location.assign(url);
+    return true;
+  }
   const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
   if (openedWindow) {
     return true;
@@ -205,4 +212,12 @@ export function openUrlInNewTabWithFallback(
   }
 
   return false;
+}
+
+export function openYouTubeUrlWithAppFallback(url: string) {
+  const target = getYouTubeOpenTarget(url);
+  return openUrlInNewTabWithFallback(target.url, {
+    fallbackToCurrentTab: target.useCurrentTab,
+    preferCurrentTab: target.useCurrentTab,
+  });
 }
