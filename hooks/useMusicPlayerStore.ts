@@ -14,8 +14,6 @@ interface MusicPlayerState {
   isShuffled: boolean;
   seekTo: number | null;
   volume: number;
-  currentTime: number;
-  duration: number;
   isContextViewOpen: boolean;
   listenProgress: Record<string, boolean>;
   actions: {
@@ -38,8 +36,6 @@ interface MusicPlayerState {
     toggleContextView: () => void;
     closeContextView: () => void;
     setListenProgress: (submissionId: string, isListened: boolean) => void;
-    setPlaybackTime: (time: number) => void;
-    setPlaybackDuration: (duration: number) => void;
   };
 }
 
@@ -53,8 +49,6 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
   isShuffled: false,
   volume: 1,
   seekTo: null,
-  currentTime: 0,
-  duration: 0,
   isContextViewOpen: false,
   listenProgress: {},
   actions: {
@@ -209,7 +203,5 @@ export const useMusicPlayerStore = create<MusicPlayerState>((set, get) => ({
         },
       }));
     },
-    setPlaybackTime: (time) => set({ currentTime: time }),
-    setPlaybackDuration: (duration) => set({ duration }),
   },
 }));

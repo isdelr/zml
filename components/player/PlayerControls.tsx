@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward } from "lucide-react";
@@ -19,7 +20,7 @@ interface PlayerControlsProps {
   onStartTimer?: () => void;
 }
 
-export function PlayerControls({
+export const PlayerControls = memo(function PlayerControls({
                                  isPlaying,
                                  isExternalLink,
                                  isShuffled,
@@ -28,9 +29,9 @@ export function PlayerControls({
                                  onTogglePlayPause,
                                  onPlayNext,
                                  onPlayPrevious,
-                                 onToggleShuffle,
-                                 onToggleRepeat,
-                                 onStartTimer,
+                                onToggleShuffle,
+                                onToggleRepeat,
+                                onStartTimer,
                                }: PlayerControlsProps) {
   const hasExternalLink = !!currentTrack?.songLink;
   const externalTitle = hasExternalLink
@@ -111,4 +112,4 @@ export function PlayerControls({
       </Button>
     </div>
   );
-}
+});

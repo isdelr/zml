@@ -65,7 +65,7 @@ function toSong(submission: MySubmission): Song {
 
 export function MySubmissionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const { actions: playerActions } = useMusicPlayerStore();
+  const playerActions = useMusicPlayerStore((state) => state.actions);
   const mySubmissions = useQuery(api.submissions.getMySubmissions, {});
   const isLoading = mySubmissions === undefined;
 

@@ -1,4 +1,6 @@
 "use client";
+import { memo, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -14,18 +16,35 @@ interface MusicQueueProps {
   onOpenChange: (isOpen: boolean) => void;
 }
 
-export function MusicQueue({ isOpen, onOpenChange }: MusicQueueProps) {
-  const { queue, currentTrackIndex, isPlaying, actions } = useMusicPlayerStore();
-  const currentTrack = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+export const MusicQueue = memo(function MusicQueue({
+  isOpen,
+  onOpenChange,
+}: MusicQueueProps) {
+  const { queue, currentTrackIndex, isPlaying, currentTrackId, actions } =
+    useMusicPlayerStore(
+      useShallow((state) => ({
+        queue: state.queue,
+        currentTrackIndex: state.currentTrackIndex,
+        isPlaying: state.isPlaying,
+        currentTrackId:
+          state.currentTrackIndex !== null
+            ? state.queue[state.currentTrackIndex]?._id ?? null
+            : null,
+        actions: state.actions,
+      })),
+    );
 
-  const handlePlaySong = (song: Song, index: number) => {
-    const isThisSongCurrent = currentTrack?._id === song._id;
-    if (isThisSongCurrent) {
-      actions.togglePlayPause();
-    } else {
-      actions.playRound(queue, index);
-    }
-  };
+  const handlePlaySong = useCallback(
+    (song: Song, index: number) => {
+      const isThisSongCurrent = currentTrackId === song._id;
+      if (isThisSongCurrent) {
+        actions.togglePlayPause();
+      } else {
+        actions.playRound(queue, index);
+      }
+    },
+    [actions, currentTrackId, queue],
+  );
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -99,4 +118,4 @@ export function MusicQueue({ isOpen, onOpenChange }: MusicQueueProps) {
       </SheetContent>
     </Sheet>
   );
-}
+});

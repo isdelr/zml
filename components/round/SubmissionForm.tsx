@@ -201,7 +201,7 @@ export function SubmissionForm({
   const [editingSubmission, setEditingSubmission] =
     useState<SubmissionWithUrls | null>(null);
   const [isMultiExpanded, setIsMultiExpanded] = useState(false);
-  const { actions: playerActions } = useMusicPlayerStore();
+  const playerActions = useMusicPlayerStore((state) => state.actions);
   const previousStatusesRef = useRef<Record<string, string>>({});
   const resolvedSubmissions = mySubmissions ?? EMPTY_SUBMISSIONS;
   const resolvedAllSubmissions = allSubmissions ?? EMPTY_SUBMISSIONS;

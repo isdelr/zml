@@ -2,8 +2,10 @@
 
 import { useRef, useEffect, useState, useMemo, useCallback } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { useShallow } from "zustand/react/shallow";
 import { api } from "@/lib/convex/api";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import { usePlaybackClockStore } from "@/hooks/usePlaybackClockStore";
 import { Id } from "@/convex/_generated/dataModel";
 import { dynamicImport } from "@/components/ui/dynamic-import";
 import { extractTimestampedWaveformComments } from "@/lib/music/comments";
@@ -59,18 +61,42 @@ export function MusicPlayer() {
   const {
     queue,
     currentTrackIndex,
+    currentTrack,
     isPlaying,
     presenceSource,
     repeatMode,
     isShuffled,
     seekTo,
     volume,
-    listenProgress,
+    isCurrentTrackListened,
     actions,
     isContextViewOpen,
-  } = useMusicPlayerStore();
-  const currentTrack =
-    currentTrackIndex !== null ? queue[currentTrackIndex] ?? null : null;
+  } = useMusicPlayerStore(
+    useShallow((state) => {
+      const currentTrack =
+        state.currentTrackIndex !== null
+          ? state.queue[state.currentTrackIndex] ?? null
+          : null;
+
+      return {
+        queue: state.queue,
+        currentTrackIndex: state.currentTrackIndex,
+        currentTrack,
+        isPlaying: state.isPlaying,
+        presenceSource: state.presenceSource,
+        repeatMode: state.repeatMode,
+        isShuffled: state.isShuffled,
+        seekTo: state.seekTo,
+        volume: state.volume,
+        isCurrentTrackListened: currentTrack
+          ? state.listenProgress[currentTrack._id] === true
+          : false,
+        actions: state.actions,
+        isContextViewOpen: state.isContextViewOpen,
+      };
+    }),
+  );
+  const playbackClockActions = usePlaybackClockStore((state) => state.actions);
   const { width } = useWindowSize();
 
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -117,6 +143,12 @@ export function MusicPlayer() {
     listenedUntilRef.current = base;
     manualSeekRef.current = false;
   }, [currentTrack, currentTrackListenProgress]);
+
+  useEffect(() => {
+    setProgress(0);
+    setDuration(0);
+    playbackClockActions.resetPlaybackClock();
+  }, [currentTrack?._id, playbackClockActions]);
 
   const getPresignedSongUrl = useAction(api.submissions.getPresignedSongUrl);
   const updatePresence = useMutation(api.presence.update);
@@ -217,7 +249,7 @@ export function MusicPlayer() {
       );
 
       const serverMet = currentTrackListenProgress?.isCompleted === true;
-      const localMet = currentTrack ? !!listenProgress[currentTrack._id] : false;
+      const localMet = isCurrentTrackListened;
       const alreadyMet = hasCompletedListenRequirement(serverMet, localMet);
 
       let target = seekTo;
@@ -237,7 +269,16 @@ export function MusicPlayer() {
       }
       actions.resetSeek();
     }
-  }, [seekTo, isPlaying, actions, leagueData, currentTrack, currentTrackListenProgress, listenProgress, duration]);
+  }, [
+    seekTo,
+    isPlaying,
+    actions,
+    leagueData,
+    currentTrack,
+    currentTrackListenProgress,
+    isCurrentTrackListened,
+    duration,
+  ]);
 
   const commentsData = useQuery(
     api.submissions.getCommentsForSubmission,
@@ -408,16 +449,18 @@ export function MusicPlayer() {
     if (audioElement && !isNaN(audioElement.duration)) {
       setProgress(audioElement.currentTime);
       setDuration(audioElement.duration);
-      try {
-        actions.setPlaybackTime(audioElement.currentTime);
-        actions.setPlaybackDuration(audioElement.duration);
-      } catch {}
+      playbackClockActions.syncPlaybackClock(
+        audioElement.currentTime,
+        audioElement.duration,
+      );
 
       // Logic to track listening progress and contiguous listened time
       if (leagueData?.enforceListenPercentage && currentTrack) {
         const serverMet = currentTrackListenProgress?.isCompleted === true;
-        const localMet = listenProgress[currentTrack._id];
-        const alreadyMet = hasCompletedListenRequirement(serverMet, !!localMet);
+        const alreadyMet = hasCompletedListenRequirement(
+          serverMet,
+          isCurrentTrackListened,
+        );
 
         // Update contiguous listened time only on natural playback (not immediately after a seek)
         if (!manualSeekRef.current && isPlaying && !isExternalLink) {
@@ -519,8 +562,6 @@ export function MusicPlayer() {
     [
       actions,
       queue,
-      leagueData?.listenPercentage,
-      leagueData?.listenTimeLimitMinutes,
       startYouTubePlaylistSession,
       updatePlaylistPresence,
     ],
@@ -614,7 +655,7 @@ export function MusicPlayer() {
     );
 
     const serverMet = currentTrackListenProgress?.isCompleted === true;
-    const localMet = currentTrack ? !!listenProgress[currentTrack._id] : false;
+    const localMet = isCurrentTrackListened;
     const alreadyMet = hasCompletedListenRequirement(serverMet, localMet);
 
     let target = requested;
@@ -646,6 +687,10 @@ export function MusicPlayer() {
       actions.setVolume(lastVolume > 0 ? lastVolume : 1);
     }
   };
+  const handleQueueOpen = useCallback(() => {
+    setIsQueueOpen(true);
+  }, []);
+
   if (!currentTrack) {
     return null;
   }
@@ -668,7 +713,7 @@ export function MusicPlayer() {
             currentTrack={currentTrack}
             isBookmarked={isBookmarked}
             onBookmarkToggle={handleBookmarkToggle}
-            onQueueOpen={() => setIsQueueOpen(true)}
+            onQueueOpen={handleQueueOpen}
             onToggleContextView={actions.toggleContextView}
             isContextViewOpen={isContextViewOpen}
           />
@@ -704,7 +749,7 @@ export function MusicPlayer() {
           <PlayerActions
             isBookmarked={isBookmarked}
             onBookmarkToggle={handleBookmarkToggle}
-            onQueueOpen={() => setIsQueueOpen(true)}
+            onQueueOpen={handleQueueOpen}
             volume={volume}
             onVolumeChange={handleVolumeChange}
             onMuteToggle={handleMuteToggle}

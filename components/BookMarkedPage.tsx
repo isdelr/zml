@@ -23,7 +23,7 @@ const BookmarkList = dynamicImport(() =>
 
 export function BookmarkedPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const { actions: playerActions } = useMusicPlayerStore();
+  const playerActions = useMusicPlayerStore((state) => state.actions);
   const bookmarkedSongs = useQuery(api.bookmarks.getBookmarkedSongs, {});
 
   const toggleBookmark = useMutation(

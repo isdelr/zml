@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 import { Song } from "@/types";
 import { buildTrackMetadataText } from "@/lib/music/submission-display";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ interface PlayerTrackInfoProps {
   isContextViewOpen: boolean;
 }
 
-export function PlayerTrackInfo({
+export const PlayerTrackInfo = memo(function PlayerTrackInfo({
   currentTrack,
   isBookmarked,
   onBookmarkToggle,
@@ -107,4 +108,4 @@ export function PlayerTrackInfo({
       </DropdownMenu>
     </div>
   );
-}
+});

@@ -137,7 +137,9 @@ export function SubmissionItem({
   voteDetails,
   currentUser,
 }: SubmissionItemProps) {
-  const { listenProgress: localListenProgress } = useMusicPlayerStore();
+  const isListenRequirementMetLocally = useMusicPlayerStore(
+    (state) => state.listenProgress[song._id] === true,
+  );
   const isLinkSubmission = song.submissionType === "youtube";
 
   // Troll submission functionality
@@ -193,12 +195,11 @@ export function SubmissionItem({
       userIsSubmitter
     )
       return true;
-    return listenProgress?.isCompleted || localListenProgress[song._id];
+    return listenProgress?.isCompleted || isListenRequirementMetLocally;
   }, [
     league,
-    localListenProgress,
+    isListenRequirementMetLocally,
     listenProgress,
-    song._id,
     song.submissionType,
     userIsSubmitter,
     song.isTrollSubmission,

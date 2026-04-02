@@ -1,6 +1,8 @@
 // components/player/PlayerActions.tsx
 "use client";
 
+import { memo, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import {
   Bookmark,
@@ -12,7 +14,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Slider } from "../ui/slider";
-import { useMemo } from "react";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 
 interface PlayerActionsProps {
@@ -24,7 +25,7 @@ interface PlayerActionsProps {
   onMuteToggle: () => void;
 }
 
-export function PlayerActions({
+export const PlayerActions = memo(function PlayerActions({
   isBookmarked,
   onBookmarkToggle,
   onQueueOpen,
@@ -32,7 +33,12 @@ export function PlayerActions({
   onVolumeChange,
   onMuteToggle,
 }: PlayerActionsProps) {
-  const { actions, isContextViewOpen } = useMusicPlayerStore();
+  const { toggleContextView, isContextViewOpen } = useMusicPlayerStore(
+    useShallow((state) => ({
+      toggleContextView: state.actions.toggleContextView,
+      isContextViewOpen: state.isContextViewOpen,
+    })),
+  );
 
   const VolumeIcon = useMemo(() => {
     if (volume === 0) {
@@ -50,7 +56,7 @@ export function PlayerActions({
         variant="ghost"
         size="icon"
         className="flex-shrink-0"
-        onClick={actions.toggleContextView}
+        onClick={toggleContextView}
         title="Now Playing View"
       >
         <PanelRight className={cn("size-5", isContextViewOpen && "text-primary")} />
@@ -98,4 +104,4 @@ export function PlayerActions({
       </div>
     </div>
   );
-}
+});

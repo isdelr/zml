@@ -89,7 +89,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
     api.users.getCurrentUser,
     isAuthLoading ? "skip" : {},
   );
-  const { actions: playerActions } = useMusicPlayerStore();
+  const playerActions = useMusicPlayerStore((state) => state.actions);
   const preferredRoundId = getPreferredRoundId(rounds);
 
   useEffect(() => {

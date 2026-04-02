@@ -23,7 +23,7 @@ export function PageLayout({ children }: PageLayoutProps) {
   const currentTrackIndex = useMusicPlayerStore(
     (state) => state.currentTrackIndex,
   );
-  const { actions } = useMusicPlayerStore();
+  const actions = useMusicPlayerStore((state) => state.actions);
   const pathname = usePathname();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileTopBarScrollStateRef = useRef(createMobileTopBarScrollState());

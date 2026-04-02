@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Doc } from "@/convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
@@ -27,7 +27,7 @@ interface PlayerProgressProps {
   onSeek: (time: number) => void;
 }
 
-export function PlayerProgress({
+export const PlayerProgress = memo(function PlayerProgress({
   isExternalLink,
   isWaveformLoading,
   waveformData,
@@ -161,4 +161,4 @@ export function PlayerProgress({
       </span>
     </div>
   );
-}
+});

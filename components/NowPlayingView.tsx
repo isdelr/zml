@@ -1,5 +1,6 @@
 "use client";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
+import { usePlaybackClockStore } from "@/hooks/usePlaybackClockStore";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { X } from "lucide-react";
@@ -7,13 +8,14 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import { useWindowSize } from "@/hooks/useWindowSize";
-import { useEffect, useState, useMemo, useRef } from "react";
+import { memo, useEffect, useState, useMemo, useRef } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toErrorMessage } from "@/lib/errors";
 import { buildTrackMetadataText } from "@/lib/music/submission-display";
 import { MediaImage } from "@/components/ui/media-image";
+import { useShallow } from "zustand/react/shallow";
 
 const FRIENDLY_LYRICS_ERROR =
   "Lyrics are unavailable for this song right now. Please try again later.";
@@ -26,10 +28,65 @@ function toLyricsErrorMessage(error: unknown): string {
   return FRIENDLY_LYRICS_ERROR;
 }
 
+type LrcLine = { time: number; text: string };
+
+const TimedLyrics = memo(function TimedLyrics({
+  lines,
+}: {
+  lines: LrcLine[];
+}) {
+  const currentTime = usePlaybackClockStore((state) => state.currentTime);
+
+  const activeIndex = useMemo(() => {
+    if (lines.length === 0) return -1;
+    const t = currentTime || 0;
+    let idx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      if (line.time <= t) idx = i;
+      else break;
+    }
+    return idx;
+  }, [currentTime, lines]);
+
+  return (
+    <div className="space-y-1">
+      {lines.map((line, i) => {
+        const isActive = i === activeIndex;
+        const isSectionHeader =
+          /^(verse|chorus|bridge|intro|outro)/i.test(line.text);
+
+        return (
+          <div
+            key={`${line.time}-${i}`}
+            className={cn(
+              "transition-colors duration-200",
+              isActive
+                ? "text-foreground font-semibold"
+                : "text-muted-foreground",
+              isSectionHeader && "mt-3",
+            )}
+          >
+            {line.text}
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
 export function NowPlayingView() {
-  const { currentTrackIndex, queue, actions, isContextViewOpen } =
-    useMusicPlayerStore();
-  const track = currentTrackIndex !== null ? queue[currentTrackIndex] : null;
+  const { track, closeContextView, isContextViewOpen } = useMusicPlayerStore(
+    useShallow((state) => ({
+      track:
+        state.currentTrackIndex !== null
+          ? state.queue[state.currentTrackIndex] ?? null
+          : null,
+      closeContextView: state.actions.closeContextView,
+      isContextViewOpen: state.isContextViewOpen,
+    })),
+  );
   const { width } = useWindowSize();
   const isDesktopRail = width >= 1400;
   const lyricsCacheRef = useRef<Record<string, string>>({});
@@ -84,15 +141,11 @@ export function NowPlayingView() {
     };
   }, [cachedLyrics, getLyrics, isContextViewOpen, lyricsCacheKey, track]);
 
-  // Derived lyric parsing and timing
-  const currentTime = useMusicPlayerStore((s) => s.currentTime);
-
   const isLrc = useMemo(() => {
     if (!lyrics) return false;
     return /\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]/.test(lyrics);
   }, [lyrics]);
 
-  type LrcLine = { time: number; text: string };
   const lrcLines: LrcLine[] | null = useMemo(() => {
     if (!isLrc || !lyrics) return null;
     const lines = lyrics.split(/\r?\n/);
@@ -119,19 +172,6 @@ export function NowPlayingView() {
     out.sort((a, b) => a.time - b.time);
     return out;
   }, [isLrc, lyrics]);
-
-  const activeIndex = useMemo(() => {
-    if (!lrcLines || lrcLines.length === 0) return -1;
-    const t = currentTime || 0;
-    let idx = -1;
-    for (let i = 0; i < lrcLines.length; i++) {
-      const line = lrcLines[i];
-      if (!line) continue;
-      if (line.time <= t) idx = i;
-      else break;
-    }
-    return idx;
-  }, [lrcLines, currentTime]);
 
   const verseParagraphs: string[][] | null = useMemo(() => {
     if (!lyrics || isLrc) return null;
@@ -230,7 +270,7 @@ export function NowPlayingView() {
                     <Link
                       href={`/leagues/${leagueId}`}
                       className="hover:underline text-right"
-                      onClick={actions.closeContextView}
+                      onClick={closeContextView}
                     >
                       {leagueName}
                     </Link>
@@ -262,27 +302,7 @@ export function NowPlayingView() {
           {!isLyricsLoading && !lyricsError && lyrics && (
             <div className="leading-relaxed text-md md:text-lg font-sans">
               {isLrc && lrcLines ? (
-                <div className="space-y-1">
-                  {lrcLines.map((line, i) => {
-                    const isActive = i === activeIndex;
-                    const isSectionHeader =
-                      /^(verse|chorus|bridge|intro|outro)/i.test(line.text);
-                    return (
-                      <div
-                        key={`${line.time}-${i}`}
-                        className={cn(
-                          "transition-colors duration-200",
-                          isActive
-                            ? "text-foreground font-semibold"
-                            : "text-muted-foreground",
-                          isSectionHeader && "mt-3",
-                        )}
-                      >
-                        {line.text}
-                      </div>
-                    );
-                  })}
-                </div>
+                <TimedLyrics lines={lrcLines} />
               ) : (
                 <div className="space-y-4">
                   {verseParagraphs?.map((lines, idx) => (
@@ -317,7 +337,7 @@ export function NowPlayingView() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={actions.closeContextView}
+              onClick={closeContextView}
             >
               <X className="size-5" />
             </Button>
@@ -329,7 +349,7 @@ export function NowPlayingView() {
       {!isDesktopRail && (
         <Sheet
           open={isContextViewOpen}
-          onOpenChange={(isOpen) => !isOpen && actions.closeContextView()}
+          onOpenChange={(isOpen) => !isOpen && closeContextView()}
         >
           <SheetContent side="bottom" className="h-[90dvh] flex flex-col p-0 ">
             <SheetHeader className="p-4 border-b flex-shrink-0">

@@ -8,6 +8,7 @@ import { Song } from "@/types";
 import type { LeagueData, RoundForLeague } from "@/lib/convex/types";
 import { dynamicImport } from "@/components/ui/dynamic-import";
 import { useMemo, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { getSortedRoundSubmissions } from "@/lib/rounds/submission-order";
 import { getRoundSubmitterSummary } from "@/lib/rounds/submitter-summary";
 import { getVotingParticipationSummary } from "@/lib/rounds/voting-participation";
@@ -53,13 +54,22 @@ export function RoundDetail({
   canManageLeague,
 }: RoundDetailProps) {
   const {
-    actions: playerActions,
+    playerActions,
     currentTrackIndex,
     isPlaying,
     presenceSource,
     queue,
-    listenProgress: localListenProgress,
-  } = useMusicPlayerStore();
+    localListenProgress,
+  } = useMusicPlayerStore(
+    useShallow((state) => ({
+      playerActions: state.actions,
+      currentTrackIndex: state.currentTrackIndex,
+      isPlaying: state.isPlaying,
+      presenceSource: state.presenceSource,
+      queue: state.queue,
+      localListenProgress: state.listenProgress,
+    })),
+  );
 
   const currentUser = useQuery(api.users.getCurrentUser);
   const listenersBySubmission = useQuery(api.presence.listForRound, {

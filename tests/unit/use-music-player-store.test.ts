@@ -26,8 +26,6 @@ describe("useMusicPlayerStore", () => {
       isShuffled: false,
       seekTo: null,
       volume: 1,
-      currentTime: 0,
-      duration: 0,
       isContextViewOpen: false,
       listenProgress: {},
     });
