@@ -7,7 +7,7 @@ import {
   updateMobileTopBarScrollState,
 } from "@/lib/layout/mobile-top-bar-scroll";
 import { cn } from "@/lib/utils";
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, RefObject, useEffect, useRef, useState } from "react";
 import { Sidebar } from "../Sidebar";
 import { NowPlayingView } from "../NowPlayingView";
 import { usePathname } from "next/navigation";
@@ -19,20 +19,16 @@ interface PageLayoutProps {
   children: ReactNode;
 }
 
-export function PageLayout({ children }: PageLayoutProps) {
-  const currentTrackIndex = useMusicPlayerStore(
-    (state) => state.currentTrackIndex,
-  );
-  const actions = useMusicPlayerStore((state) => state.actions);
-  const pathname = usePathname();
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+function MobileTopBarScrollChrome({
+  pathname,
+  scrollContainerRef,
+}: {
+  pathname: string;
+  scrollContainerRef: RefObject<HTMLDivElement | null>;
+}) {
   const mobileTopBarScrollStateRef = useRef(createMobileTopBarScrollState());
   const isMobileTopBarHiddenRef = useRef(false);
   const [isMobileTopBarHidden, setIsMobileTopBarHidden] = useState(false);
-
-  useEffect(() => {
-    actions.closeContextView();
-  }, [pathname, actions]);
 
   useEffect(() => {
     isMobileTopBarHiddenRef.current = isMobileTopBarHidden;
@@ -66,7 +62,7 @@ export function PageLayout({ children }: PageLayoutProps) {
     return () => {
       container.removeEventListener("scroll", handleScroll);
     };
-  }, []);
+  }, [scrollContainerRef]);
 
   useEffect(() => {
     isMobileTopBarHiddenRef.current = false;
@@ -78,7 +74,32 @@ export function PageLayout({ children }: PageLayoutProps) {
       setIsMobileTopBarHidden(false);
     });
     return () => window.cancelAnimationFrame(frameId);
-  }, [pathname]);
+  }, [pathname, scrollContainerRef]);
+
+  return (
+    <>
+      <MobileTopBar hidden={isMobileTopBarHidden} />
+      <div
+        className={cn(
+          "h-16 shrink-0 transition-[height] duration-200 xl:hidden",
+          isMobileTopBarHidden && "h-0",
+        )}
+      />
+    </>
+  );
+}
+
+export function PageLayout({ children }: PageLayoutProps) {
+  const currentTrackIndex = useMusicPlayerStore(
+    (state) => state.currentTrackIndex,
+  );
+  const actions = useMusicPlayerStore((state) => state.actions);
+  const pathname = usePathname();
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    actions.closeContextView();
+  }, [pathname, actions]);
 
   return (
     <div className="flex h-screen bg-background">
@@ -91,12 +112,9 @@ export function PageLayout({ children }: PageLayoutProps) {
           currentTrackIndex !== null && "pb-56 xl:pb-20",
         )}
       >
-        <MobileTopBar hidden={isMobileTopBarHidden} />
-        <div
-          className={cn(
-            "h-16 shrink-0 transition-[height] duration-200 xl:hidden",
-            isMobileTopBarHidden && "h-0",
-          )}
+        <MobileTopBarScrollChrome
+          pathname={pathname}
+          scrollContainerRef={scrollContainerRef}
         />
         {children}
       </div>
