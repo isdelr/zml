@@ -190,6 +190,65 @@ export function buildRoundStartNowPatches<
   });
 }
 
+export function buildNextRoundStartNowPatchesAfterFinish<
+  TRound extends RoundScheduleShape & { _id: string },
+>(args: {
+  rounds: TRound[];
+  finishedRoundId: string;
+  now: number;
+  submissionHours: number;
+}):
+  | {
+      nextRoundId: string;
+      patches: Array<{
+        roundId: string;
+        patch: {
+          submissionStartsAt?: number;
+          submissionDeadline: number;
+          votingDeadline: number;
+        };
+      }>;
+    }
+  | null {
+  const sortedRounds = sortRoundsInLeagueOrder(args.rounds);
+  const finishedRoundIndex = sortedRounds.findIndex(
+    (round) => round._id.toString() === args.finishedRoundId,
+  );
+
+  if (finishedRoundIndex === -1) {
+    return null;
+  }
+
+  const nextRound = sortedRounds
+    .slice(finishedRoundIndex + 1)
+    .find((round) => round.status !== "finished");
+
+  if (!nextRound || nextRound.status !== "scheduled") {
+    return null;
+  }
+
+  const nextRoundIndex = sortedRounds.findIndex(
+    (round) => round._id.toString() === nextRound._id.toString(),
+  );
+  const futureRounds = sortedRounds
+    .slice(nextRoundIndex)
+    .filter((round) => round.status !== "finished");
+
+  if (futureRounds.some((round) => round.status !== "scheduled")) {
+    return null;
+  }
+
+  return {
+    nextRoundId: nextRound._id.toString(),
+    patches: buildRoundStartNowPatches({
+      rounds: futureRounds,
+      roundId: nextRound._id.toString(),
+      now: args.now,
+      submissionHours: args.submissionHours,
+    }),
+  };
+}
+
 export function buildScheduledRoundResequencePatches<
   TRound extends RoundScheduleShape & { _id: string },
 >(args: {

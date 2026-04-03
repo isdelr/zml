@@ -1,7 +1,12 @@
 import { internal } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import type { MutationCtx } from "../../../convex/_generated/server";
+import {
+  buildNextRoundStartNowPatchesAfterFinish,
+  getSubmissionStart,
+} from "../../rounds/schedule";
 import { getVoteLimitSnapshotPatch } from "../voteLimits";
+import { maybeAutoStartVotingAfterSubmissionCompletion } from "./auto-transition";
 
 type TriggeringUserId = Id<"users"> | undefined;
 
@@ -71,6 +76,76 @@ type FinishRoundOptions = {
   notificationMessage?: string;
 };
 
+async function maybeStartNextScheduledRoundAfterFinish(
+  ctx: MutationCtx,
+  round: Doc<"rounds">,
+  league: Doc<"leagues">,
+  triggeringUserId?: TriggeringUserId,
+) {
+  const leagueRounds = await ctx.db
+    .query("rounds")
+    .withIndex("by_league", (q) => q.eq("leagueId", league._id))
+    .collect();
+
+  const nextRoundTransition = buildNextRoundStartNowPatchesAfterFinish({
+    rounds: leagueRounds.map((leagueRound) => ({
+      ...leagueRound,
+      _id: leagueRound._id.toString(),
+    })),
+    finishedRoundId: round._id.toString(),
+    now: Date.now(),
+    submissionHours: league.submissionDeadline,
+  });
+
+  if (!nextRoundTransition) {
+    return;
+  }
+
+  const nextRound = leagueRounds.find(
+    (leagueRound) =>
+      leagueRound._id.toString() === nextRoundTransition.nextRoundId,
+  );
+
+  if (!nextRound || nextRound.status !== "scheduled") {
+    return;
+  }
+
+  if (nextRoundTransition.patches.length > 0) {
+    await Promise.all(
+      nextRoundTransition.patches.map(({ roundId, patch }) =>
+        ctx.db.patch("rounds", roundId as Id<"rounds">, patch),
+      ),
+    );
+  }
+
+  const nextRoundPatch = nextRoundTransition.patches.find(
+    ({ roundId }) => roundId === nextRoundTransition.nextRoundId,
+  )?.patch;
+  const didTransition = await transitionRoundToSubmissionsWithSideEffects(
+    ctx,
+    nextRoundPatch
+      ? {
+          ...nextRound,
+          submissionStartsAt:
+            nextRoundPatch.submissionStartsAt ??
+            getSubmissionStart(nextRound, league.submissionDeadline),
+          submissionDeadline: nextRoundPatch.submissionDeadline,
+          votingDeadline: nextRoundPatch.votingDeadline,
+        }
+      : nextRound,
+    league,
+    triggeringUserId,
+  );
+
+  if (didTransition) {
+    await maybeAutoStartVotingAfterSubmissionCompletion(
+      ctx,
+      nextRound._id,
+      triggeringUserId,
+    );
+  }
+}
+
 export async function transitionRoundToFinishedWithSideEffects(
   ctx: MutationCtx,
   round: Doc<"rounds">,
@@ -108,6 +183,12 @@ export async function transitionRoundToFinishedWithSideEffects(
       source: `round-transition:${round._id}:finished`,
     },
   });
+  await maybeStartNextScheduledRoundAfterFinish(
+    ctx,
+    round,
+    league,
+    options.triggeringUserId,
+  );
 
   return true;
 }

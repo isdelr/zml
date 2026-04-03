@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildLeagueRoundSchedule,
+  buildNextRoundStartNowPatchesAfterFinish,
   buildRoundShiftPatches,
   buildRoundStartNowPatches,
   buildScheduledRoundResequencePatches,
@@ -195,5 +196,71 @@ describe("round schedule", () => {
         },
       },
     ]);
+  });
+
+  it("starts the following scheduled round immediately after the earlier round finishes", () => {
+    const rounds = [
+      {
+        _id: "round-1",
+        order: 0,
+        status: "finished" as const,
+        submissionStartsAt: new Date("2026-03-10T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-03-13T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-03-16T00:00:00Z").getTime(),
+      },
+      {
+        _id: "round-2",
+        order: 1,
+        status: "finished" as const,
+        submissionStartsAt: new Date("2026-03-17T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-03-20T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-03-23T00:00:00Z").getTime(),
+      },
+      {
+        _id: "round-3",
+        order: 2,
+        status: "scheduled" as const,
+        submissionStartsAt: new Date("2026-03-24T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-03-27T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-03-30T00:00:00Z").getTime(),
+      },
+      {
+        _id: "round-4",
+        order: 3,
+        status: "scheduled" as const,
+        submissionStartsAt: new Date("2026-03-31T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-04-03T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-04-06T00:00:00Z").getTime(),
+      },
+    ];
+
+    expect(
+      buildNextRoundStartNowPatchesAfterFinish({
+        rounds,
+        finishedRoundId: "round-2",
+        now: new Date("2026-03-21T12:00:00Z").getTime(),
+        submissionHours: 72,
+      }),
+    ).toEqual({
+      nextRoundId: "round-3",
+      patches: [
+        {
+          roundId: "round-3",
+          patch: {
+            submissionStartsAt: new Date("2026-03-21T12:00:00Z").getTime(),
+            submissionDeadline: new Date("2026-03-24T12:00:00Z").getTime(),
+            votingDeadline: new Date("2026-03-27T12:00:00Z").getTime(),
+          },
+        },
+        {
+          roundId: "round-4",
+          patch: {
+            submissionStartsAt: new Date("2026-03-28T12:00:00Z").getTime(),
+            submissionDeadline: new Date("2026-03-31T12:00:00Z").getTime(),
+            votingDeadline: new Date("2026-04-03T12:00:00Z").getTime(),
+          },
+        },
+      ],
+    });
   });
 });
