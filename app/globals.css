@@ -51,7 +51,8 @@
 :root {
   --radius: 0.625rem;
   --font-app-sans:
-    var(--font-source-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   --font-app-mono:
     var(--font-geist-mono), ui-monospace, SFMono-Regular, "Roboto Mono", Menlo, Monaco,

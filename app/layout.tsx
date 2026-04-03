@@ -27,20 +27,20 @@ const ObservabilityProvider = dynamic(() =>
   })),
 );
 
-const sourceSans = localFont({
+const plusJakartaSans = localFont({
   src: [
     {
-      path: "./fonts/source-sans-3/SourceSans3VF-Upright.ttf.woff2",
-      weight: "200 900",
+      path: "./fonts/plus-jakarta-sans/PlusJakartaSans-Variable.ttf",
+      weight: "200 800",
       style: "normal",
     },
     {
-      path: "./fonts/source-sans-3/SourceSans3VF-Italic.ttf.woff2",
-      weight: "200 900",
+      path: "./fonts/plus-jakarta-sans/PlusJakartaSans-Italic-Variable.ttf",
+      weight: "200 800",
       style: "italic",
     },
   ],
-  variable: "--font-source-sans",
+  variable: "--font-plus-jakarta-sans",
   display: "swap",
 });
 
@@ -124,7 +124,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={cn(
-          sourceSans.variable,
+          plusJakartaSans.variable,
           geistMono.variable,
           "antialiased overflow-x-hidden",
         )}
