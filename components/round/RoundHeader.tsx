@@ -30,6 +30,7 @@ interface RoundHeaderProps {
     label: string;
     users: Participant[];
   }[];
+  extensionPollPanel?: ReactNode;
   adminControls?: ReactNode;
 }
 
@@ -44,6 +45,7 @@ export function RoundHeader({
   leagueMaxUp,
   leagueMaxDown,
   participationGroups,
+  extensionPollPanel,
   adminControls,
 }: RoundHeaderProps) {
   const showPlayAll =
@@ -116,8 +118,12 @@ export function RoundHeader({
               </span>
             )}
           </div>
-          {(showPlayAll || showParticipationSummary || adminControls) && (
+          {(showPlayAll ||
+            showParticipationSummary ||
+            extensionPollPanel ||
+            adminControls) && (
             <div className="mt-4 flex flex-col gap-4">
+              {extensionPollPanel}
               {(showPlayAll || showParticipationSummary) && (
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
                   {showPlayAll && (

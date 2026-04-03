@@ -9,7 +9,14 @@ import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bell, MessageSquare, PlayCircle, Vote, Trophy } from "lucide-react";
+import {
+  Bell,
+  Clock3,
+  MessageSquare,
+  PlayCircle,
+  Trophy,
+  Vote,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -17,6 +24,7 @@ const notificationIcons = {
   new_comment: <MessageSquare className="size-5 text-info" />,
   round_submission: <PlayCircle className="size-5 text-success" />,
   round_voting: <Vote className="size-5 text-highlight" />,
+  round_extension_poll: <Clock3 className="size-5 text-warning" />,
   round_finished: <Trophy className="size-5 text-warning" />,
 };
 

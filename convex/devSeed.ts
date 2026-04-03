@@ -247,7 +247,12 @@ async function insertNotification(
   ctx: MutationCtx,
   notification: {
     userId: Id<"users">;
-    type: "new_comment" | "round_submission" | "round_voting" | "round_finished";
+    type:
+      | "new_comment"
+      | "round_submission"
+      | "round_voting"
+      | "round_extension_poll"
+      | "round_finished";
     message: string;
     link: string;
     triggeringUserId?: Id<"users">;

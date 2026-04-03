@@ -31,6 +31,11 @@ const RoundAdminControls = dynamicImport(() =>
 const RoundHeader = dynamicImport(() =>
   import("./round/RoundHeader").then((mod) => ({ default: mod.RoundHeader })),
 );
+const ExtensionPollPanel = dynamicImport(() =>
+  import("./round/ExtensionPollPanel").then((mod) => ({
+    default: mod.ExtensionPollPanel,
+  })),
+);
 const SubmissionForm = dynamicImport(() =>
   import("./round/SubmissionForm").then((mod) => ({
     default: mod.SubmissionForm,
@@ -89,6 +94,9 @@ export function RoundDetail({
     api.rounds.getVoteSummary,
     round.status === "finished" ? { roundId: round._id } : "skip",
   );
+  const extensionPollState = useQuery(api.extensionPolls.getForRound, {
+    roundId: round._id,
+  });
   const shouldLoadVoteStatus =
     !league.isSpectator &&
     (round.status === "voting" || round.status === "finished");
@@ -459,6 +467,15 @@ export function RoundDetail({
         leagueMaxUp={league.maxPositiveVotes}
         leagueMaxDown={league.maxNegativeVotes}
         participationGroups={participationGroups}
+        extensionPollPanel={
+          extensionPollState ? (
+            <ExtensionPollPanel
+              state={extensionPollState}
+              roundId={round._id}
+              roundStatus={round.status}
+            />
+          ) : null
+        }
         adminControls={
           canManageLeague ? (
             <RoundAdminControls

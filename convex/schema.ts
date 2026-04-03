@@ -11,6 +11,22 @@ const notificationMetadataValidator = v.object({
   seedNamespace: v.optional(v.string()),
   source: v.optional(v.string()),
 });
+const extensionPollStatusValidator = v.union(
+  v.literal("open"),
+  v.literal("resolved"),
+);
+const extensionPollResultValidator = v.union(
+  v.literal("pending"),
+  v.literal("approved"),
+  v.literal("tie"),
+  v.literal("rejected"),
+  v.literal("insufficient_turnout"),
+  v.literal("closed"),
+);
+const extensionPollVoteChoiceValidator = v.union(
+  v.literal("grant"),
+  v.literal("deny"),
+);
 const storageUploadKindValidator = v.union(
   v.literal("league_image"),
   v.literal("submission_file"),
@@ -230,6 +246,36 @@ export default defineSchema({
     .index("by_round_and_user", ["roundId", "userId"])
     .index("by_submission_and_user", ["submissionId", "userId"]),
 
+  extensionPolls: defineTable({
+    leagueId: v.id("leagues"),
+    roundId: v.id("rounds"),
+    requesterUserId: v.id("users"),
+    reason: v.string(),
+    status: extensionPollStatusValidator,
+    result: extensionPollResultValidator,
+    openedAt: v.number(),
+    resolvesAt: v.number(),
+    eligibleVoterIds: v.array(v.id("users")),
+    eligibleVoterCount: v.number(),
+    yesVotes: v.number(),
+    noVotes: v.number(),
+    appliedExtensionMs: v.optional(v.number()),
+    resolvedAt: v.optional(v.number()),
+  })
+    .index("by_round", ["roundId"])
+    .index("by_league", ["leagueId"])
+    .index("by_league_and_requester", ["leagueId", "requesterUserId"])
+    .index("by_status_and_resolves_at", ["status", "resolvesAt"]),
+
+  extensionPollVotes: defineTable({
+    pollId: v.id("extensionPolls"),
+    voterUserId: v.id("users"),
+    vote: extensionPollVoteChoiceValidator,
+    createdAt: v.number(),
+  })
+    .index("by_poll", ["pollId"])
+    .index("by_poll_and_voter", ["pollId", "voterUserId"]),
+
   adminVoteAdjustments: defineTable({
     roundId: v.id("rounds"),
     submissionId: v.id("submissions"),
@@ -281,6 +327,7 @@ export default defineSchema({
       v.literal("new_comment"),
       v.literal("round_submission"),
       v.literal("round_voting"),
+      v.literal("round_extension_poll"),
       v.literal("round_finished"),
     ),
     message: v.string(),

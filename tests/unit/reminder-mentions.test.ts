@@ -6,6 +6,9 @@ describe("Discord reminder mentions", () => {
     expect(shouldMentionDiscordUsersForReminder("deadline_changed")).toBe(
       false,
     );
+    expect(shouldMentionDiscordUsersForReminder("extension_poll_result")).toBe(
+      false,
+    );
     expect(shouldMentionDiscordUsersForReminder("standings_shift")).toBe(
       false,
     );
@@ -18,5 +21,6 @@ describe("Discord reminder mentions", () => {
     expect(shouldMentionDiscordUsersForReminder("participation")).toBe(true);
     expect(shouldMentionDiscordUsersForReminder("deadline")).toBe(true);
     expect(shouldMentionDiscordUsersForReminder("transition")).toBe(true);
+    expect(shouldMentionDiscordUsersForReminder("extension_poll")).toBe(true);
   });
 });

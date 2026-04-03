@@ -17,6 +17,7 @@ type NotificationType =
   | "new_comment"
   | "round_submission"
   | "round_voting"
+  | "round_extension_poll"
   | "round_finished";
 type NotificationMetadata = {
   seedNamespace?: string;
@@ -32,6 +33,7 @@ const notificationTypeValidator = v.union(
   v.literal("new_comment"),
   v.literal("round_submission"),
   v.literal("round_voting"),
+  v.literal("round_extension_poll"),
   v.literal("round_finished"),
 );
 
@@ -52,6 +54,7 @@ const discordNotificationKindValidator = v.union(
   v.literal("participation"),
   v.literal("deadline"),
   v.literal("transition"),
+  v.literal("extension_poll"),
   v.literal("deadline_changed"),
   v.literal("standings_shift"),
   v.literal("schedule_changed"),
@@ -322,6 +325,7 @@ export const createForLeague = internalAction({
     type: v.union(
       v.literal("round_submission"),
       v.literal("round_voting"),
+      v.literal("round_extension_poll"),
       v.literal("round_finished"),
     ),
     message: v.string(),
@@ -373,6 +377,7 @@ export const createForLeagueAndDispatchDiscord = internalAction({
     notificationType: v.union(
       v.literal("round_submission"),
       v.literal("round_voting"),
+      v.literal("round_extension_poll"),
       v.literal("round_finished"),
     ),
     discordNotificationKind: discordNotificationKindValidator,
@@ -591,6 +596,8 @@ function getNotificationTitle(type: string): string {
       return "New Round Started";
     case "round_voting":
       return "Voting Time!";
+    case "round_extension_poll":
+      return "Extension Poll Open";
     case "round_finished":
       return "Round Complete";
     default:

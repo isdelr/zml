@@ -1470,7 +1470,12 @@ export const notifyRevealedCommentsForRound = internalMutation({
     const createdNotifications: {
       notificationId: Id<"notifications">;
       userId: Id<"users">;
-      type: "new_comment" | "round_submission" | "round_voting" | "round_finished";
+      type:
+        | "new_comment"
+        | "round_submission"
+        | "round_voting"
+        | "round_extension_poll"
+        | "round_finished";
       source: string | null;
     }[] = await ctx.runMutation(
       internal.notifications.createManyUniqueBySource,

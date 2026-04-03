@@ -83,9 +83,21 @@ describe("round deadline reminders", () => {
         roundTitle: "Synth Showdown",
         leagueName: "Night Owls",
         label: "2 hours",
+        windowKey: "2h",
       }),
     ).toBe(
       'Voting closes in 2 hours for "Synth Showdown" in "Night Owls".',
+    );
+    expect(
+      buildRoundDeadlineReminderMessage({
+        status: "voting",
+        roundTitle: "Synth Showdown",
+        leagueName: "Night Owls",
+        label: "1 day",
+        windowKey: "24h",
+      }),
+    ).toBe(
+      'Voting closes in 1 day for "Synth Showdown" in "Night Owls". If you need more time, open the round, click Request Extension, enter a reason with at least 20 characters, and submit the anonymous poll before voting ends.',
     );
     expect(
       buildRoundDeadlineReminderSource({

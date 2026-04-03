@@ -95,9 +95,14 @@ export function buildRoundDeadlineReminderMessage(args: {
   roundTitle: string;
   leagueName: string;
   label: string;
+  windowKey: RoundDeadlineReminderWindow["key"];
 }): string {
   if (args.status === "submissions") {
     return `Submissions close in ${args.label} for "${args.roundTitle}" in "${args.leagueName}".`;
+  }
+
+  if (args.windowKey === "24h") {
+    return `Voting closes in ${args.label} for "${args.roundTitle}" in "${args.leagueName}". If you need more time, open the round, click Request Extension, enter a reason with at least 20 characters, and submit the anonymous poll before voting ends.`;
   }
 
   return `Voting closes in ${args.label} for "${args.roundTitle}" in "${args.leagueName}".`;

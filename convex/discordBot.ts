@@ -543,6 +543,8 @@ export const dispatchRoundNotification = internalAction({
       v.literal("participation"),
       v.literal("deadline"),
       v.literal("transition"),
+      v.literal("extension_poll"),
+      v.literal("extension_poll_result"),
       v.literal("deadline_changed"),
       v.literal("standings_shift"),
       v.literal("schedule_changed"),

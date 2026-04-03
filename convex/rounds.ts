@@ -1422,6 +1422,7 @@ export const transitionDueRounds = internalAction({
   handler: async (ctx) => {
     const now = Date.now();
     await ctx.runMutation(internal.rounds.normalizeRoundSchedules, {});
+    await ctx.runMutation(internal.extensionPolls.resolveDuePolls, { now });
 
     const dueForSubmissions = await ctx.runQuery(
       internal.rounds.getDueForSubmissions,
@@ -1524,6 +1525,7 @@ export const transitionDueRounds = internalAction({
           roundTitle: context.roundTitle,
           leagueName: context.leagueName,
           label: candidate.window.label,
+          windowKey: candidate.window.key,
         });
         const source = buildRoundDeadlineReminderSource({
           roundId: context.roundId,
@@ -1565,7 +1567,12 @@ export const transitionDueRounds = internalAction({
       const createdNotifications: {
         notificationId: Id<"notifications">;
         userId: Id<"users">;
-        type: "new_comment" | "round_submission" | "round_voting" | "round_finished";
+        type:
+          | "new_comment"
+          | "round_submission"
+          | "round_voting"
+          | "round_extension_poll"
+          | "round_finished";
         source: string | null;
       }[] = await ctx.runMutation(
         internal.notifications.createManyUniqueBySource,
@@ -1577,7 +1584,12 @@ export const transitionDueRounds = internalAction({
         createdNotifications.map(
           (notification: {
             userId: Id<"users">;
-            type: "new_comment" | "round_submission" | "round_voting" | "round_finished";
+            type:
+              | "new_comment"
+              | "round_submission"
+              | "round_voting"
+              | "round_extension_poll"
+              | "round_finished";
             source: string | null;
           }) =>
             `${notification.userId}:${notification.type}:${notification.source ?? ""}`,
