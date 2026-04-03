@@ -16,7 +16,8 @@ type Participant = {
 };
 
 interface RoundHeaderProps {
-  round: Doc<"rounds"> & { art: string | null; submissionCount: number };
+  round: Doc<"rounds"> & { art: string | null };
+  submissionCount: number;
   submissions: Song[] | undefined;
   onPlayAll: (submissions: Song[], startIndex: number) => void;
   totalDuration: string | null;
@@ -36,6 +37,7 @@ interface RoundHeaderProps {
 
 export function RoundHeader({
   round,
+  submissionCount,
   submissions,
   onPlayAll,
   totalDuration,
@@ -96,10 +98,9 @@ export function RoundHeader({
                     : "Finished"}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {round.submissionCount > 0 && (
+              {submissionCount > 0 && (
                 <>
-                  {round.submissionCount}{" "}
-                  {round.submissionCount > 1 ? "songs" : "song"}
+                  {submissionCount} {submissionCount > 1 ? "songs" : "song"}
                   {totalDuration && `, ${totalDuration}`}
                 </>
               )}

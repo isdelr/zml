@@ -15,6 +15,7 @@ import { getVotingParticipationSummary } from "@/lib/rounds/voting-participation
 import { extractYouTubeVideoId } from "@/lib/youtube";
 import { useRoundYouTubePlaylist } from "@/hooks/useRoundYouTubePlaylist";
 import { useRoundVoting } from "@/hooks/useRoundVoting";
+import { getRoundHeaderStats } from "@/lib/rounds/header-stats";
 import { RoundStatusAlerts } from "./round/RoundStatusAlerts";
 import { FinalVoteConfirmationDialog } from "./round/FinalVoteConfirmationDialog";
 import {
@@ -304,10 +305,9 @@ export function RoundDetail({
     }
   };
 
-  const totalDurationSeconds = useMemo(
-    () =>
-      submissions?.reduce((total, sub) => total + (sub.duration || 0), 0) ?? 0,
-    [submissions],
+  const roundHeaderStats = useMemo(
+    () => getRoundHeaderStats(round.status, submissions),
+    [round.status, submissions],
   );
   const mySubmissions = useMemo(
     () => submissions?.filter((s) => s.userId === currentUser?._id),
@@ -456,11 +456,12 @@ export function RoundDetail({
 
       <RoundHeader
         round={roundWithArt}
+        submissionCount={roundHeaderStats.submissionCount}
         submissions={sortedSubmissions?.map(toSong)}
         onPlayAll={(songs, startIndex) =>
           playerActions.playRound(songs, startIndex)
         }
-        totalDuration={formatDuration(totalDurationSeconds)}
+        totalDuration={formatDuration(roundHeaderStats.totalDurationSeconds)}
         usesCustomLimits={usesCustomLimits}
         effectiveMaxUp={effectiveMaxUp}
         effectiveMaxDown={effectiveMaxDown}

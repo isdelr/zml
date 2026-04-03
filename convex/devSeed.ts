@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { memberCounter, submissionCounter, voterCounter } from "./counters";
+import { memberCounter, voterCounter } from "./counters";
 import { membershipsByUser, submissionsByUser, unreadNotifications } from "./aggregates";
 import {
   MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
@@ -239,7 +239,6 @@ async function insertSubmission(
   if (doc) {
     await submissionsByUser.insert(ctx, doc);
   }
-  await submissionCounter.inc(ctx, submission.roundId);
   return submissionId;
 }
 
@@ -538,11 +537,6 @@ async function clearNamespaceInternal(
         await submissionsByUser.delete(ctx, submission);
         await ctx.db.delete("submissions", submission._id);
         submissionsDeleted += 1;
-        try {
-          await submissionCounter.dec(ctx, round._id);
-        } catch {
-          // Ignore counter underflow in reset paths.
-        }
       }
 
       await ctx.db.delete("rounds", round._id);

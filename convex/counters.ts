@@ -13,11 +13,6 @@ export const memberCounter = new ShardedCounter<Id<"leagues">>(
   { defaultShards: 4 }
 );
 
-export const submissionCounter = new ShardedCounter<Id<"rounds">>(
-  components.shardedCounter,
-  { defaultShards: 4 }
-);
-
 // Counter for finalized voters within a round (distinct users who have used all their allowed votes)
 export const voterCounter = new ShardedCounter<Id<"rounds">>(
   components.shardedCounter,

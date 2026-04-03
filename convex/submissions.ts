@@ -17,7 +17,6 @@ import { B2Storage } from "./b2Storage";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { submissionsByUser } from "./aggregates";
-import { submissionCounter } from "./counters";
 import {
   getYouTubeSupportedRegions,
   getYouTubeVideoId,
@@ -639,7 +638,6 @@ export const submitSong = mutation({
       });
     }
 
-    await submissionCounter.inc(ctx, args.roundId);
     const submissionDoc = await ctx.db.get("submissions", submissionId);
     await submissionsByUser.insert(ctx, submissionDoc!);
     if (args.submissionType === "file") {

@@ -10,7 +10,7 @@ import {
 import { getAuthUserId } from "./authCore";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { submissionCounter, voterCounter } from "./counters";
+import { voterCounter } from "./counters";
 import { paginationOptsValidator } from "convex/server";
 import { submissionsByUser } from "./aggregates";
 import {
@@ -337,11 +337,9 @@ export const getForLeague = query({
       paginationResult.page.map(async (round) => {
         const isVoting = round.status === "voting";
 
-        // Lightweight counts using sharded counters
-        const [submissionCount, voterCount] = await Promise.all([
-          submissionCounter.count(ctx, round._id),
-          isVoting ? voterCounter.count(ctx, round._id) : Promise.resolve(0),
-        ]);
+        const voterCount = isVoting
+          ? await voterCounter.count(ctx, round._id)
+          : 0;
 
         const requiredPerUser = round.submissionsPerUser ?? 1;
 
@@ -387,7 +385,6 @@ export const getForLeague = query({
           ...round,
           art: artUrl,
           leagueName,
-          submissionCount: round.status === "scheduled" ? 0 : submissionCount,
           expectedTrackCount,
           leagueMemberCount,
           voterCount,
@@ -995,7 +992,6 @@ export const updateRound = mutation({
             await Promise.all([
               ctx.db.delete("submissions", submission._id),
               submissionsByUser.delete(ctx, submission),
-              submissionCounter.dec(ctx, round._id),
             ]);
           }),
         );
