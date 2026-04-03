@@ -51,7 +51,7 @@ function getRequestEligibilityCopy(
 ) {
   switch (reason) {
     case "already_used_limit":
-      return "You have already used both extension requests available in this league.";
+      return "You have already used both extension requests available in this league. Opening a poll spends a request whether it passes or fails.";
     case "not_pending_voter":
       return "Only participants who are still voting can request more time.";
     case "no_eligible_voters":
@@ -234,10 +234,16 @@ export function ExtensionPollPanel({
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-muted-foreground">
-              {request.canRequest
-                ? `The poll electorate snapshots ${request.eligibleVoterCount} completed voter${request.eligibleVoterCount === 1 ? "" : "s"} right away, and at least ${minimumTurnout} vote${minimumTurnout === 1 ? "" : "s"} must come in for the result to count.`
-                : helperCopy}
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>
+                {request.canRequest
+                  ? `The poll electorate snapshots ${request.eligibleVoterCount} completed voter${request.eligibleVoterCount === 1 ? "" : "s"} right away, and at least ${minimumTurnout} vote${minimumTurnout === 1 ? "" : "s"} must come in for the result to count.`
+                  : helperCopy}
+              </p>
+              <p>
+                Opening a poll uses one of your 2 league-wide extension requests
+                even if it fails, and each round only gets one extension poll.
+              </p>
             </div>
             {request.canRequest ? (
               <Button onClick={() => setIsDialogOpen(true)}>
@@ -265,6 +271,10 @@ export function ExtensionPollPanel({
                 <p>
                   Minimum turnout: {minimumTurnout} of {request.eligibleVoterCount}{" "}
                   eligible voter{request.eligibleVoterCount === 1 ? "" : "s"}
+                </p>
+                <p>
+                  Opening this poll uses one of your 2 league-wide requests even
+                  if it fails. This round will not get a second extension poll.
                 </p>
               </div>
 

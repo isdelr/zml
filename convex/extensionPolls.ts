@@ -502,7 +502,9 @@ export const create = mutation({
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
       .first();
     if (existingPoll) {
-      throw new Error("This round already has an extension poll.");
+      throw new Error(
+        "This round already has or already used its extension poll.",
+      );
     }
 
     const requesterPolls = await ctx.db
@@ -512,7 +514,9 @@ export const create = mutation({
       )
       .collect();
     if (getRemainingExtensionRequests(requesterPolls.length) === 0) {
-      throw new Error("You have used all extension requests for this league.");
+      throw new Error(
+        "You have used all extension requests for this league. Opening a poll spends a request whether it passes or fails.",
+      );
     }
 
     const requestContext = await getRequestContext(ctx, round, league);

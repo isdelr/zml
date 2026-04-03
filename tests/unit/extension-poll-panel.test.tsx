@@ -59,6 +59,12 @@ describe("ExtensionPollPanel", () => {
       screen.getByText(/the requester stays anonymous/i),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/last 1 day/i)).toHaveLength(2);
+    expect(
+      screen.getByText(/uses one of your 2 league-wide extension requests even if it fails/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/this round will not get a second extension poll/i),
+    ).toBeInTheDocument();
   });
 
   it("keeps the submit action disabled until the reason is long enough", async () => {
@@ -96,6 +102,41 @@ describe("ExtensionPollPanel", () => {
 
     expect(screen.getByRole("button", { name: /open poll/i })).toBeDisabled();
     expect(createPoll).not.toHaveBeenCalled();
+  });
+
+  it("explains that failed requests still consume league-wide tries", () => {
+    vi.mocked(useMutation)
+      .mockReturnValueOnce(vi.fn() as never)
+      .mockReturnValueOnce(vi.fn() as never);
+
+    render(
+      <ExtensionPollPanel
+        roundId={"round-1" as never}
+        roundStatus="voting"
+        state={
+          {
+            poll: null,
+            request: {
+              canRequest: false,
+              remainingRequests: 0,
+              eligibilityReason: "already_used_limit",
+              eligibleVoterCount: 2,
+              requestWindowMs: 24 * 60 * 60 * 1000,
+              isWithinWindow: true,
+              isActiveMember: true,
+            },
+          } as never
+        }
+      />,
+    );
+
+    expect(
+      screen.getByText(/used both extension requests available in this league/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/opening a poll spends a request whether it passes or fails/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/each round only gets one extension poll/i).length).toBeGreaterThan(0);
   });
 
   it("shows anonymous voting controls for eligible completed voters", () => {
