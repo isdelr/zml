@@ -2,25 +2,38 @@ import type { Doc } from "../../convex/_generated/dataModel";
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+const MAX_REMINDER_GRACE_MS = 30 * MINUTE_MS;
+const MIN_REMINDER_GRACE_MS = MINUTE_MS;
 
-export const ROUND_DEADLINE_REMINDER_WINDOWS = [
+export const ROUND_DEADLINE_REMINDER_CHECKPOINTS = [
   {
-    key: "2d",
-    label: "2 days",
-    thresholdMs: 48 * HOUR_MS,
-    graceMs: 30 * MINUTE_MS,
+    key: "75pct",
+    fractionRemaining: 0.75,
   },
   {
-    key: "24h",
-    label: "1 day",
-    thresholdMs: 24 * HOUR_MS,
-    graceMs: 30 * MINUTE_MS,
+    key: "50pct",
+    fractionRemaining: 0.5,
   },
   {
-    key: "2h",
-    label: "2 hours",
-    thresholdMs: 2 * HOUR_MS,
-    graceMs: 15 * MINUTE_MS,
+    key: "25pct",
+    fractionRemaining: 0.25,
+  },
+  {
+    key: "15pct",
+    fractionRemaining: 0.15,
+  },
+  {
+    key: "10pct",
+    fractionRemaining: 0.1,
+  },
+  {
+    key: "5pct",
+    fractionRemaining: 0.05,
+  },
+  {
+    key: "1pct",
+    fractionRemaining: 0.01,
   },
 ] as const;
 
@@ -28,17 +41,80 @@ type ActiveRoundStatus = Extract<Doc<"rounds">["status"], "submissions" | "votin
 
 type ActiveRoundReminderShape = Pick<
   Doc<"rounds">,
-  "status" | "submissionDeadline" | "votingDeadline"
+  "status" | "submissionStartsAt" | "submissionDeadline" | "votingDeadline"
 >;
 
 export type RoundDeadlineReminderWindow =
-  (typeof ROUND_DEADLINE_REMINDER_WINDOWS)[number];
+  (typeof ROUND_DEADLINE_REMINDER_CHECKPOINTS)[number] & {
+    label: string;
+    thresholdMs: number;
+    graceMs: number;
+  };
 
 export type RoundDeadlineReminderCandidate = {
   window: RoundDeadlineReminderWindow;
   deadline: number;
   type: "round_submission" | "round_voting";
 };
+
+function formatUnit(value: number, unit: "day" | "hour" | "minute"): string {
+  return `${value} ${unit}${value === 1 ? "" : "s"}`;
+}
+
+function formatReminderDuration(durationMs: number): string {
+  const roundedMinutes = Math.max(1, Math.round(durationMs / MINUTE_MS));
+  const days = Math.floor(roundedMinutes / (DAY_MS / MINUTE_MS));
+  const hours = Math.floor((roundedMinutes % (DAY_MS / MINUTE_MS)) / (HOUR_MS / MINUTE_MS));
+  const minutes = roundedMinutes % (HOUR_MS / MINUTE_MS);
+
+  const parts: string[] = [];
+  if (days > 0) {
+    parts.push(formatUnit(days, "day"));
+  }
+  if (hours > 0) {
+    parts.push(formatUnit(hours, "hour"));
+  }
+  if (minutes > 0 && days === 0) {
+    parts.push(formatUnit(minutes, "minute"));
+  }
+
+  return parts.slice(0, 2).join(" ");
+}
+
+function buildRoundDeadlineReminderWindows(
+  totalDurationMs: number,
+): RoundDeadlineReminderWindow[] {
+  const thresholds = ROUND_DEADLINE_REMINDER_CHECKPOINTS.map((checkpoint) => ({
+    ...checkpoint,
+    thresholdMs: totalDurationMs * checkpoint.fractionRemaining,
+  }));
+
+  return thresholds.map((window, index) => {
+    const nextThresholdMs = thresholds[index + 1]?.thresholdMs ?? 0;
+    const gapToNextWindowMs = window.thresholdMs - nextThresholdMs;
+
+    return {
+      ...window,
+      label: formatReminderDuration(window.thresholdMs),
+      graceMs: Math.max(
+        MIN_REMINDER_GRACE_MS,
+        Math.min(MAX_REMINDER_GRACE_MS, Math.floor(gapToNextWindowMs / 2)),
+      ),
+    };
+  });
+}
+
+function shouldIncludeVotingExtensionPrompt(
+  windowKey: RoundDeadlineReminderWindow["key"],
+): boolean {
+  return (
+    windowKey === "25pct" ||
+    windowKey === "15pct" ||
+    windowKey === "10pct" ||
+    windowKey === "5pct" ||
+    windowKey === "1pct"
+  );
+}
 
 export function getActiveRoundDeadline(round: ActiveRoundReminderShape): number | null {
   if (round.status === "submissions") {
@@ -50,28 +126,61 @@ export function getActiveRoundDeadline(round: ActiveRoundReminderShape): number 
   return null;
 }
 
+function getActiveRoundReminderWindow(
+  round: ActiveRoundReminderShape,
+):
+  | {
+      deadline: number;
+      phaseStart: number;
+      type: "round_submission" | "round_voting";
+    }
+  | null {
+  if (round.status === "submissions") {
+    if (round.submissionStartsAt === undefined) {
+      return null;
+    }
+
+    return {
+      deadline: round.submissionDeadline,
+      phaseStart: round.submissionStartsAt,
+      type: "round_submission",
+    };
+  }
+
+  if (round.status === "voting") {
+    return {
+      deadline: round.votingDeadline,
+      phaseStart: round.submissionDeadline,
+      type: "round_voting",
+    };
+  }
+
+  return null;
+}
+
 export function getRoundDeadlineReminderCandidates(
   round: ActiveRoundReminderShape,
   now: number,
 ): RoundDeadlineReminderCandidate[] {
-  const deadline = getActiveRoundDeadline(round);
-  if (!deadline) {
+  const activeReminderWindow = getActiveRoundReminderWindow(round);
+  if (!activeReminderWindow) {
     return [];
   }
 
-  const remainingMs = deadline - now;
-  if (remainingMs <= 0) {
+  const remainingMs = activeReminderWindow.deadline - now;
+  const totalDurationMs = activeReminderWindow.deadline - activeReminderWindow.phaseStart;
+  if (remainingMs <= 0 || totalDurationMs <= 0) {
     return [];
   }
 
-  return ROUND_DEADLINE_REMINDER_WINDOWS.filter(
+  return buildRoundDeadlineReminderWindows(totalDurationMs).filter(
     (window) =>
       remainingMs <= window.thresholdMs &&
       remainingMs > window.thresholdMs - window.graceMs,
   ).map((window) => ({
     window,
-    deadline,
-    type: round.status === "submissions" ? "round_submission" : "round_voting",
+    deadline: activeReminderWindow.deadline,
+    type: activeReminderWindow.type,
   }));
 }
 
@@ -101,7 +210,7 @@ export function buildRoundDeadlineReminderMessage(args: {
     return `Submissions close in ${args.label} for "${args.roundTitle}" in "${args.leagueName}".`;
   }
 
-  if (args.windowKey === "24h") {
+  if (shouldIncludeVotingExtensionPrompt(args.windowKey)) {
     return `Voting closes in ${args.label} for "${args.roundTitle}" in "${args.leagueName}". If you need more time, open the round, click Request Extension, enter a reason with at least 20 characters, and submit the anonymous poll before voting ends.`;
   }
 

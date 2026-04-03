@@ -39,6 +39,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   EXTENSION_REASON_MIN_LENGTH,
+  formatExtensionPollRequestWindowLabel,
   getExtensionPollMinimumTurnout,
 } from "@/lib/rounds/extension-polls";
 import { cn } from "@/lib/utils";
@@ -162,6 +163,9 @@ export function ExtensionPollPanel({
   if (!poll && !request.canRequest && !helperCopy) {
     return null;
   }
+  const requestWindowLabel = formatExtensionPollRequestWindowLabel(
+    request.requestWindowMs,
+  );
   const minimumTurnout = getExtensionPollMinimumTurnout(
     poll?.eligibleVoterCount ?? request.eligibleVoterCount,
   );
@@ -210,7 +214,7 @@ export function ExtensionPollPanel({
           <CardHeader className="gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="border-primary/30 bg-primary/10 text-primary">
-                Last 24 hours
+                Last {requestWindowLabel}
               </Badge>
               <Badge variant="outline">
                 {request.remainingRequests} request
@@ -224,7 +228,8 @@ export function ExtensionPollPanel({
             <CardDescription>
               Open an anonymous poll. People who had already finished voting
               when it opens will decide whether this round gets +24h, +8h on a
-              tie, or no extension. At least 50% of eligible voters must
+              tie, or no extension. This stays available during the last{" "}
+              {requestWindowLabel} of voting. At least 50% of eligible voters must
               respond for the result to count.
             </CardDescription>
           </CardHeader>

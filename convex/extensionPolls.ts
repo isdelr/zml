@@ -18,9 +18,11 @@ import {
   EXTENSION_POLL_APPROVED_EXTENSION_MS,
   EXTENSION_POLL_TIE_EXTENSION_MS,
   EXTENSION_REASON_MIN_LENGTH,
+  formatExtensionPollRequestWindowLabel,
   getExtensionPollResolution,
   getFinalizedVotingParticipantIds,
   getRemainingExtensionRequests,
+  getExtensionPollRequestWindowMs,
   isExtensionPollRequestWindowOpen,
 } from "../lib/rounds/extension-polls";
 import { getPendingVotingParticipantIds } from "../lib/rounds/pending-participation";
@@ -323,6 +325,10 @@ export const getForRound = query({
     const membership =
       userId !== null ? await getLeagueMembership(ctx, round.leagueId, userId) : null;
     const activeMembership = isActiveMembership(membership);
+    const requestWindowMs = getExtensionPollRequestWindowMs(
+      round.submissionDeadline,
+      round.votingDeadline,
+    );
 
     let requestEligibilityReason: ExtensionPollRequestEligibilityReason =
       "unavailable";
@@ -349,7 +355,13 @@ export const getForRound = query({
         requestEligibilityReason = "already_exists";
       } else if (round.status !== "voting") {
         requestEligibilityReason = "round_not_voting";
-      } else if (!isExtensionPollRequestWindowOpen(round.votingDeadline, now)) {
+      } else if (
+        !isExtensionPollRequestWindowOpen(
+          round.submissionDeadline,
+          round.votingDeadline,
+          now,
+        )
+      ) {
         requestEligibilityReason = "outside_window";
       } else if (remainingRequests === 0) {
         requestEligibilityReason = "already_used_limit";
@@ -415,9 +427,14 @@ export const getForRound = query({
         remainingRequests,
         eligibilityReason: requestEligibilityReason,
         eligibleVoterCount,
+        requestWindowMs,
         isWithinWindow:
           round.status === "voting" &&
-          isExtensionPollRequestWindowOpen(round.votingDeadline, now),
+          isExtensionPollRequestWindowOpen(
+            round.submissionDeadline,
+            round.votingDeadline,
+            now,
+          ),
         isActiveMember: activeMembership,
       },
     };
@@ -464,9 +481,19 @@ export const create = mutation({
     }
 
     const now = Date.now();
-    if (!isExtensionPollRequestWindowOpen(round.votingDeadline, now)) {
+    const requestWindowMs = getExtensionPollRequestWindowMs(
+      round.submissionDeadline,
+      round.votingDeadline,
+    );
+    if (
+      !isExtensionPollRequestWindowOpen(
+        round.submissionDeadline,
+        round.votingDeadline,
+        now,
+      )
+    ) {
       throw new Error(
-        "Voting extensions can only be requested during the final 24 hours.",
+        `Voting extensions can only be requested during the last ${formatExtensionPollRequestWindowLabel(requestWindowMs)} of voting.`,
       );
     }
 

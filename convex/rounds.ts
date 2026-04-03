@@ -32,7 +32,6 @@ import {
   buildRoundDeadlineReminderSource,
   buildRoundDeadlineReminderTitle,
   getRoundDeadlineReminderCandidates,
-  ROUND_DEADLINE_REMINDER_WINDOWS,
 } from "../lib/rounds/deadline-reminders";
 import {
   getPendingRoundParticipantIds,
@@ -56,15 +55,13 @@ import {
 } from "../lib/media/delivery";
 
 const storage = new B2Storage();
-const MAX_ROUND_DEADLINE_REMINDER_MS = Math.max(
-  ...ROUND_DEADLINE_REMINDER_WINDOWS.map((window) => window.thresholdMs),
-);
 type DeadlineReminderContext = {
   roundId: Id<"rounds">;
   leagueId: Id<"leagues">;
   leagueName: string;
   roundTitle: string;
   status: "scheduled" | "submissions" | "voting" | "finished";
+  submissionStartsAt: number;
   submissionDeadline: number;
   votingDeadline: number;
   targetUserIds: Id<"users">[];
@@ -1490,7 +1487,6 @@ export const transitionDueRounds = internalAction({
       internal.rounds.getDeadlineReminderContexts,
       {
         now,
-        maxDeadline: now + MAX_ROUND_DEADLINE_REMINDER_MS,
       },
     );
 
@@ -1513,6 +1509,7 @@ export const transitionDueRounds = internalAction({
       const reminderCandidates = getRoundDeadlineReminderCandidates(
         {
           status,
+          submissionStartsAt: context.submissionStartsAt,
           submissionDeadline: context.submissionDeadline,
           votingDeadline: context.votingDeadline,
         },
@@ -1628,7 +1625,6 @@ export const transitionDueRounds = internalAction({
 export const getDeadlineReminderContexts = internalQuery({
   args: {
     now: v.number(),
-    maxDeadline: v.number(),
   },
   handler: async (ctx, args) => {
     const [submissionRounds, votingRounds] = await Promise.all([
@@ -1637,8 +1633,7 @@ export const getDeadlineReminderContexts = internalQuery({
         .withIndex("by_status_and_submission_deadline", (q) =>
           q
             .eq("status", "submissions")
-            .gt("submissionDeadline", args.now)
-            .lte("submissionDeadline", args.maxDeadline),
+            .gt("submissionDeadline", args.now),
         )
         .collect(),
       ctx.db
@@ -1646,8 +1641,7 @@ export const getDeadlineReminderContexts = internalQuery({
         .withIndex("by_status_and_voting_deadline", (q) =>
           q
             .eq("status", "voting")
-            .gt("votingDeadline", args.now)
-            .lte("votingDeadline", args.maxDeadline),
+            .gt("votingDeadline", args.now),
         )
         .collect(),
     ]);
@@ -1729,6 +1723,9 @@ export const getDeadlineReminderContexts = internalQuery({
           leagueName: league.name,
           roundTitle: round.title,
           status,
+          submissionStartsAt:
+            round.submissionStartsAt ??
+            getSubmissionStart(round, league.submissionDeadline),
           submissionDeadline: round.submissionDeadline,
           votingDeadline: round.votingDeadline,
           targetUserIds,

@@ -41,6 +41,7 @@ describe("ExtensionPollPanel", () => {
               remainingRequests: 1,
               eligibilityReason: "unavailable",
               eligibleVoterCount: 3,
+              requestWindowMs: 24 * 60 * 60 * 1000,
               isWithinWindow: true,
               isActiveMember: true,
             },
@@ -57,6 +58,7 @@ describe("ExtensionPollPanel", () => {
     expect(
       screen.getByText(/the requester stays anonymous/i),
     ).toBeInTheDocument();
+    expect(screen.getAllByText(/last 1 day/i)).toHaveLength(2);
   });
 
   it("keeps the submit action disabled until the reason is long enough", async () => {
@@ -80,6 +82,7 @@ describe("ExtensionPollPanel", () => {
               remainingRequests: 2,
               eligibilityReason: "unavailable",
               eligibleVoterCount: 2,
+              requestWindowMs: 24 * 60 * 60 * 1000,
               isWithinWindow: true,
               isActiveMember: true,
             },
@@ -128,6 +131,7 @@ describe("ExtensionPollPanel", () => {
               remainingRequests: 1,
               eligibilityReason: "already_exists",
               eligibleVoterCount: 4,
+              requestWindowMs: 24 * 60 * 60 * 1000,
               isWithinWindow: true,
               isActiveMember: true,
             },

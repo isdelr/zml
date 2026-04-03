@@ -4,9 +4,12 @@ import {
   EXTENSION_POLL_APPROVED_EXTENSION_MS,
   EXTENSION_POLL_MIN_TURNOUT_RATIO,
   EXTENSION_POLL_TIE_EXTENSION_MS,
+  EXTENSION_REQUEST_WINDOW_RATIO,
   MAX_EXTENSION_REQUESTS_PER_LEAGUE_USER,
+  formatExtensionPollRequestWindowLabel,
   getExtensionPollResolution,
   getExtensionPollMinimumTurnout,
+  getExtensionPollRequestWindowMs,
   getFinalizedVotingParticipantIds,
   getRemainingExtensionRequests,
   hasExtensionPollReachedMinimumTurnout,
@@ -14,22 +17,42 @@ import {
 } from "@/lib/rounds/extension-polls";
 
 describe("extension poll helpers", () => {
-  it("accepts only the last 24 hours before voting ends", () => {
+  it("accepts only the final 25% of the voting window", () => {
     const now = new Date("2026-04-03T12:00:00Z").getTime();
+    const votingStartsAt = now - 3 * 24 * 60 * 60 * 1000;
+    const votingDeadline = now + 24 * 60 * 60 * 1000;
 
+    expect(EXTENSION_REQUEST_WINDOW_RATIO).toBe(0.25);
+    expect(
+      getExtensionPollRequestWindowMs(votingStartsAt, votingDeadline),
+    ).toBe(24 * 60 * 60 * 1000);
+    expect(isExtensionPollRequestWindowOpen(votingStartsAt, votingDeadline, now)).toBe(
+      true,
+    );
     expect(
       isExtensionPollRequestWindowOpen(
-        now + 24 * 60 * 60 * 1000,
-        now,
-      ),
-    ).toBe(true);
-    expect(
-      isExtensionPollRequestWindowOpen(
-        now + 24 * 60 * 60 * 1000 + 1,
+        votingStartsAt,
+        votingDeadline + 1,
         now,
       ),
     ).toBe(false);
-    expect(isExtensionPollRequestWindowOpen(now, now)).toBe(false);
+    expect(isExtensionPollRequestWindowOpen(votingStartsAt, votingDeadline, votingDeadline)).toBe(
+      false,
+    );
+  });
+
+  it("formats extension request windows with concrete durations", () => {
+    expect(formatExtensionPollRequestWindowLabel(24 * 60 * 60 * 1000)).toBe(
+      "1 day",
+    );
+    expect(
+      formatExtensionPollRequestWindowLabel(
+        2 * 24 * 60 * 60 * 1000 + 6 * 60 * 60 * 1000,
+      ),
+    ).toBe("2 days 6 hours");
+    expect(formatExtensionPollRequestWindowLabel(90 * 60 * 1000)).toBe(
+      "1 hour 30 minutes",
+    );
   });
 
   it("tracks finalized voters from complete ballots only", () => {

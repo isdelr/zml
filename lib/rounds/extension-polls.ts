@@ -14,11 +14,14 @@ type VoteLike = {
 };
 
 export const EXTENSION_REASON_MIN_LENGTH = 20;
-export const EXTENSION_REQUEST_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const EXTENSION_REQUEST_WINDOW_RATIO = 0.25;
 export const EXTENSION_POLL_TIE_EXTENSION_MS = 8 * 60 * 60 * 1000;
 export const EXTENSION_POLL_APPROVED_EXTENSION_MS = 24 * 60 * 60 * 1000;
 export const EXTENSION_POLL_MIN_TURNOUT_RATIO = 0.5;
 export const MAX_EXTENSION_REQUESTS_PER_LEAGUE_USER = 2;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
 
 export type ExtensionPollResolutionResult =
   | "approved"
@@ -28,12 +31,49 @@ export type ExtensionPollResolutionResult =
 
 const toId = (value: IdLike) => value.toString();
 
+function formatUnit(value: number, unit: "day" | "hour" | "minute"): string {
+  return `${value} ${unit}${value === 1 ? "" : "s"}`;
+}
+
+export function formatExtensionPollRequestWindowLabel(windowMs: number): string {
+  const roundedMinutes = Math.max(1, Math.round(windowMs / MINUTE_MS));
+  const days = Math.floor(roundedMinutes / (DAY_MS / MINUTE_MS));
+  const hours = Math.floor((roundedMinutes % (DAY_MS / MINUTE_MS)) / (HOUR_MS / MINUTE_MS));
+  const minutes = roundedMinutes % (HOUR_MS / MINUTE_MS);
+
+  const parts: string[] = [];
+  if (days > 0) {
+    parts.push(formatUnit(days, "day"));
+  }
+  if (hours > 0) {
+    parts.push(formatUnit(hours, "hour"));
+  }
+  if (minutes > 0 && days === 0) {
+    parts.push(formatUnit(minutes, "minute"));
+  }
+
+  return parts.slice(0, 2).join(" ");
+}
+
+export function getExtensionPollRequestWindowMs(
+  votingStartsAt: number,
+  votingDeadline: number,
+): number {
+  return Math.max(0, (votingDeadline - votingStartsAt) * EXTENSION_REQUEST_WINDOW_RATIO);
+}
+
 export function isExtensionPollRequestWindowOpen(
+  votingStartsAt: number,
   votingDeadline: number,
   now: number,
 ): boolean {
+  const votingDurationMs = votingDeadline - votingStartsAt;
   const remainingMs = votingDeadline - now;
-  return remainingMs > 0 && remainingMs <= EXTENSION_REQUEST_WINDOW_MS;
+  return (
+    votingDurationMs > 0 &&
+    remainingMs > 0 &&
+    remainingMs <= getExtensionPollRequestWindowMs(votingStartsAt, votingDeadline)
+  );
 }
 
 export function getRemainingExtensionRequests(
