@@ -13,7 +13,7 @@ import {
   getPrimaryDiscordServerIdFromEnv,
   isAllowedDiscordServerId,
 } from "../lib/discord/server-access";
-import { shouldMentionDiscordUsersForReminder } from "../lib/discord/reminder-mentions";
+import { resolveShouldMentionDiscordUsers } from "../lib/discord/reminder-mentions";
 import { sortRoundsInLeagueOrder } from "../lib/rounds/schedule";
 
 const BOT_API_PREFIX = "/discord-bot";
@@ -553,6 +553,7 @@ export const dispatchRoundNotification = internalAction({
     deadlineMs: v.optional(v.number()),
     source: v.optional(v.string()),
     actionUrl: v.optional(v.string()),
+    suppressMentions: v.optional(v.boolean()),
     targetUserIds: v.array(v.id("users")),
   },
   handler: async (ctx, args) => {
@@ -578,9 +579,10 @@ export const dispatchRoundNotification = internalAction({
       return { dispatched: false, mentionedCount: 0 };
     }
 
-    const shouldMentionUsers = shouldMentionDiscordUsersForReminder(
-      args.reminderKind,
-    );
+    const shouldMentionUsers = resolveShouldMentionDiscordUsers({
+      reminderKind: args.reminderKind,
+      suppressMentions: args.suppressMentions,
+    });
     const mentionDiscordUserIds = shouldMentionUsers
       ? await resolveDiscordUserIdsForAppUsers(ctx, args.targetUserIds)
       : [];

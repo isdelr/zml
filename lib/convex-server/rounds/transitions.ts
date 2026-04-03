@@ -15,6 +15,7 @@ export async function transitionRoundToSubmissionsWithSideEffects(
   round: Doc<"rounds">,
   league: Doc<"leagues">,
   triggeringUserId?: TriggeringUserId,
+  suppressDiscordMentions?: boolean,
 ): Promise<boolean> {
   if (round.status !== "scheduled") {
     return false;
@@ -31,6 +32,7 @@ export async function transitionRoundToSubmissionsWithSideEffects(
     link: `/leagues/${league._id}/round/${round._id}`,
     deadlineMs: round.submissionDeadline,
     triggeringUserId,
+    suppressDiscordMentions,
     metadata: {
       source: `round-transition:${round._id}:submissions`,
     },
@@ -135,6 +137,7 @@ async function maybeStartNextScheduledRoundAfterFinish(
       : nextRound,
     league,
     triggeringUserId,
+    true,
   );
 
   if (didTransition) {

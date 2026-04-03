@@ -18,3 +18,14 @@ export function shouldMentionDiscordUsersForReminder(
     reminderKind !== "schedule_changed"
   );
 }
+
+export function resolveShouldMentionDiscordUsers(args: {
+  reminderKind: DiscordReminderKind;
+  suppressMentions?: boolean;
+}): boolean {
+  if (args.suppressMentions) {
+    return false;
+  }
+
+  return shouldMentionDiscordUsersForReminder(args.reminderKind);
+}

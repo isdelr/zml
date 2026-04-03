@@ -387,6 +387,7 @@ export const createForLeagueAndDispatchDiscord = internalAction({
     deadlineMs: v.optional(v.number()),
     triggeringUserId: v.optional(v.id("users")),
     targetUserIds: v.optional(v.array(v.id("users"))),
+    suppressDiscordMentions: v.optional(v.boolean()),
     metadata: v.optional(notificationMetadataValidator),
     pushNotificationOverride: v.optional(pushNotificationOverrideValidator),
   },
@@ -445,6 +446,7 @@ export const createForLeagueAndDispatchDiscord = internalAction({
       deadlineMs: args.deadlineMs,
       source: args.metadata?.source,
       actionUrl: args.actionUrl,
+      suppressMentions: args.suppressDiscordMentions,
       targetUserIds: createdNotifications.map(
         (notification: {
           userId: Id<"users">;

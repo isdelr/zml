@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { shouldMentionDiscordUsersForReminder } from "@/lib/discord/reminder-mentions";
+import {
+  resolveShouldMentionDiscordUsers,
+  shouldMentionDiscordUsersForReminder,
+} from "@/lib/discord/reminder-mentions";
 
 describe("Discord reminder mentions", () => {
   it("suppresses mentions for passive update notifications", () => {
@@ -22,5 +25,19 @@ describe("Discord reminder mentions", () => {
     expect(shouldMentionDiscordUsersForReminder("deadline")).toBe(true);
     expect(shouldMentionDiscordUsersForReminder("transition")).toBe(true);
     expect(shouldMentionDiscordUsersForReminder("extension_poll")).toBe(true);
+  });
+
+  it("allows explicit suppression even for reminder kinds that usually mention", () => {
+    expect(
+      resolveShouldMentionDiscordUsers({
+        reminderKind: "transition",
+        suppressMentions: true,
+      }),
+    ).toBe(false);
+    expect(
+      resolveShouldMentionDiscordUsers({
+        reminderKind: "deadline",
+      }),
+    ).toBe(true);
   });
 });
