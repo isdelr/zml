@@ -7,6 +7,7 @@ const createMultipartUploadMock = vi.fn();
 const uploadPartMock = vi.fn();
 const completeMultipartUploadMock = vi.fn();
 const abortMultipartUploadMock = vi.fn();
+const TEST_UPLOAD_KEY = "uploads/submissions/test-key";
 
 vi.mock("@convex-dev/better-auth/utils", () => ({
   getToken: getTokenMock,
@@ -37,7 +38,7 @@ describe("storage upload route", () => {
 
     const { POST } = await import("@/app/api/storage/upload-file/route");
     const response = await POST(
-      new Request("http://localhost/api/storage/upload-file?key=test-key", {
+      new Request(`http://localhost/api/storage/upload-file?key=${encodeURIComponent(TEST_UPLOAD_KEY)}`, {
         method: "POST",
         body: "hello",
       }),
@@ -63,7 +64,7 @@ describe("storage upload route", () => {
         }
         uploadedBody = Buffer.concat(chunks).toString("utf8");
 
-        expect(key).toBe("test-key");
+        expect(key).toBe(TEST_UPLOAD_KEY);
         expect(options).toEqual({
           contentType: "audio/flac",
           contentLength: 11,
@@ -73,7 +74,7 @@ describe("storage upload route", () => {
 
     const { POST } = await import("@/app/api/storage/upload-file/route");
     const response = await POST(
-      new Request("http://localhost/api/storage/upload-file?key=test-key", {
+      new Request(`http://localhost/api/storage/upload-file?key=${encodeURIComponent(TEST_UPLOAD_KEY)}`, {
         method: "POST",
         headers: {
           "content-type": "audio/flac",
@@ -85,7 +86,7 @@ describe("storage upload route", () => {
 
     expect(response.status).toBe(200);
     expect(uploadedBody).toBe("hello world");
-    await expect(response.json()).resolves.toEqual({ key: "test-key" });
+    await expect(response.json()).resolves.toEqual({ key: TEST_UPLOAD_KEY });
   });
 
   it("starts multipart uploads", async () => {
@@ -95,7 +96,7 @@ describe("storage upload route", () => {
     const { POST } = await import("@/app/api/storage/upload-file/route");
     const response = await POST(
       new Request(
-        "http://localhost/api/storage/upload-file?action=multipart-start&key=test-key",
+        `http://localhost/api/storage/upload-file?action=multipart-start&key=${encodeURIComponent(TEST_UPLOAD_KEY)}`,
         {
           method: "POST",
           headers: {
@@ -105,12 +106,12 @@ describe("storage upload route", () => {
       ),
     );
 
-    expect(createMultipartUploadMock).toHaveBeenCalledWith("test-key", {
+    expect(createMultipartUploadMock).toHaveBeenCalledWith(TEST_UPLOAD_KEY, {
       contentType: "audio/flac",
     });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      key: "test-key",
+      key: TEST_UPLOAD_KEY,
       uploadId: "upload-123",
     });
   });
@@ -133,7 +134,7 @@ describe("storage upload route", () => {
         }
         uploadedBody = Buffer.concat(chunks).toString("utf8");
 
-        expect(key).toBe("test-key");
+        expect(key).toBe(TEST_UPLOAD_KEY);
         expect(uploadId).toBe("upload-123");
         expect(partNumber).toBe(3);
         expect(options).toEqual({ contentLength: 4 });
@@ -145,7 +146,7 @@ describe("storage upload route", () => {
     const { POST } = await import("@/app/api/storage/upload-file/route");
     const response = await POST(
       new Request(
-        "http://localhost/api/storage/upload-file?action=multipart-part&key=test-key&uploadId=upload-123&partNumber=3",
+        `http://localhost/api/storage/upload-file?action=multipart-part&key=${encodeURIComponent(TEST_UPLOAD_KEY)}&uploadId=upload-123&partNumber=3`,
         {
           method: "POST",
           headers: {
@@ -160,7 +161,7 @@ describe("storage upload route", () => {
     expect(response.status).toBe(200);
     expect(uploadedBody).toBe("part");
     await expect(response.json()).resolves.toEqual({
-      key: "test-key",
+      key: TEST_UPLOAD_KEY,
       uploadId: "upload-123",
       partNumber: 3,
       etag: '"etag-3"',

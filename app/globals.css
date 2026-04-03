@@ -1,34 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@font-face {
-  font-family: "Source Sans 3";
-  font-style: normal;
-  font-weight: 200 900;
-  font-stretch: normal;
-  font-display: swap;
-  src: url("/fonts/source-sans-3/SourceSans3VF-Upright.ttf.woff2")
-    format("woff2-variations");
-}
-
-@font-face {
-  font-family: "Source Sans 3";
-  font-style: italic;
-  font-weight: 200 900;
-  font-stretch: normal;
-  font-display: swap;
-  src: url("/fonts/source-sans-3/SourceSans3VF-Italic.ttf.woff2")
-    format("woff2-variations");
-}
-
-@font-face {
-  font-family: "Geist Mono";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("/fonts/geist/GeistMono-Variable.woff2") format("woff2");
-}
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -79,10 +51,10 @@
 :root {
   --radius: 0.625rem;
   --font-app-sans:
-    "Source Sans 3", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    var(--font-source-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   --font-app-mono:
-    "Geist Mono", ui-monospace, SFMono-Regular, "Roboto Mono", Menlo, Monaco,
+    var(--font-geist-mono), ui-monospace, SFMono-Regular, "Roboto Mono", Menlo, Monaco,
     "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace;
   --background: oklch(0.95 0.005 70);
   --foreground: oklch(0.15 0.01 70);

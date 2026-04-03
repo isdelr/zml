@@ -66,17 +66,17 @@ export function RoundHeader({
           alt="Round Art"
           width={256}
           height={256}
-          className="aspect-square h-auto w-full max-w-sm flex-shrink-0 rounded-md object-cover xl:h-64 xl:w-64"
+          className="aspect-square h-auto w-full max-w-sm shrink-0 rounded-md object-cover xl:h-64 xl:w-64"
           renderFallback={() => (
             <div
-              className="generated-art aspect-square h-auto w-full max-w-sm flex-shrink-0 rounded-md bg-muted xl:h-64 xl:w-64"
+              className="generated-art aspect-square h-auto w-full max-w-sm shrink-0 rounded-md bg-muted xl:h-64 xl:w-64"
               dangerouslySetInnerHTML={{ __html: toSvg(round._id, 256) }}
             />
           )}
         />
       ) : (
         <div
-          className="generated-art aspect-square h-auto w-full max-w-sm flex-shrink-0 rounded-md bg-muted xl:h-64 xl:w-64"
+          className="generated-art aspect-square h-auto w-full max-w-sm shrink-0 rounded-md bg-muted xl:h-64 xl:w-64"
           dangerouslySetInnerHTML={{ __html: toSvg(round._id, 256) }}
         />
       )}

@@ -116,7 +116,9 @@ function shouldIncludeVotingExtensionPrompt(
   );
 }
 
-export function getActiveRoundDeadline(round: ActiveRoundReminderShape): number | null {
+export function getActiveRoundDeadline<T extends ActiveRoundReminderShape>(
+  round: T,
+): number | null {
   if (round.status === "submissions") {
     return round.submissionDeadline;
   }
@@ -158,8 +160,8 @@ function getActiveRoundReminderWindow(
   return null;
 }
 
-export function getRoundDeadlineReminderCandidates(
-  round: ActiveRoundReminderShape,
+export function getRoundDeadlineReminderCandidates<T extends ActiveRoundReminderShape>(
+  round: T,
   now: number,
 ): RoundDeadlineReminderCandidate[] {
   const activeReminderWindow = getActiveRoundReminderWindow(round);

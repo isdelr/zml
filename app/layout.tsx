@@ -27,10 +27,20 @@ const ObservabilityProvider = dynamic(() =>
   })),
 );
 
-const geistSans = localFont({
-  src: "./fonts/geist/GeistSans-Variable.woff2",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const sourceSans = localFont({
+  src: [
+    {
+      path: "./fonts/source-sans-3/SourceSans3VF-Upright.ttf.woff2",
+      weight: "200 900",
+      style: "normal",
+    },
+    {
+      path: "./fonts/source-sans-3/SourceSans3VF-Italic.ttf.woff2",
+      weight: "200 900",
+      style: "italic",
+    },
+  ],
+  variable: "--font-source-sans",
   display: "swap",
 });
 
@@ -114,7 +124,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={cn(
-          geistSans.variable,
+          sourceSans.variable,
           geistMono.variable,
           "antialiased overflow-x-hidden",
         )}

@@ -312,9 +312,9 @@ export function MySubmissionsPage() {
           <Virtuoso
             data={virtualizedItems}
             useWindowScroll
-            computeItemKey={(_, item) => item.key}
+            computeItemKey={(_: number, item: VirtualSubmissionListItem) => item.key}
             increaseViewportBy={{ top: 400, bottom: 800 }}
-            itemContent={(_, item) => {
+            itemContent={(_: number, item: VirtualSubmissionListItem) => {
               if (item.type === "header") {
                 return (
                   <div className={cn(item.hasTopSpacing && "pt-10")}>
