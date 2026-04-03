@@ -141,13 +141,14 @@ function normalizeProviderImageUrl(image: string | null | undefined) {
   }
 }
 
-async function scheduleAvatarRefreshOnLogin(
+async function scheduleAvatarRefresh(
   ctx: MutationCtx,
   userId: Id<"users">,
+  options?: { force?: boolean },
 ) {
   await ctx.scheduler.runAfter(0, internal.userAvatarActions.syncCachedAvatarForUser, {
     userId,
-    force: true,
+    force: options?.force ?? false,
   });
 }
 
@@ -162,10 +163,11 @@ export const authComponent = createClient<DataModel>(betterAuthComponent, {
       onCreate: async (ctx, user) => {
         const appUserId = await upsertAppUser(ctx, user as AuthUserDoc);
         await authComponent.setUserId(ctx, user._id, appUserId);
-        await scheduleAvatarRefreshOnLogin(ctx, appUserId);
+        await scheduleAvatarRefresh(ctx, appUserId, { force: true });
       },
       onUpdate: async (ctx, newUser) => {
-        await upsertAppUser(ctx, newUser as AuthUserDoc);
+        const appUserId = await upsertAppUser(ctx, newUser as AuthUserDoc);
+        await scheduleAvatarRefresh(ctx, appUserId);
       },
       onDelete: async () => {
         // Keep domain data intact if Better Auth user records are deleted.
@@ -180,7 +182,7 @@ export const authComponent = createClient<DataModel>(betterAuthComponent, {
 
         const appUserId = await upsertAppUser(ctx, authUser as AuthUserDoc);
         await authComponent.setUserId(ctx, authUser._id, appUserId);
-        await scheduleAvatarRefreshOnLogin(ctx, appUserId);
+        await scheduleAvatarRefresh(ctx, appUserId, { force: true });
       },
     },
   },

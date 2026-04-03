@@ -211,7 +211,7 @@ async function syncCachedAvatarForUserId(
   if (!response.ok && response.status === 404) {
     const discordFallbackUrl = buildDiscordDefaultAvatarUrlFromAvatarUrl(sourceUrlForMetadata);
     const isAlreadyDefaultAvatar = discordFallbackUrl === sourceUrlForMetadata;
-    if (discordFallbackUrl && isAlreadyDefaultAvatar) {
+    if (discordFallbackUrl && !isAlreadyDefaultAvatar) {
       downloadUrl = discordFallbackUrl;
       response = await fetch(downloadUrl, {
         headers: {
