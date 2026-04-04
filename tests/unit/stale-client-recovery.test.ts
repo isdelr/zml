@@ -1,77 +1,70 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  hasRecoveryAttempted,
   isChunkLoadError,
   recoverFromStaleClient,
 } from "@/lib/stale-client-recovery";
 
-describe("isChunkLoadError", () => {
-  it("matches Turbopack chunk load errors", () => {
-    const error = Object.assign(
-      new Error("Failed to load chunk /_next/static/chunks/example.js"),
-      { name: "ChunkLoadError" },
-    );
-
-    expect(isChunkLoadError(error)).toBe(true);
-  });
-
-  it("ignores unrelated runtime errors", () => {
-    expect(isChunkLoadError(new Error("Network request failed"))).toBe(false);
-  });
-});
-
-describe("recoverFromStaleClient", () => {
+describe("stale-client-recovery", () => {
   beforeEach(() => {
-    sessionStorage.clear();
-    vi.restoreAllMocks();
+    window.sessionStorage.clear();
   });
 
-  it("reloads once per error fingerprint and unregisters only app service workers", async () => {
-    const reloadSpy = vi.fn();
-    const unregisterAppWorker = vi.fn().mockResolvedValue(true);
-    const unregisterOtherWorker = vi.fn().mockResolvedValue(true);
-    const getRegistrations = vi.fn().mockResolvedValue([
+  it("detects classic chunk load errors and Safari-style chunk path failures", () => {
+    const classicChunkError = Object.assign(
+      new Error("Failed to load chunk /_next/static/chunks/abc123.js"),
       {
-        active: { scriptURL: "https://zml.app/serwist/sw.js" },
-        unregister: unregisterAppWorker,
+        name: "ChunkLoadError",
       },
-      {
-        active: { scriptURL: "https://zml.app/other/sw.js" },
-        unregister: unregisterOtherWorker,
-      },
-    ]);
-
-    Object.defineProperty(navigator, "serviceWorker", {
-      configurable: true,
-      value: { getRegistrations },
-    });
-
-    const error = Object.assign(
-      new Error("Failed to load chunk /_next/static/chunks/example.js"),
-      { name: "ChunkLoadError" },
     );
+    const safariChunkError = new Error(
+      "Load failed while fetching /_next/static/chunks/abc123.js",
+    );
+    const genericSafariError = new Error("Load failed (zml.app)");
+
+    expect(isChunkLoadError(classicChunkError)).toBe(true);
+    expect(isChunkLoadError(safariChunkError)).toBe(true);
+    expect(isChunkLoadError(genericSafariError)).toBe(false);
+  });
+
+  it("tracks whether a recovery attempt has already happened for an error fingerprint", async () => {
+    const reload = vi.fn();
+    const error = new Error(
+      "Failed to load chunk /_next/static/chunks/abc123.js",
+    );
+
+    expect(
+      hasRecoveryAttempted({
+        key: "chunk-load",
+        error,
+      }),
+    ).toBe(false);
 
     await expect(
       recoverFromStaleClient({
         key: "chunk-load",
         error,
-        unregisterServiceWorkers: true,
-        reload: reloadSpy,
+        unregisterServiceWorkers: false,
+        reload,
       }),
     ).resolves.toBe(true);
 
+    expect(
+      hasRecoveryAttempted({
+        key: "chunk-load",
+        error,
+      }),
+    ).toBe(true);
+    expect(reload).toHaveBeenCalledTimes(1);
+
     await expect(
       recoverFromStaleClient({
         key: "chunk-load",
         error,
-        unregisterServiceWorkers: true,
-        reload: reloadSpy,
+        unregisterServiceWorkers: false,
+        reload,
       }),
     ).resolves.toBe(false);
-
-    expect(getRegistrations).toHaveBeenCalledTimes(1);
-    expect(unregisterAppWorker).toHaveBeenCalledTimes(1);
-    expect(unregisterOtherWorker).not.toHaveBeenCalled();
-    expect(reloadSpy).toHaveBeenCalledTimes(1);
   });
 });

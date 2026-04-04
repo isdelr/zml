@@ -67,7 +67,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   convex-backend:
-    image: ghcr.io/get-convex/convex-backend:${CONVEX_IMAGE_TAG:-latest}
+    image: ghcr.io/get-convex/convex-backend:${CONVEX_IMAGE_TAG:-2026-03-23-f2ce1f3}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -89,7 +89,7 @@ services:
       - convex_data:/convex/data
 
   convex-dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_IMAGE_TAG:-latest}
+    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_IMAGE_TAG:-2026-03-23-f2ce1f3}
     restart: unless-stopped
     depends_on:
       - convex-backend

@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { useParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/convex/api";
@@ -23,6 +24,7 @@ export default function InviteLeaguePage() {
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   const inviteCode = params.inviteCode as string;
   const inviteInfo = useQuery(api.leagues.getInviteInfo, { inviteCode });
@@ -30,7 +32,14 @@ export default function InviteLeaguePage() {
 
   const handleJoinLeague = async (asSpectator: boolean = false) => {
     if (!isAuthenticated) {
-      await signInWithDiscord(pathname);
+      if (isSigningIn) return;
+      setIsSigningIn(true);
+      try {
+        await signInWithDiscord(pathname);
+      } catch {
+        setIsSigningIn(false);
+        toast.error("We couldn't start Discord sign-in. Please try again.");
+      }
       return;
     }
     if (!inviteCode) return;
@@ -131,17 +140,23 @@ export default function InviteLeaguePage() {
               </div>
             </div>
             <div className="space-y-3">
-              <Button size="lg" className="w-full" onClick={() => handleJoinLeague(false)}>
-                Accept Invite
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={() => handleJoinLeague(false)}
+                disabled={isSigningIn}
+              >
+                {isSigningIn ? "Redirecting..." : "Accept Invite"}
               </Button>
               <Button 
                 size="lg" 
                 variant="outline" 
                 className="w-full" 
                 onClick={() => handleJoinLeague(true)}
+                disabled={isSigningIn}
               >
                 <Eye className="mr-2 size-4" />
-                Join as Spectator
+                <span>{isSigningIn ? "Redirecting..." : "Join as Spectator"}</span>
               </Button>
               <p className="text-xs text-center text-muted-foreground">
                 Spectators can listen to playlists but cannot submit songs or vote
@@ -194,17 +209,23 @@ export default function InviteLeaguePage() {
               </div>
             </div>
             <div className="space-y-3">
-              <Button size="lg" className="w-full" onClick={() => handleJoinLeague(false)}>
-                Join as Full Member
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={() => handleJoinLeague(false)}
+                disabled={isSigningIn}
+              >
+                {isSigningIn ? "Redirecting..." : "Join as Full Member"}
               </Button>
               <Button 
                 size="lg" 
                 variant="outline" 
                 className="w-full" 
                 onClick={() => handleJoinLeague(true)}
+                disabled={isSigningIn}
               >
                 <Eye className="mr-2 size-4" />
-                Join as Spectator
+                <span>{isSigningIn ? "Redirecting..." : "Join as Spectator"}</span>
               </Button>
               <p className="text-xs text-center text-muted-foreground">
                 Spectators can listen to playlists but cannot submit songs or vote

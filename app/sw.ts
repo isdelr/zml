@@ -1,7 +1,8 @@
 /// <reference lib="webworker" />
 
-import { defaultCache } from "@serwist/turbopack/worker";
 import {
+  ExpirationPlugin,
+  NetworkFirst,
   NetworkOnly,
   Serwist,
   type PrecacheEntry,
@@ -91,7 +92,42 @@ const runtimeCaching: RuntimeCaching[] = [
     method: "GET",
     handler: new NetworkOnly({ networkTimeoutSeconds: 10 }),
   },
-  ...defaultCache,
+  {
+    matcher: ({ request, sameOrigin, url }) =>
+      request.headers.get("RSC") === "1" &&
+      sameOrigin &&
+      !url.pathname.startsWith("/api/"),
+    method: "GET",
+    handler: new NetworkFirst({
+      cacheName: "pages-rsc",
+      networkTimeoutSeconds: 10,
+      plugins: [
+        new ExpirationPlugin({
+          maxEntries: 32,
+          maxAgeSeconds: 24 * 60 * 60,
+          maxAgeFrom: "last-used",
+        }),
+      ],
+    }),
+  },
+  {
+    matcher: ({ request, sameOrigin, url }) =>
+      request.mode === "navigate" &&
+      sameOrigin &&
+      !url.pathname.startsWith("/api/"),
+    method: "GET",
+    handler: new NetworkFirst({
+      cacheName: "pages-html",
+      networkTimeoutSeconds: 10,
+      plugins: [
+        new ExpirationPlugin({
+          maxEntries: 32,
+          maxAgeSeconds: 24 * 60 * 60,
+          maxAgeFrom: "last-used",
+        }),
+      ],
+    }),
+  },
 ];
 
 const serwist = new Serwist({

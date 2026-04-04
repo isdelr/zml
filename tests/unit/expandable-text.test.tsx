@@ -94,6 +94,9 @@ describe("ExpandableText", () => {
         screen.getByRole("button", { name: /view more/i }),
       ).toBeInTheDocument();
     });
+    expect(
+      screen.getByRole("button", { name: /view more/i }).querySelector("span"),
+    ).not.toBeNull();
     expect(content).toHaveClass("line-clamp-3");
 
     await user.click(screen.getByRole("button", { name: /view more/i }));

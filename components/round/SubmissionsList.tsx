@@ -315,7 +315,7 @@ export function SubmissionsList({
   return (
     <>
       {showVotingStatusStrip ? (
-        <div className="mt-3 flex justify-end">
+        <div className="notranslate mt-3 flex justify-end" translate="no">
           <div className="flex flex-wrap items-center justify-end gap-2">
             <div
               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
@@ -333,11 +333,13 @@ export function SubmissionsList({
               ) : (
                 <Lock className="size-3.5" />
               )}
-              {hasVoted
-                ? "Done Voting"
-                : canVote
-                  ? "Voting Open"
-                  : (votingRestrictionCopy?.shortStatus ?? "Voting Locked")}
+              <span>
+                {hasVoted
+                  ? "Done Voting"
+                  : canVote
+                    ? "Voting Open"
+                    : (votingRestrictionCopy?.shortStatus ?? "Voting Locked")}
+              </span>
             </div>
 
             {canVote ? (

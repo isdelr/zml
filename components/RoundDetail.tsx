@@ -445,7 +445,7 @@ export function RoundDetail({
       (mySubmissions?.length ?? 0) > 0);
 
   return (
-    <section>
+    <section className="notranslate" translate="no">
       <RoundStatusAlerts
         isSpectator={Boolean(league.isSpectator)}
         roundStatus={round.status}

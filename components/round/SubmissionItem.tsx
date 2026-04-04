@@ -596,7 +596,10 @@ export function SubmissionItem({
               {renderAdminAdjustmentButtonGroup()}
             </div>
           ) : null}
-          <div className="mt-3 flex items-start justify-between gap-3">
+          <div
+            className="notranslate mt-3 flex items-start justify-between gap-3"
+            translate="no"
+          >
             <div className="min-w-0 flex-1">{renderSubmitterInfo()}</div>
             <div className="flex items-center gap-0.5">
               {roundStatus === "voting" && renderVoteButtonGroup()}
@@ -830,7 +833,10 @@ export function SubmissionItem({
               ? renderAdminAdjustmentButtonGroup()
               : null}
           </div>
-          <div className="flex items-center justify-center w-44 gap-1">
+          <div
+            className="notranslate flex items-center justify-center w-44 gap-1"
+            translate="no"
+          >
             {roundStatus === "voting" ? (
               renderVoteButtonGroup()
             ) : roundStatus !== "submissions" ? (

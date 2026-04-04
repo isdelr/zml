@@ -114,7 +114,7 @@ export function ExpandableText({
           aria-expanded={isExpanded}
           onClick={() => setIsExpanded((current) => !current)}
         >
-          {isExpanded ? "View less" : "View more"}
+          <span>{isExpanded ? "View less" : "View more"}</span>
           {isExpanded ? <ChevronUp /> : <ChevronDown />}
         </Button>
       ) : null}

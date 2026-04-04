@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,11 +29,19 @@ interface LeagueJoinCardProps {
 export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
   const router = useRouter();
   const { isAuthenticated } = useConvexAuth();
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const joinLeagueMutation = useMutation(api.leagues.joinPublicLeague);
 
   const handleJoinLeague = async (asSpectator: boolean = false) => {
     if (!isAuthenticated) {
-      await signInWithDiscord();
+      if (isSigningIn) return;
+      setIsSigningIn(true);
+      try {
+        await signInWithDiscord();
+      } catch {
+        setIsSigningIn(false);
+        toast.error("We couldn't start Discord sign-in. Please try again.");
+      }
       return;
     }
     const toastId = toast.loading(asSpectator ? "Joining as spectator..." : "Joining league...");
@@ -120,17 +129,23 @@ export function LeagueJoinCard({ leagueData, rounds }: LeagueJoinCardProps) {
             </div>
           </div>
           <div className="space-y-3">
-            <Button size="lg" className="w-full" onClick={() => handleJoinLeague(false)}>
-              Join League
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => handleJoinLeague(false)}
+              disabled={isSigningIn}
+            >
+              {isSigningIn ? "Redirecting..." : "Join League"}
             </Button>
             <Button 
               size="lg" 
               variant="outline" 
               className="w-full" 
               onClick={() => handleJoinLeague(true)}
+              disabled={isSigningIn}
             >
               <Eye className="mr-2 size-4" />
-              Join as Spectator
+              <span>{isSigningIn ? "Redirecting..." : "Join as Spectator"}</span>
             </Button>
             <p className="text-xs text-center text-muted-foreground">
               Spectators can listen to playlists but cannot submit songs or vote

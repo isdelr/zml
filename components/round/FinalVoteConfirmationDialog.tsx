@@ -37,13 +37,17 @@ export function FinalVoteConfirmationDialog({
         }
       }}
     >
-      <AlertDialogContent>
+      <AlertDialogContent className="notranslate" translate="no">
         <AlertDialogHeader>
-          <AlertDialogTitle>Final Vote Confirmation</AlertDialogTitle>
+          <AlertDialogTitle>
+            <span>Final Vote Confirmation</span>
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            This is your last vote for this round. Once you cast this vote, all
-            your votes will be locked and cannot be changed. Are you sure you
-            want to proceed?
+            <span>
+              This is your last vote for this round. Once you cast this vote,
+              all your votes will be locked and cannot be changed. Are you sure
+              you want to proceed?
+            </span>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-2 py-2">
@@ -58,12 +62,14 @@ export function FinalVoteConfirmationDialog({
           />
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={onCancel}>
+            <span>Cancel</span>
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
             disabled={confirmText.toLowerCase() !== "confirm"}
           >
-            Confirm Final Vote
+            <span>Confirm Final Vote</span>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

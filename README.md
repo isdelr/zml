@@ -42,6 +42,8 @@ cp .env.docker.dev.example .env.docker.dev
 openssl rand -hex 32
 ```
 
+Optional: set `CONVEX_IMAGE_TAG` to control which self-hosted Convex backend/dashboard release Docker pulls. The compose files default to `2026-03-23-f2ce1f3`.
+
 3. Keep `INSTANCE_NAME` and `CONVEX_POSTGRES_DB` aligned:
 - `INSTANCE_NAME=zml-dev` -> `CONVEX_POSTGRES_DB=zml_dev`
 - use underscore in DB names where instance names use dashes
@@ -112,6 +114,7 @@ cp .env.docker.prod.example .env.docker.prod
 
 2. Fill in production values, especially:
 - `NEXT_PUBLIC_CONVEX_URL` (public Convex URL)
+- `CONVEX_IMAGE_TAG` (optional override for the bundled Convex image tag)
 - `CONVEX_SELF_HOSTED_ADMIN_KEY`
 - `INSTANCE_SECRET`
 - `MEDIA_ACCESS_SECRET`

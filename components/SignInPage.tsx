@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "./ui/button";
 import { signInWithDiscord } from "@/lib/auth-client";
 import { DiscordIcon } from "@/components/icons/BrandIcons";
@@ -33,14 +34,28 @@ export default function SignInPage({
   authErrorDescription = null,
   redirectUrl = null,
 }: SignInPageProps) {
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
   const authErrorMessage = authError
     ? (OAUTH_ERROR_MESSAGES[authError] ??
       authError.replaceAll("_", " ").replace(/^./, (char) => char.toUpperCase()))
     : null;
 
-  const handleSignIn = () => {
-    void signInWithDiscord(redirectUrl || "/explore");
+  const handleSignIn = async () => {
+    if (isSigningIn) return;
+
+    setSignInError(null);
+    setIsSigningIn(true);
+
+    try {
+      await signInWithDiscord(redirectUrl || "/explore");
+    } catch {
+      setIsSigningIn(false);
+      setSignInError("We couldn't start Discord sign-in. Please try again.");
+    }
   };
+
+  const visibleErrorMessage = signInError ?? authErrorMessage;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background p-4">
@@ -50,21 +65,23 @@ export default function SignInPage({
           Sign in with Discord to use the app.
         </p>
       </div>
-      {authErrorMessage ? (
+      {visibleErrorMessage ? (
         <div className="w-full max-w-md rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-          <p>{authErrorMessage}</p>
-          {authErrorDescription ? (
+          <p>{visibleErrorMessage}</p>
+          {authErrorDescription && !signInError ? (
             <p className="mt-1 text-xs text-destructive/90">{authErrorDescription}</p>
           ) : null}
         </div>
       ) : null}
       <Button
         size="lg"
-        onClick={handleSignIn}
+        type="button"
+        onClick={() => void handleSignIn()}
+        disabled={isSigningIn}
         className="flex items-center gap-3 bg-[#5865F2] hover:bg-[#5865F2]/90"
       >
         <DiscordIcon className="size-6" />
-        Sign in with Discord
+        <span>{isSigningIn ? "Redirecting..." : "Sign in with Discord"}</span>
       </Button>
       <p className="text-xs">
         You have to be in the Music League Discord Server to Sign In.

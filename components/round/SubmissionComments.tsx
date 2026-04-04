@@ -461,19 +461,22 @@ export function SubmissionComments({
           type="button"
           variant="ghost"
           size="sm"
-          className="mt-2 h-7 rounded-full px-2 text-xs text-muted-foreground"
+          className="notranslate mt-2 h-7 rounded-full px-2 text-xs text-muted-foreground"
+          translate="no"
           onClick={() => setShowAllComments((current) => !current)}
         >
           {showAllComments ? (
             <>
               <ChevronUp className="size-4" />
-              Show less
+              <span>Show less</span>
             </>
           ) : (
             <>
               <ChevronDown className="size-4" />
-              View {hiddenCommentCount} older comment
-              {hiddenCommentCount === 1 ? "" : "s"}
+              <span>
+                View {hiddenCommentCount} older comment
+                {hiddenCommentCount === 1 ? "" : "s"}
+              </span>
             </>
           )}
         </Button>

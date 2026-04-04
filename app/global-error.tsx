@@ -3,6 +3,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect, useState } from "react";
 import {
+  hasRecoveryAttempted,
   isChunkLoadError,
   recoverFromStaleClient,
 } from "@/lib/stale-client-recovery";
@@ -18,15 +19,25 @@ export default function GlobalError({
 }) {
   const [attempt, setAttempt] = useState(0);
   const isChunkError = isChunkLoadError(error);
+  const chunkRecoveryAlreadyAttempted =
+    isChunkError &&
+    hasRecoveryAttempted({
+      key: "chunk-load",
+      error,
+    });
 
   useEffect(() => {
+    if (isChunkError && !chunkRecoveryAlreadyAttempted) {
+      return;
+    }
+
     console.error(error);
     Sentry.captureException(error, {
       tags: {
         boundary: "global-error",
       },
     });
-  }, [error]);
+  }, [chunkRecoveryAlreadyAttempted, error, isChunkError]);
 
   useEffect(() => {
     if (!isChunkError) return;
