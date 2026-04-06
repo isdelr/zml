@@ -21,7 +21,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ThemeSwitcher } from "./ThemeSwitcher";
+import { AppearanceSettingsDialog } from "./AppearanceSettingsDialog";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -110,8 +110,10 @@ export function MobileMenuSheet({
               </Link>
               <div className="flex w-full justify-center pt-2">
                 <div className="flex flex-col items-center">
-                  <ThemeSwitcher />
-                  <span className="text-xs text-muted-foreground">Theme</span>
+                  <AppearanceSettingsDialog />
+                  <span className="text-xs text-muted-foreground">
+                    Appearance
+                  </span>
                 </div>
               </div>
             </div>

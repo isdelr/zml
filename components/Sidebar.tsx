@@ -17,7 +17,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { ThemeSwitcher } from "./ThemeSwitcher";
+import { AppearanceSettingsDialog } from "./AppearanceSettingsDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -112,7 +112,7 @@ export function Sidebar() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <ThemeSwitcher />
+        <AppearanceSettingsDialog />
       </div>
 
       <nav className="flex flex-col gap-4">

@@ -9,6 +9,12 @@ import { NotificationProvider } from "@/components/providers/NotificationProvide
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { AuthSessionRefresher } from "@/components/providers/AuthSessionRefresher";
 import { NonBlockingErrorBoundary } from "@/components/NonBlockingErrorBoundary";
+import {
+  ACCENT_THEME_CSS,
+  DEFAULT_ACCENT_THEME,
+  getAccentThemeBootScript,
+} from "@/lib/theme/accent-theme";
+import { AccentThemeProvider } from "@/components/providers/AccentThemeProvider";
 
 const ConvexClientProvider = dynamic(
   () => import("@/components/ConvexClientProvider"),
@@ -121,7 +127,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-accent-theme={DEFAULT_ACCENT_THEME}
+    >
+      <head>
+        <style
+          id="accent-theme-styles"
+          dangerouslySetInnerHTML={{ __html: ACCENT_THEME_CSS }}
+        />
+        <script
+          dangerouslySetInnerHTML={{ __html: getAccentThemeBootScript() }}
+        />
+      </head>
       <body
         className={cn(
           plusJakartaSans.variable,
@@ -135,31 +154,33 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {/* Register SW for all users (prod), manage skipWaiting and updates */}
-          <NonBlockingErrorBoundary boundaryName="ServiceWorkerRegistrar">
-            <ServiceWorkerRegistrar />
-          </NonBlockingErrorBoundary>
-
-          <ConvexClientProvider>
-            <Suspense fallback={null}>
-              <ObservabilityProvider />
-            </Suspense>
-
-            {/* Keep the auth cookie/session warm in PWAs and refresh on focus */}
-            <NonBlockingErrorBoundary boundaryName="AuthSessionRefresher">
-              <AuthSessionRefresher />
+          <AccentThemeProvider>
+            {/* Register SW for all users (prod), manage skipWaiting and updates */}
+            <NonBlockingErrorBoundary boundaryName="ServiceWorkerRegistrar">
+              <ServiceWorkerRegistrar />
             </NonBlockingErrorBoundary>
 
-            <NotificationProvider>
-              <main className="min-h-dvh pb-[env(safe-area-inset-bottom)] md:pb-0">
-                {children}
-              </main>
-              <Toaster />
-              <NonBlockingErrorBoundary boundaryName="MusicPlayer">
-                <MusicPlayer />
+            <ConvexClientProvider>
+              <Suspense fallback={null}>
+                <ObservabilityProvider />
+              </Suspense>
+
+              {/* Keep the auth cookie/session warm in PWAs and refresh on focus */}
+              <NonBlockingErrorBoundary boundaryName="AuthSessionRefresher">
+                <AuthSessionRefresher />
               </NonBlockingErrorBoundary>
-            </NotificationProvider>
-          </ConvexClientProvider>
+
+              <NotificationProvider>
+                <main className="min-h-dvh pb-[env(safe-area-inset-bottom)] md:pb-0">
+                  {children}
+                </main>
+                <Toaster />
+                <NonBlockingErrorBoundary boundaryName="MusicPlayer">
+                  <MusicPlayer />
+                </NonBlockingErrorBoundary>
+              </NotificationProvider>
+            </ConvexClientProvider>
+          </AccentThemeProvider>
         </ThemeProvider>
       </body>
     </html>
