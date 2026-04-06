@@ -231,29 +231,34 @@
 
 @layer components {
   .accent-panel {
-    border-color: color-mix(in oklch, var(--border) 75%, var(--primary) 25%);
-    background-color: color-mix(in oklch, var(--card) 90%, var(--primary) 10%);
+    border-color: color-mix(in oklch, var(--border) 78%, var(--primary) 22%);
+    background-color: color-mix(in oklch, var(--card) 95%, var(--primary) 5%);
     background-image:
       linear-gradient(
         145deg,
-        color-mix(in oklch, var(--primary) 10%, transparent) 0%,
-        color-mix(in oklch, var(--primary) 3%, transparent) 52%,
-        color-mix(in oklch, var(--primary) 8%, transparent) 100%
+        color-mix(in oklch, var(--card) 84%, transparent) 0%,
+        color-mix(in oklch, var(--card) 74%, transparent) 100%
+      ),
+      linear-gradient(
+        145deg,
+        color-mix(in oklch, var(--primary) 6%, transparent) 0%,
+        color-mix(in oklch, var(--primary) 2%, transparent) 55%,
+        color-mix(in oklch, var(--primary) 4%, transparent) 100%
       ),
       var(--interactive-gradient);
     background-position: center;
     background-size: cover;
-    background-blend-mode: normal, soft-light;
+    background-blend-mode: normal, normal, soft-light;
   }
 
   .accent-pill {
-    border-color: color-mix(in oklch, var(--primary) 28%, transparent);
-    background-color: color-mix(in oklch, var(--primary) 10%, transparent);
+    border-color: color-mix(in oklch, var(--primary) 24%, var(--border) 76%);
+    background-color: color-mix(in oklch, var(--primary) 9%, transparent);
     background-image:
       linear-gradient(
         145deg,
-        color-mix(in oklch, var(--primary) 9%, transparent) 0%,
-        color-mix(in oklch, var(--primary) 2%, transparent) 100%
+        color-mix(in oklch, var(--card) 90%, transparent) 0%,
+        color-mix(in oklch, var(--card) 84%, transparent) 100%
       ),
       var(--interactive-gradient);
     background-position: center;

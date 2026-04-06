@@ -329,8 +329,9 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#5BCEFA",
         ]),
         interactiveGradient: createDirectionalGradient([
-          "oklch(0.64 0.14 240) 0%",
-          "oklch(0.61 0.1 352) 100%",
+          "oklch(0.62 0.15 240) 0%",
+          "oklch(0.84 0.025 95) 52%",
+          "oklch(0.59 0.12 354) 100%",
         ]),
       },
       dark: {
@@ -364,7 +365,8 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
         ]),
         interactiveGradient: createDirectionalGradient([
           "oklch(0.76 0.11 238) 0%",
-          "oklch(0.72 0.08 350) 100%",
+          "oklch(0.9 0.02 95) 50%",
+          "oklch(0.72 0.09 352) 100%",
         ]),
       },
     },
@@ -407,8 +409,9 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#732982",
         ]),
         interactiveGradient: createDirectionalGradient([
-          "oklch(0.58 0.14 268) 0%",
-          "oklch(0.54 0.13 318) 100%",
+          "oklch(0.57 0.18 28) 0%",
+          "oklch(0.6 0.12 150) 48%",
+          "oklch(0.54 0.16 300) 100%",
         ]),
       },
       dark: {
@@ -442,8 +445,9 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#732982",
         ]),
         interactiveGradient: createDirectionalGradient([
-          "oklch(0.72 0.12 270) 0%",
-          "oklch(0.69 0.1 320) 100%",
+          "oklch(0.72 0.13 28) 0%",
+          "oklch(0.78 0.1 150) 48%",
+          "oklch(0.69 0.11 300) 100%",
         ]),
       },
     },
@@ -495,8 +499,9 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#A30262",
         ]),
         interactiveGradient: createDirectionalGradient([
-          "oklch(0.62 0.16 32) 0%",
-          "oklch(0.58 0.13 350) 100%",
+          "oklch(0.61 0.17 34) 0%",
+          "oklch(0.82 0.03 75) 52%",
+          "oklch(0.57 0.14 344) 100%",
         ]),
       },
       dark: {
@@ -531,8 +536,9 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#A30262",
         ]),
         interactiveGradient: createDirectionalGradient([
-          "oklch(0.74 0.13 28) 0%",
-          "oklch(0.7 0.1 348) 100%",
+          "oklch(0.75 0.13 30) 0%",
+          "oklch(0.89 0.02 80) 50%",
+          "oklch(0.71 0.1 344) 100%",
         ]),
       },
     },
