@@ -64,7 +64,7 @@ describe("AppearanceSettingsDialog", () => {
     renderDialog();
 
     await user.click(
-      screen.getByRole("button", { name: /open appearance settings/i }),
+      screen.getByRole("button", { name: /open settings/i }),
     );
     await user.click(screen.getByRole("button", { name: /^dark$/i }));
 
@@ -76,11 +76,11 @@ describe("AppearanceSettingsDialog", () => {
     renderDialog();
 
     await user.click(
-      screen.getByRole("button", { name: /open appearance settings/i }),
+      screen.getByRole("button", { name: /open settings/i }),
     );
 
     const cyanPreset = screen.getByRole("button", {
-      name: /cyan cool aqua with strong contrast/i,
+      name: /^cyan$/i,
     });
     await user.click(cyanPreset);
 
@@ -90,6 +90,6 @@ describe("AppearanceSettingsDialog", () => {
 
     expect(window.localStorage.getItem(ACCENT_THEME_STORAGE_KEY)).toBe("cyan");
     expect(cyanPreset).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("Current preset: Cyan")).toBeInTheDocument();
+    expect(screen.queryByText(/current preset:/i)).not.toBeInTheDocument();
   });
 });

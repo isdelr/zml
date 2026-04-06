@@ -28,6 +28,7 @@ export type AccentThemeTokens = {
   sidebarRing: string;
   chart1: string;
   accentGradient: string;
+  interactiveGradient: string;
 };
 
 export type AccentPreset = {
@@ -92,6 +93,7 @@ function createSolidPreset(
           `oklch(0.82 0.09 ${hue})`,
           `oklch(0.9 0.04 ${hue})`,
         ]),
+        interactiveGradient: createGradient([lightPrimary, lightPrimary]),
       },
       dark: {
         primary: darkPrimary,
@@ -110,6 +112,7 @@ function createSolidPreset(
           darkPrimary,
           `oklch(0.58 0.09 ${hue})`,
         ]),
+        interactiveGradient: createGradient([darkPrimary, darkPrimary]),
       },
     },
   };
@@ -144,6 +147,10 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "oklch(0.76 0.14 70)",
           "oklch(0.88 0.035 55)",
         ]),
+        interactiveGradient: createGradient([
+          "oklch(0.65 0.2 55)",
+          "oklch(0.65 0.2 55)",
+        ]),
       },
       dark: {
         primary: "oklch(0.73 0.19 55)",
@@ -161,6 +168,10 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "oklch(0.78 0.12 68)",
           "oklch(0.73 0.19 55)",
           "oklch(0.58 0.11 46)",
+        ]),
+        interactiveGradient: createGradient([
+          "oklch(0.73 0.19 55)",
+          "oklch(0.73 0.19 55)",
         ]),
       },
     },
@@ -197,6 +208,13 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#F5A9B8",
           "#5BCEFA",
         ]),
+        interactiveGradient: createGradient([
+          "#5BCEFA",
+          "#F5A9B8",
+          "#FFFFFF",
+          "#F5A9B8",
+          "#5BCEFA",
+        ]),
       },
       dark: {
         primary: "oklch(0.75 0.13 235)",
@@ -211,6 +229,13 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
         sidebarRing: "oklch(0.75 0.13 235)",
         chart1: "oklch(0.75 0.13 235)",
         accentGradient: createGradient([
+          "#5BCEFA",
+          "#F5A9B8",
+          "#FFFFFF",
+          "#F5A9B8",
+          "#5BCEFA",
+        ]),
+        interactiveGradient: createGradient([
           "#5BCEFA",
           "#F5A9B8",
           "#FFFFFF",
@@ -247,6 +272,14 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#24408E",
           "#732982",
         ]),
+        interactiveGradient: createGradient([
+          "#E40303",
+          "#FF8C00",
+          "#FFED00",
+          "#008026",
+          "#24408E",
+          "#732982",
+        ]),
       },
       dark: {
         primary: "oklch(0.72 0.15 285)",
@@ -261,6 +294,14 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
         sidebarRing: "oklch(0.72 0.15 285)",
         chart1: "oklch(0.72 0.15 285)",
         accentGradient: createGradient([
+          "#E40303",
+          "#FF8C00",
+          "#FFED00",
+          "#008026",
+          "#24408E",
+          "#732982",
+        ]),
+        interactiveGradient: createGradient([
           "#E40303",
           "#FF8C00",
           "#FFED00",
@@ -307,6 +348,15 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#B55690",
           "#A30262",
         ]),
+        interactiveGradient: createGradient([
+          "#D52D00",
+          "#EF7627",
+          "#FF9A56",
+          "#FFFFFF",
+          "#D362A4",
+          "#B55690",
+          "#A30262",
+        ]),
       },
       dark: {
         primary: "oklch(0.73 0.16 18)",
@@ -321,6 +371,15 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
         sidebarRing: "oklch(0.73 0.16 18)",
         chart1: "oklch(0.73 0.16 18)",
         accentGradient: createGradient([
+          "#D52D00",
+          "#EF7627",
+          "#FF9A56",
+          "#FFFFFF",
+          "#D362A4",
+          "#B55690",
+          "#A30262",
+        ]),
+        interactiveGradient: createGradient([
           "#D52D00",
           "#EF7627",
           "#FF9A56",
@@ -351,6 +410,7 @@ const ACCENT_TOKEN_VARIABLES: Record<keyof AccentThemeTokens, string> = {
   sidebarRing: "--sidebar-ring",
   chart1: "--chart-1",
   accentGradient: "--accent-gradient",
+  interactiveGradient: "--interactive-gradient",
 };
 
 function buildTokenLines(tokens: AccentThemeTokens): string {

@@ -37,14 +37,14 @@ export function LeagueGrid({
     <section
       className={
         isPrivate
-          ? "space-y-4 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-4 shadow-sm sm:p-5"
+          ? "space-y-4 rounded-3xl border border-primary/25 bg-primary/5 p-4 shadow-sm sm:p-5"
           : "space-y-4"
       }
     >
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           {isPrivate ? (
-            <Lock className="size-4 text-amber-700 dark:text-amber-300" />
+            <Lock className="size-4 text-primary/80 dark:text-primary" />
           ) : (
             <Globe2 className="size-4 text-muted-foreground" />
           )}
@@ -73,7 +73,7 @@ export function LeagueGrid({
               <Card
                 className={`group flex h-full cursor-pointer flex-col overflow-hidden shadow-sm transition-all duration-200 hover:-translate-y-1 hover:bg-accent/40 hover:shadow-md ${
                   isPrivate
-                    ? "border-amber-500/30 bg-card/95 hover:border-amber-500/50"
+                    ? "border-primary/25 bg-card/95 hover:border-primary/40"
                     : "border-border/60 bg-card/95 hover:border-primary/30"
                 }`}
               >
@@ -94,7 +94,7 @@ export function LeagueGrid({
                         variant="outline"
                         className={
                           league.visibility === "private"
-                            ? "shrink-0 border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+                            ? "shrink-0 border-primary/30 bg-primary/10 text-primary"
                             : "shrink-0"
                         }
                       >

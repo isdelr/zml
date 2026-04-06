@@ -111,9 +111,7 @@ export function MobileMenuSheet({
               <div className="flex w-full justify-center pt-2">
                 <div className="flex flex-col items-center">
                   <AppearanceSettingsDialog />
-                  <span className="text-xs text-muted-foreground">
-                    Appearance
-                  </span>
+                  <span className="text-xs text-muted-foreground">Settings</span>
                 </div>
               </div>
             </div>

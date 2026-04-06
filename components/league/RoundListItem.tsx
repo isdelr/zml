@@ -47,7 +47,7 @@ export function RoundListItem({
             };
 
   const renderWinnerPoints = (points: number) => (
-    <span className="text-xs font-semibold uppercase tracking-[0.08em] text-amber-500">
+    <span className="text-xs font-semibold uppercase tracking-[0.08em] text-primary/80 dark:text-primary">
       {points} pts
     </span>
   );
@@ -55,7 +55,7 @@ export function RoundListItem({
   const renderFinishedSummary = (isMobile: boolean) =>
     round.winners && round.winners.length > 1 ? (
       <div className="flex min-w-0 items-center gap-2 truncate">
-        <Crown className="size-3.5 shrink-0 text-amber-500" />
+        <Crown className="size-3.5 shrink-0 text-primary/80 dark:text-primary" />
         {renderWinnerPoints(round.winners[0]?.points ?? 0)}
         <AvatarStack
           users={round.winners.map((winner) => ({
@@ -70,7 +70,7 @@ export function RoundListItem({
     ) : (
       round.winner && (
         <div className="flex min-w-0 items-center gap-2 truncate">
-          <Crown className="size-3.5 shrink-0 text-amber-500" />
+          <Crown className="size-3.5 shrink-0 text-primary/80 dark:text-primary" />
           {renderWinnerPoints(round.winner.points)}
           <Avatar className="size-4 shrink-0">
             <AvatarImage src={round.winner.image ?? undefined} />

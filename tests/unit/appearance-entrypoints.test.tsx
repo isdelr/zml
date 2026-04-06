@@ -93,6 +93,6 @@ describe("appearance entrypoints", () => {
     render(<MobileMenuSheet isOpen={true} onOpenChange={vi.fn()} />);
 
     expect(screen.getAllByTestId("appearance-settings-dialog")).toHaveLength(1);
-    expect(screen.getByText("Appearance")).toBeInTheDocument();
+    expect(screen.getByText("Settings")).toBeInTheDocument();
   });
 });

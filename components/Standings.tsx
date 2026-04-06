@@ -52,7 +52,7 @@ export function Standings({ leagueId }: StandingsProps) {
             ) : index === 1 ? (
               <span className="text-gray-400">2</span>
             ) : index === 2 ? (
-              <span className="text-amber-600">3</span>
+              <span className="text-primary/80 dark:text-primary">3</span>
             ) : (
               <span>{index + 1}</span>
             )}

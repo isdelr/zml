@@ -36,7 +36,7 @@ export function AvatarStack({
             key={index}
             className={cn(
               avatarClassName,
-              "relative z-10 flex size-8 items-center justify-center text-amber-600",
+              "relative z-10 flex size-8 items-center justify-center text-primary/80 dark:text-primary",
               "!border-0 !rounded-none !bg-transparent shadow-none",
             )}
             aria-label={user.name ?? "Admin adjustment"}
