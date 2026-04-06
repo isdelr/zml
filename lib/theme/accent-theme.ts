@@ -50,6 +50,13 @@ function createGradient(stops: readonly string[]): string {
   return `linear-gradient(90deg, ${stops.join(", ")})`;
 }
 
+function createDirectionalGradient(
+  stops: readonly string[],
+  angle = "145deg",
+): string {
+  return `linear-gradient(${angle}, ${stops.join(", ")})`;
+}
+
 function createSolidPreset(
   id: AccentPresetId,
   label: string,
@@ -208,12 +215,9 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#F5A9B8",
           "#5BCEFA",
         ]),
-        interactiveGradient: createGradient([
-          "#5BCEFA",
-          "#F5A9B8",
-          "#FFFFFF",
-          "#F5A9B8",
-          "#5BCEFA",
+        interactiveGradient: createDirectionalGradient([
+          "oklch(0.64 0.14 240) 0%",
+          "oklch(0.61 0.1 352) 100%",
         ]),
       },
       dark: {
@@ -235,12 +239,9 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#F5A9B8",
           "#5BCEFA",
         ]),
-        interactiveGradient: createGradient([
-          "#5BCEFA",
-          "#F5A9B8",
-          "#FFFFFF",
-          "#F5A9B8",
-          "#5BCEFA",
+        interactiveGradient: createDirectionalGradient([
+          "oklch(0.76 0.11 238) 0%",
+          "oklch(0.72 0.08 350) 100%",
         ]),
       },
     },
@@ -272,13 +273,9 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#24408E",
           "#732982",
         ]),
-        interactiveGradient: createGradient([
-          "#E40303",
-          "#FF8C00",
-          "#FFED00",
-          "#008026",
-          "#24408E",
-          "#732982",
+        interactiveGradient: createDirectionalGradient([
+          "oklch(0.58 0.14 268) 0%",
+          "oklch(0.54 0.13 318) 100%",
         ]),
       },
       dark: {
@@ -301,13 +298,9 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#24408E",
           "#732982",
         ]),
-        interactiveGradient: createGradient([
-          "#E40303",
-          "#FF8C00",
-          "#FFED00",
-          "#008026",
-          "#24408E",
-          "#732982",
+        interactiveGradient: createDirectionalGradient([
+          "oklch(0.72 0.12 270) 0%",
+          "oklch(0.69 0.1 320) 100%",
         ]),
       },
     },
@@ -348,14 +341,9 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#B55690",
           "#A30262",
         ]),
-        interactiveGradient: createGradient([
-          "#D52D00",
-          "#EF7627",
-          "#FF9A56",
-          "#FFFFFF",
-          "#D362A4",
-          "#B55690",
-          "#A30262",
+        interactiveGradient: createDirectionalGradient([
+          "oklch(0.62 0.16 32) 0%",
+          "oklch(0.58 0.13 350) 100%",
         ]),
       },
       dark: {
@@ -379,14 +367,9 @@ export const ACCENT_PRESETS: Record<AccentPresetId, AccentPreset> = {
           "#B55690",
           "#A30262",
         ]),
-        interactiveGradient: createGradient([
-          "#D52D00",
-          "#EF7627",
-          "#FF9A56",
-          "#FFFFFF",
-          "#D362A4",
-          "#B55690",
-          "#A30262",
+        interactiveGradient: createDirectionalGradient([
+          "oklch(0.74 0.13 28) 0%",
+          "oklch(0.7 0.1 348) 100%",
         ]),
       },
     },
