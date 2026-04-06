@@ -210,10 +210,10 @@ export function ExtensionPollPanel({
   if (!poll) {
     return (
       <>
-        <Card className="border-primary/20 bg-primary/5">
+        <Card className="accent-panel">
           <CardHeader className="gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="border-primary/30 bg-primary/10 text-primary">
+              <Badge className="accent-pill text-primary">
                 Last {requestWindowLabel}
               </Badge>
               <Badge variant="outline">

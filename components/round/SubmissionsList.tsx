@@ -443,7 +443,7 @@ export function SubmissionsList({
         })}
 
         {showVotingYouTubeSection ? (
-          <div className="m-2 rounded-lg border border-primary/30 bg-primary/5">
+          <div className="accent-panel m-2 rounded-lg border">
             <div className="flex items-center justify-between gap-2 border-b border-primary/20 px-3 py-2">
               <div className="text-xs text-muted-foreground">
                 <span className="font-medium">YouTube playlist</span>
@@ -474,7 +474,7 @@ export function SubmissionsList({
                 {ytInfo && (
                   <button
                     type="button"
-                    className="inline-flex items-center rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium hover:bg-primary/20"
+                    className="accent-pill inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20"
                     onClick={ytInfo.onOpen}
                     title="Open playlist in a new tab"
                   >

@@ -37,7 +37,7 @@ export function LeagueGrid({
     <section
       className={
         isPrivate
-          ? "space-y-4 rounded-3xl border border-primary/25 bg-primary/5 p-4 shadow-sm sm:p-5"
+          ? "accent-panel space-y-4 rounded-3xl border p-4 shadow-sm sm:p-5"
           : "space-y-4"
       }
     >
@@ -94,7 +94,7 @@ export function LeagueGrid({
                         variant="outline"
                         className={
                           league.visibility === "private"
-                            ? "shrink-0 border-primary/30 bg-primary/10 text-primary"
+                            ? "accent-pill shrink-0 text-primary"
                             : "shrink-0"
                         }
                       >

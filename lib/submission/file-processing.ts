@@ -53,7 +53,7 @@ export function getSubmissionProcessingCopy(
       return {
         label: "Uploaded",
         className:
-          "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200",
+          "border-primary/30 bg-primary/10 text-primary",
       };
     case "converting":
       return {

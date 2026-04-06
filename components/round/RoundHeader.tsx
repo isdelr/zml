@@ -110,7 +110,7 @@ export function RoundHeader({
             </p>
             {usesCustomLimits && (
               <span
-                className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
+                className="accent-pill mt-2 inline-flex w-fit items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium text-primary"
                 title={`League defaults: +${leagueMaxUp} / -${leagueMaxDown}`}
               >
                 Custom vote limits:{" "}
