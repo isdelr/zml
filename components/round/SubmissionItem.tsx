@@ -25,7 +25,7 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/convex/api";
 import { buildSubmissionAudioDownloadPath } from "@/lib/media/delivery";
 import { Song } from "@/types";
@@ -315,6 +315,7 @@ export function SubmissionItem({
   const compactMobileVoteButtonClass = "size-10 rounded-full md:size-8";
   const compactMobileIconClass = "size-4 md:size-5";
   const showMobileOverflowAccent = song.isBookmarked;
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const voteGroups = useMemo(
     () =>
       groupVoteSummaryDetailsByScore(
@@ -328,6 +329,39 @@ export function SubmissionItem({
       ),
     [voteDetails],
   );
+  const canDownloadAudio =
+    roundStatus !== "submissions" &&
+    song.submissionType === "file" &&
+    Boolean(song.songFileUrl);
+  const canOpenOriginalLink =
+    roundStatus !== "submissions" &&
+    isLinkSubmission &&
+    Boolean(song.songLink);
+  const canAdjustAdminPoints = roundStatus === "finished" && canManageLeague;
+  const canToggleBookmark = Boolean(currentUser);
+  const hasOverflowActions =
+    canToggleBookmark ||
+    canDownloadAudio ||
+    canOpenOriginalLink ||
+    canMarkTrollSubmissions ||
+    canAdjustAdminPoints;
+
+  useEffect(() => {
+    if (!isActionsMenuOpen) return;
+
+    const closeMenu = () => setIsActionsMenuOpen(false);
+    const passiveCapture = { capture: true, passive: true } as const;
+
+    window.addEventListener("wheel", closeMenu, passiveCapture);
+    window.addEventListener("touchmove", closeMenu, passiveCapture);
+    window.addEventListener("scroll", closeMenu, true);
+
+    return () => {
+      window.removeEventListener("wheel", closeMenu, passiveCapture);
+      window.removeEventListener("touchmove", closeMenu, passiveCapture);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [isActionsMenuOpen]);
 
   const renderSubmitterInfo = () =>
     roundStatus === "voting" ? (
@@ -460,57 +494,121 @@ export function SubmissionItem({
     </div>
   );
 
-  const renderAdminAdjustmentButtonGroup = () => {
-    if (roundStatus !== "finished" || !canManageLeague) return null;
+  const renderActionsMenu = ({
+    buttonClassName,
+    iconClassName,
+  }: {
+    buttonClassName: string;
+    iconClassName: string;
+  }) => {
+    if (!hasOverflowActions) return null;
 
     return (
-      <div className="flex items-center rounded-full border bg-background">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(compactMobileVoteButtonClass)}
-                aria-label="Subtract 1 admin point"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAdminVoteAdjustment(-1);
-                }}
+      <DropdownMenu
+        modal={false}
+        open={isActionsMenuOpen}
+        onOpenChange={setIsActionsMenuOpen}
+      >
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={buttonClassName}
+            aria-label="More actions"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal
+              className={cn(
+                iconClassName,
+                showMobileOverflowAccent && "text-primary",
+              )}
+            />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-52"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {canToggleBookmark ? (
+            <DropdownMenuItem
+              onSelect={() => {
+                onBookmark();
+              }}
+            >
+              <Bookmark
+                className={cn(
+                  "size-4",
+                  song.isBookmarked && "fill-primary text-primary",
+                )}
+              />
+              {song.isBookmarked ? "Remove bookmark" : "Bookmark song"}
+            </DropdownMenuItem>
+          ) : null}
+          {canOpenOriginalLink ? (
+            <DropdownMenuItem asChild>
+              <a
+                href={song.songLink ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
               >
-                <ArrowDown
-                  className={cn(compactMobileIconClass, "text-destructive")}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Admin downvote</p>
-            </TooltipContent>
-          </Tooltip>
-          <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Admin
-          </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(compactMobileVoteButtonClass)}
-                aria-label="Add 1 admin point"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAdminVoteAdjustment(1);
-                }}
+                <YouTubeIcon className="size-4 text-red-500" />
+                Open on YouTube
+              </a>
+            </DropdownMenuItem>
+          ) : null}
+          {canDownloadAudio ? (
+            <DropdownMenuItem asChild>
+              <a
+                href={buildDownloadUrl(song.songFileUrl!, song._id)}
+                download
+                onClick={(e) => e.stopPropagation()}
               >
-                <ArrowUp className={cn(compactMobileIconClass, "text-success")} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Admin upvote</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+                <Download className="size-4" />
+                Download audio
+              </a>
+            </DropdownMenuItem>
+          ) : null}
+          {canMarkTrollSubmissions ? (
+            <DropdownMenuItem
+              onSelect={() => {
+                handleTrollSubmissionToggle();
+              }}
+            >
+              <AlertTriangle
+                className={cn(
+                  "size-4",
+                  song.isTrollSubmission && "text-destructive",
+                )}
+              />
+              {song.isTrollSubmission
+                ? "Unmark troll submission"
+                : "Mark as troll submission"}
+            </DropdownMenuItem>
+          ) : null}
+          {canAdjustAdminPoints ? (
+            <DropdownMenuItem
+              onSelect={() => {
+                handleAdminVoteAdjustment(1);
+              }}
+            >
+              <ArrowUp className="size-4 text-success" />
+              Add admin point
+            </DropdownMenuItem>
+          ) : null}
+          {canAdjustAdminPoints ? (
+            <DropdownMenuItem
+              onSelect={() => {
+                handleAdminVoteAdjustment(-1);
+              }}
+            >
+              <ArrowDown className="size-4 text-destructive" />
+              Subtract admin point
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   };
 
@@ -591,11 +689,6 @@ export function SubmissionItem({
           {roundStatus === "finished" && voteGroups.length > 0 ? (
             <div className="mt-2">{renderVoteGroups(4)}</div>
           ) : null}
-          {roundStatus === "finished" && canManageLeague ? (
-            <div className="mt-2 flex justify-end">
-              {renderAdminAdjustmentButtonGroup()}
-            </div>
-          ) : null}
           <div
             className="notranslate mt-3 flex items-start justify-between gap-3"
             translate="no"
@@ -603,59 +696,6 @@ export function SubmissionItem({
             <div className="min-w-0 flex-1">{renderSubmitterInfo()}</div>
             <div className="flex items-center gap-0.5">
               {roundStatus === "voting" && renderVoteButtonGroup()}
-              {canMarkTrollSubmissions && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={compactMobileActionButtonClass}
-                        aria-label={
-                          song.isTrollSubmission
-                            ? "Unmark as troll submission"
-                            : "Mark as troll submission"
-                        }
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleTrollSubmissionToggle();
-                        }}
-                      >
-                        <AlertTriangle
-                          className={cn(
-                            compactMobileIconClass,
-                            song.isTrollSubmission && "text-destructive",
-                          )}
-                        />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>
-                        {song.isTrollSubmission
-                          ? "Unmark as troll submission"
-                          : "Mark as troll submission"}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className={compactMobileActionButtonClass}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onBookmark();
-                }}
-                aria-label={song.isBookmarked ? "Remove bookmark" : "Bookmark song"}
-              >
-                <Bookmark
-                  className={cn(
-                    compactMobileIconClass,
-                    song.isBookmarked && "fill-primary text-primary",
-                  )}
-                />
-              </Button>
               <SubmissionCommentComposerButton
                 submissionId={song._id}
                 roundId={song.roundId}
@@ -664,44 +704,10 @@ export function SubmissionItem({
                 size="icon"
                 className={cn(compactMobileActionButtonClass)}
               />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={compactMobileActionButtonClass}
-                    aria-label="More actions"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreHorizontal
-                      className={cn(
-                        compactMobileIconClass,
-                        showMobileOverflowAccent && "text-primary",
-                      )}
-                    />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="w-44"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {roundStatus !== "submissions" &&
-                    song.submissionType === "file" &&
-                    song.songFileUrl && (
-                      <DropdownMenuItem asChild>
-                        <a
-                          href={buildDownloadUrl(song.songFileUrl, song._id)}
-                          download
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Download className="size-4" />
-                          Download audio
-                        </a>
-                      </DropdownMenuItem>
-                    )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {renderActionsMenu({
+                buttonClassName: compactMobileActionButtonClass,
+                iconClassName: compactMobileIconClass,
+              })}
             </div>
           </div>
         </div>
@@ -829,88 +835,12 @@ export function SubmissionItem({
                 </Tooltip>
               </TooltipProvider>
             )}
-            {roundStatus === "finished" && canManageLeague
-              ? renderAdminAdjustmentButtonGroup()
-              : null}
           </div>
           <div
             className="notranslate flex items-center justify-center w-44 gap-1"
             translate="no"
           >
-            {roundStatus === "voting" ? (
-              renderVoteButtonGroup()
-            ) : roundStatus !== "submissions" ? (
-              isLinkSubmission ? (
-                <a
-                  href={song.songLink!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button variant="ghost" size="icon" className="size-8">
-                    <YouTubeIcon className="size-5 text-red-500" />
-                  </Button>
-                </a>
-              ) : song.submissionType === "file" && song.songFileUrl ? (
-                <a
-                  href={buildDownloadUrl(song.songFileUrl, song._id)}
-                  download
-                  onClick={(e) => e.stopPropagation()}
-                  title="Download audio file"
-                >
-                  <Button variant="ghost" size="icon" className="size-8">
-                    <Download className="size-5" />
-                  </Button>
-                </a>
-              ) : null
-            ) : null}
-            {canMarkTrollSubmissions && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTrollSubmissionToggle();
-                      }}
-                    >
-                      <AlertTriangle
-                        className={cn(
-                          "size-5",
-                          song.isTrollSubmission && "text-destructive",
-                        )}
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      {song.isTrollSubmission
-                        ? "Unmark as troll submission"
-                        : "Mark as troll submission"}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={(e) => {
-                e.stopPropagation();
-                onBookmark();
-              }}
-            >
-              <Bookmark
-                className={cn(
-                  "size-5",
-                  song.isBookmarked && "fill-primary text-primary",
-                )}
-              />
-            </Button>
+            {roundStatus === "voting" ? renderVoteButtonGroup() : null}
             <SubmissionCommentComposerButton
               submissionId={song._id}
               roundId={song.roundId}
@@ -919,6 +849,10 @@ export function SubmissionItem({
               size="icon"
               className="size-8"
             />
+            {renderActionsMenu({
+              buttonClassName: "size-8",
+              iconClassName: "size-5",
+            })}
           </div>
         </div>
       </div>

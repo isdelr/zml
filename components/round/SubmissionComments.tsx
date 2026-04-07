@@ -350,11 +350,7 @@ export function SubmissionComments({
     playerActions.seek(time);
   };
 
-  const renderCommentText = (text: string, compact = false) => {
-    if (compact) {
-      return <p className="truncate text-sm text-foreground/80">{text}</p>;
-    }
-
+  const renderCommentText = (text: string) => {
     const timestampRegex = /@(\d{1,2}:\d{2})/g;
     const parts = text.split(timestampRegex);
     return (
@@ -447,7 +443,7 @@ export function SubmissionComments({
                     ) : null}
                   </div>
                   <div className="min-w-0 flex-1">
-                    {renderCommentText(comment.text, !showAllComments)}
+                    {renderCommentText(comment.text)}
                   </div>
                 </div>
               </div>
