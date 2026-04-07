@@ -19,8 +19,8 @@ import { getRoundHeaderStats } from "@/lib/rounds/header-stats";
 import { RoundStatusAlerts } from "./round/RoundStatusAlerts";
 import { FinalVoteConfirmationDialog } from "./round/FinalVoteConfirmationDialog";
 import {
-  getPlaylistFullDurationUnlocks,
-  getTotalPlaylistDurationSeconds,
+  getPlaylistListenUnlocks,
+  getTotalPlaylistRequiredListenSeconds,
 } from "@/lib/music/listen-progress";
 import { getYouTubePlaylistEntries } from "@/lib/music/youtube-queue";
 
@@ -254,23 +254,27 @@ export function RoundDetail({
   );
   const youtubeUnlocks = useMemo(
     () =>
-      getPlaylistFullDurationUnlocks(
+      getPlaylistListenUnlocks(
         youtubeEntries.map((entry) => ({
           submissionIds: entry.submissionIds,
           durationSeconds: entry.durationSec,
         })),
+        league.listenPercentage,
+        league.listenTimeLimitMinutes,
       ),
-    [youtubeEntries],
+    [youtubeEntries, league.listenPercentage, league.listenTimeLimitMinutes],
   );
   const totalYouTubeDurationSec = useMemo(
     () =>
-      getTotalPlaylistDurationSeconds(
+      getTotalPlaylistRequiredListenSeconds(
         youtubeEntries.map((entry) => ({
           submissionIds: entry.submissionIds,
           durationSeconds: entry.durationSec,
         })),
+        league.listenPercentage,
+        league.listenTimeLimitMinutes,
       ),
-    [youtubeEntries],
+    [youtubeEntries, league.listenPercentage, league.listenTimeLimitMinutes],
   );
 
   const handleYouTubePresenceStart = useCallback(() => {

@@ -16,16 +16,16 @@ import { resolveUserAvatarUrl } from "./userAvatar";
 import { getSortedRoundSubmissions } from "../lib/rounds/submission-order";
 import { extractYouTubeVideoId } from "../lib/youtube";
 import { getYouTubePlaylistEntries } from "../lib/music/youtube-queue";
-import { getUnlockedPlaylistSubmissionIdsByFullDuration } from "../lib/music/listen-progress";
+import { getUnlockedPlaylistSubmissionIds } from "../lib/music/listen-progress";
 import { getVotingEligibilityReason } from "../lib/rounds/voting-participation";
 
 const storage = new B2Storage();
 const FINAL_VOTE_CONFIRMATION_REQUIRED_ERROR =
   "Final vote confirmation is required to lock your votes.";
 const FINAL_VOTE_LISTEN_REQUIREMENT_ERROR =
-  "You must listen to the required portion of all submissions before submitting your final vote. For YouTube links, use the Play button to open the link so your listening can be tracked.";
+  "You must finish the required listening for all submissions before submitting your final vote. For YouTube links, use the Play button so your listening can be tracked.";
 const SUBMISSION_LISTEN_REQUIREMENT_ERROR =
-  "You must listen to the required portion of this submission before voting. For YouTube links, use the Play button to open the link so your listening can be tracked.";
+  "You must finish the required listening for this submission before voting. For YouTube links, use the Play button so your listening can be tracked.";
 
 async function canViewLeague(
   ctx: Pick<QueryCtx, "db">,
@@ -119,9 +119,11 @@ async function getUnlockedYouTubePlaylistSubmissionIdSet(
     Math.floor(((session.completedAt ?? now) - session.startedAt) / 1000),
   );
   return new Set(
-    getUnlockedPlaylistSubmissionIdsByFullDuration(
+    getUnlockedPlaylistSubmissionIds(
       playlistEntries,
       elapsedSeconds,
+      league.listenPercentage,
+      league.listenTimeLimitMinutes,
     ).map((submissionId) => submissionId.toString()),
   );
 }

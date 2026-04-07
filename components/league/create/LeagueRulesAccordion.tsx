@@ -189,9 +189,9 @@ export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border bg-card p-4">
                   <div className="space-y-0.5">
-                    <FormLabel>Enforce Listen Duration</FormLabel>
+                    <FormLabel>Enforce Listening Requirement</FormLabel>
                     <FormDescription>
-                      Require participants to listen to a portion of each song before voting.
+                      Require participants to finish each song before voting, unless it exceeds the protection cap.
                     </FormDescription>
                   </div>
                   <FormControl>
@@ -201,32 +201,13 @@ export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
               )}
             />
             {enforceListenPercentage && (
-              <div className="grid grid-cols-1 gap-6 rounded-lg border bg-muted/50 p-4 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="listenPercentage"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Listen Percentage (%)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="e.g., 50"
-                          {...field}
-                          value={(field.value as number) || ""}
-                        />
-                      </FormControl>
-                      <FormDescription>Percentage of song that must be played</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="grid grid-cols-1 gap-6 rounded-lg border bg-muted/50 p-4">
                 <FormField
                   control={form.control}
                   name="listenTimeLimitMinutes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Max Time Limit (Minutes)</FormLabel>
+                      <FormLabel>Protection Time Limit (Minutes)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -236,7 +217,7 @@ export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
                         />
                       </FormControl>
                       <FormDescription>
-                        Maximum time to count towards listen requirement
+                        Songs shorter than this must be fully heard. Longer songs only require listening up to this cap.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

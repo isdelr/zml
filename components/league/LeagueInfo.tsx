@@ -1,6 +1,6 @@
 "use client";
 
-import { AvatarStack } from "@/components/AvatarStack";
+import { AvatarRoster } from "@/components/AvatarRoster";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toSvg } from "jdenticon";
@@ -25,25 +25,7 @@ export function LeagueInfo({ leagueData }: LeagueInfoProps) {
           </Badge>
         )}
       </div>
-      <div className="mt-4 flex flex-col items-start gap-3 text-muted-foreground lg:flex-row lg:items-center lg:gap-6">
-        <div className="flex items-center gap-2">
-          {leagueData.members && <AvatarStack users={leagueData.members} />}
-          <span>
-            {leagueData.activeMemberCount}{" "}
-            {leagueData.activeMemberCount === 1 ? "Member" : "Members"}
-          </span>
-        </div>
-        {leagueData.spectatorCount > 0 && (
-          <div className="flex items-center gap-2">
-            {leagueData.spectators && (
-              <AvatarStack users={leagueData.spectators} />
-            )}
-            <span>
-              {leagueData.spectatorCount}{" "}
-              {leagueData.spectatorCount === 1 ? "Spectator" : "Spectators"}
-            </span>
-          </div>
-        )}
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-muted-foreground">
         <div className="flex items-center gap-2">
           <span>Created by</span>
           <Avatar className="size-6">
@@ -61,6 +43,38 @@ export function LeagueInfo({ leagueData }: LeagueInfoProps) {
           </Avatar>
           <strong className="text-foreground">{leagueData.creatorName}</strong>
         </div>
+      </div>
+      <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+        <section className="rounded-2xl border bg-card/60 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Members
+            </h2>
+            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+              {leagueData.activeMemberCount}
+            </span>
+          </div>
+          <AvatarRoster
+            users={leagueData.members ?? []}
+            avatarClassName="size-8 sm:size-9"
+          />
+        </section>
+        {leagueData.spectatorCount > 0 ? (
+          <section className="rounded-2xl border bg-card/60 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Spectators
+              </h2>
+              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                {leagueData.spectatorCount}
+              </span>
+            </div>
+            <AvatarRoster
+              users={leagueData.spectators ?? []}
+              avatarClassName="size-8 sm:size-9"
+            />
+          </section>
+        ) : null}
       </div>
       {leagueData.description && (
         <p className="mt-6 max-w-xl text-base text-muted-foreground">

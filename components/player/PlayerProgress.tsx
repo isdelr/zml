@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/
 import type { LeagueData } from "@/lib/convex/types";
 import type { Song } from "@/types";
 import {
+  getNormalizedDurationSeconds,
   getRequiredListenTimeSeconds,
 } from "@/lib/music/listen-progress";
 
@@ -54,9 +55,15 @@ export const PlayerProgress = memo(function PlayerProgress({
     return Math.min((listenProgress.progressSeconds / duration) * 100, 100);
   }, [listenProgress, duration]);
 
-  const { requirementLinePercent, requiredListenTimeFormatted } = useMemo(() => {
+  const {
+    requirementLinePercent,
+    requirementTooltipText,
+  } = useMemo(() => {
     if (!showListenRequirement || !duration) {
-      return { requirementLinePercent: 0, requiredListenTimeFormatted: "0:00" };
+      return {
+        requirementLinePercent: 0,
+        requirementTooltipText: "Listen Requirement",
+      };
     }
 
     const requiredListenTimeSeconds = getRequiredListenTimeSeconds(
@@ -64,14 +71,18 @@ export const PlayerProgress = memo(function PlayerProgress({
       leagueData.listenPercentage,
       leagueData.listenTimeLimitMinutes,
     );
+    const normalizedDuration = getNormalizedDurationSeconds(duration);
     const percent =
       duration > 0
         ? (requiredListenTimeSeconds / duration) * 100
         : 0;
-    
+    const capApplies = requiredListenTimeSeconds < normalizedDuration;
+
     return {
       requirementLinePercent: percent,
-      requiredListenTimeFormatted: formatTime(requiredListenTimeSeconds)
+      requirementTooltipText: capApplies
+        ? `Listen requirement: first ${formatTime(requiredListenTimeSeconds)} (protection cap)`
+        : `Listen requirement: full song (${formatTime(requiredListenTimeSeconds)})`,
     };
   }, [showListenRequirement, duration, leagueData]);
 
@@ -109,7 +120,7 @@ export const PlayerProgress = memo(function PlayerProgress({
                     />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Listen Requirement: {requiredListenTimeFormatted} ({leagueData.listenPercentage ?? 100}%)</p>
+                    <p>{requirementTooltipText}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -148,7 +159,7 @@ export const PlayerProgress = memo(function PlayerProgress({
                     />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Listen Requirement: {requiredListenTimeFormatted} ({leagueData.listenPercentage ?? 100}%)</p>
+                    <p>{requirementTooltipText}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

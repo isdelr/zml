@@ -189,7 +189,11 @@ async function markYouTubeSubmissionsCompletedForUser(
     const durationSec = hasFiniteDuration
       ? Math.max(0, Math.floor(submission.duration as number))
       : 180;
-    const requiredListenTime = getNormalizedDurationSeconds(durationSec);
+    const requiredListenTime = getRequiredListenTimeSeconds(
+      durationSec,
+      league.listenPercentage,
+      league.listenTimeLimitMinutes,
+    );
 
     const existing = progressBySubmissionId.get(subId.toString());
 
@@ -443,11 +447,6 @@ export const updateProgress = mutation({
       return null;
     }
 
-    // Handle legacy or partially configured leagues gracefully.
-    // Default to "percentage only" if time limit is missing.
-    const listenPercentage =
-      league.listenPercentage !== undefined ? league.listenPercentage : 100;
-
     // Normalize and clamp reported progress to [0, durationSec] and to integer seconds
     const reported = Math.max(
       0,
@@ -476,7 +475,7 @@ export const updateProgress = mutation({
       const completed = hasCompletedRequiredListenTime(
         existing.progressSeconds,
         durationSec,
-        listenPercentage,
+        league.listenPercentage,
         league.listenTimeLimitMinutes,
       );
       if (completed) {
@@ -507,7 +506,7 @@ export const updateProgress = mutation({
       const completed = hasCompletedRequiredListenTime(
         newProgress,
         durationSec,
-        listenPercentage,
+        league.listenPercentage,
         league.listenTimeLimitMinutes,
       );
 
@@ -530,7 +529,7 @@ export const updateProgress = mutation({
       const completed = hasCompletedRequiredListenTime(
         initialProgress,
         durationSec,
-        listenPercentage,
+        league.listenPercentage,
         league.listenTimeLimitMinutes,
       );
 

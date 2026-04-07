@@ -9,6 +9,7 @@ import {
   normalizeSubmissionArtist,
   normalizeSubmissionSongTitle,
 } from "../lib/convex-server/submissions/normalize";
+import { getRequiredListenTimeSeconds } from "../lib/music/listen-progress";
 
 // Utility: simple random picker
 function pick<T>(arr: T[]): T {
@@ -231,13 +232,21 @@ export const _seedInternal = internalMutation({
 
     for (let i = 0; i < votingSubs.length; i++) {
       const s = votingSubs[i];
-      const progress = i % 2 === 0 ? Math.floor((s.duration ?? 180) * 0.6) : Math.floor((s.duration ?? 180) * 0.2);
+      const required = getRequiredListenTimeSeconds(
+        s.duration ?? 180,
+        100,
+        8,
+      );
+      const progress =
+        i % 2 === 0
+          ? required
+          : Math.max(1, Math.floor(required * 0.2));
       await ctx.db.insert("listenProgress", {
         userId: adminUserId,
         submissionId: s._id,
         roundId: roundVoting,
         progressSeconds: progress,
-        isCompleted: progress >= Math.min((s.duration ?? 180) * 0.5, 8 * 60),
+        isCompleted: progress >= required,
       });
     }
 

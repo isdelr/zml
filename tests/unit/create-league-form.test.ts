@@ -87,18 +87,16 @@ describe("createLeagueFormSchema", () => {
     }
   });
 
-  it("requires listen config when enforceListenPercentage is enabled", () => {
+  it("requires protection time when listening enforcement is enabled", () => {
     const result = createLeagueFormSchema.safeParse({
       ...buildValidLeagueInput(),
       enforceListenPercentage: true,
-      listenPercentage: undefined,
       listenTimeLimitMinutes: undefined,
     });
 
     expect(result.success).toBe(false);
     if (!result.success) {
       const paths = result.error.issues.map((issue) => issue.path.join("."));
-      expect(paths).toContain("listenPercentage");
       expect(paths).toContain("listenTimeLimitMinutes");
     }
   });

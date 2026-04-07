@@ -29,7 +29,7 @@ import {
   openYouTubeUrlWithAppFallback,
 } from "@/lib/music/youtube-playlist-session";
 import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
-import { getTotalPlaylistDurationSeconds } from "@/lib/music/listen-progress";
+import { getTotalPlaylistRequiredListenSeconds } from "@/lib/music/listen-progress";
 
 const PlayerTrackInfo = dynamicImport(() =>
   import("@/components/player/PlayerTrackInfo").then((mod) => ({
@@ -534,21 +534,23 @@ export function MusicPlayer() {
           startSubmissionId,
         },
       );
-      const totalDurationSec = getTotalPlaylistDurationSeconds(
+      const totalDurationSec = getTotalPlaylistRequiredListenSeconds(
         youtubeEntries.map((entry) => ({
           submissionIds: entry.submissionIds,
           durationSeconds: entry.durationSec,
         })),
+        leagueData?.listenPercentage,
+        leagueData?.listenTimeLimitMinutes,
       );
       const url = buildYouTubeWatchVideosUrl(videoIds);
       if (!url) return false;
 
       if (totalDurationSec > 0) {
-        actions.setPresenceSource("youtubePlaylist");
-        void startYouTubePlaylistSession({
-          roundId,
-          durationSec: totalDurationSec,
-        }).catch((error) => {
+      actions.setPresenceSource("youtubePlaylist");
+      void startYouTubePlaylistSession({
+        roundId,
+        durationSec: totalDurationSec,
+      }).catch((error) => {
           console.error("Failed to start YouTube playlist session", error);
         });
       }
@@ -562,6 +564,8 @@ export function MusicPlayer() {
       queue,
       startYouTubePlaylistSession,
       updatePlaylistPresence,
+      leagueData?.listenPercentage,
+      leagueData?.listenTimeLimitMinutes,
     ],
   );
 

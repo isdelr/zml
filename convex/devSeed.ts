@@ -13,6 +13,7 @@ import {
   normalizeSubmissionArtist,
   normalizeSubmissionSongTitle,
 } from "../lib/convex-server/submissions/normalize";
+import { getRequiredListenTimeSeconds } from "../lib/music/listen-progress";
 
 const DEFAULT_NAMESPACE = "dev";
 const MIN_FAKE_USERS = 4;
@@ -349,14 +350,17 @@ async function seedListenProgress(
   },
 ) {
   let created = 0;
-  const listenPct = clamp(args.league.listenPercentage ?? 50, 10, 100) / 100;
   const maxSeconds = Math.max(60, (args.league.listenTimeLimitMinutes ?? 8) * 60);
 
   for (const userId of args.users) {
     const targets = args.submissions.filter((s) => s.userId !== userId);
     for (const submission of targets) {
       const duration = Math.max(30, submission.duration ?? 180);
-      const required = Math.ceil(Math.min(duration * listenPct, maxSeconds));
+      const required = getRequiredListenTimeSeconds(
+        duration,
+        args.league.listenPercentage,
+        args.league.listenTimeLimitMinutes ?? maxSeconds / 60,
+      );
       const completed = Math.random() < args.completionBias;
       const progressSeconds = completed
         ? required
@@ -1318,11 +1322,10 @@ async function simulateNamespaceInternal(
       }
 
       const duration = Math.max(30, target.duration ?? 180);
-      const required = Math.ceil(
-        Math.min(
-          duration * clamp((league.listenPercentage ?? 60) / 100, 0.1, 1),
-          Math.max(60, (league.listenTimeLimitMinutes ?? 8) * 60),
-        ),
+      const required = getRequiredListenTimeSeconds(
+        duration,
+        league.listenPercentage,
+        league.listenTimeLimitMinutes,
       );
       const existingProgress = await ctx.db
         .query("listenProgress")

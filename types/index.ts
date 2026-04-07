@@ -12,6 +12,7 @@ export type Song = {
   albumArtUrl: string | null;
   songFileUrl: string | null;
   songLink: string | null;
+  duration?: number | null;
   submissionType: "file" | "youtube";
   submittedBy?: string;
   submittedByImage?: string | null;

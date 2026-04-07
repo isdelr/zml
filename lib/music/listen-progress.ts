@@ -54,27 +54,18 @@ export function getNormalizedDurationSeconds(durationSeconds: number): number {
 
 export function getRequiredListenTimeSeconds(
   durationSeconds: number,
-  listenPercentage: number | null | undefined,
+  _listenPercentage: number | null | undefined,
   listenTimeLimitMinutes: number | null | undefined,
 ): number {
   const normalizedDurationSeconds = getNormalizedDurationSeconds(durationSeconds);
   if (normalizedDurationSeconds <= 0) return 0;
 
-  const requiredPercentage = Math.max(0, Math.min(100, listenPercentage ?? 100)) / 100;
   const timeLimitSeconds = Math.max(
     0,
     (listenTimeLimitMinutes ?? DEFAULT_TIME_LIMIT_MINUTES) * 60,
   );
 
-  return Math.min(
-    normalizedDurationSeconds,
-    Math.ceil(
-      Math.min(
-        normalizedDurationSeconds * requiredPercentage,
-        timeLimitSeconds,
-      ),
-    ),
-  );
+  return Math.min(normalizedDurationSeconds, Math.ceil(timeLimitSeconds));
 }
 
 export function hasCompletedRequiredListenTime(

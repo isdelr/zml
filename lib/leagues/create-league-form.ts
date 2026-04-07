@@ -68,23 +68,11 @@ export const createLeagueFormSchema = z
     maxPositiveVotesPerSubmission: z.coerce.number().min(1, "Must be at least 1 vote.").optional(),
     maxNegativeVotesPerSubmission: z.coerce.number().min(0, "Cannot be negative.").optional(),
     enforceListenPercentage: z.boolean().default(false),
-    listenPercentage: z.coerce
-      .number()
-      .min(1, "Must be between 1-100%")
-      .max(100, "Must be between 1-100%")
-      .optional(),
     listenTimeLimitMinutes: z.coerce.number().min(1, "Must be at least 1 minute.").optional(),
     rounds: z.array(roundSchema).min(1, "You must add at least one round."),
   })
   .superRefine((data, ctx) => {
     if (data.enforceListenPercentage) {
-      if (data.listenPercentage === undefined || Number.isNaN(data.listenPercentage)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "A percentage is required.",
-          path: ["listenPercentage"],
-        });
-      }
       if (
         data.listenTimeLimitMinutes === undefined ||
         Number.isNaN(data.listenTimeLimitMinutes)

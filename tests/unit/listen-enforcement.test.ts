@@ -18,19 +18,19 @@ describe("listen enforcement helpers", () => {
     expect(clampSeekTargetToAllowedProgress(40, 60, 120)).toBe(40);
   });
 
-  it("computes required listen time with percentage and time limit", () => {
-    expect(getRequiredListenTimeSeconds(300, 50, 10)).toBe(150);
+  it("computes required listen time as full duration capped by the protection limit", () => {
+    expect(getRequiredListenTimeSeconds(300, 50, 10)).toBe(300);
     expect(getRequiredListenTimeSeconds(1200, 100, 5)).toBe(300);
   });
 
   it("marks completion when listened time crosses threshold", () => {
-    expect(shouldMarkListenCompleted(151, 300, 50, 10)).toBe(true);
-    expect(shouldMarkListenCompleted(140, 300, 50, 10)).toBe(false);
+    expect(shouldMarkListenCompleted(300, 300, 50, 10)).toBe(true);
+    expect(shouldMarkListenCompleted(299, 300, 50, 10)).toBe(false);
   });
 
   it("waits for the authoritative rounded-up second at fractional boundaries", () => {
-    expect(getRequiredListenTimeSeconds(241.9, 50, 10)).toBe(121);
-    expect(shouldMarkListenCompleted(120.9, 241.9, 50, 10)).toBe(false);
-    expect(shouldMarkListenCompleted(121, 241.9, 50, 10)).toBe(true);
+    expect(getRequiredListenTimeSeconds(241.9, 50, 10)).toBe(241);
+    expect(shouldMarkListenCompleted(240, 241.9, 50, 10)).toBe(false);
+    expect(shouldMarkListenCompleted(241, 241.9, 50, 10)).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { AvatarStack } from "@/components/AvatarStack";
+import { AvatarRoster } from "@/components/AvatarRoster";
 
 type Participant = {
   _id?: string;
@@ -23,17 +23,22 @@ export function RoundParticipationSummary({
   }
 
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+    <div className="grid gap-3 lg:grid-cols-2">
       {groups.map((group) => (
-        <div key={group.label} className="flex items-center gap-3">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            {group.label}
-            <span className="ml-1 text-[10px] tracking-[0.08em]">
-              ({group.users.length})
+        <div
+          key={group.label}
+          className="rounded-xl border bg-card/70 p-3"
+        >
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              {group.label}
             </span>
-          </span>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+              {group.users.length}
+            </span>
+          </div>
           {group.users.length > 0 ? (
-            <AvatarStack users={group.users} />
+            <AvatarRoster users={group.users} />
           ) : (
             <span className="text-sm text-muted-foreground">None</span>
           )}

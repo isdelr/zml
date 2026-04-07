@@ -31,6 +31,7 @@ import { buildSubmissionAudioDownloadPath } from "@/lib/media/delivery";
 import { Song } from "@/types";
 import type { LeagueData } from "@/lib/convex/types";
 import { AvatarStack } from "../AvatarStack";
+import { AvatarRoster } from "../AvatarRoster";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { toErrorMessage } from "@/lib/errors";
@@ -48,6 +49,10 @@ import {
   formatVoteScore,
   groupVoteSummaryDetailsByScore,
 } from "@/lib/rounds/vote-summary-display";
+import {
+  getNormalizedDurationSeconds,
+  getRequiredListenTimeSeconds,
+} from "@/lib/music/listen-progress";
 import {
   SubmissionCommentComposerButton,
   SubmissionComments,
@@ -327,6 +332,33 @@ export function SubmissionItem({
     (listener) => listener._id !== currentUser?._id,
   );
   const votingRestrictionCopy = getVotingRestrictionCopy(votingEligibilityReason);
+  const listenRequirementCopy = useMemo(() => {
+    const durationSeconds = getNormalizedDurationSeconds(song.duration ?? 0);
+    if (durationSeconds <= 0) {
+      return "You must fully listen to this song before voting.";
+    }
+
+    const requiredListenSeconds = getRequiredListenTimeSeconds(
+      durationSeconds,
+      league.listenPercentage,
+      league.listenTimeLimitMinutes,
+    );
+    if (requiredListenSeconds < durationSeconds) {
+      const wholeMinutes = Math.floor(requiredListenSeconds / 60);
+      const remainderSeconds = requiredListenSeconds % 60;
+      const durationLabel =
+        remainderSeconds === 0
+          ? `${wholeMinutes} minute${wholeMinutes === 1 ? "" : "s"}`
+          : `${wholeMinutes}:${remainderSeconds.toString().padStart(2, "0")}`;
+      return `You must listen to the first ${durationLabel} of this song before voting.`;
+    }
+
+    return "You must fully listen to this song before voting.";
+  }, [
+    league.listenPercentage,
+    league.listenTimeLimitMinutes,
+    song.duration,
+  ]);
 
   const isListenRequirementMetForThisSong = useMemo(() => {
     if (song.isTrollSubmission) return true;
@@ -384,7 +416,7 @@ export function SubmissionItem({
         ["file", "youtube"].includes(song.submissionType) &&
         !isListenRequirementMetForThisSong
       ) {
-        return `You must listen to ${league.listenPercentage}% of this song to vote.`;
+        return listenRequirementCopy;
       }
     }
 
@@ -398,6 +430,7 @@ export function SubmissionItem({
     currentVoteValue,
     song,
     isListenRequirementMetForThisSong,
+    listenRequirementCopy,
     votingRestrictionCopy,
   ]);
 
@@ -422,7 +455,7 @@ export function SubmissionItem({
         ["file", "youtube"].includes(song.submissionType) &&
         !isListenRequirementMetForThisSong
       ) {
-        return `You must listen to ${league.listenPercentage}% of this song to vote.`;
+        return listenRequirementCopy;
       }
     }
 
@@ -436,6 +469,7 @@ export function SubmissionItem({
     currentVoteValue,
     song,
     isListenRequirementMetForThisSong,
+    listenRequirementCopy,
     votingRestrictionCopy,
   ]);
 
@@ -509,22 +543,19 @@ export function SubmissionItem({
       </div>
     );
 
-  const renderVoteGroups = (maxAvatars: number) => {
+  const renderVoteGroups = () => {
     if (roundStatus !== "finished" || voteGroups.length === 0) return null;
 
     return (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         {voteGroups.map((group) => (
-          <div key={group.score} className="flex items-center gap-2">
-            <AvatarStack
-              users={group.users}
-              max={maxAvatars}
-              avatarClassName="size-6 border"
-              overflowClassName="size-5 text-[10px]"
-            />
+          <div
+            key={group.score}
+            className="flex max-w-full items-center gap-2 rounded-full border bg-muted/40 px-2 py-1"
+          >
             <span
               className={cn(
-                "text-sm font-semibold tabular-nums",
+                "shrink-0 text-sm font-semibold tabular-nums",
                 group.score > 0
                   ? "text-success"
                   : group.score < 0
@@ -534,6 +565,10 @@ export function SubmissionItem({
             >
               {formatVoteScore(group.score)}
             </span>
+            <AvatarRoster
+              users={group.users}
+              avatarClassName="size-6"
+            />
           </div>
         ))}
       </div>
@@ -690,7 +725,7 @@ export function SubmissionItem({
             ) : null}
           </div>
           {roundStatus === "finished" && voteGroups.length > 0 ? (
-            <div className="mt-2">{renderVoteGroups(4)}</div>
+            <div className="mt-2">{renderVoteGroups()}</div>
           ) : null}
           <div
             className="notranslate mt-3 flex items-start justify-between gap-3"
@@ -815,7 +850,7 @@ export function SubmissionItem({
           </div>
           <div className="min-w-0">{renderSubmitterInfo()}</div>
           {roundStatus === "finished" ? (
-            <div className="min-w-0">{renderVoteGroups(6)}</div>
+            <div className="min-w-0">{renderVoteGroups()}</div>
           ) : null}
           <div
             className={cn(
