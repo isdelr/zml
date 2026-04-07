@@ -50,7 +50,7 @@ export function LeagueInfo({ leagueData }: LeagueInfoProps) {
         </div>
       </div>
       <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
-        <section className="rounded-2xl border bg-card/60 p-4">
+        <section className="rounded-2xl border border-border/35 bg-background/35 p-4 backdrop-blur-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold text-muted-foreground">
               Members
@@ -61,12 +61,11 @@ export function LeagueInfo({ leagueData }: LeagueInfoProps) {
           </div>
           <AvatarRoster
             users={leagueData.members ?? []}
-            variant="ghost"
             avatarClassName="size-8 sm:size-9"
           />
         </section>
         {leagueData.spectatorCount > 0 ? (
-          <section className="rounded-2xl border bg-card/60 p-4">
+          <section className="rounded-2xl border border-border/35 bg-background/35 p-4 backdrop-blur-sm">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold text-muted-foreground">
                 Spectators
@@ -77,7 +76,6 @@ export function LeagueInfo({ leagueData }: LeagueInfoProps) {
             </div>
             <AvatarRoster
               users={leagueData.spectators ?? []}
-              variant="ghost"
               avatarClassName="size-8 sm:size-9"
             />
           </section>

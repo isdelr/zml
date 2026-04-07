@@ -27,7 +27,7 @@ export function RoundParticipationSummary({
       {groups.map((group) => (
         <div
           key={group.label}
-          className="rounded-xl border bg-card/70 p-3"
+          className="rounded-xl border border-border/35 bg-background/35 p-3 backdrop-blur-sm"
         >
           <div className="mb-2 flex items-center justify-between gap-3">
             <span className="text-sm font-semibold text-muted-foreground">
@@ -38,7 +38,7 @@ export function RoundParticipationSummary({
             </span>
           </div>
           {group.users.length > 0 ? (
-            <AvatarRoster users={group.users} variant="ghost" />
+            <AvatarRoster users={group.users} />
           ) : (
             <span className="text-sm text-muted-foreground">None</span>
           )}
