@@ -1,9 +1,8 @@
 "use node";
 
 import { v } from "convex/values";
-import { action, internalAction } from "./_generated/server";
+import { internalAction } from "./_generated/server";
 import type { ActionCtx } from "./_generated/server";
-import { getAuthUserId } from "./authCore";
 import { components, internal } from "./_generated/api";
 import { B2Storage } from "./b2Storage";
 import type { Id } from "./_generated/dataModel";
@@ -331,24 +330,6 @@ async function syncCachedAvatarForUserId(
 
   return true;
 }
-
-export const syncCachedAvatar = action({
-  args: {
-    force: v.optional(v.boolean()),
-  },
-  returns: v.object({ updated: v.boolean() }),
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return { updated: false };
-    }
-
-    const updated = await syncCachedAvatarForUserId(ctx, userId, {
-      force: args.force ?? false,
-    });
-    return { updated };
-  },
-});
 
 export const syncCachedAvatarForUser = internalAction({
   args: {
