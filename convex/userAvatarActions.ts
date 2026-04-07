@@ -333,15 +333,19 @@ async function syncCachedAvatarForUserId(
 }
 
 export const syncCachedAvatar = action({
-  args: {},
+  args: {
+    force: v.optional(v.boolean()),
+  },
   returns: v.object({ updated: v.boolean() }),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       return { updated: false };
     }
 
-    const updated = await syncCachedAvatarForUserId(ctx, userId);
+    const updated = await syncCachedAvatarForUserId(ctx, userId, {
+      force: args.force ?? false,
+    });
     return { updated };
   },
 });
