@@ -34,8 +34,11 @@ function resolveDiscordAvatarUrl(profile: DiscordProfile) {
         : Number.parseInt(profile.discriminator, 10) % 5;
     return `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNumber}.png`;
   }
-  const format = profile.avatar.startsWith("a_") ? "gif" : "png";
-  return `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.${format}`;
+  if (profile.avatar.startsWith("a_")) {
+    return `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.webp?size=256&animated=true`;
+  }
+
+  return `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png?size=256`;
 }
 
 async function assertDiscordGuildMembership(accessToken: string) {
@@ -44,7 +47,7 @@ async function assertDiscordGuildMembership(accessToken: string) {
     throw new Error("DISCORD_SERVER_ID is required and must include at least one server.");
   }
 
-  const guildsResponse = await fetch("https://discord.com/api/users/@me/guilds", {
+  const guildsResponse = await fetch("https://discord.com/api/v10/users/@me/guilds", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!guildsResponse.ok) {
@@ -72,7 +75,7 @@ export async function getDiscordUserInfo(token: OAuth2Tokens) {
 
     await assertDiscordGuildMembership(token.accessToken);
 
-    const profileResponse = await fetch("https://discord.com/api/users/@me", {
+    const profileResponse = await fetch("https://discord.com/api/v10/users/@me", {
       headers: { Authorization: `Bearer ${token.accessToken}` },
     });
     if (!profileResponse.ok) {

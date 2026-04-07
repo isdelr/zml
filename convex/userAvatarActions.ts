@@ -56,8 +56,11 @@ function resolveDiscordAvatarUrlFromProfile(profile: DiscordProfile): string {
         : Number.parseInt(profile.discriminator, 10) % 5;
     return `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNumber}.png`;
   }
-  const format = profile.avatar.startsWith("a_") ? "gif" : "png";
-  return `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.${format}?size=256`;
+  if (profile.avatar.startsWith("a_")) {
+    return `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.webp?size=256&animated=true`;
+  }
+
+  return `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png?size=256`;
 }
 
 async function resolveFreshDiscordAvatarUrlFromOAuthAccount(
@@ -90,7 +93,7 @@ async function resolveFreshDiscordAvatarUrlFromOAuthAccount(
     return null;
   }
 
-  const response = await fetch("https://discord.com/api/users/@me", {
+  const response = await fetch("https://discord.com/api/v10/users/@me", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
