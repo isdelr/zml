@@ -28,10 +28,14 @@ import { B2Storage } from "./b2Storage";
 import { resolveUserAvatarUrl } from "./userAvatar";
 import { getSubmissionFileProcessingStatus } from "../lib/submission/file-processing";
 import {
+  buildExtensionPollReminderMessage,
+  buildExtensionPollReminderSource,
+  buildExtensionPollReminderTitle,
   buildRoundDeadlineReminderMessage,
   buildRoundDeadlineReminderSource,
   buildRoundDeadlineReminderTitle,
   getRoundDeadlineReminderCandidates,
+  shouldIncludeExtensionPollReminder,
 } from "../lib/rounds/deadline-reminders";
 import {
   getPendingRoundParticipantIds,
@@ -62,6 +66,17 @@ type DeadlineReminderContext = {
   roundTitle: string;
   status: "scheduled" | "submissions" | "voting" | "finished";
   submissionStartsAt: number;
+  submissionDeadline: number;
+  votingDeadline: number;
+  targetUserIds: Id<"users">[];
+};
+
+type ExtensionPollReminderContext = {
+  pollId: Id<"extensionPolls">;
+  roundId: Id<"rounds">;
+  leagueId: Id<"leagues">;
+  leagueName: string;
+  roundTitle: string;
   submissionDeadline: number;
   votingDeadline: number;
   targetUserIds: Id<"users">[];
@@ -1485,18 +1500,24 @@ export const transitionDueRounds = internalAction({
         now,
       },
     );
+    const extensionPollReminderContexts: ExtensionPollReminderContext[] =
+      await ctx.runQuery(internal.extensionPolls.getReminderContexts, {
+        now,
+      });
 
     const deadlineReminderDispatches: {
       source: string;
       leagueId: Id<"leagues">;
       roundId: Id<"rounds">;
       roundStatus: "submissions" | "voting";
+      notificationType: "round_submission" | "round_voting" | "round_extension_poll";
+      reminderKind: "deadline" | "extension_poll";
       message: string;
       deadlineMs: number;
       targetUserIds: Id<"users">[];
     }[] = [];
 
-    const notificationsToCreate = deadlineReminderContexts.flatMap((context: DeadlineReminderContext) => {
+    const roundNotificationsToCreate = deadlineReminderContexts.flatMap((context: DeadlineReminderContext) => {
       const status = context.status;
       if (status !== "submissions" && status !== "voting") {
         return [];
@@ -1532,6 +1553,9 @@ export const transitionDueRounds = internalAction({
           leagueId: context.leagueId,
           roundId: context.roundId,
           roundStatus: status,
+          notificationType:
+            status === "submissions" ? "round_submission" : "round_voting",
+          reminderKind: "deadline",
           message,
           deadlineMs: candidate.deadline,
           targetUserIds: [...context.targetUserIds],
@@ -1555,6 +1579,66 @@ export const transitionDueRounds = internalAction({
         }));
       });
     });
+    const extensionPollNotificationsToCreate = extensionPollReminderContexts.flatMap(
+      (context: ExtensionPollReminderContext) => {
+        const reminderCandidates = getRoundDeadlineReminderCandidates(
+          {
+            status: "voting",
+            submissionStartsAt: context.submissionDeadline,
+            submissionDeadline: context.submissionDeadline,
+            votingDeadline: context.votingDeadline,
+          },
+          now,
+        ).filter((candidate) =>
+          shouldIncludeExtensionPollReminder(candidate.window.key),
+        );
+
+        return reminderCandidates.flatMap((candidate) => {
+          const message = buildExtensionPollReminderMessage({
+            roundTitle: context.roundTitle,
+            leagueName: context.leagueName,
+            label: candidate.window.label,
+          });
+          const source = buildExtensionPollReminderSource({
+            pollId: context.pollId.toString(),
+            deadline: candidate.deadline,
+            windowKey: candidate.window.key,
+          });
+
+          deadlineReminderDispatches.push({
+            source,
+            leagueId: context.leagueId,
+            roundId: context.roundId,
+            roundStatus: "voting",
+            notificationType: "round_extension_poll",
+            reminderKind: "extension_poll",
+            message,
+            deadlineMs: candidate.deadline,
+            targetUserIds: [...context.targetUserIds],
+          });
+
+          return context.targetUserIds.map((userId: Id<"users">) => ({
+            userId,
+            type: "round_extension_poll" as const,
+            message,
+            link: `/leagues/${context.leagueId}/round/${context.roundId}`,
+            metadata: {
+              source,
+            },
+            pushNotificationOverride: {
+              title: buildExtensionPollReminderTitle({
+                label: candidate.window.label,
+              }),
+              body: message,
+            },
+          }));
+        });
+      },
+    );
+    const notificationsToCreate = [
+      ...roundNotificationsToCreate,
+      ...extensionPollNotificationsToCreate,
+    ];
 
     if (notificationsToCreate.length > 0) {
       const createdNotifications: {
@@ -1590,13 +1674,9 @@ export const transitionDueRounds = internalAction({
       );
 
       for (const dispatch of deadlineReminderDispatches) {
-        const notificationType =
-          dispatch.roundStatus === "submissions"
-            ? "round_submission"
-            : "round_voting";
         const targetUserIds = dispatch.targetUserIds.filter((userId) =>
           createdNotificationKeys.has(
-            `${userId}:${notificationType}:${dispatch.source}`,
+            `${userId}:${dispatch.notificationType}:${dispatch.source}`,
           ),
         );
         if (targetUserIds.length === 0) {
@@ -1607,7 +1687,7 @@ export const transitionDueRounds = internalAction({
           leagueId: dispatch.leagueId,
           roundId: dispatch.roundId,
           roundStatus: dispatch.roundStatus,
-          reminderKind: "deadline",
+          reminderKind: dispatch.reminderKind,
           message: dispatch.message,
           deadlineMs: dispatch.deadlineMs,
           source: dispatch.source,

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildExtensionPollReminderMessage,
+  buildExtensionPollReminderSource,
+  buildExtensionPollReminderTitle,
   buildRoundDeadlineReminderMessage,
   buildRoundDeadlineReminderSource,
   buildRoundDeadlineReminderTitle,
   getRoundDeadlineReminderCandidates,
+  shouldIncludeExtensionPollReminder,
 } from "@/lib/rounds/deadline-reminders";
 
 describe("round deadline reminders", () => {
@@ -192,5 +196,29 @@ describe("round deadline reminders", () => {
         windowKey: "10pct",
       }),
     ).toBe("round-deadline:round-9:voting:10pct:123");
+    expect(shouldIncludeExtensionPollReminder("10pct")).toBe(true);
+    expect(shouldIncludeExtensionPollReminder("1pct")).toBe(true);
+    expect(shouldIncludeExtensionPollReminder("5pct")).toBe(false);
+    expect(
+      buildExtensionPollReminderMessage({
+        roundTitle: "Synth Showdown",
+        leagueName: "Night Owls",
+        label: "2 hours",
+      }),
+    ).toBe(
+      'Extension poll closes in 2 hours for "Synth Showdown" in "Night Owls". Vote in the app.',
+    );
+    expect(
+      buildExtensionPollReminderTitle({
+        label: "2 hours",
+      }),
+    ).toBe("Extension poll closes in 2 hours");
+    expect(
+      buildExtensionPollReminderSource({
+        pollId: "poll-9",
+        deadline: 123,
+        windowKey: "10pct",
+      }),
+    ).toBe("extension-poll-deadline:poll-9:10pct:123");
   });
 });

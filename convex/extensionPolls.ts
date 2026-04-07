@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import {
   internalMutation,
+  internalQuery,
   mutation,
   query,
   type MutationCtx,
@@ -656,6 +657,65 @@ export const resolveDuePolls = internalMutation({
     for (const poll of duePolls) {
       await resolvePoll(ctx, poll, args.now);
     }
+  },
+});
+
+export const getReminderContexts = internalQuery({
+  args: { now: v.number() },
+  handler: async (ctx, args) => {
+    const openPolls = await ctx.db
+      .query("extensionPolls")
+      .withIndex("by_status_and_resolves_at", (q) =>
+        q.eq("status", "open").gt("resolvesAt", args.now),
+      )
+      .collect();
+    if (openPolls.length === 0) {
+      return [];
+    }
+
+    const [rounds, leagues, votesByPoll] = await Promise.all([
+      Promise.all(openPolls.map((poll) => ctx.db.get("rounds", poll.roundId))),
+      Promise.all(openPolls.map((poll) => ctx.db.get("leagues", poll.leagueId))),
+      Promise.all(
+        openPolls.map((poll) =>
+          ctx.db
+            .query("extensionPollVotes")
+            .withIndex("by_poll", (q) => q.eq("pollId", poll._id))
+            .collect(),
+        ),
+      ),
+    ]);
+
+    return openPolls.flatMap((poll, index) => {
+      const round = rounds[index];
+      const league = leagues[index];
+      if (!round || round.status !== "voting" || !league) {
+        return [];
+      }
+
+      const votedUserIds = new Set(
+        votesByPoll[index].map((vote) => vote.voterUserId.toString()),
+      );
+      const targetUserIds = poll.eligibleVoterIds.filter(
+        (userId) => !votedUserIds.has(userId.toString()),
+      );
+      if (targetUserIds.length === 0) {
+        return [];
+      }
+
+      return [
+        {
+          pollId: poll._id,
+          roundId: round._id,
+          leagueId: league._id,
+          leagueName: league.name,
+          roundTitle: round.title,
+          submissionDeadline: round.submissionDeadline,
+          votingDeadline: round.votingDeadline,
+          targetUserIds,
+        },
+      ];
+    });
   },
 });
 

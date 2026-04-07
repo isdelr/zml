@@ -57,6 +57,10 @@ export type RoundDeadlineReminderCandidate = {
   type: "round_submission" | "round_voting";
 };
 
+const EXTENSION_POLL_REMINDER_WINDOW_KEYS = new Set<
+  RoundDeadlineReminderWindow["key"]
+>(["10pct", "1pct"]);
+
 function formatUnit(value: number, unit: "day" | "hour" | "minute"): string {
   return `${value} ${unit}${value === 1 ? "" : "s"}`;
 }
@@ -114,6 +118,12 @@ function shouldIncludeVotingExtensionPrompt(
     windowKey === "5pct" ||
     windowKey === "1pct"
   );
+}
+
+export function shouldIncludeExtensionPollReminder(
+  windowKey: RoundDeadlineReminderWindow["key"],
+): boolean {
+  return EXTENSION_POLL_REMINDER_WINDOW_KEYS.has(windowKey);
 }
 
 export function getActiveRoundDeadline<T extends ActiveRoundReminderShape>(
@@ -228,4 +238,31 @@ export function buildRoundDeadlineReminderTitle(args: {
   }
 
   return `Voting deadline in ${args.label}`;
+}
+
+export function buildExtensionPollReminderSource(args: {
+  pollId: string;
+  deadline: number;
+  windowKey: RoundDeadlineReminderWindow["key"];
+}): string {
+  return [
+    "extension-poll-deadline",
+    args.pollId,
+    args.windowKey,
+    args.deadline,
+  ].join(":");
+}
+
+export function buildExtensionPollReminderMessage(args: {
+  roundTitle: string;
+  leagueName: string;
+  label: string;
+}): string {
+  return `Extension poll closes in ${args.label} for "${args.roundTitle}" in "${args.leagueName}". Vote in the app.`;
+}
+
+export function buildExtensionPollReminderTitle(args: {
+  label: string;
+}): string {
+  return `Extension poll closes in ${args.label}`;
 }
