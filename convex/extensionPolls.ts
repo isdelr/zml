@@ -563,7 +563,7 @@ export const create = mutation({
         roundStatus: "voting",
         notificationType: "round_extension_poll",
         discordNotificationKind: "extension_poll",
-        message: `An anonymous extension poll is open for "${round.title}" in "${league.name}". Reason: ${trimmedReason} At least 50% of eligible voters must respond for the result to count.`,
+        message: `An extension poll is open for "${round.title}" in "${league.name}". Reason: ${trimmedReason}.`,
         link: `/leagues/${round.leagueId}/round/${round._id}`,
         deadlineMs: round.votingDeadline,
         targetUserIds: requestContext.finalizedVoterIds.map(
@@ -574,7 +574,7 @@ export const create = mutation({
         },
         pushNotificationOverride: {
           title: "Extension Poll Open",
-          body: `An anonymous voter requested more time in "${round.title}". At least 50% turnout is required.`,
+          body: `An extension poll is open for "${round.title}".`,
         },
       },
     );

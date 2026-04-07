@@ -1,11 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation } from "convex/react";
-import { format, formatDistanceToNowStrict } from "date-fns";
 import {
   CheckCircle2,
-  Clock3,
   LockKeyhole,
   MessageSquareQuote,
   TimerReset,
@@ -18,7 +16,6 @@ import { api } from "@/lib/convex/api";
 import type { FunctionReturnType } from "convex/server";
 import { toErrorMessage } from "@/lib/errors";
 import { Id } from "@/convex/_generated/dataModel";
-import { formatDeadline } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -48,6 +45,7 @@ type ExtensionPollState = FunctionReturnType<typeof api.extensionPolls.getForRou
 
 function getRequestEligibilityCopy(
   reason: NonNullable<ExtensionPollState>["request"]["eligibilityReason"],
+  requestWindowLabel: string,
 ) {
   switch (reason) {
     case "already_used_limit":
@@ -56,6 +54,14 @@ function getRequestEligibilityCopy(
       return "Only participants who are still voting can request more time.";
     case "no_eligible_voters":
       return "An extension poll needs at least one completed voter before it can open.";
+    case "outside_window":
+      return `Extension requests only open during the last ${requestWindowLabel} of voting.`;
+    case "round_not_voting":
+      return "Extension requests are only available while voting is open.";
+    case "not_authenticated":
+    case "not_member":
+    case "spectator":
+      return "This panel is visible to everyone, but only active league participants can request an extension.";
     default:
       return null;
   }
@@ -66,62 +72,39 @@ function getPollStatusCopy(
 ) {
   if (poll.status === "open") {
     return {
-      badge: "Open",
-      badgeClassName: "border-primary/30 bg-primary/10 text-primary",
-      title: "Anonymous extension request",
-      description:
-        "Only voters who had already finalized their ballot when this poll opened can respond.",
+      title: "Extension Request",
+      description: "An anonymous extension poll is currently open for this round.",
     };
   }
 
   switch (poll.result) {
     case "approved":
       return {
-        badge: "Approved",
-        badgeClassName: "border-success/30 bg-success/10 text-success",
         title: "Extension approved",
-        description: "Yes won. Voting was extended by 24 hours.",
+        description: "Voting was extended by 24 hours.",
       };
     case "tie":
       return {
-        badge: "Tie",
-        badgeClassName: "border-warning/30 bg-warning/10 text-warning",
         title: "Extension tied",
         description: "The poll tied, so voting was extended by 8 hours.",
       };
     case "rejected":
       return {
-        badge: "No Extension",
-        badgeClassName: "border-destructive/30 bg-destructive/10 text-destructive",
         title: "Extension rejected",
-        description: "No won. The voting deadline stayed the same.",
+        description: "The voting deadline stayed the same.",
       };
     case "insufficient_turnout":
       return {
-        badge: "Turnout Too Low",
-        badgeClassName: "border-warning/30 bg-warning/10 text-warning",
         title: "Extension poll invalid",
         description:
           "Fewer than 50% of eligible voters participated, so no result was applied.",
       };
     default:
       return {
-        badge: "Closed",
-        badgeClassName: "border-muted-foreground/30 bg-muted/40 text-muted-foreground",
         title: "Extension poll closed",
         description: "Voting ended before an extension needed to be applied.",
       };
   }
-}
-
-function formatExtensionLabel(extensionMs: number) {
-  if (extensionMs === 24 * 60 * 60 * 1000) {
-    return "24 hours";
-  }
-  if (extensionMs === 8 * 60 * 60 * 1000) {
-    return "8 hours";
-  }
-  return `${Math.round(extensionMs / (60 * 60 * 1000))} hours`;
 }
 
 interface ExtensionPollPanelProps {
@@ -148,24 +131,17 @@ export function ExtensionPollPanel({
     EXTENSION_REASON_MIN_LENGTH - trimmedReason.length,
   );
 
-  const helperCopy = useMemo(() => {
-    if (!state || state.poll) {
-      return null;
-    }
-    return getRequestEligibilityCopy(state.request.eligibilityReason);
-  }, [state]);
-
   if (!state) {
     return null;
   }
 
   const { poll, request } = state;
-  if (!poll && !request.canRequest && !helperCopy) {
-    return null;
-  }
   const requestWindowLabel = formatExtensionPollRequestWindowLabel(
     request.requestWindowMs,
   );
+  const helperCopy = !poll
+    ? getRequestEligibilityCopy(request.eligibilityReason, requestWindowLabel)
+    : null;
   const minimumTurnout = getExtensionPollMinimumTurnout(
     poll?.eligibleVoterCount ?? request.eligibleVoterCount,
   );
@@ -223,28 +199,27 @@ export function ExtensionPollPanel({
             </div>
             <CardTitle className="flex items-center gap-2 text-lg">
               <TimerReset className="size-5 text-primary" />
-              Need more time to finish voting?
+              Extension Request
             </CardTitle>
-            <CardDescription>
-              Open an anonymous poll. People who had already finished voting
-              when it opens will decide whether this round gets +24h, +8h on a
-              tie, or no extension. This stays available during the last{" "}
-              {requestWindowLabel} of voting. At least 50% of eligible voters must
-              respond for the result to count.
-            </CardDescription>
+            <CardDescription>Rules</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p>
-                {request.canRequest
-                  ? `The poll electorate snapshots ${request.eligibleVoterCount} completed voter${request.eligibleVoterCount === 1 ? "" : "s"} right away, and at least ${minimumTurnout} vote${minimumTurnout === 1 ? "" : "s"} must come in for the result to count.`
-                  : helperCopy}
-              </p>
-              <p>
-                Opening a poll uses one of your 2 league-wide extension requests
-                even if it fails, and each round only gets one extension poll.
-              </p>
-            </div>
+            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              <li>Available during the last {requestWindowLabel} of voting.</li>
+              <li>
+                The voter list is snapshotted when the poll opens.
+              </li>
+              <li>
+                At least {minimumTurnout} of {request.eligibleVoterCount} eligible
+                voter{request.eligibleVoterCount === 1 ? "" : "s"} must respond.
+              </li>
+              <li>
+                Opening a poll uses 1 of your 2 league-wide requests, even if it
+                fails.
+              </li>
+              <li>Each round only gets 1 extension poll.</li>
+              {!request.canRequest && helperCopy ? <li>{helperCopy}</li> : null}
+            </ul>
             {request.canRequest ? (
               <Button onClick={() => setIsDialogOpen(true)}>
                 Request Extension
@@ -264,20 +239,6 @@ export function ExtensionPollPanel({
             </DialogHeader>
 
             <div className="space-y-3">
-              <div className="rounded-lg border border-border/70 bg-muted/30 p-3 text-sm text-muted-foreground">
-                <p>Yes wins: +24 hours</p>
-                <p>Tie: +8 hours</p>
-                <p>No wins: no extension</p>
-                <p>
-                  Minimum turnout: {minimumTurnout} of {request.eligibleVoterCount}{" "}
-                  eligible voter{request.eligibleVoterCount === 1 ? "" : "s"}
-                </p>
-                <p>
-                  Opening this poll uses one of your 2 league-wide requests even
-                  if it fails. This round will not get a second extension poll.
-                </p>
-              </div>
-
               <div className="space-y-2">
                 <label
                   htmlFor="extension-reason"
@@ -338,32 +299,12 @@ export function ExtensionPollPanel({
 
   const statusCopy = getPollStatusCopy(poll);
   const isOpen = poll.status === "open";
-  const resultLine =
-    poll.appliedExtensionMs > 0
-      ? `Applied extension: ${formatExtensionLabel(poll.appliedExtensionMs)}`
-      : poll.status === "resolved"
-        ? "No extension was applied."
-        : `Yes wins: +24h, tie: +8h, no wins: no change. At least ${minimumTurnout} anonymous vote${minimumTurnout === 1 ? "" : "s"} are required for the result to count.`;
+  const canCurrentUserVote =
+    isOpen && poll.currentUserEligibleToVote && poll.currentUserVote === null;
 
   return (
     <Card className="border-border/80 bg-background/95">
       <CardHeader className="gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge className={statusCopy.badgeClassName}>{statusCopy.badge}</Badge>
-          <Badge variant="outline">
-            {poll.totalVotes}/{poll.eligibleVoterCount} anonymous vote
-            {poll.eligibleVoterCount === 1 ? "" : "s"}
-          </Badge>
-          <Badge variant="outline">
-            50% turnout: {minimumTurnout}/{poll.eligibleVoterCount}
-          </Badge>
-          {poll.status === "open" ? (
-            <Badge variant="outline" className="gap-1">
-              <Clock3 className="size-3.5" />
-              Closes {formatDistanceToNowStrict(poll.resolvesAt, { addSuffix: true })}
-            </Badge>
-          ) : null}
-        </div>
         <CardTitle className="text-lg">{statusCopy.title}</CardTitle>
         <CardDescription>{statusCopy.description}</CardDescription>
       </CardHeader>
@@ -372,50 +313,16 @@ export function ExtensionPollPanel({
         <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
           <div className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
             <MessageSquareQuote className="size-4" />
-            Reason shown to voters
+            Reason
           </div>
           <p className="text-sm leading-6 text-foreground">{poll.reason}</p>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg border border-success/20 bg-success/5 p-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-success">
-              Grant
-            </div>
-            <div className="mt-1 text-2xl font-semibold text-foreground">
-              {poll.yesVotes}
-            </div>
-          </div>
-          <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-destructive">
-              No Extension
-            </div>
-            <div className="mt-1 text-2xl font-semibold text-foreground">
-              {poll.noVotes}
-            </div>
-          </div>
-          <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Timing
-            </div>
-            <div className="mt-1 text-sm font-medium text-foreground">
-              {poll.status === "open"
-                ? `Closes ${formatDeadline(poll.resolvesAt)}`
-                : `Resolved ${poll.resolvedAt ? format(new Date(poll.resolvedAt), "MMM d, yyyy 'at' h:mm a") : "just now"}`}
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
-          {resultLine}
-        </div>
-
         {isOpen ? (
-          poll.canCurrentUserVote ? (
+          canCurrentUserVote ? (
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <p className="text-sm text-muted-foreground">
-                You can vote in this poll because you had already finalized your
-                ballot when it opened.
+                You can vote in this poll.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -448,7 +355,7 @@ export function ExtensionPollPanel({
               <div>
                 {poll.currentUserVote ? (
                   <p>
-                    Your anonymous vote is locked in:{" "}
+                    Voted:{" "}
                     <span className="font-medium text-foreground">
                       {poll.currentUserVote === "grant"
                         ? "Grant extension"
@@ -458,8 +365,8 @@ export function ExtensionPollPanel({
                   </p>
                 ) : (
                   <p>
-                    Only voters who had already finished voting when this poll
-                    opened can respond.
+                    Voting is limited to the people who were eligible when this
+                    poll opened.
                   </p>
                 )}
               </div>

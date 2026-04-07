@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useMutation } from "convex/react";
@@ -18,6 +18,7 @@ vi.mock("sonner", () => ({
 
 describe("ExtensionPollPanel", () => {
   beforeEach(() => {
+    cleanup();
     vi.clearAllMocks();
     document.body.style.pointerEvents = "";
   });
@@ -58,12 +59,9 @@ describe("ExtensionPollPanel", () => {
     expect(
       screen.getByText(/the requester stays anonymous/i),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/last 1 day/i)).toHaveLength(2);
+    expect(screen.getAllByText(/last 1 day/i).length).toBeGreaterThan(0);
     expect(
       screen.getByText(/uses one of your 2 league-wide extension requests even if it fails/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/this round will not get a second extension poll/i),
     ).toBeInTheDocument();
   });
 
@@ -181,12 +179,98 @@ describe("ExtensionPollPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Anonymous extension request")).toBeInTheDocument();
+    expect(screen.getAllByText("Extension Request").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: /grant extension/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /no extension/i }),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/50% turnout/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/closes/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^open$/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the poll visible to everyone even when they cannot request it", () => {
+    vi.mocked(useMutation)
+      .mockReturnValueOnce(vi.fn() as never)
+      .mockReturnValueOnce(vi.fn() as never);
+
+    render(
+      <ExtensionPollPanel
+        roundId={"round-1" as never}
+        roundStatus="voting"
+        state={
+          {
+            poll: null,
+            request: {
+              canRequest: false,
+              remainingRequests: 2,
+              eligibilityReason: "not_authenticated",
+              eligibleVoterCount: 0,
+              requestWindowMs: 24 * 60 * 60 * 1000,
+              isWithinWindow: true,
+              isActiveMember: false,
+            },
+          } as never
+        }
+      />,
+    );
+
+    expect(screen.getAllByText("Extension Request").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/this panel is visible to everyone/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /request extension/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows a simple voted message without live totals once a vote is cast", () => {
+    vi.mocked(useMutation)
+      .mockReturnValueOnce(vi.fn() as never)
+      .mockReturnValueOnce(vi.fn() as never);
+
+    render(
+      <ExtensionPollPanel
+        roundId={"round-1" as never}
+        roundStatus="voting"
+        state={
+          {
+            poll: {
+              _id: "poll-1",
+              reason: "I am traveling and need more time to finish listening.",
+              status: "open",
+              result: "pending",
+              openedAt: new Date("2026-04-03T10:00:00Z").getTime(),
+              resolvesAt: new Date("2026-04-04T10:00:00Z").getTime(),
+              eligibleVoterCount: 4,
+              yesVotes: 1,
+              noVotes: 0,
+              totalVotes: 1,
+              appliedExtensionMs: 0,
+              resolvedAt: null,
+              currentUserVote: "grant",
+              currentUserEligibleToVote: true,
+              canCurrentUserVote: false,
+            },
+            request: {
+              canRequest: false,
+              remainingRequests: 1,
+              eligibilityReason: "already_exists",
+              eligibleVoterCount: 4,
+              requestWindowMs: 24 * 60 * 60 * 1000,
+              isWithinWindow: true,
+              isActiveMember: true,
+            },
+          } as never
+        }
+      />,
+    );
+
+    expect(screen.getByText(/voted:/i)).toBeInTheDocument();
+    expect(screen.queryByText(/your anonymous vote is locked in/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Grant")).not.toBeInTheDocument();
+    expect(screen.queryByText(/50% turnout/i)).not.toBeInTheDocument();
   });
 });

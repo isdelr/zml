@@ -213,7 +213,7 @@ export function buildRoundDeadlineReminderMessage(args: {
   }
 
   if (shouldIncludeVotingExtensionPrompt(args.windowKey)) {
-    return `Voting closes in ${args.label} for "${args.roundTitle}" in "${args.leagueName}". If you need more time, open the round, click Request Extension, enter a reason with at least 20 characters, and submit the anonymous poll before voting ends.`;
+    return `Voting closes in ${args.label} for "${args.roundTitle}" in "${args.leagueName}". If you need more time request an extension in the app.`;
   }
 
   return `Voting closes in ${args.label} for "${args.roundTitle}" in "${args.leagueName}".`;

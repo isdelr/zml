@@ -160,7 +160,7 @@ describe("round deadline reminders", () => {
         windowKey: "10pct",
       }),
     ).toBe(
-      'Voting closes in 2 hours for "Synth Showdown" in "Night Owls". If you need more time, open the round, click Request Extension, enter a reason with at least 20 characters, and submit the anonymous poll before voting ends.',
+      'Voting closes in 2 hours for "Synth Showdown" in "Night Owls". If you need more time request an extension in the app.',
     );
     expect(
       buildRoundDeadlineReminderMessage({
@@ -182,7 +182,7 @@ describe("round deadline reminders", () => {
         windowKey: "1pct",
       }),
     ).toBe(
-      'Voting closes in 45 minutes for "Synth Showdown" in "Night Owls". If you need more time, open the round, click Request Extension, enter a reason with at least 20 characters, and submit the anonymous poll before voting ends.',
+      'Voting closes in 45 minutes for "Synth Showdown" in "Night Owls". If you need more time request an extension in the app.',
     );
     expect(
       buildRoundDeadlineReminderSource({

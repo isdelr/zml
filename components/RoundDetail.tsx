@@ -468,15 +468,6 @@ export function RoundDetail({
         leagueMaxUp={league.maxPositiveVotes}
         leagueMaxDown={league.maxNegativeVotes}
         participationGroups={participationGroups}
-        extensionPollPanel={
-          extensionPollState ? (
-            <ExtensionPollPanel
-              state={extensionPollState}
-              roundId={round._id}
-              roundStatus={round.status}
-            />
-          ) : null
-        }
         adminControls={
           canManageLeague ? (
             <RoundAdminControls
@@ -488,8 +479,18 @@ export function RoundDetail({
         }
       />
 
+      {extensionPollState ? (
+        <div className="mb-8">
+          <ExtensionPollPanel
+            state={extensionPollState}
+            roundId={round._id}
+            roundStatus={round.status}
+          />
+        </div>
+      ) : null}
+
       {shouldShowSubmissionPanel && (
-        <div className="mt-8 mb-12">
+        <div className="mb-12">
           <SubmissionForm
             round={round}
             roundStatus={round.status}
