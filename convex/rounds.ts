@@ -1544,7 +1544,7 @@ export const transitionDueRounds = internalAction({
           leagueName: context.leagueName,
           label: candidate.window.label,
           windowKey: candidate.window.key,
-          includeVotingExtensionPrompt: !context.hasOpenExtensionPoll,
+          includeExtensionPrompt: !context.hasOpenExtensionPoll,
         });
         const source = buildRoundDeadlineReminderSource({
           roundId: context.roundId,
@@ -1769,12 +1769,10 @@ export const getDeadlineReminderContexts = internalQuery({
       ),
       Promise.all(
         rounds.map((round) =>
-          round.status === "voting"
-            ? ctx.db
-                .query("extensionPolls")
-                .withIndex("by_round", (q) => q.eq("roundId", round._id))
-                .collect()
-            : Promise.resolve([]),
+          ctx.db
+            .query("extensionPolls")
+            .withIndex("by_round", (q) => q.eq("roundId", round._id))
+            .collect(),
         ),
       ),
     ]);
@@ -1802,7 +1800,10 @@ export const getDeadlineReminderContexts = internalQuery({
       rounds.map((round, index) => [
         round._id.toString(),
         openPollsByRound[index].find(
-          (poll) => (poll.type ?? "voting") === "voting" && poll.status === "open",
+          (poll) =>
+            (poll.type ?? "voting") ===
+              (round.status === "submissions" ? "submission" : "voting") &&
+            poll.status === "open",
         ) ?? null,
       ]),
     );

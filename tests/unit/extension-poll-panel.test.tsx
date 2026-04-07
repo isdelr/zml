@@ -185,11 +185,11 @@ describe("ExtensionPollPanel", () => {
       screen.getByText(/submission extension request/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/available during the last 1 day of submission/i),
-    ).toBeInTheDocument();
+      screen.queryByText(/available during the last 1 day of submission/i),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/who had already submitted must respond/i),
-    ).toBeInTheDocument();
+      screen.queryByText(/who had already submitted must respond/i),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText(
         /submission extension poll needs at least one member who had already submitted/i,

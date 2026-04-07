@@ -258,8 +258,19 @@ export async function buildRoundImageMediaUrl(input: {
 export async function buildUserAvatarMediaUrl(input: {
   userId: string;
   storageKey: string;
+  version?: string | number | null;
 }): Promise<string> {
-  return buildUserAvatarMediaPath(input.userId);
+  const path = buildUserAvatarMediaPath(input.userId);
+
+  if (
+    input.version === undefined ||
+    input.version === null ||
+    input.version === ""
+  ) {
+    return path;
+  }
+
+  return appendMediaCacheVersion(path, `${input.storageKey}:${input.version}`);
 }
 
 async function buildTokenizedMediaUrl(input: {

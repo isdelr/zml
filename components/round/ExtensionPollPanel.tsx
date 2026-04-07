@@ -37,7 +37,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   EXTENSION_REASON_MIN_LENGTH,
   formatExtensionPollRequestWindowLabel,
-  getExtensionPollMinimumTurnout,
 } from "@/lib/rounds/extension-polls";
 import { cn } from "@/lib/utils";
 
@@ -89,7 +88,9 @@ function getRequestEligibilityCopy(
         ? "A submission extension poll needs at least one member who had already submitted before it can open."
         : "A voting extension poll needs at least one completed voter before it can open.";
     case "outside_window":
-      return `${getPhaseLabel(pollType, { capitalized: true })} extension requests only open during the last ${requestWindowLabel} of ${phaseLabel}.`;
+      return pollType === "submission"
+        ? null
+        : `${getPhaseLabel(pollType, { capitalized: true })} extension requests only open during the last ${requestWindowLabel} of ${phaseLabel}.`;
     case "not_authenticated":
     case "not_member":
     case "spectator":
@@ -187,9 +188,6 @@ export function ExtensionPollPanel({
         pollType,
       )
     : null;
-  const minimumTurnout = getExtensionPollMinimumTurnout(
-    request.eligibleVoterCount,
-  );
 
   const handleCreatePoll = async () => {
     if (trimmedReason.length < EXTENSION_REASON_MIN_LENGTH) {
@@ -254,15 +252,18 @@ export function ExtensionPollPanel({
           </CardHeader>
           <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-              <li>
-                Available during the last {requestWindowLabel} of {phaseLabel}.
-              </li>
+              {pollType === "voting" ? (
+                <li>
+                  Available during the last {requestWindowLabel} of {phaseLabel}.
+                </li>
+              ) : null}
               <li>The voter list is snapshotted when the poll opens.</li>
-              <li>
-                At least {minimumTurnout} of {request.eligibleVoterCount} eligible
-                member{request.eligibleVoterCount === 1 ? "" : "s"} who{" "}
-                {getEligibilitySnapshotCopy(pollType)} must respond.
-              </li>
+              {pollType === "voting" ? (
+                <li>
+                  Voting is limited to members who{" "}
+                  {getEligibilitySnapshotCopy(pollType)} when the poll opens.
+                </li>
+              ) : null}
               <li>
                 Opening a poll uses 1 of your 2 league-wide requests, shared
                 between submission and voting, even if it fails.

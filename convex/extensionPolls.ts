@@ -463,6 +463,13 @@ export const getForRound = query({
       phaseStart,
       phaseDeadline,
     );
+    const isWithinWindow =
+      isActivePhase &&
+      isExtensionPollRequestWindowOpen(phaseStart, phaseDeadline, now);
+
+    if (isActivePhase && !poll && !isWithinWindow) {
+      return null;
+    }
 
     let requestEligibilityReason: ExtensionPollRequestEligibilityReason =
       "unavailable";
@@ -488,9 +495,7 @@ export const getForRound = query({
 
         if (poll) {
           requestEligibilityReason = "already_exists";
-        } else if (
-          !isExtensionPollRequestWindowOpen(phaseStart, phaseDeadline, now)
-        ) {
+        } else if (!isWithinWindow) {
           requestEligibilityReason = "outside_window";
         } else if (remainingRequests === 0) {
           requestEligibilityReason = "already_used_limit";
@@ -558,9 +563,7 @@ export const getForRound = query({
         eligibilityReason: requestEligibilityReason,
         eligibleVoterCount,
         requestWindowMs,
-        isWithinWindow:
-          isActivePhase &&
-          isExtensionPollRequestWindowOpen(phaseStart, phaseDeadline, now),
+        isWithinWindow,
         isActiveMember: activeMembership,
       },
     };

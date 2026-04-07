@@ -157,6 +157,28 @@ describe("round deadline reminders", () => {
     ).toBe("Submission deadline in 1 day");
     expect(
       buildRoundDeadlineReminderMessage({
+        status: "submissions",
+        roundTitle: "Synth Showdown",
+        leagueName: "Night Owls",
+        label: "2 hours",
+        windowKey: "10pct",
+      }),
+    ).toBe(
+      'Submissions close in 2 hours for "Synth Showdown" in "Night Owls". If you need more time request an extension in the app.',
+    );
+    expect(
+      buildRoundDeadlineReminderMessage({
+        status: "submissions",
+        roundTitle: "Synth Showdown",
+        leagueName: "Night Owls",
+        label: "2 days",
+        windowKey: "50pct",
+      }),
+    ).toBe(
+      'Submissions close in 2 days for "Synth Showdown" in "Night Owls".',
+    );
+    expect(
+      buildRoundDeadlineReminderMessage({
         status: "voting",
         roundTitle: "Synth Showdown",
         leagueName: "Night Owls",
@@ -195,7 +217,7 @@ describe("round deadline reminders", () => {
         leagueName: "Night Owls",
         label: "45 minutes",
         windowKey: "1pct",
-        includeVotingExtensionPrompt: false,
+        includeExtensionPrompt: false,
       }),
     ).toBe(
       'Voting closes in 45 minutes for "Synth Showdown" in "Night Owls".',

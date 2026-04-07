@@ -5,7 +5,10 @@ import { buildUserAvatarMediaUrl } from "../lib/media/delivery";
 export const AVATAR_KEY_PREFIX = "avatars/";
 export type AvatarObjectKey = `${typeof AVATAR_KEY_PREFIX}${string}`;
 
-type UserAvatarFields = Pick<Doc<"users">, "image" | "providerImageUrl">;
+type UserAvatarFields = Pick<
+  Doc<"users">,
+  "image" | "providerImageUrl" | "imageCachedAt"
+>;
 
 export function isAvatarObjectKey(
   value: string | null | undefined,
@@ -31,6 +34,7 @@ export async function resolveUserAvatarUrl(
       return await buildUserAvatarMediaUrl({
         userId: imageValue.slice(AVATAR_KEY_PREFIX.length).replace(/\.webp$/u, ""),
         storageKey: imageValue,
+        version: user.imageCachedAt,
       });
     } catch (error) {
       console.error(`Failed to resolve avatar key "${imageValue}"`, error);

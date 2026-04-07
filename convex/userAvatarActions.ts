@@ -155,10 +155,33 @@ async function syncCachedAvatarForUserId(
     return false;
   }
 
+  let currentProviderImageUrl = user.providerImageUrl;
+  let confirmedFreshProviderImageUrl = false;
+
+  if (options?.force) {
+    const refreshedProviderImageUrl = await resolveFreshDiscordAvatarUrlFromOAuthAccount(
+      ctx,
+      userId,
+    );
+
+    if (refreshedProviderImageUrl) {
+      confirmedFreshProviderImageUrl = true;
+
+      if (refreshedProviderImageUrl !== currentProviderImageUrl) {
+        await ctx.runMutation(internal.users.setProviderImageUrlForAvatarSync, {
+          userId,
+          providerImageUrl: refreshedProviderImageUrl,
+        });
+
+        currentProviderImageUrl = refreshedProviderImageUrl;
+      }
+    }
+  }
+
   if (
-    !options?.force &&
     isAvatarObjectKey(user.image) &&
-    user.imageCachedFromUrl === user.providerImageUrl
+    user.imageCachedFromUrl === currentProviderImageUrl &&
+    (!options?.force || confirmedFreshProviderImageUrl)
   ) {
     console.info("[avatar-sync] skipped: already cached for current provider URL", {
       userId,
@@ -166,8 +189,8 @@ async function syncCachedAvatarForUserId(
     return false;
   }
 
-  let downloadUrl = user.providerImageUrl;
-  let sourceUrlForMetadata = user.providerImageUrl;
+  let downloadUrl = currentProviderImageUrl;
+  let sourceUrlForMetadata = currentProviderImageUrl;
   let response = await fetch(downloadUrl, {
     headers: {
       Accept: "image/webp,image/*;q=0.8,*/*;q=0.5",
@@ -182,13 +205,13 @@ async function syncCachedAvatarForUserId(
 
     if (
       refreshedProviderImageUrl &&
-      refreshedProviderImageUrl !== user.providerImageUrl
+      refreshedProviderImageUrl !== currentProviderImageUrl
     ) {
       console.info(
         "[avatar-sync] provider avatar 404; retrying with fresh discord avatar URL from OAuth account",
         {
           userId,
-          previousProviderImageUrl: user.providerImageUrl,
+          previousProviderImageUrl: currentProviderImageUrl,
           refreshedProviderImageUrl,
         },
       );
@@ -198,6 +221,7 @@ async function syncCachedAvatarForUserId(
         providerImageUrl: refreshedProviderImageUrl,
       });
 
+      currentProviderImageUrl = refreshedProviderImageUrl;
       sourceUrlForMetadata = refreshedProviderImageUrl;
       downloadUrl = refreshedProviderImageUrl;
       response = await fetch(downloadUrl, {
@@ -224,7 +248,7 @@ async function syncCachedAvatarForUserId(
   if (!response.ok) {
     console.warn("[avatar-sync] failed: download response was not ok", {
       userId,
-      providerImageUrl: user.providerImageUrl,
+      providerImageUrl: currentProviderImageUrl,
       attemptedUrl: downloadUrl,
       status: response.status,
     });
@@ -235,7 +259,7 @@ async function syncCachedAvatarForUserId(
   if (!contentType.startsWith("image/")) {
     console.warn("[avatar-sync] failed: downloaded content is not an image", {
       userId,
-      providerImageUrl: user.providerImageUrl,
+      providerImageUrl: currentProviderImageUrl,
       attemptedUrl: downloadUrl,
       contentType,
     });
@@ -246,7 +270,7 @@ async function syncCachedAvatarForUserId(
   if (bytes.byteLength === 0 || bytes.byteLength > MAX_AVATAR_BYTES) {
     console.warn("[avatar-sync] failed: invalid downloaded avatar size", {
       userId,
-      providerImageUrl: user.providerImageUrl,
+      providerImageUrl: currentProviderImageUrl,
       attemptedUrl: downloadUrl,
       bytes: bytes.byteLength,
     });
@@ -257,7 +281,7 @@ async function syncCachedAvatarForUserId(
   if (!webpBytes) {
     console.warn("[avatar-sync] failed: avatar transcode returned null", {
       userId,
-      providerImageUrl: user.providerImageUrl,
+      providerImageUrl: currentProviderImageUrl,
       attemptedUrl: downloadUrl,
     });
     return false;

@@ -109,7 +109,7 @@ function buildRoundDeadlineReminderWindows(
   });
 }
 
-function shouldIncludeVotingExtensionPrompt(
+function shouldIncludeExtensionPrompt(
   windowKey: RoundDeadlineReminderWindow["key"],
 ): boolean {
   return (
@@ -218,15 +218,22 @@ export function buildRoundDeadlineReminderMessage(args: {
   leagueName: string;
   label: string;
   windowKey: RoundDeadlineReminderWindow["key"];
-  includeVotingExtensionPrompt?: boolean;
+  includeExtensionPrompt?: boolean;
 }): string {
   if (args.status === "submissions") {
+    if (
+      args.includeExtensionPrompt !== false &&
+      shouldIncludeExtensionPrompt(args.windowKey)
+    ) {
+      return `Submissions close in ${args.label} for "${args.roundTitle}" in "${args.leagueName}". If you need more time request an extension in the app.`;
+    }
+
     return `Submissions close in ${args.label} for "${args.roundTitle}" in "${args.leagueName}".`;
   }
 
   if (
-    args.includeVotingExtensionPrompt !== false &&
-    shouldIncludeVotingExtensionPrompt(args.windowKey)
+    args.includeExtensionPrompt !== false &&
+    shouldIncludeExtensionPrompt(args.windowKey)
   ) {
     return `Voting closes in ${args.label} for "${args.roundTitle}" in "${args.leagueName}". If you need more time request an extension in the app.`;
   }
