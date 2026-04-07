@@ -57,6 +57,147 @@ import {
   type VotingEligibilityReason,
 } from "@/lib/rounds/voting-participation";
 
+interface SubmissionActionsMenuProps {
+  buttonClassName: string;
+  iconClassName: string;
+  highlightTrigger: boolean;
+  canBookmark: boolean;
+  isBookmarked: boolean;
+  canOpenOriginalLink: boolean;
+  songLink?: string | null;
+  canDownloadAudio: boolean;
+  downloadUrl?: string;
+  canToggleTrollSubmission: boolean;
+  isTrollSubmission: boolean;
+  canAdjustAdminPoints: boolean;
+  onBookmark: () => void;
+  onToggleTrollSubmission: () => void;
+  onAdjustAdminPoint: (delta: 1 | -1) => void;
+}
+
+function SubmissionActionsMenu({
+  buttonClassName,
+  iconClassName,
+  highlightTrigger,
+  canBookmark,
+  isBookmarked,
+  canOpenOriginalLink,
+  songLink,
+  canDownloadAudio,
+  downloadUrl,
+  canToggleTrollSubmission,
+  isTrollSubmission,
+  canAdjustAdminPoints,
+  onBookmark,
+  onToggleTrollSubmission,
+  onAdjustAdminPoint,
+}: SubmissionActionsMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const hasActions =
+    canBookmark ||
+    canOpenOriginalLink ||
+    canDownloadAudio ||
+    canToggleTrollSubmission ||
+    canAdjustAdminPoints;
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const closeMenu = () => setIsOpen(false);
+    const passiveCapture = { capture: true, passive: true } as const;
+
+    window.addEventListener("wheel", closeMenu, passiveCapture);
+    window.addEventListener("touchmove", closeMenu, passiveCapture);
+    window.addEventListener("scroll", closeMenu, true);
+
+    return () => {
+      window.removeEventListener("wheel", closeMenu, passiveCapture);
+      window.removeEventListener("touchmove", closeMenu, passiveCapture);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [isOpen]);
+
+  if (!hasActions) return null;
+
+  return (
+    <DropdownMenu modal={false} open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={buttonClassName}
+          aria-label="More actions"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreHorizontal
+            className={cn(iconClassName, highlightTrigger && "text-primary")}
+          />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-52"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {canBookmark ? (
+          <DropdownMenuItem onSelect={onBookmark}>
+            <Bookmark
+              className={cn(
+                "size-4",
+                isBookmarked && "fill-primary text-primary",
+              )}
+            />
+            {isBookmarked ? "Remove bookmark" : "Bookmark song"}
+          </DropdownMenuItem>
+        ) : null}
+        {canOpenOriginalLink && songLink ? (
+          <DropdownMenuItem asChild>
+            <a
+              href={songLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <YouTubeIcon className="size-4 text-red-500" />
+              Open on YouTube
+            </a>
+          </DropdownMenuItem>
+        ) : null}
+        {canDownloadAudio && downloadUrl ? (
+          <DropdownMenuItem asChild>
+            <a href={downloadUrl} download onClick={(e) => e.stopPropagation()}>
+              <Download className="size-4" />
+              Download audio
+            </a>
+          </DropdownMenuItem>
+        ) : null}
+        {canToggleTrollSubmission ? (
+          <DropdownMenuItem onSelect={onToggleTrollSubmission}>
+            <AlertTriangle
+              className={cn("size-4", isTrollSubmission && "text-destructive")}
+            />
+            {isTrollSubmission
+              ? "Unmark troll submission"
+              : "Mark as troll submission"}
+          </DropdownMenuItem>
+        ) : null}
+        {canAdjustAdminPoints ? (
+          <DropdownMenuItem onSelect={() => onAdjustAdminPoint(1)}>
+            <ArrowUp className="size-4 text-success" />
+            Add admin point
+          </DropdownMenuItem>
+        ) : null}
+        {canAdjustAdminPoints ? (
+          <DropdownMenuItem onSelect={() => onAdjustAdminPoint(-1)}>
+            <ArrowDown className="size-4 text-destructive" />
+            Subtract admin point
+          </DropdownMenuItem>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 // A new component for the animated equalizer
 const EqualizerIcon = () => (
   <div className="flex w-5 items-end gap-0.5">
@@ -314,8 +455,7 @@ export function SubmissionItem({
   const compactMobileActionButtonClass = "size-10 md:size-8";
   const compactMobileVoteButtonClass = "size-10 rounded-full md:size-8";
   const compactMobileIconClass = "size-4 md:size-5";
-  const showMobileOverflowAccent = song.isBookmarked;
-  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+  const showMobileOverflowAccent = Boolean(song.isBookmarked);
   const voteGroups = useMemo(
     () =>
       groupVoteSummaryDetailsByScore(
@@ -339,29 +479,10 @@ export function SubmissionItem({
     Boolean(song.songLink);
   const canAdjustAdminPoints = roundStatus === "finished" && canManageLeague;
   const canToggleBookmark = Boolean(currentUser);
-  const hasOverflowActions =
-    canToggleBookmark ||
-    canDownloadAudio ||
-    canOpenOriginalLink ||
-    canMarkTrollSubmissions ||
-    canAdjustAdminPoints;
-
-  useEffect(() => {
-    if (!isActionsMenuOpen) return;
-
-    const closeMenu = () => setIsActionsMenuOpen(false);
-    const passiveCapture = { capture: true, passive: true } as const;
-
-    window.addEventListener("wheel", closeMenu, passiveCapture);
-    window.addEventListener("touchmove", closeMenu, passiveCapture);
-    window.addEventListener("scroll", closeMenu, true);
-
-    return () => {
-      window.removeEventListener("wheel", closeMenu, passiveCapture);
-      window.removeEventListener("touchmove", closeMenu, passiveCapture);
-      window.removeEventListener("scroll", closeMenu, true);
-    };
-  }, [isActionsMenuOpen]);
+  const downloadUrl =
+    canDownloadAudio && song.songFileUrl
+      ? buildDownloadUrl(song.songFileUrl, song._id)
+      : undefined;
 
   const renderSubmitterInfo = () =>
     roundStatus === "voting" ? (
@@ -494,124 +615,6 @@ export function SubmissionItem({
     </div>
   );
 
-  const renderActionsMenu = ({
-    buttonClassName,
-    iconClassName,
-  }: {
-    buttonClassName: string;
-    iconClassName: string;
-  }) => {
-    if (!hasOverflowActions) return null;
-
-    return (
-      <DropdownMenu
-        modal={false}
-        open={isActionsMenuOpen}
-        onOpenChange={setIsActionsMenuOpen}
-      >
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={buttonClassName}
-            aria-label="More actions"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal
-              className={cn(
-                iconClassName,
-                showMobileOverflowAccent && "text-primary",
-              )}
-            />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          className="w-52"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {canToggleBookmark ? (
-            <DropdownMenuItem
-              onSelect={() => {
-                onBookmark();
-              }}
-            >
-              <Bookmark
-                className={cn(
-                  "size-4",
-                  song.isBookmarked && "fill-primary text-primary",
-                )}
-              />
-              {song.isBookmarked ? "Remove bookmark" : "Bookmark song"}
-            </DropdownMenuItem>
-          ) : null}
-          {canOpenOriginalLink ? (
-            <DropdownMenuItem asChild>
-              <a
-                href={song.songLink ?? undefined}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <YouTubeIcon className="size-4 text-red-500" />
-                Open on YouTube
-              </a>
-            </DropdownMenuItem>
-          ) : null}
-          {canDownloadAudio ? (
-            <DropdownMenuItem asChild>
-              <a
-                href={buildDownloadUrl(song.songFileUrl!, song._id)}
-                download
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Download className="size-4" />
-                Download audio
-              </a>
-            </DropdownMenuItem>
-          ) : null}
-          {canMarkTrollSubmissions ? (
-            <DropdownMenuItem
-              onSelect={() => {
-                handleTrollSubmissionToggle();
-              }}
-            >
-              <AlertTriangle
-                className={cn(
-                  "size-4",
-                  song.isTrollSubmission && "text-destructive",
-                )}
-              />
-              {song.isTrollSubmission
-                ? "Unmark troll submission"
-                : "Mark as troll submission"}
-            </DropdownMenuItem>
-          ) : null}
-          {canAdjustAdminPoints ? (
-            <DropdownMenuItem
-              onSelect={() => {
-                handleAdminVoteAdjustment(1);
-              }}
-            >
-              <ArrowUp className="size-4 text-success" />
-              Add admin point
-            </DropdownMenuItem>
-          ) : null}
-          {canAdjustAdminPoints ? (
-            <DropdownMenuItem
-              onSelect={() => {
-                handleAdminVoteAdjustment(-1);
-              }}
-            >
-              <ArrowDown className="size-4 text-destructive" />
-              Subtract admin point
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  };
-
   return (
     <div className="border-b border-border last:border-b-0">
       <div
@@ -704,10 +707,23 @@ export function SubmissionItem({
                 size="icon"
                 className={cn(compactMobileActionButtonClass)}
               />
-              {renderActionsMenu({
-                buttonClassName: compactMobileActionButtonClass,
-                iconClassName: compactMobileIconClass,
-              })}
+              <SubmissionActionsMenu
+                buttonClassName={compactMobileActionButtonClass}
+                iconClassName={compactMobileIconClass}
+                highlightTrigger={showMobileOverflowAccent}
+                canBookmark={canToggleBookmark}
+                isBookmarked={Boolean(song.isBookmarked)}
+                canOpenOriginalLink={canOpenOriginalLink}
+                songLink={song.songLink}
+                canDownloadAudio={canDownloadAudio}
+                downloadUrl={downloadUrl}
+                canToggleTrollSubmission={canMarkTrollSubmissions}
+                isTrollSubmission={Boolean(song.isTrollSubmission)}
+                canAdjustAdminPoints={Boolean(canAdjustAdminPoints)}
+                onBookmark={onBookmark}
+                onToggleTrollSubmission={handleTrollSubmissionToggle}
+                onAdjustAdminPoint={handleAdminVoteAdjustment}
+              />
             </div>
           </div>
         </div>
@@ -849,10 +865,23 @@ export function SubmissionItem({
               size="icon"
               className="size-8"
             />
-            {renderActionsMenu({
-              buttonClassName: "size-8",
-              iconClassName: "size-5",
-            })}
+            <SubmissionActionsMenu
+              buttonClassName="size-8"
+              iconClassName="size-5"
+              highlightTrigger={showMobileOverflowAccent}
+              canBookmark={canToggleBookmark}
+              isBookmarked={Boolean(song.isBookmarked)}
+              canOpenOriginalLink={canOpenOriginalLink}
+              songLink={song.songLink}
+              canDownloadAudio={canDownloadAudio}
+              downloadUrl={downloadUrl}
+              canToggleTrollSubmission={canMarkTrollSubmissions}
+              isTrollSubmission={Boolean(song.isTrollSubmission)}
+              canAdjustAdminPoints={Boolean(canAdjustAdminPoints)}
+              onBookmark={onBookmark}
+              onToggleTrollSubmission={handleTrollSubmissionToggle}
+              onAdjustAdminPoint={handleAdminVoteAdjustment}
+            />
           </div>
         </div>
       </div>
