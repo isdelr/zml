@@ -541,10 +541,6 @@ export const getForRound = query({
             result: poll.result,
             openedAt: poll.openedAt,
             resolvesAt: poll.resolvesAt,
-            eligibleVoterCount: poll.eligibleVoterCount,
-            yesVotes: poll.yesVotes,
-            noVotes: poll.noVotes,
-            totalVotes: poll.yesVotes + poll.noVotes,
             appliedExtensionMs: poll.appliedExtensionMs ?? 0,
             resolvedAt: poll.resolvedAt ?? null,
             currentUserVote:

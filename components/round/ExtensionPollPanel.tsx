@@ -188,7 +188,7 @@ export function ExtensionPollPanel({
       )
     : null;
   const minimumTurnout = getExtensionPollMinimumTurnout(
-    poll?.eligibleVoterCount ?? request.eligibleVoterCount,
+    request.eligibleVoterCount,
   );
 
   const handleCreatePoll = async () => {
