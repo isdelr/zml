@@ -41,7 +41,9 @@ import {
 } from "@/lib/rounds/extension-polls";
 import { cn } from "@/lib/utils";
 
-type ExtensionPollState = FunctionReturnType<typeof api.extensionPolls.getForRound>;
+type ExtensionPollState = FunctionReturnType<
+  typeof api.extensionPolls.getForRound
+>;
 
 function getRequestEligibilityCopy(
   reason: NonNullable<ExtensionPollState>["request"]["eligibilityReason"],
@@ -73,7 +75,7 @@ function getPollStatusCopy(
   if (poll.status === "open") {
     return {
       title: "Extension Request",
-      description: "An anonymous extension poll is currently open for this round.",
+      description: "An extension poll is currently open for this round.",
     };
   }
 
@@ -175,7 +177,9 @@ export function ExtensionPollPanel({
     setIsVoting(vote);
     try {
       const result = await castVote({ pollId: poll._id, vote });
-      toast.success(result.resolved ? "Vote recorded. Poll resolved." : "Vote recorded.");
+      toast.success(
+        result.resolved ? "Vote recorded. Poll resolved." : "Vote recorded.",
+      );
     } catch (error: unknown) {
       toast.error(toErrorMessage(error, "Failed to submit poll vote."));
     } finally {
@@ -206,12 +210,11 @@ export function ExtensionPollPanel({
           <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
               <li>Available during the last {requestWindowLabel} of voting.</li>
+              <li>The voter list is snapshotted when the poll opens.</li>
               <li>
-                The voter list is snapshotted when the poll opens.
-              </li>
-              <li>
-                At least {minimumTurnout} of {request.eligibleVoterCount} eligible
-                voter{request.eligibleVoterCount === 1 ? "" : "s"} must respond.
+                At least {minimumTurnout} of {request.eligibleVoterCount}{" "}
+                eligible voter{request.eligibleVoterCount === 1 ? "" : "s"} must
+                respond.
               </li>
               <li>
                 Opening a poll uses 1 of your 2 league-wide requests, even if it
@@ -286,7 +289,10 @@ export function ExtensionPollPanel({
               <Button
                 type="button"
                 onClick={handleCreatePoll}
-                disabled={isSubmitting || trimmedReason.length < EXTENSION_REASON_MIN_LENGTH}
+                disabled={
+                  isSubmitting ||
+                  trimmedReason.length < EXTENSION_REASON_MIN_LENGTH
+                }
               >
                 Open Poll
               </Button>
