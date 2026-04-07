@@ -37,6 +37,7 @@ import {
   getRoundDeadlineReminderCandidates,
   shouldIncludeExtensionPollReminder,
 } from "../lib/rounds/deadline-reminders";
+import type { ExtensionPollType } from "../lib/rounds/extension-polls";
 import {
   getPendingRoundParticipantIds,
   getPendingSubmissionParticipantIds,
@@ -68,17 +69,20 @@ type DeadlineReminderContext = {
   submissionStartsAt: number;
   submissionDeadline: number;
   votingDeadline: number;
+  hasOpenExtensionPoll: boolean;
   targetUserIds: Id<"users">[];
 };
 
 type ExtensionPollReminderContext = {
   pollId: Id<"extensionPolls">;
+  pollType: ExtensionPollType;
   roundId: Id<"rounds">;
+  roundStatus: "submissions" | "voting";
   leagueId: Id<"leagues">;
   leagueName: string;
   roundTitle: string;
-  submissionDeadline: number;
-  votingDeadline: number;
+  phaseStart: number;
+  phaseDeadline: number;
   targetUserIds: Id<"users">[];
 };
 
@@ -1540,6 +1544,7 @@ export const transitionDueRounds = internalAction({
           leagueName: context.leagueName,
           label: candidate.window.label,
           windowKey: candidate.window.key,
+          includeVotingExtensionPrompt: !context.hasOpenExtensionPoll,
         });
         const source = buildRoundDeadlineReminderSource({
           roundId: context.roundId,
@@ -1582,12 +1587,19 @@ export const transitionDueRounds = internalAction({
     const extensionPollNotificationsToCreate = extensionPollReminderContexts.flatMap(
       (context: ExtensionPollReminderContext) => {
         const reminderCandidates = getRoundDeadlineReminderCandidates(
-          {
-            status: "voting",
-            submissionStartsAt: context.submissionDeadline,
-            submissionDeadline: context.submissionDeadline,
-            votingDeadline: context.votingDeadline,
-          },
+          context.pollType === "submission"
+            ? {
+                status: "submissions" as const,
+                submissionStartsAt: context.phaseStart,
+                submissionDeadline: context.phaseDeadline,
+                votingDeadline: context.phaseDeadline,
+              }
+            : {
+                status: "voting" as const,
+                submissionStartsAt: context.phaseStart,
+                submissionDeadline: context.phaseStart,
+                votingDeadline: context.phaseDeadline,
+              },
           now,
         ).filter((candidate) =>
           shouldIncludeExtensionPollReminder(candidate.window.key),
@@ -1595,12 +1607,14 @@ export const transitionDueRounds = internalAction({
 
         return reminderCandidates.flatMap((candidate) => {
           const message = buildExtensionPollReminderMessage({
+            pollType: context.pollType,
             roundTitle: context.roundTitle,
             leagueName: context.leagueName,
             label: candidate.window.label,
           });
           const source = buildExtensionPollReminderSource({
             pollId: context.pollId.toString(),
+            pollType: context.pollType,
             deadline: candidate.deadline,
             windowKey: candidate.window.key,
           });
@@ -1609,7 +1623,7 @@ export const transitionDueRounds = internalAction({
             source,
             leagueId: context.leagueId,
             roundId: context.roundId,
-            roundStatus: "voting",
+            roundStatus: context.roundStatus,
             notificationType: "round_extension_poll",
             reminderKind: "extension_poll",
             message,
@@ -1627,6 +1641,7 @@ export const transitionDueRounds = internalAction({
             },
             pushNotificationOverride: {
               title: buildExtensionPollReminderTitle({
+                pollType: context.pollType,
                 label: candidate.window.label,
               }),
               body: message,
@@ -1724,7 +1739,7 @@ export const getDeadlineReminderContexts = internalQuery({
 
     const rounds = [...submissionRounds, ...votingRounds];
     const leagueIds = [...new Set(rounds.map((round) => round.leagueId))];
-    const [leagues, membershipsByLeague, submissionsByRound, votesByRound] = await Promise.all([
+    const [leagues, membershipsByLeague, submissionsByRound, votesByRound, openPollsByRound] = await Promise.all([
       Promise.all(leagueIds.map((leagueId) => ctx.db.get("leagues", leagueId))),
       Promise.all(
         leagueIds.map((leagueId) =>
@@ -1752,6 +1767,16 @@ export const getDeadlineReminderContexts = internalQuery({
             : Promise.resolve([]),
         ),
       ),
+      Promise.all(
+        rounds.map((round) =>
+          round.status === "voting"
+            ? ctx.db
+                .query("extensionPolls")
+                .withIndex("by_round", (q) => q.eq("roundId", round._id))
+                .collect()
+            : Promise.resolve([]),
+        ),
+      ),
     ]);
 
     const leagueMap = new Map(
@@ -1772,6 +1797,14 @@ export const getDeadlineReminderContexts = internalQuery({
     );
     const votesByRoundId = new Map(
       rounds.map((round, index) => [round._id.toString(), votesByRound[index]]),
+    );
+    const openPollByRoundId = new Map(
+      rounds.map((round, index) => [
+        round._id.toString(),
+        openPollsByRound[index].find(
+          (poll) => (poll.type ?? "voting") === "voting" && poll.status === "open",
+        ) ?? null,
+      ]),
     );
 
     return rounds.flatMap((round) => {
@@ -1804,6 +1837,8 @@ export const getDeadlineReminderContexts = internalQuery({
             getSubmissionStart(round, league.submissionDeadline),
           submissionDeadline: round.submissionDeadline,
           votingDeadline: round.votingDeadline,
+          hasOpenExtensionPoll:
+            openPollByRoundId.get(round._id.toString())?.status === "open",
           targetUserIds,
         },
       ];

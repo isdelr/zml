@@ -95,9 +95,18 @@ export function RoundDetail({
     api.rounds.getVoteSummary,
     round.status === "finished" ? { roundId: round._id } : "skip",
   );
-  const extensionPollState = useQuery(api.extensionPolls.getForRound, {
-    roundId: round._id,
-  });
+  const submissionExtensionPollState = useQuery(
+    api.extensionPolls.getForRound,
+    round.status === "submissions" || round.status === "finished"
+      ? { roundId: round._id, type: "submission" }
+      : "skip",
+  );
+  const votingExtensionPollState = useQuery(
+    api.extensionPolls.getForRound,
+    round.status === "voting" || round.status === "finished"
+      ? { roundId: round._id, type: "voting" }
+      : "skip",
+  );
   const shouldLoadVoteStatus =
     !league.isSpectator &&
     (round.status === "voting" || round.status === "finished");
@@ -479,12 +488,46 @@ export function RoundDetail({
         }
       />
 
-      {extensionPollState ? (
+      {round.status === "submissions" && submissionExtensionPollState ? (
         <div className="mb-8">
           <ExtensionPollPanel
-            state={extensionPollState}
+            state={submissionExtensionPollState}
             roundId={round._id}
             roundStatus={round.status}
+            pollType="submission"
+          />
+        </div>
+      ) : null}
+
+      {round.status === "voting" && votingExtensionPollState ? (
+        <div className="mb-8">
+          <ExtensionPollPanel
+            state={votingExtensionPollState}
+            roundId={round._id}
+            roundStatus={round.status}
+            pollType="voting"
+          />
+        </div>
+      ) : null}
+
+      {round.status === "finished" && submissionExtensionPollState ? (
+        <div className="mb-8">
+          <ExtensionPollPanel
+            state={submissionExtensionPollState}
+            roundId={round._id}
+            roundStatus={round.status}
+            pollType="submission"
+          />
+        </div>
+      ) : null}
+
+      {round.status === "finished" && votingExtensionPollState ? (
+        <div className="mb-8">
+          <ExtensionPollPanel
+            state={votingExtensionPollState}
+            roundId={round._id}
+            roundStatus={round.status}
+            pollType="voting"
           />
         </div>
       ) : null}

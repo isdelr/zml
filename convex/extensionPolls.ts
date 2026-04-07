@@ -13,6 +13,7 @@ import { internal } from "./_generated/api";
 import { getVoteLimits } from "../lib/convex-server/voteLimits";
 import {
   buildRoundShiftPatches,
+  getSubmissionStart,
   sortRoundsInLeagueOrder,
 } from "../lib/rounds/schedule";
 import {
@@ -21,12 +22,17 @@ import {
   EXTENSION_REASON_MIN_LENGTH,
   formatExtensionPollRequestWindowLabel,
   getExtensionPollResolution,
+  getExtensionPollRequestWindowMs,
   getFinalizedVotingParticipantIds,
   getRemainingExtensionRequests,
-  getExtensionPollRequestWindowMs,
+  getSubmittedParticipantIds,
   isExtensionPollRequestWindowOpen,
+  type ExtensionPollType,
 } from "../lib/rounds/extension-polls";
-import { getPendingVotingParticipantIds } from "../lib/rounds/pending-participation";
+import {
+  getPendingSubmissionParticipantIds,
+  getPendingVotingParticipantIds,
+} from "../lib/rounds/pending-participation";
 
 type ExtensionPollStatus = "open" | "resolved";
 type ExtensionPollResult =
@@ -41,13 +47,83 @@ type ExtensionPollRequestEligibilityReason =
   | "not_authenticated"
   | "not_member"
   | "spectator"
-  | "round_not_voting"
   | "outside_window"
   | "already_exists"
   | "already_used_limit"
-  | "not_pending_voter"
+  | "not_pending_participant"
   | "no_eligible_voters"
   | "unavailable";
+
+const DEFAULT_EXTENSION_POLL_TYPE: ExtensionPollType = "voting";
+
+function getPollType(
+  poll: Pick<Doc<"extensionPolls">, "type"> | null | undefined,
+): ExtensionPollType {
+  return poll?.type ?? DEFAULT_EXTENSION_POLL_TYPE;
+}
+
+function getPollRoundStatus(
+  pollType: ExtensionPollType,
+): "submissions" | "voting" {
+  return pollType === "submission" ? "submissions" : "voting";
+}
+
+function getPollPhaseLabel(
+  pollType: ExtensionPollType,
+  options: { capitalized?: boolean } = {},
+) {
+  const label = pollType === "submission" ? "submission" : "voting";
+  return options.capitalized
+    ? `${label.charAt(0).toUpperCase()}${label.slice(1)}`
+    : label;
+}
+
+function getPollDeadlineLabel(pollType: ExtensionPollType) {
+  return `${getPollPhaseLabel(pollType)} deadline`;
+}
+
+function getPollHistoryLabel(pollType: ExtensionPollType) {
+  return `${getPollPhaseLabel(pollType)} extension poll`;
+}
+
+function getPollRequesterErrorMessage(pollType: ExtensionPollType) {
+  return pollType === "submission"
+    ? "Only participants who are still submitting can request a submission extension."
+    : "Only participants who are still voting can request a voting extension.";
+}
+
+function getPollNoEligibleVoterMessage(pollType: ExtensionPollType) {
+  return pollType === "submission"
+    ? "A submission extension poll cannot start until at least one member has submitted."
+    : "A voting extension poll cannot start until at least one voter has finished voting.";
+}
+
+function getPollPhaseTiming(
+  round: Doc<"rounds">,
+  league: Doc<"leagues">,
+  pollType: ExtensionPollType,
+) {
+  if (pollType === "submission") {
+    return {
+      phaseStart:
+        round.submissionStartsAt ??
+        getSubmissionStart(round, league.submissionDeadline),
+      phaseDeadline: round.submissionDeadline,
+    };
+  }
+
+  return {
+    phaseStart: round.submissionDeadline,
+    phaseDeadline: round.votingDeadline,
+  };
+}
+
+function getExistingPollForType(
+  polls: Doc<"extensionPolls">[],
+  pollType: ExtensionPollType,
+) {
+  return polls.find((poll) => getPollType(poll) === pollType) ?? null;
+}
 
 async function canViewLeague(
   ctx: Pick<QueryCtx, "db">,
@@ -78,7 +154,7 @@ async function canViewLeague(
 }
 
 async function getLeagueMembership(
-  ctx: Pick<QueryCtx, "db">,
+  ctx: Pick<QueryCtx | MutationCtx, "db">,
   leagueId: Id<"leagues">,
   userId: Id<"users">,
 ) {
@@ -101,7 +177,7 @@ function isActiveMembership(membership: Doc<"memberships"> | null) {
 }
 
 async function getRequestContext(
-  ctx: Pick<QueryCtx, "db">,
+  ctx: Pick<QueryCtx | MutationCtx, "db">,
   round: Doc<"rounds">,
   league: Doc<"leagues">,
 ) {
@@ -121,8 +197,22 @@ async function getRequestContext(
   ]);
 
   const activeMembers = getActiveMembers(memberships);
+  const submittedMemberIds = getSubmittedParticipantIds(activeMembers, submissions);
+  const pendingSubmitterIds = getPendingSubmissionParticipantIds(
+    activeMembers,
+    submissions,
+    round.submissionsPerUser ?? 1,
+    round.submissionMode ?? "single",
+  );
   const { maxUp, maxDown } = getVoteLimits(round, league);
   const finalizedVoterIds = getFinalizedVotingParticipantIds(
+    activeMembers,
+    submissions,
+    votes,
+    maxUp,
+    maxDown,
+  );
+  const pendingVoterIds = getPendingVotingParticipantIds(
     activeMembers,
     submissions,
     votes,
@@ -134,9 +224,23 @@ async function getRequestContext(
     memberships,
     submissions,
     votes,
+    submittedMemberIds,
+    submittedMemberIdSet: new Set(submittedMemberIds),
+    pendingSubmitterIds,
+    pendingSubmitterIdSet: new Set(pendingSubmitterIds),
     finalizedVoterIds,
     finalizedVoterIdSet: new Set(finalizedVoterIds),
+    pendingVoterIds,
+    pendingVoterIdSet: new Set(pendingVoterIds),
   };
+}
+
+function formatAppliedExtensionDurationLabel(extensionMs: number) {
+  return extensionMs === EXTENSION_POLL_APPROVED_EXTENSION_MS
+    ? "24 hours"
+    : extensionMs === EXTENSION_POLL_TIE_EXTENSION_MS
+      ? "8 hours"
+      : `${Math.round(extensionMs / (60 * 60 * 1000))} hours`;
 }
 
 async function patchResolvedPoll(
@@ -165,8 +269,9 @@ async function resolvePoll(
     return null;
   }
 
+  const pollType = getPollType(poll);
   const round = await ctx.db.get("rounds", poll.roundId);
-  if (!round || round.status !== "voting") {
+  if (!round || round.status !== getPollRoundStatus(pollType)) {
     await patchResolvedPoll(ctx, poll, {
       result: "closed",
       appliedExtensionMs: 0,
@@ -189,6 +294,8 @@ async function resolvePoll(
     });
     return { result: "closed" as const, appliedExtensionMs: 0 };
   }
+
+  const { phaseDeadline } = getPollPhaseTiming(round, league, pollType);
 
   if (resolution.appliedExtensionMs > 0) {
     const [leagueRounds, memberships, submissions, votes] = await Promise.all([
@@ -225,23 +332,32 @@ async function resolvePoll(
     );
 
     const activeMembers = getActiveMembers(memberships);
-    const { maxUp, maxDown } = getVoteLimits(round, league);
-    const pendingUserIds = getPendingVotingParticipantIds(
-      activeMembers,
-      submissions,
-      votes,
-      maxUp,
-      maxDown,
-    ).map((userId) => userId as Id<"users">);
-    const newVotingDeadline = round.votingDeadline + resolution.appliedExtensionMs;
+    const pendingUserIds =
+      pollType === "submission"
+        ? getPendingSubmissionParticipantIds(
+            activeMembers,
+            submissions,
+            round.submissionsPerUser ?? 1,
+            round.submissionMode ?? "single",
+          )
+        : (() => {
+            const { maxUp, maxDown } = getVoteLimits(round, league);
+            return getPendingVotingParticipantIds(
+              activeMembers,
+              submissions,
+              votes,
+              maxUp,
+              maxDown,
+            );
+          })();
+    const newDeadline = phaseDeadline + resolution.appliedExtensionMs;
 
     if (pendingUserIds.length > 0) {
-      const durationLabel =
-        resolution.appliedExtensionMs === EXTENSION_POLL_APPROVED_EXTENSION_MS
-          ? "24 hours"
-          : resolution.appliedExtensionMs === EXTENSION_POLL_TIE_EXTENSION_MS
-            ? "8 hours"
-            : `${Math.round(resolution.appliedExtensionMs / (60 * 60 * 1000))} hours`;
+      const durationLabel = formatAppliedExtensionDurationLabel(
+        resolution.appliedExtensionMs,
+      );
+      const phaseTitle = getPollPhaseLabel(pollType, { capitalized: true });
+      const deadlineLabel = getPollDeadlineLabel(pollType);
 
       await ctx.scheduler.runAfter(
         0,
@@ -249,19 +365,20 @@ async function resolvePoll(
         {
           leagueId: round.leagueId,
           roundId: round._id,
-          roundStatus: "voting",
-          notificationType: "round_voting",
+          roundStatus: getPollRoundStatus(pollType),
+          notificationType:
+            pollType === "submission" ? "round_submission" : "round_voting",
           discordNotificationKind: "deadline_changed",
-          message: `The voting deadline for "${round.title}" in "${league.name}" was extended by ${durationLabel} after an anonymous extension poll.`,
+          message: `The ${deadlineLabel} for "${round.title}" in "${league.name}" was extended by ${durationLabel} after an anonymous ${getPollHistoryLabel(pollType)}.`,
           link: `/leagues/${round.leagueId}/round/${round._id}`,
-          deadlineMs: newVotingDeadline,
-          targetUserIds: pendingUserIds,
+          deadlineMs: newDeadline,
+          targetUserIds: pendingUserIds.map((userId) => userId as Id<"users">),
           metadata: {
-            source: `round-extension-poll:${poll._id}:deadline:${newVotingDeadline}`,
+            source: `round-extension-poll:${poll._id}:${pollType}:deadline:${newDeadline}`,
           },
           pushNotificationOverride: {
-            title: "Voting Deadline Extended",
-            body: `The voting deadline for "${round.title}" was extended by ${durationLabel}.`,
+            title: `${phaseTitle} Deadline Extended`,
+            body: `The ${deadlineLabel} for "${round.title}" was extended by ${durationLabel}.`,
           },
         },
       );
@@ -274,26 +391,28 @@ async function resolvePoll(
     resolvedAt: now,
   });
 
+  const historyLabel = getPollHistoryLabel(pollType);
+  const deadlineLabel = getPollDeadlineLabel(pollType);
   const resultMessage =
     resolution.result === "approved"
-      ? `The anonymous extension poll for "${round.title}" in "${league.name}" passed. Voting was extended by 24 hours.`
+      ? `The anonymous ${historyLabel} for "${round.title}" in "${league.name}" passed. The ${deadlineLabel} was extended by 24 hours.`
       : resolution.result === "tie"
-        ? `The anonymous extension poll for "${round.title}" in "${league.name}" tied. Voting was extended by 8 hours.`
+        ? `The anonymous ${historyLabel} for "${round.title}" in "${league.name}" tied. The ${deadlineLabel} was extended by 8 hours.`
         : resolution.result === "insufficient_turnout"
-          ? `The anonymous extension poll for "${round.title}" in "${league.name}" closed without effect because fewer than 50% of eligible voters participated.`
-          : `The anonymous extension poll for "${round.title}" in "${league.name}" was rejected. The voting deadline stayed the same.`;
+          ? `The anonymous ${historyLabel} for "${round.title}" in "${league.name}" closed without effect because fewer than 50% of eligible members participated.`
+          : `The anonymous ${historyLabel} for "${round.title}" in "${league.name}" was rejected. The ${deadlineLabel} stayed the same.`;
 
   await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundNotification, {
     leagueId: round.leagueId,
     roundId: round._id,
-    roundStatus: "voting",
+    roundStatus: getPollRoundStatus(pollType),
     reminderKind: "extension_poll_result",
     message: resultMessage,
     deadlineMs:
       resolution.appliedExtensionMs > 0
-        ? round.votingDeadline + resolution.appliedExtensionMs
-        : round.votingDeadline,
-    source: `round-extension-poll:${poll._id}:result:${resolution.result}`,
+        ? phaseDeadline + resolution.appliedExtensionMs
+        : phaseDeadline,
+    source: `round-extension-poll:${poll._id}:${pollType}:result:${resolution.result}`,
     targetUserIds: [],
   });
 
@@ -304,7 +423,10 @@ async function resolvePoll(
 }
 
 export const getForRound = query({
-  args: { roundId: v.id("rounds") },
+  args: {
+    roundId: v.id("rounds"),
+    type: v.union(v.literal("submission"), v.literal("voting")),
+  },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     const round = await ctx.db.get("rounds", args.roundId);
@@ -317,18 +439,29 @@ export const getForRound = query({
       return null;
     }
 
-    const now = Date.now();
-    const poll = await ctx.db
+    const polls = await ctx.db
       .query("extensionPolls")
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
-      .first();
+      .collect();
+    const poll = getExistingPollForType(polls, args.type);
+    const isActivePhase = round.status === getPollRoundStatus(args.type);
 
+    if (round.status === "finished") {
+      if (!poll) {
+        return null;
+      }
+    } else if (!isActivePhase) {
+      return null;
+    }
+
+    const now = Date.now();
     const membership =
       userId !== null ? await getLeagueMembership(ctx, round.leagueId, userId) : null;
     const activeMembership = isActiveMembership(membership);
+    const { phaseStart, phaseDeadline } = getPollPhaseTiming(round, league, args.type);
     const requestWindowMs = getExtensionPollRequestWindowMs(
-      round.submissionDeadline,
-      round.votingDeadline,
+      phaseStart,
+      phaseDeadline,
     );
 
     let requestEligibilityReason: ExtensionPollRequestEligibilityReason =
@@ -337,51 +470,49 @@ export const getForRound = query({
     let remainingRequests = 0;
     let eligibleVoterCount = poll?.eligibleVoterCount ?? 0;
 
-    if (!userId) {
-      requestEligibilityReason = "not_authenticated";
-    } else if (!membership || membership.isBanned) {
-      requestEligibilityReason = "not_member";
-    } else if (membership.isSpectator) {
-      requestEligibilityReason = "spectator";
-    } else {
-      const requesterPolls = await ctx.db
-        .query("extensionPolls")
-        .withIndex("by_league_and_requester", (q) =>
-          q.eq("leagueId", round.leagueId).eq("requesterUserId", userId),
-        )
-        .collect();
-      remainingRequests = getRemainingExtensionRequests(requesterPolls.length);
-
-      if (poll) {
-        requestEligibilityReason = "already_exists";
-      } else if (round.status !== "voting") {
-        requestEligibilityReason = "round_not_voting";
-      } else if (
-        !isExtensionPollRequestWindowOpen(
-          round.submissionDeadline,
-          round.votingDeadline,
-          now,
-        )
-      ) {
-        requestEligibilityReason = "outside_window";
-      } else if (remainingRequests === 0) {
-        requestEligibilityReason = "already_used_limit";
+    if (isActivePhase) {
+      if (!userId) {
+        requestEligibilityReason = "not_authenticated";
+      } else if (!membership || membership.isBanned) {
+        requestEligibilityReason = "not_member";
+      } else if (membership.isSpectator) {
+        requestEligibilityReason = "spectator";
       } else {
-        const requestContext = await getRequestContext(ctx, round, league);
-        eligibleVoterCount = requestContext.finalizedVoterIds.length;
-        const hasSubmitted = requestContext.submissions.some(
-          (submission) => submission.userId === userId,
-        );
-        const isPendingVoter =
-          hasSubmitted && !requestContext.finalizedVoterIdSet.has(userId.toString());
+        const requesterPolls = await ctx.db
+          .query("extensionPolls")
+          .withIndex("by_league_and_requester", (q) =>
+            q.eq("leagueId", round.leagueId).eq("requesterUserId", userId),
+          )
+          .collect();
+        remainingRequests = getRemainingExtensionRequests(requesterPolls.length);
 
-        if (!isPendingVoter) {
-          requestEligibilityReason = "not_pending_voter";
-        } else if (eligibleVoterCount === 0) {
-          requestEligibilityReason = "no_eligible_voters";
+        if (poll) {
+          requestEligibilityReason = "already_exists";
+        } else if (
+          !isExtensionPollRequestWindowOpen(phaseStart, phaseDeadline, now)
+        ) {
+          requestEligibilityReason = "outside_window";
+        } else if (remainingRequests === 0) {
+          requestEligibilityReason = "already_used_limit";
         } else {
-          requestEligibilityReason = "unavailable";
-          canRequest = true;
+          const requestContext = await getRequestContext(ctx, round, league);
+          const isPendingParticipant =
+            args.type === "submission"
+              ? requestContext.pendingSubmitterIdSet.has(userId.toString())
+              : requestContext.pendingVoterIdSet.has(userId.toString());
+
+          eligibleVoterCount =
+            args.type === "submission"
+              ? requestContext.submittedMemberIds.length
+              : requestContext.finalizedVoterIds.length;
+
+          if (!isPendingParticipant) {
+            requestEligibilityReason = "not_pending_participant";
+          } else if (eligibleVoterCount === 0) {
+            requestEligibilityReason = "no_eligible_voters";
+          } else {
+            canRequest = true;
+          }
         }
       }
     }
@@ -400,9 +531,11 @@ export const getForRound = query({
     );
 
     return {
+      type: args.type,
       poll: poll
         ? {
             _id: poll._id,
+            type: getPollType(poll),
             reason: poll.reason,
             status: poll.status,
             result: poll.result,
@@ -430,12 +563,8 @@ export const getForRound = query({
         eligibleVoterCount,
         requestWindowMs,
         isWithinWindow:
-          round.status === "voting" &&
-          isExtensionPollRequestWindowOpen(
-            round.submissionDeadline,
-            round.votingDeadline,
-            now,
-          ),
+          isActivePhase &&
+          isExtensionPollRequestWindowOpen(phaseStart, phaseDeadline, now),
         isActiveMember: activeMembership,
       },
     };
@@ -445,6 +574,7 @@ export const getForRound = query({
 export const create = mutation({
   args: {
     roundId: v.id("rounds"),
+    type: v.union(v.literal("submission"), v.literal("voting")),
     reason: v.string(),
   },
   handler: async (ctx, args) => {
@@ -464,8 +594,12 @@ export const create = mutation({
     if (!round) {
       throw new Error("Round not found.");
     }
-    if (round.status !== "voting") {
-      throw new Error("Extensions can only be requested while voting is open.");
+    if (round.status !== getPollRoundStatus(args.type)) {
+      throw new Error(
+        args.type === "submission"
+          ? "Submission extensions can only be requested while submissions are open."
+          : "Voting extensions can only be requested while voting is open.",
+      );
     }
 
     const league = await ctx.db.get("leagues", round.leagueId);
@@ -478,33 +612,35 @@ export const create = mutation({
       throw new Error("You must be an active league member to request an extension.");
     }
     if (membership.isSpectator) {
-      throw new Error("Spectators cannot request voting extensions.");
-    }
-
-    const now = Date.now();
-    const requestWindowMs = getExtensionPollRequestWindowMs(
-      round.submissionDeadline,
-      round.votingDeadline,
-    );
-    if (
-      !isExtensionPollRequestWindowOpen(
-        round.submissionDeadline,
-        round.votingDeadline,
-        now,
-      )
-    ) {
       throw new Error(
-        `Voting extensions can only be requested during the last ${formatExtensionPollRequestWindowLabel(requestWindowMs)} of voting.`,
+        args.type === "submission"
+          ? "Spectators cannot request submission extensions."
+          : "Spectators cannot request voting extensions.",
       );
     }
 
-    const existingPoll = await ctx.db
-      .query("extensionPolls")
-      .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
-      .first();
+    const now = Date.now();
+    const { phaseStart, phaseDeadline } = getPollPhaseTiming(round, league, args.type);
+    const requestWindowMs = getExtensionPollRequestWindowMs(
+      phaseStart,
+      phaseDeadline,
+    );
+    if (!isExtensionPollRequestWindowOpen(phaseStart, phaseDeadline, now)) {
+      throw new Error(
+        `${getPollPhaseLabel(args.type, { capitalized: true })} extensions can only be requested during the last ${formatExtensionPollRequestWindowLabel(requestWindowMs)} of ${getPollPhaseLabel(args.type)}.`,
+      );
+    }
+
+    const existingPoll = getExistingPollForType(
+      await ctx.db
+        .query("extensionPolls")
+        .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
+        .collect(),
+      args.type,
+    );
     if (existingPoll) {
       throw new Error(
-        "This round already has or already used its extension poll.",
+        `This round already has or already used its ${getPollPhaseLabel(args.type)} extension poll.`,
       );
     }
 
@@ -516,73 +652,71 @@ export const create = mutation({
       .collect();
     if (getRemainingExtensionRequests(requesterPolls.length) === 0) {
       throw new Error(
-        "You have used all extension requests for this league. Opening a poll spends a request whether it passes or fails.",
+        "You have used all shared extension requests for this league. Submission and voting extension polls spend from the same pool, even when they fail.",
       );
     }
 
     const requestContext = await getRequestContext(ctx, round, league);
-    const hasSubmitted = requestContext.submissions.some(
-      (submission) => submission.userId === userId,
-    );
-    const isPendingVoter =
-      hasSubmitted && !requestContext.finalizedVoterIdSet.has(userId.toString());
-    if (!isPendingVoter) {
-      throw new Error(
-        "Only participants who are still voting can request an extension.",
-      );
+    const isPendingParticipant =
+      args.type === "submission"
+        ? requestContext.pendingSubmitterIdSet.has(userId.toString())
+        : requestContext.pendingVoterIdSet.has(userId.toString());
+    if (!isPendingParticipant) {
+      throw new Error(getPollRequesterErrorMessage(args.type));
     }
 
-    if (requestContext.finalizedVoterIds.length === 0) {
-      throw new Error(
-        "An extension poll cannot start until at least one voter has finished voting.",
-      );
+    const eligibleVoterIds =
+      args.type === "submission"
+        ? requestContext.submittedMemberIds
+        : requestContext.finalizedVoterIds;
+    if (eligibleVoterIds.length === 0) {
+      throw new Error(getPollNoEligibleVoterMessage(args.type));
     }
 
     const pollId = await ctx.db.insert("extensionPolls", {
       leagueId: round.leagueId,
       roundId: round._id,
       requesterUserId: userId,
+      type: args.type,
       reason: trimmedReason,
       status: "open",
       result: "pending",
       openedAt: now,
-      resolvesAt: round.votingDeadline,
-      eligibleVoterIds: requestContext.finalizedVoterIds.map(
-        (voterId) => voterId as Id<"users">,
-      ),
-      eligibleVoterCount: requestContext.finalizedVoterIds.length,
+      resolvesAt: phaseDeadline,
+      eligibleVoterIds: eligibleVoterIds.map((voterId) => voterId as Id<"users">),
+      eligibleVoterCount: eligibleVoterIds.length,
       yesVotes: 0,
       noVotes: 0,
     });
 
+    const phaseLabel = getPollPhaseLabel(args.type);
+    const phaseTitle = getPollPhaseLabel(args.type, { capitalized: true });
     await ctx.scheduler.runAfter(
       0,
       internal.notifications.createForLeagueAndDispatchDiscord,
       {
         leagueId: round.leagueId,
         roundId: round._id,
-        roundStatus: "voting",
+        roundStatus: getPollRoundStatus(args.type),
         notificationType: "round_extension_poll",
         discordNotificationKind: "extension_poll",
-        message: `An extension poll is open for "${round.title}" in "${league.name}". Reason: ${trimmedReason}.`,
+        message: `A ${phaseLabel} extension poll is open for "${round.title}" in "${league.name}". Reason: ${trimmedReason}.`,
         link: `/leagues/${round.leagueId}/round/${round._id}`,
-        deadlineMs: round.votingDeadline,
-        targetUserIds: requestContext.finalizedVoterIds.map(
-          (voterId) => voterId as Id<"users">,
-        ),
+        deadlineMs: phaseDeadline,
+        targetUserIds: eligibleVoterIds.map((voterId) => voterId as Id<"users">),
         metadata: {
-          source: `round-extension-poll:${pollId}:opened`,
+          source: `round-extension-poll:${pollId}:${args.type}:opened`,
         },
         pushNotificationOverride: {
-          title: "Extension Poll Open",
-          body: `An extension poll is open for "${round.title}".`,
+          title: `${phaseTitle} Extension Poll Open`,
+          body: `A ${phaseLabel} extension poll is open for "${round.title}".`,
         },
       },
     );
 
     return {
       pollId,
-      eligibleVoterCount: requestContext.finalizedVoterIds.length,
+      eligibleVoterCount: eligibleVoterIds.length,
     };
   },
 });
@@ -689,7 +823,8 @@ export const getReminderContexts = internalQuery({
     return openPolls.flatMap((poll, index) => {
       const round = rounds[index];
       const league = leagues[index];
-      if (!round || round.status !== "voting" || !league) {
+      const pollType = getPollType(poll);
+      if (!round || round.status !== getPollRoundStatus(pollType) || !league) {
         return [];
       }
 
@@ -703,15 +838,23 @@ export const getReminderContexts = internalQuery({
         return [];
       }
 
+      const { phaseStart, phaseDeadline } = getPollPhaseTiming(
+        round,
+        league,
+        pollType,
+      );
+
       return [
         {
           pollId: poll._id,
+          pollType,
           roundId: round._id,
+          roundStatus: getPollRoundStatus(pollType),
           leagueId: league._id,
           leagueName: league.name,
           roundTitle: round.title,
-          submissionDeadline: round.submissionDeadline,
-          votingDeadline: round.votingDeadline,
+          phaseStart,
+          phaseDeadline,
           targetUserIds,
         },
       ];
@@ -722,18 +865,21 @@ export const getReminderContexts = internalQuery({
 export const closeOpenForRound = internalMutation({
   args: { roundId: v.id("rounds") },
   handler: async (ctx, args) => {
-    const poll = await ctx.db
+    const polls = await ctx.db
       .query("extensionPolls")
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
-      .first();
-    if (!poll || poll.status !== "open") {
-      return;
-    }
+      .collect();
 
-    await patchResolvedPoll(ctx, poll, {
-      result: "closed",
-      appliedExtensionMs: 0,
-      resolvedAt: Date.now(),
-    });
+    for (const poll of polls) {
+      if (poll.status !== "open") {
+        continue;
+      }
+
+      await patchResolvedPoll(ctx, poll, {
+        result: "closed",
+        appliedExtensionMs: 0,
+        resolvedAt: Date.now(),
+      });
+    }
   },
 });

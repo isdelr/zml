@@ -12,6 +12,7 @@ import {
   getExtensionPollRequestWindowMs,
   getFinalizedVotingParticipantIds,
   getRemainingExtensionRequests,
+  getSubmittedParticipantIds,
   hasExtensionPollReachedMinimumTurnout,
   isExtensionPollRequestWindowOpen,
 } from "@/lib/rounds/extension-polls";
@@ -76,6 +77,21 @@ describe("extension poll helpers", () => {
     expect(
       getFinalizedVotingParticipantIds(members, submissions, votes, 2, 1),
     ).toEqual(["user-1", "user-3"]);
+  });
+
+  it("tracks eligible submission voters from members who already submitted", () => {
+    const members = [{ _id: "user-1" }, { _id: "user-2" }, { _id: "user-3" }];
+    const submissions = [
+      { userId: "user-1" },
+      { userId: "user-1" },
+      { userId: "user-3" },
+      { userId: "user-4" },
+    ];
+
+    expect(getSubmittedParticipantIds(members, submissions)).toEqual([
+      "user-1",
+      "user-3",
+    ]);
   });
 
   it("calculates remaining league-wide request attempts", () => {

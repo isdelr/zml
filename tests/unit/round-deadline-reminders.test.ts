@@ -189,6 +189,18 @@ describe("round deadline reminders", () => {
       'Voting closes in 45 minutes for "Synth Showdown" in "Night Owls". If you need more time request an extension in the app.',
     );
     expect(
+      buildRoundDeadlineReminderMessage({
+        status: "voting",
+        roundTitle: "Synth Showdown",
+        leagueName: "Night Owls",
+        label: "45 minutes",
+        windowKey: "1pct",
+        includeVotingExtensionPrompt: false,
+      }),
+    ).toBe(
+      'Voting closes in 45 minutes for "Synth Showdown" in "Night Owls".',
+    );
+    expect(
       buildRoundDeadlineReminderSource({
         roundId: "round-9" as never,
         status: "voting",
@@ -201,24 +213,43 @@ describe("round deadline reminders", () => {
     expect(shouldIncludeExtensionPollReminder("5pct")).toBe(false);
     expect(
       buildExtensionPollReminderMessage({
+        pollType: "voting",
         roundTitle: "Synth Showdown",
         leagueName: "Night Owls",
         label: "2 hours",
       }),
     ).toBe(
-      'Extension poll closes in 2 hours for "Synth Showdown" in "Night Owls". Vote in the app.',
+      'Voting extension poll closes in 2 hours for "Synth Showdown" in "Night Owls". Vote in the app.',
+    );
+    expect(
+      buildExtensionPollReminderMessage({
+        pollType: "submission",
+        roundTitle: "Synth Showdown",
+        leagueName: "Night Owls",
+        label: "2 hours",
+      }),
+    ).toBe(
+      'Submission extension poll closes in 2 hours for "Synth Showdown" in "Night Owls". Vote in the app.',
     );
     expect(
       buildExtensionPollReminderTitle({
+        pollType: "voting",
         label: "2 hours",
       }),
-    ).toBe("Extension poll closes in 2 hours");
+    ).toBe("Voting extension poll closes in 2 hours");
+    expect(
+      buildExtensionPollReminderTitle({
+        pollType: "submission",
+        label: "2 hours",
+      }),
+    ).toBe("Submission extension poll closes in 2 hours");
     expect(
       buildExtensionPollReminderSource({
         pollId: "poll-9",
+        pollType: "submission",
         deadline: 123,
         windowKey: "10pct",
       }),
-    ).toBe("extension-poll-deadline:poll-9:10pct:123");
+    ).toBe("extension-poll-deadline:poll-9:submission:10pct:123");
   });
 });

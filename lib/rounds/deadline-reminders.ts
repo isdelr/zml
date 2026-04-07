@@ -1,4 +1,5 @@
 import type { Doc } from "../../convex/_generated/dataModel";
+import type { ExtensionPollType } from "./extension-polls";
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -217,12 +218,16 @@ export function buildRoundDeadlineReminderMessage(args: {
   leagueName: string;
   label: string;
   windowKey: RoundDeadlineReminderWindow["key"];
+  includeVotingExtensionPrompt?: boolean;
 }): string {
   if (args.status === "submissions") {
     return `Submissions close in ${args.label} for "${args.roundTitle}" in "${args.leagueName}".`;
   }
 
-  if (shouldIncludeVotingExtensionPrompt(args.windowKey)) {
+  if (
+    args.includeVotingExtensionPrompt !== false &&
+    shouldIncludeVotingExtensionPrompt(args.windowKey)
+  ) {
     return `Voting closes in ${args.label} for "${args.roundTitle}" in "${args.leagueName}". If you need more time request an extension in the app.`;
   }
 
@@ -242,27 +247,33 @@ export function buildRoundDeadlineReminderTitle(args: {
 
 export function buildExtensionPollReminderSource(args: {
   pollId: string;
+  pollType: ExtensionPollType;
   deadline: number;
   windowKey: RoundDeadlineReminderWindow["key"];
 }): string {
   return [
     "extension-poll-deadline",
     args.pollId,
+    args.pollType,
     args.windowKey,
     args.deadline,
   ].join(":");
 }
 
 export function buildExtensionPollReminderMessage(args: {
+  pollType: ExtensionPollType;
   roundTitle: string;
   leagueName: string;
   label: string;
 }): string {
-  return `Extension poll closes in ${args.label} for "${args.roundTitle}" in "${args.leagueName}". Vote in the app.`;
+  const phaseLabel = args.pollType === "submission" ? "Submission" : "Voting";
+  return `${phaseLabel} extension poll closes in ${args.label} for "${args.roundTitle}" in "${args.leagueName}". Vote in the app.`;
 }
 
 export function buildExtensionPollReminderTitle(args: {
+  pollType: ExtensionPollType;
   label: string;
 }): string {
-  return `Extension poll closes in ${args.label}`;
+  const phaseLabel = args.pollType === "submission" ? "Submission" : "Voting";
+  return `${phaseLabel} extension poll closes in ${args.label}`;
 }

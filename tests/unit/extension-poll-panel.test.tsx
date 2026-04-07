@@ -23,7 +23,7 @@ describe("ExtensionPollPanel", () => {
     document.body.style.pointerEvents = "";
   });
 
-  it("opens the request dialog when the user can request an extension", async () => {
+  it("opens the voting request dialog when the user can request an extension", async () => {
     vi.mocked(useMutation)
       .mockReturnValueOnce(vi.fn() as never)
       .mockReturnValueOnce(vi.fn() as never);
@@ -32,10 +32,12 @@ describe("ExtensionPollPanel", () => {
 
     render(
       <ExtensionPollPanel
+        pollType="voting"
         roundId={"round-1" as never}
         roundStatus="voting"
         state={
           {
+            type: "voting",
             poll: null,
             request: {
               canRequest: true,
@@ -51,17 +53,23 @@ describe("ExtensionPollPanel", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /request extension/i }));
+    await user.click(
+      screen.getByRole("button", { name: /request voting extension/i }),
+    );
 
     expect(
-      screen.getByRole("dialog", { name: /open anonymous extension poll/i }),
+      screen.getByRole("dialog", {
+        name: /open anonymous voting extension poll/i,
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/the requester stays anonymous/i),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/last 1 day/i).length).toBeGreaterThan(0);
     expect(
-      screen.getByText(/uses one of your 2 league-wide extension requests even if it fails/i),
+      screen.getByText(
+        /uses 1 of your 2 league-wide requests, shared between submission and voting/i,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -76,10 +84,12 @@ describe("ExtensionPollPanel", () => {
 
     render(
       <ExtensionPollPanel
+        pollType="voting"
         roundId={"round-1" as never}
         roundStatus="voting"
         state={
           {
+            type: "voting",
             poll: null,
             request: {
               canRequest: true,
@@ -95,24 +105,28 @@ describe("ExtensionPollPanel", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /request extension/i }));
+    await user.click(
+      screen.getByRole("button", { name: /request voting extension/i }),
+    );
     await user.type(screen.getByLabelText("Reason"), "too short");
 
-    expect(screen.getByRole("button", { name: /open poll/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /open voting poll/i })).toBeDisabled();
     expect(createPoll).not.toHaveBeenCalled();
   });
 
-  it("explains that failed requests still consume league-wide tries", () => {
+  it("explains that failed requests still consume shared tries", () => {
     vi.mocked(useMutation)
       .mockReturnValueOnce(vi.fn() as never)
       .mockReturnValueOnce(vi.fn() as never);
 
     render(
       <ExtensionPollPanel
+        pollType="voting"
         roundId={"round-1" as never}
         roundStatus="voting"
         state={
           {
+            type: "voting",
             poll: null,
             request: {
               canRequest: false,
@@ -129,12 +143,58 @@ describe("ExtensionPollPanel", () => {
     );
 
     expect(
-      screen.getByText(/used both extension requests available in this league/i),
+      screen.getByText(/used both shared extension requests available in this league/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/opening a poll spends a request whether it passes or fails/i),
+      screen.getByText(/submission and voting polls spend from the same pool/i),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/each round only gets one extension poll/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/each round only gets 1 voting extension poll/i).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("uses submission-specific copy for submission polls", () => {
+    vi.mocked(useMutation)
+      .mockReturnValueOnce(vi.fn() as never)
+      .mockReturnValueOnce(vi.fn() as never);
+
+    render(
+      <ExtensionPollPanel
+        pollType="submission"
+        roundId={"round-1" as never}
+        roundStatus="submissions"
+        state={
+          {
+            type: "submission",
+            poll: null,
+            request: {
+              canRequest: false,
+              remainingRequests: 1,
+              eligibilityReason: "no_eligible_voters",
+              eligibleVoterCount: 0,
+              requestWindowMs: 24 * 60 * 60 * 1000,
+              isWithinWindow: true,
+              isActiveMember: true,
+            },
+          } as never
+        }
+      />,
+    );
+
+    expect(
+      screen.getByText(/submission extension request/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/available during the last 1 day of submission/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/who had already submitted must respond/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /submission extension poll needs at least one member who had already submitted/i,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows anonymous voting controls for eligible completed voters", () => {
@@ -144,12 +204,15 @@ describe("ExtensionPollPanel", () => {
 
     render(
       <ExtensionPollPanel
+        pollType="voting"
         roundId={"round-1" as never}
         roundStatus="voting"
         state={
           {
+            type: "voting",
             poll: {
               _id: "poll-1",
+              type: "voting",
               reason: "I am traveling and need more time to finish listening.",
               status: "open",
               result: "pending",
@@ -179,7 +242,9 @@ describe("ExtensionPollPanel", () => {
       />,
     );
 
-    expect(screen.getAllByText("Extension Request").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Voting Extension Request").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: /grant extension/i }),
     ).toBeInTheDocument();
@@ -191,17 +256,19 @@ describe("ExtensionPollPanel", () => {
     expect(screen.queryByText(/^open$/i)).not.toBeInTheDocument();
   });
 
-  it("keeps the poll visible to everyone even when they cannot request it", () => {
+  it("keeps the panel visible to everyone during the active phase", () => {
     vi.mocked(useMutation)
       .mockReturnValueOnce(vi.fn() as never)
       .mockReturnValueOnce(vi.fn() as never);
 
     render(
       <ExtensionPollPanel
+        pollType="voting"
         roundId={"round-1" as never}
         roundStatus="voting"
         state={
           {
+            type: "voting",
             poll: null,
             request: {
               canRequest: false,
@@ -217,12 +284,14 @@ describe("ExtensionPollPanel", () => {
       />,
     );
 
-    expect(screen.getAllByText("Extension Request").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Voting Extension Request").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText(/this panel is visible to everyone/i),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /request extension/i }),
+      screen.queryByRole("button", { name: /request voting extension/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -233,12 +302,15 @@ describe("ExtensionPollPanel", () => {
 
     render(
       <ExtensionPollPanel
+        pollType="voting"
         roundId={"round-1" as never}
         roundStatus="voting"
         state={
           {
+            type: "voting",
             poll: {
               _id: "poll-1",
+              type: "voting",
               reason: "I am traveling and need more time to finish listening.",
               status: "open",
               result: "pending",
@@ -269,7 +341,9 @@ describe("ExtensionPollPanel", () => {
     );
 
     expect(screen.getByText(/voted:/i)).toBeInTheDocument();
-    expect(screen.queryByText(/your anonymous vote is locked in/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/your anonymous vote is locked in/i),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Grant")).not.toBeInTheDocument();
     expect(screen.queryByText(/50% turnout/i)).not.toBeInTheDocument();
   });

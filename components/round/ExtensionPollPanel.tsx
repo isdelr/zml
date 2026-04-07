@@ -44,22 +44,52 @@ import { cn } from "@/lib/utils";
 type ExtensionPollState = FunctionReturnType<
   typeof api.extensionPolls.getForRound
 >;
+type ExtensionPollType = NonNullable<ExtensionPollState>["type"];
+
+function getPhaseLabel(
+  pollType: ExtensionPollType,
+  options: { capitalized?: boolean } = {},
+) {
+  const label = pollType === "submission" ? "submission" : "voting";
+  return options.capitalized
+    ? `${label.charAt(0).toUpperCase()}${label.slice(1)}`
+    : label;
+}
+
+function getDeadlineLabel(pollType: ExtensionPollType) {
+  return `${getPhaseLabel(pollType)} deadline`;
+}
+
+function getEligibilitySnapshotCopy(pollType: ExtensionPollType) {
+  return pollType === "submission"
+    ? "had already submitted"
+    : "had already finished voting";
+}
+
+function getPendingParticipantCopy(pollType: ExtensionPollType) {
+  return pollType === "submission"
+    ? "Only participants who are still submitting can request more time."
+    : "Only participants who are still voting can request more time.";
+}
 
 function getRequestEligibilityCopy(
   reason: NonNullable<ExtensionPollState>["request"]["eligibilityReason"],
   requestWindowLabel: string,
+  pollType: ExtensionPollType,
 ) {
+  const phaseLabel = getPhaseLabel(pollType);
+
   switch (reason) {
     case "already_used_limit":
-      return "You have already used both extension requests available in this league. Opening a poll spends a request whether it passes or fails.";
-    case "not_pending_voter":
-      return "Only participants who are still voting can request more time.";
+      return "You have already used both shared extension requests available in this league. Submission and voting polls spend from the same pool, and opening a poll spends a request whether it passes or fails.";
+    case "not_pending_participant":
+      return getPendingParticipantCopy(pollType);
     case "no_eligible_voters":
-      return "An extension poll needs at least one completed voter before it can open.";
+      return pollType === "submission"
+        ? "A submission extension poll needs at least one member who had already submitted before it can open."
+        : "A voting extension poll needs at least one completed voter before it can open.";
     case "outside_window":
-      return `Extension requests only open during the last ${requestWindowLabel} of voting.`;
-    case "round_not_voting":
-      return "Extension requests are only available while voting is open.";
+      return `${getPhaseLabel(pollType, { capitalized: true })} extension requests only open during the last ${requestWindowLabel} of ${phaseLabel}.`;
     case "not_authenticated":
     case "not_member":
     case "spectator":
@@ -71,40 +101,44 @@ function getRequestEligibilityCopy(
 
 function getPollStatusCopy(
   poll: NonNullable<NonNullable<ExtensionPollState>["poll"]>,
+  pollType: ExtensionPollType,
 ) {
+  const phaseTitle = getPhaseLabel(pollType, { capitalized: true });
+  const deadlineLabel = getDeadlineLabel(pollType);
+
   if (poll.status === "open") {
     return {
-      title: "Extension Request",
-      description: "An extension poll is currently open for this round.",
+      title: `${phaseTitle} Extension Request`,
+      description: `A ${getPhaseLabel(pollType)} extension poll is currently open for this round.`,
     };
   }
 
   switch (poll.result) {
     case "approved":
       return {
-        title: "Extension approved",
-        description: "Voting was extended by 24 hours.",
+        title: `${phaseTitle} extension approved`,
+        description: `The ${deadlineLabel} was extended by 24 hours.`,
       };
     case "tie":
       return {
-        title: "Extension tied",
-        description: "The poll tied, so voting was extended by 8 hours.",
+        title: `${phaseTitle} extension tied`,
+        description: `The poll tied, so the ${deadlineLabel} was extended by 8 hours.`,
       };
     case "rejected":
       return {
-        title: "Extension rejected",
-        description: "The voting deadline stayed the same.",
+        title: `${phaseTitle} extension rejected`,
+        description: `The ${deadlineLabel} stayed the same.`,
       };
     case "insufficient_turnout":
       return {
-        title: "Extension poll invalid",
+        title: `${phaseTitle} extension poll invalid`,
         description:
-          "Fewer than 50% of eligible voters participated, so no result was applied.",
+          "Fewer than 50% of eligible members participated, so no result was applied.",
       };
     default:
       return {
-        title: "Extension poll closed",
-        description: "Voting ended before an extension needed to be applied.",
+        title: `${phaseTitle} extension poll closed`,
+        description: `The ${deadlineLabel} did not change.`,
       };
   }
 }
@@ -113,12 +147,14 @@ interface ExtensionPollPanelProps {
   state: ExtensionPollState | undefined;
   roundId: Id<"rounds">;
   roundStatus: "scheduled" | "submissions" | "voting" | "finished";
+  pollType: ExtensionPollType;
 }
 
 export function ExtensionPollPanel({
   state,
   roundId,
   roundStatus,
+  pollType,
 }: ExtensionPollPanelProps) {
   const createPoll = useMutation(api.extensionPolls.create);
   const castVote = useMutation(api.extensionPolls.castVote);
@@ -137,12 +173,19 @@ export function ExtensionPollPanel({
     return null;
   }
 
+  const phaseLabel = getPhaseLabel(pollType);
+  const phaseTitle = getPhaseLabel(pollType, { capitalized: true });
+  const deadlineLabel = getDeadlineLabel(pollType);
   const { poll, request } = state;
   const requestWindowLabel = formatExtensionPollRequestWindowLabel(
     request.requestWindowMs,
   );
   const helperCopy = !poll
-    ? getRequestEligibilityCopy(request.eligibilityReason, requestWindowLabel)
+    ? getRequestEligibilityCopy(
+        request.eligibilityReason,
+        requestWindowLabel,
+        pollType,
+      )
     : null;
   const minimumTurnout = getExtensionPollMinimumTurnout(
     poll?.eligibleVoterCount ?? request.eligibleVoterCount,
@@ -158,12 +201,14 @@ export function ExtensionPollPanel({
 
     setIsSubmitting(true);
     try {
-      await createPoll({ roundId, reason: trimmedReason });
-      toast.success("Extension poll opened.");
+      await createPoll({ roundId, type: pollType, reason: trimmedReason });
+      toast.success(`${phaseTitle} extension poll opened.`);
       setReason("");
       setIsDialogOpen(false);
     } catch (error: unknown) {
-      toast.error(toErrorMessage(error, "Failed to open extension poll."));
+      toast.error(
+        toErrorMessage(error, `Failed to open ${phaseLabel} extension poll.`),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -203,29 +248,31 @@ export function ExtensionPollPanel({
             </div>
             <CardTitle className="flex items-center gap-2 text-lg">
               <TimerReset className="size-5 text-primary" />
-              Extension Request
+              {phaseTitle} Extension Request
             </CardTitle>
             <CardDescription>Rules</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-              <li>Available during the last {requestWindowLabel} of voting.</li>
+              <li>
+                Available during the last {requestWindowLabel} of {phaseLabel}.
+              </li>
               <li>The voter list is snapshotted when the poll opens.</li>
               <li>
-                At least {minimumTurnout} of {request.eligibleVoterCount}{" "}
-                eligible voter{request.eligibleVoterCount === 1 ? "" : "s"} must
-                respond.
+                At least {minimumTurnout} of {request.eligibleVoterCount} eligible
+                member{request.eligibleVoterCount === 1 ? "" : "s"} who{" "}
+                {getEligibilitySnapshotCopy(pollType)} must respond.
               </li>
               <li>
-                Opening a poll uses 1 of your 2 league-wide requests, even if it
-                fails.
+                Opening a poll uses 1 of your 2 league-wide requests, shared
+                between submission and voting, even if it fails.
               </li>
-              <li>Each round only gets 1 extension poll.</li>
+              <li>Each round only gets 1 {phaseLabel} extension poll.</li>
               {!request.canRequest && helperCopy ? <li>{helperCopy}</li> : null}
             </ul>
             {request.canRequest ? (
               <Button onClick={() => setIsDialogOpen(true)}>
-                Request Extension
+                Request {phaseTitle} Extension
               </Button>
             ) : null}
           </CardContent>
@@ -234,7 +281,7 @@ export function ExtensionPollPanel({
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Open Anonymous Extension Poll</DialogTitle>
+              <DialogTitle>Open Anonymous {phaseTitle} Extension Poll</DialogTitle>
               <DialogDescription>
                 The requester stays anonymous. The votes stay anonymous. Only
                 the reason below will be shown in the poll.
@@ -253,7 +300,7 @@ export function ExtensionPollPanel({
                   id="extension-reason"
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
-                  placeholder="Explain why you need more time. This will be shown in the poll."
+                  placeholder={`Explain why you need more time for ${phaseLabel}. This will be shown in the poll.`}
                   className="min-h-28"
                   maxLength={500}
                 />
@@ -294,7 +341,7 @@ export function ExtensionPollPanel({
                   trimmedReason.length < EXTENSION_REASON_MIN_LENGTH
                 }
               >
-                Open Poll
+                Open {phaseTitle} Poll
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -303,7 +350,7 @@ export function ExtensionPollPanel({
     );
   }
 
-  const statusCopy = getPollStatusCopy(poll);
+  const statusCopy = getPollStatusCopy(poll, pollType);
   const isOpen = poll.status === "open";
   const canCurrentUserVote =
     isOpen && poll.currentUserEligibleToVote && poll.currentUserVote === null;
@@ -371,8 +418,7 @@ export function ExtensionPollPanel({
                   </p>
                 ) : (
                   <p>
-                    Voting is limited to the people who were eligible when this
-                    poll opened.
+                    Voting is limited to the members who {getEligibilitySnapshotCopy(pollType)} when this poll opened.
                   </p>
                 )}
               </div>
@@ -389,22 +435,22 @@ export function ExtensionPollPanel({
             )}
             <p>
               {poll.result === "approved" &&
-                "The anonymous poll passed and the deadline moved by 24 hours."}
+                `The anonymous poll passed and the ${deadlineLabel} moved by 24 hours.`}
               {poll.result === "tie" &&
-                "The anonymous poll tied, so the deadline moved by 8 hours."}
+                `The anonymous poll tied, so the ${deadlineLabel} moved by 8 hours.`}
               {poll.result === "rejected" &&
-                "The anonymous poll did not pass, so the deadline stayed the same."}
+                `The anonymous poll did not pass, so the ${deadlineLabel} stayed the same.`}
               {poll.result === "insufficient_turnout" &&
-                "Fewer than 50% of eligible voters responded, so the poll had no effect."}
+                "Fewer than 50% of eligible members responded, so the poll had no effect."}
               {poll.result === "closed" &&
-                "The round finished before any extension needed to be applied."}
+                `The ${phaseLabel} extension poll closed before any extension needed to be applied.`}
             </p>
           </div>
         )}
 
-        {roundStatus !== "voting" && poll ? (
+        {roundStatus === "finished" ? (
           <p className="text-xs text-muted-foreground">
-            This poll remains visible for round history.
+            This {phaseLabel} extension poll remains visible for round history.
           </p>
         ) : null}
       </CardContent>

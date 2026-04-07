@@ -23,6 +23,10 @@ const extensionPollResultValidator = v.union(
   v.literal("insufficient_turnout"),
   v.literal("closed"),
 );
+const extensionPollTypeValidator = v.union(
+  v.literal("submission"),
+  v.literal("voting"),
+);
 const extensionPollVoteChoiceValidator = v.union(
   v.literal("grant"),
   v.literal("deny"),
@@ -250,6 +254,7 @@ export default defineSchema({
     leagueId: v.id("leagues"),
     roundId: v.id("rounds"),
     requesterUserId: v.id("users"),
+    type: v.optional(extensionPollTypeValidator),
     reason: v.string(),
     status: extensionPollStatusValidator,
     result: extensionPollResultValidator,

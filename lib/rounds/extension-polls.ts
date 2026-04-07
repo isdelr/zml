@@ -29,6 +29,8 @@ export type ExtensionPollResolutionResult =
   | "rejected"
   | "insufficient_turnout";
 
+export type ExtensionPollType = "submission" | "voting";
+
 const toId = (value: IdLike) => value.toString();
 
 function formatUnit(value: number, unit: "day" | "hour" | "minute"): string {
@@ -56,23 +58,23 @@ export function formatExtensionPollRequestWindowLabel(windowMs: number): string 
 }
 
 export function getExtensionPollRequestWindowMs(
-  votingStartsAt: number,
-  votingDeadline: number,
+  phaseStartsAt: number,
+  phaseDeadline: number,
 ): number {
-  return Math.max(0, (votingDeadline - votingStartsAt) * EXTENSION_REQUEST_WINDOW_RATIO);
+  return Math.max(0, (phaseDeadline - phaseStartsAt) * EXTENSION_REQUEST_WINDOW_RATIO);
 }
 
 export function isExtensionPollRequestWindowOpen(
-  votingStartsAt: number,
-  votingDeadline: number,
+  phaseStartsAt: number,
+  phaseDeadline: number,
   now: number,
 ): boolean {
-  const votingDurationMs = votingDeadline - votingStartsAt;
-  const remainingMs = votingDeadline - now;
+  const phaseDurationMs = phaseDeadline - phaseStartsAt;
+  const remainingMs = phaseDeadline - now;
   return (
-    votingDurationMs > 0 &&
+    phaseDurationMs > 0 &&
     remainingMs > 0 &&
-    remainingMs <= getExtensionPollRequestWindowMs(votingStartsAt, votingDeadline)
+    remainingMs <= getExtensionPollRequestWindowMs(phaseStartsAt, phaseDeadline)
   );
 }
 
@@ -122,6 +124,24 @@ export function getFinalizedVotingParticipantIds(
     const totals = voteTotals.get(userId) ?? { up: 0, down: 0 };
     return totals.up === maxUp && totals.down === maxDown;
   });
+}
+
+export function getSubmittedParticipantIds(
+  members: MemberLike[] | undefined,
+  submissions: SubmissionLike[] | undefined,
+): string[] {
+  const memberIds = new Set((members ?? []).map((member) => toId(member._id)));
+  if (memberIds.size === 0) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      (submissions ?? [])
+        .map((submission) => toId(submission.userId))
+        .filter((userId) => memberIds.has(userId)),
+    ),
+  ];
 }
 
 export function getExtensionPollResolution(args: {
