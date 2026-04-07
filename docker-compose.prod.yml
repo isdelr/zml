@@ -27,6 +27,8 @@ x-convex-env: &convex-env
   YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
   GENIUS_ACCESS_TOKEN: ${GENIUS_ACCESS_TOKEN:-}
   SUBMISSION_PROCESSING_SECRET: ${SUBMISSION_PROCESSING_SECRET:-}
+  # Keep server-to-server Convex traffic off the public Cloudflare hostname.
+  CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
 
 x-postgres-env: &postgres-env
   POSTGRES_USER: ${POSTGRES_USER:?}
@@ -120,7 +122,6 @@ services:
       - convex-backend
     environment:
       <<: *convex-env
-      CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
     # Convex requires env vars like JWKS to exist in its own env store before push.
     command: sh -c "npm run convex:env:sync && npx convex dev --until-success"
 

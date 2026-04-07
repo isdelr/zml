@@ -169,6 +169,7 @@ docker compose --env-file .env.docker.prod -f docker-compose.prod.yml up -d --bu
 3. Do not expose `postgres` publicly; keep it internal to the Docker network.
 4. Set environment variables in Coolify using `.env.docker.prod.example` as the template.
 5. Ensure `NEXT_PUBLIC_CONVEX_URL`, `CONVEX_CLOUD_ORIGIN`, `CONVEX_SITE_ORIGIN`, and `CONVEX_SITE_URL` all match your public Convex backend URL.
+   `CONVEX_SELF_HOSTED_URL` should stay on the internal Docker network (`http://convex-backend:3210`) so Convex actions and other server-to-server calls do not get sent back through Cloudflare.
 6. If you enable GlitchTip, set both `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` to the project DSN GlitchTip gives you after creating the project.
 
 Notes:
