@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { UseFormReturn } from "react-hook-form";
 import { FileAudio, ImagePlus, Music, X } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { MediaImage } from "@/components/ui/media-image";
 import { TabsContent } from "@/components/ui/tabs";
 import {
   AUDIO_UPLOAD_ACCEPT,
@@ -38,6 +38,12 @@ export function EditFileTab({
   songFileName,
   setSongFileName,
 }: EditFileTabProps) {
+  const revokePreviewUrl = (previewUrl: string | null) => {
+    if (previewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(previewUrl);
+    }
+  };
+
   return (
     <TabsContent value="file" className="mt-6">
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -52,7 +58,7 @@ export function EditFileTab({
                 <FormLabel>Album Art (Optional)</FormLabel>
                 {albumArtPreview ? (
                   <div className="relative">
-                    <Image
+                    <MediaImage
                       src={albumArtPreview}
                       alt="Album art preview"
                       width={192}
@@ -66,9 +72,7 @@ export function EditFileTab({
                       className="absolute -right-2 -top-2 z-10 size-6 rounded-full"
                       onClick={() => {
                         onChange(undefined);
-                        if (albumArtPreview) {
-                          URL.revokeObjectURL(albumArtPreview);
-                        }
+                        revokePreviewUrl(albumArtPreview);
                         setAlbumArtPreview(null);
                       }}
                     >
@@ -89,9 +93,7 @@ export function EditFileTab({
                           if (file) {
                             onChange(file);
                             const newPreviewUrl = URL.createObjectURL(file);
-                            if (albumArtPreview) {
-                              URL.revokeObjectURL(albumArtPreview);
-                            }
+                            revokePreviewUrl(albumArtPreview);
                             setAlbumArtPreview(newPreviewUrl);
                           }
                         }}
@@ -164,9 +166,7 @@ export function EditFileTab({
                             const newPreviewUrl = URL.createObjectURL(
                               metadata.coverArtFile,
                             );
-                            if (albumArtPreview) {
-                              URL.revokeObjectURL(albumArtPreview);
-                            }
+                            revokePreviewUrl(albumArtPreview);
                             setAlbumArtPreview(newPreviewUrl);
                           }
                         } catch {
