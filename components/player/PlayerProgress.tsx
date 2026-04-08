@@ -7,7 +7,12 @@ import { Slider } from "@/components/ui/slider";
 import { Waveform, WaveformComment } from "@/components/Waveform";
 import WaveformData from "waveform-data";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
 import type { LeagueData } from "@/lib/convex/types";
 import type { Song } from "@/types";
 import {
@@ -48,7 +53,10 @@ export const PlayerProgress = memo(function PlayerProgress({
   };
 
   // No per-link timer for YouTube; handled by round-level playlist timer.
-  const showListenRequirement = leagueData?.enforceListenPercentage && currentTrack?.submissionType === 'file' && duration > 0;
+  const showListenRequirement =
+    leagueData?.enforceListenPercentage &&
+    currentTrack?.submissionType === "file" &&
+    duration > 0;
 
   const savedProgressPercent = useMemo(() => {
     if (!listenProgress || !duration) return 0;
@@ -58,11 +66,13 @@ export const PlayerProgress = memo(function PlayerProgress({
   const {
     requirementLinePercent,
     requirementTooltipText,
+    showRequirementLine,
   } = useMemo(() => {
     if (!showListenRequirement || !duration) {
       return {
         requirementLinePercent: 0,
         requirementTooltipText: "Listen Requirement",
+        showRequirementLine: false,
       };
     }
 
@@ -72,10 +82,7 @@ export const PlayerProgress = memo(function PlayerProgress({
       leagueData.listenTimeLimitMinutes,
     );
     const normalizedDuration = getNormalizedDurationSeconds(duration);
-    const percent =
-      duration > 0
-        ? (requiredListenTimeSeconds / duration) * 100
-        : 0;
+    const percent = duration > 0 ? (requiredListenTimeSeconds / duration) * 100 : 0;
     const capApplies = requiredListenTimeSeconds < normalizedDuration;
 
     return {
@@ -83,9 +90,9 @@ export const PlayerProgress = memo(function PlayerProgress({
       requirementTooltipText: capApplies
         ? `Listen requirement: first ${formatTime(requiredListenTimeSeconds)} (protection cap)`
         : `Listen requirement: full song (${formatTime(requiredListenTimeSeconds)})`,
+      showRequirementLine: capApplies,
     };
   }, [showListenRequirement, duration, leagueData]);
-
 
   return (
     <div className="flex w-full max-w-xl items-center gap-2">
@@ -110,7 +117,7 @@ export const PlayerProgress = memo(function PlayerProgress({
               savedProgress={listenProgress?.progressSeconds}
               comments={comments}
             />
-            {showListenRequirement && (
+            {showRequirementLine && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -149,7 +156,7 @@ export const PlayerProgress = memo(function PlayerProgress({
                 showListenRequirement && "[&>[data-slot=slider-track]]:bg-transparent"
               )}
             />
-            {showListenRequirement && (
+            {showRequirementLine && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
