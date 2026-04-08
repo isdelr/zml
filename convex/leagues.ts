@@ -188,6 +188,13 @@ const leagueStatsPointValidator = v.object({
   metrics: v.array(leagueStatsMetricValidator),
 });
 
+const leagueStatsInteractionEntryValidator = v.object({
+  userId: v.id("users"),
+  name: v.string(),
+  image: v.optional(v.string()),
+  count: v.number(),
+});
+
 async function buildLeaguePreview(
   ctx: QueryCtx,
   league: Doc<"leagues">,
@@ -1433,6 +1440,193 @@ export const getLeagueStatsTrajectory = query({
         league._creationTime,
       series,
       points,
+    };
+  },
+});
+
+export const getLeagueStatsPersonalCallouts = query({
+  args: { leagueId: v.id("leagues") },
+  returns: v.union(
+    v.null(),
+    v.object({
+      hasFinishedRounds: v.boolean(),
+      glazers: v.array(leagueStatsInteractionEntryValidator),
+      haters: v.array(leagueStatsInteractionEntryValidator),
+      yappers: v.array(leagueStatsInteractionEntryValidator),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return null;
+    }
+
+    const { league, canView } = await canViewLeague(ctx, args.leagueId, userId);
+    if (!league || !canView) {
+      return null;
+    }
+
+    const rounds = await ctx.db
+      .query("rounds")
+      .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+      .collect();
+    const finishedRounds = sortRoundsInLeagueOrder(rounds).filter(
+      (round) => round.status === "finished",
+    );
+
+    if (finishedRounds.length === 0) {
+      return {
+        hasFinishedRounds: false,
+        glazers: [],
+        haters: [],
+        yappers: [],
+      };
+    }
+
+    const viewerSubmissions = (
+      await Promise.all(
+        finishedRounds.map((round) =>
+          ctx.db
+            .query("submissions")
+            .withIndex("by_round_and_user", (q) =>
+              q.eq("roundId", round._id).eq("userId", userId),
+            )
+            .collect(),
+        ),
+      )
+    ).flat();
+
+    if (viewerSubmissions.length === 0) {
+      return {
+        hasFinishedRounds: true,
+        glazers: [],
+        haters: [],
+        yappers: [],
+      };
+    }
+
+    const viewerSubmissionIds = new Set(
+      viewerSubmissions.map((submission) => submission._id.toString()),
+    );
+
+    const [votesByRound, commentsBySubmission] = await Promise.all([
+      Promise.all(
+        finishedRounds.map((round) =>
+          ctx.db
+            .query("votes")
+            .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+            .collect(),
+        ),
+      ),
+      Promise.all(
+        viewerSubmissions.map((submission) =>
+          ctx.db
+            .query("comments")
+            .withIndex("by_submission", (q) =>
+              q.eq("submissionId", submission._id),
+            )
+            .collect(),
+        ),
+      ),
+    ]);
+
+    const upvotesByUser = new Map<string, number>();
+    const downvotesByUser = new Map<string, number>();
+    const commentsByUser = new Map<string, number>();
+
+    for (const votes of votesByRound) {
+      for (const vote of votes) {
+        if (!viewerSubmissionIds.has(vote.submissionId.toString())) {
+          continue;
+        }
+        if (vote.userId === userId) {
+          continue;
+        }
+
+        const voterId = vote.userId.toString();
+        if (vote.vote > 0) {
+          upvotesByUser.set(
+            voterId,
+            (upvotesByUser.get(voterId) ?? 0) + vote.vote,
+          );
+          continue;
+        }
+
+        if (vote.vote < 0) {
+          downvotesByUser.set(
+            voterId,
+            (downvotesByUser.get(voterId) ?? 0) + Math.abs(vote.vote),
+          );
+        }
+      }
+    }
+
+    for (const comments of commentsBySubmission) {
+      for (const comment of comments) {
+        if (comment.userId === userId) {
+          continue;
+        }
+
+        const commenterId = comment.userId.toString();
+        commentsByUser.set(commenterId, (commentsByUser.get(commenterId) ?? 0) + 1);
+      }
+    }
+
+    const relevantUserIds = [
+      ...new Set([
+        ...upvotesByUser.keys(),
+        ...downvotesByUser.keys(),
+        ...commentsByUser.keys(),
+      ]),
+    ];
+    const users = await Promise.all(
+      relevantUserIds.map((memberId) => ctx.db.get("users", memberId as Id<"users">)),
+    );
+    const userById = new Map(
+      users
+        .filter((user): user is NonNullable<typeof user> => user !== null)
+        .map((user) => [user._id.toString(), user]),
+    );
+
+    const buildEntries = async (countsByUser: Map<string, number>) => {
+      const rankedEntries = [...countsByUser.entries()]
+        .filter(([, count]) => count > 0)
+        .sort((left, right) => {
+          if (right[1] !== left[1]) {
+            return right[1] - left[1];
+          }
+
+          const leftName = userById.get(left[0])?.name ?? "Unknown User";
+          const rightName = userById.get(right[0])?.name ?? "Unknown User";
+          const nameComparison = leftName.localeCompare(rightName, undefined, {
+            sensitivity: "base",
+          });
+          if (nameComparison !== 0) {
+            return nameComparison;
+          }
+
+          return left[0].localeCompare(right[0]);
+        })
+        .slice(0, 3);
+
+      return await Promise.all(
+        rankedEntries.map(async ([memberId, count]) => {
+          const member = userById.get(memberId);
+          return {
+            userId: memberId as Id<"users">,
+            name: member?.name ?? "Unknown User",
+            image: (await resolveUserAvatarUrl(storage, member)) ?? undefined,
+            count,
+          };
+        }),
+      );
+    };
+
+    return {
+      hasFinishedRounds: true,
+      glazers: await buildEntries(upvotesByUser),
+      haters: await buildEntries(downvotesByUser),
+      yappers: await buildEntries(commentsByUser),
     };
   },
 });

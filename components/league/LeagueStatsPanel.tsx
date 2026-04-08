@@ -11,7 +11,13 @@ import {
 } from "recharts";
 import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 import type { DotItemDotProps } from "recharts/types/util/types";
-import { Focus, TrendingUp } from "lucide-react";
+import {
+  Focus,
+  Heart,
+  MessageSquare,
+  ThumbsDown,
+  TrendingUp,
+} from "lucide-react";
 import { toSvg } from "jdenticon";
 
 import { Id } from "@/convex/_generated/dataModel";
@@ -42,6 +48,13 @@ type ChartSeries = LeagueStatsSeries & {
   latestRank: number;
   latestUpvotes: number;
   latestDownvotes: number;
+};
+
+type LeagueStatsCalloutEntry = {
+  userId: string;
+  name: string;
+  image?: string;
+  count: number;
 };
 
 function buildAvatarDataUri(userId: string) {
@@ -173,7 +186,7 @@ function LeagueStatsTooltip({
                 {item.name}
               </p>
               <p className="text-xs text-muted-foreground">
-                #{item.rank} · {item.points} pts · +{item.upvotes} / -
+                #{item.rank} | {item.points} pts | +{item.upvotes} / -
                 {item.downvotes}
               </p>
             </div>
@@ -238,15 +251,45 @@ function LeagueStatsLineHead({
 
 function LeagueStatsLoading() {
   return (
-    <section className="overflow-hidden rounded-3xl border bg-card/60">
-      <div className="border-b px-5 py-4">
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="mt-2 h-4 w-40" />
+    <div className="grid gap-6">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <section
+            key={index}
+            className="overflow-hidden rounded-3xl border bg-card/60"
+          >
+            <div className="border-b px-5 py-4">
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="mt-2 h-4 w-48" />
+            </div>
+            <div className="space-y-3 p-5">
+              {Array.from({ length: 3 }).map((__, rowIndex) => (
+                <div
+                  key={rowIndex}
+                  className="flex items-center gap-3 rounded-2xl border bg-background/55 px-3 py-3"
+                >
+                  <Skeleton className="h-7 w-7 rounded-full" />
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="mt-2 h-3 w-20" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
-      <div className="p-5">
-        <Skeleton className="h-[28rem] w-full rounded-2xl" />
-      </div>
-    </section>
+      <section className="overflow-hidden rounded-3xl border bg-card/60">
+        <div className="border-b px-5 py-4">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="mt-2 h-4 w-40" />
+        </div>
+        <div className="p-5">
+          <Skeleton className="h-[28rem] w-full rounded-2xl" />
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -275,7 +318,76 @@ function LeagueStatsEmpty() {
   );
 }
 
+function LeagueStatsCalloutCard({
+  title,
+  description,
+  entries,
+  emptyMessage,
+  icon,
+  formatCount,
+}: {
+  title: string;
+  description: string;
+  entries: LeagueStatsCalloutEntry[];
+  emptyMessage: string;
+  icon: React.ReactNode;
+  formatCount: (count: number) => string;
+}) {
+  return (
+    <section className="overflow-hidden rounded-3xl border bg-card/60">
+      <div className="border-b px-5 py-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-full bg-accent p-2 text-primary">{icon}</div>
+          <div>
+            <h2 className="text-lg font-semibold">{title}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          </div>
+        </div>
+      </div>
+      <div className="p-5">
+        {entries.length > 0 ? (
+          <div className="space-y-3">
+            {entries.map((entry, index) => (
+              <div
+                key={entry.userId}
+                className="flex items-center gap-3 rounded-2xl border bg-background/55 px-3 py-3"
+              >
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-sm font-semibold text-foreground">
+                  {index + 1}
+                </div>
+                <Avatar className="size-10 border border-border/60">
+                  <AvatarImage src={entry.image} alt={entry.name} />
+                  <AvatarFallback
+                    dangerouslySetInnerHTML={{
+                      __html: toSvg(entry.userId, 40),
+                    }}
+                  />
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {entry.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatCount(entry.count)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border/70 bg-background/35 px-5 text-center">
+            <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function LeagueStatsPanel({ leagueId }: LeagueStatsPanelProps) {
+  const personalCallouts = useQuery(api.leagues.getLeagueStatsPersonalCallouts, {
+    leagueId,
+  });
   const trajectory = useQuery(api.leagues.getLeagueStatsTrajectory, { leagueId });
   const [highlightedUserId, setHighlightedUserId] = useState<string | null>(
     null,
@@ -329,12 +441,52 @@ export function LeagueStatsPanel({ leagueId }: LeagueStatsPanelProps) {
     };
   }, [trajectory]);
 
-  if (trajectory === undefined) {
+  if (trajectory === undefined || personalCallouts === undefined) {
     return <LeagueStatsLoading />;
   }
 
-  if (!trajectory || !trajectory.hasData || !chartModel) {
-    return <LeagueStatsEmpty />;
+  if (!trajectory || !personalCallouts) {
+    return null;
+  }
+
+  const emptyCalloutMessage = personalCallouts.hasFinishedRounds
+    ? "Nothing to call out yet. Finished-round interactions with your submissions will show up here."
+    : "These unlock after the league has a finished round.";
+
+  if (!trajectory.hasData || !chartModel) {
+    return (
+      <div className="grid gap-6">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <LeagueStatsCalloutCard
+            title="Your biggest glazers"
+            description="Top 3 players by upvotes given to your finished-round submissions."
+            entries={personalCallouts.glazers}
+            emptyMessage={emptyCalloutMessage}
+            icon={<Heart className="size-4" />}
+            formatCount={(count) => `${count} upvote${count === 1 ? "" : "s"}`}
+          />
+          <LeagueStatsCalloutCard
+            title="Your biggest haters"
+            description="Top 3 players by downvotes given to your finished-round submissions."
+            entries={personalCallouts.haters}
+            emptyMessage={emptyCalloutMessage}
+            icon={<ThumbsDown className="size-4" />}
+            formatCount={(count) =>
+              `${count} downvote${count === 1 ? "" : "s"}`
+            }
+          />
+          <LeagueStatsCalloutCard
+            title="Your biggest yappers"
+            description="Top 3 players by comments left on your finished-round submissions."
+            entries={personalCallouts.yappers}
+            emptyMessage={emptyCalloutMessage}
+            icon={<MessageSquare className="size-4" />}
+            formatCount={(count) => `${count} comment${count === 1 ? "" : "s"}`}
+          />
+        </div>
+        <LeagueStatsEmpty />
+      </div>
+    );
   }
 
   const effectiveHighlightedUserId =
@@ -344,159 +496,189 @@ export function LeagueStatsPanel({ leagueId }: LeagueStatsPanelProps) {
       : null;
 
   return (
-    <section className="overflow-hidden rounded-3xl border bg-card/60">
-      <div className="border-b px-5 py-4">
-        <h2 className="text-lg font-semibold">Trajectory</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Cumulative leaderboard points, with upvote and downvote totals in the
-          tooltip. Finished rounds only.
-        </p>
+    <div className="grid gap-6">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <LeagueStatsCalloutCard
+          title="Your biggest glazers"
+          description="Top 3 players by upvotes given to your finished-round submissions."
+          entries={personalCallouts.glazers}
+          emptyMessage={emptyCalloutMessage}
+          icon={<Heart className="size-4" />}
+          formatCount={(count) => `${count} upvote${count === 1 ? "" : "s"}`}
+        />
+        <LeagueStatsCalloutCard
+          title="Your biggest haters"
+          description="Top 3 players by downvotes given to your finished-round submissions."
+          entries={personalCallouts.haters}
+          emptyMessage={emptyCalloutMessage}
+          icon={<ThumbsDown className="size-4" />}
+          formatCount={(count) =>
+            `${count} downvote${count === 1 ? "" : "s"}`
+          }
+        />
+        <LeagueStatsCalloutCard
+          title="Your biggest yappers"
+          description="Top 3 players by comments left on your finished-round submissions."
+          entries={personalCallouts.yappers}
+          emptyMessage={emptyCalloutMessage}
+          icon={<MessageSquare className="size-4" />}
+          formatCount={(count) => `${count} comment${count === 1 ? "" : "s"}`}
+        />
       </div>
-      <div className="p-5">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Focus className="size-4" />
-            <span>Focus a player to mute the rest.</span>
-          </div>
-          {effectiveHighlightedUserId ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setHighlightedUserId(null)}
-            >
-              Clear focus
-            </Button>
-          ) : null}
+      <section className="overflow-hidden rounded-3xl border bg-card/60">
+        <div className="border-b px-5 py-4">
+          <h2 className="text-lg font-semibold">Trajectory</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Cumulative leaderboard points, with upvote and downvote totals in the
+            tooltip. Finished rounds only.
+          </p>
         </div>
-        <div className="mb-6 flex gap-3 overflow-x-auto pb-2">
-          {chartModel.series.map((member) => {
-            const isHighlighted = effectiveHighlightedUserId === member.userId;
-            const isMuted =
-              effectiveHighlightedUserId !== null && !isHighlighted;
-
-            return (
-              <button
-                key={member.userId}
-                type="button"
-                onClick={() =>
-                  setHighlightedUserId((current) =>
-                    current === member.userId ? null : member.userId,
-                  )
-                }
-                className={cn(
-                  "min-w-52 rounded-2xl border bg-background/55 px-3 py-3 text-left transition-all",
-                  "hover:border-primary/40 hover:bg-accent/30",
-                  isHighlighted && "border-primary bg-accent/40 shadow-sm",
-                  isMuted && "opacity-40",
-                )}
+        <div className="p-5">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Focus className="size-4" />
+              <span>Focus a player to mute the rest.</span>
+            </div>
+            {effectiveHighlightedUserId ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setHighlightedUserId(null)}
               >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-10 w-1.5 rounded-full"
-                    style={{ backgroundColor: member.color }}
-                  />
-                  <Avatar className="size-10 border border-border/60">
-                    <AvatarImage src={member.image} alt={member.name} />
-                    <AvatarFallback
-                      dangerouslySetInnerHTML={{
-                        __html: toSvg(member.userId, 40),
-                      }}
-                    />
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">
-                      {member.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      #{member.latestRank} · {member.latestPoints} pts
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  +{member.latestUpvotes} upvotes · -{member.latestDownvotes} downvotes
-                </p>
-              </button>
-            );
-          })}
-        </div>
-        <ChartContainer
-          config={chartModel.chartConfig}
-          className="h-[28rem] w-full aspect-auto"
-          style={chartModel.style as React.CSSProperties}
-        >
-          <LineChart
-            accessibilityLayer
-            data={chartModel.rows}
-            margin={{ top: 24, right: 38, bottom: 42, left: 4 }}
-          >
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis
-              type="category"
-              dataKey="label"
-              tickFormatter={formatRoundTick}
-              tickLine={false}
-              axisLine={false}
-              tickMargin={12}
-              minTickGap={10}
-              angle={-24}
-              textAnchor="end"
-              height={66}
-            />
-            <YAxis
-              width={56}
-              domain={chartModel.yDomain}
-              allowDecimals={false}
-              tickFormatter={formatPoints}
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-            />
-            <ChartTooltip
-              cursor={{ stroke: "var(--border)", strokeDasharray: "4 4" }}
-              wrapperStyle={{ pointerEvents: "auto" }}
-              content={(props) => (
-                <LeagueStatsTooltip
-                  {...props}
-                  seriesById={chartModel.seriesById}
-                  highlightedUserId={effectiveHighlightedUserId}
-                />
-              )}
-            />
+                Clear focus
+              </Button>
+            ) : null}
+          </div>
+          <div className="mb-6 flex gap-3 overflow-x-auto pb-2">
             {chartModel.series.map((member) => {
               const isHighlighted = effectiveHighlightedUserId === member.userId;
               const isMuted =
                 effectiveHighlightedUserId !== null && !isHighlighted;
-              const emphasis = isMuted ? 0.18 : 1;
 
               return (
-                <Line
+                <button
                   key={member.userId}
-                  type="linear"
-                  dataKey={member.dataKey}
-                  stroke={member.color}
-                  strokeWidth={isHighlighted ? 3.5 : 2.5}
-                  strokeOpacity={emphasis}
-                  isAnimationActive={false}
-                  activeDot={{
-                    r: isHighlighted ? 5 : 4,
-                    fill: member.color,
-                    stroke: "var(--background)",
-                    strokeWidth: 2,
-                  }}
-                  dot={(props) => (
-                    <LeagueStatsLineHead
-                      {...props}
-                      avatarSrc={member.avatarSrc}
-                      color={member.color}
-                      emphasis={isMuted ? 0.35 : 1}
-                    />
+                  type="button"
+                  onClick={() =>
+                    setHighlightedUserId((current) =>
+                      current === member.userId ? null : member.userId,
+                    )
+                  }
+                  className={cn(
+                    "min-w-52 rounded-2xl border bg-background/55 px-3 py-3 text-left transition-all",
+                    "hover:border-primary/40 hover:bg-accent/30",
+                    isHighlighted && "border-primary bg-accent/40 shadow-sm",
+                    isMuted && "opacity-40",
                   )}
-                />
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-10 w-1.5 rounded-full"
+                      style={{ backgroundColor: member.color }}
+                    />
+                    <Avatar className="size-10 border border-border/60">
+                      <AvatarImage src={member.image} alt={member.name} />
+                      <AvatarFallback
+                        dangerouslySetInnerHTML={{
+                          __html: toSvg(member.userId, 40),
+                        }}
+                      />
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">
+                        {member.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        #{member.latestRank} | {member.latestPoints} pts
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    +{member.latestUpvotes} upvotes | -{member.latestDownvotes} downvotes
+                  </p>
+                </button>
               );
             })}
-          </LineChart>
-        </ChartContainer>
-      </div>
-    </section>
+          </div>
+          <ChartContainer
+            config={chartModel.chartConfig}
+            className="h-[28rem] w-full aspect-auto"
+            style={chartModel.style as React.CSSProperties}
+          >
+            <LineChart
+              accessibilityLayer
+              data={chartModel.rows}
+              margin={{ top: 24, right: 38, bottom: 42, left: 4 }}
+            >
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis
+                type="category"
+                dataKey="label"
+                tickFormatter={formatRoundTick}
+                tickLine={false}
+                axisLine={false}
+                tickMargin={12}
+                minTickGap={10}
+                angle={-24}
+                textAnchor="end"
+                height={66}
+              />
+              <YAxis
+                width={56}
+                domain={chartModel.yDomain}
+                allowDecimals={false}
+                tickFormatter={formatPoints}
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+              />
+              <ChartTooltip
+                cursor={{ stroke: "var(--border)", strokeDasharray: "4 4" }}
+                wrapperStyle={{ pointerEvents: "auto" }}
+                content={(props) => (
+                  <LeagueStatsTooltip
+                    {...props}
+                    seriesById={chartModel.seriesById}
+                    highlightedUserId={effectiveHighlightedUserId}
+                  />
+                )}
+              />
+              {chartModel.series.map((member) => {
+                const isHighlighted = effectiveHighlightedUserId === member.userId;
+                const isMuted =
+                  effectiveHighlightedUserId !== null && !isHighlighted;
+                const emphasis = isMuted ? 0.18 : 1;
+
+                return (
+                  <Line
+                    key={member.userId}
+                    type="linear"
+                    dataKey={member.dataKey}
+                    stroke={member.color}
+                    strokeWidth={isHighlighted ? 3.5 : 2.5}
+                    strokeOpacity={emphasis}
+                    isAnimationActive={false}
+                    activeDot={{
+                      r: isHighlighted ? 5 : 4,
+                      fill: member.color,
+                      stroke: "var(--background)",
+                      strokeWidth: 2,
+                    }}
+                    dot={(props) => (
+                      <LeagueStatsLineHead
+                        {...props}
+                        avatarSrc={member.avatarSrc}
+                        color={member.color}
+                        emphasis={isMuted ? 0.35 : 1}
+                      />
+                    )}
+                  />
+                );
+              })}
+            </LineChart>
+          </ChartContainer>
+        </div>
+      </section>
+    </div>
   );
 }
