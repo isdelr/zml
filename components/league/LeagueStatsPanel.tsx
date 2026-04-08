@@ -453,6 +453,7 @@ export function LeagueStatsPanel({ leagueId }: LeagueStatsPanelProps) {
             />
             <ChartTooltip
               cursor={{ stroke: "var(--border)", strokeDasharray: "4 4" }}
+              wrapperStyle={{ pointerEvents: "auto" }}
               content={(props) => (
                 <LeagueStatsTooltip
                   {...props}
