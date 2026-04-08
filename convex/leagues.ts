@@ -741,7 +741,6 @@ export const get = query({
       spectators,
     } = await getLeagueMembersSummary(ctx, league._id, {
       includeUserProfiles: true,
-      includeUserProfilesLimit: 24,
     });
 
     const isOwner = userId === league.creatorId;
