@@ -209,26 +209,26 @@ export function NowPlayingView() {
   const NowPlayingContent = () => (
     <div className="flex-grow space-y-6">
       <div className="relative">
-        <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-border/60 bg-muted/30">
+        <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-border/50">
           <MediaImage
             src={albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
             alt=""
             aria-hidden
             width={352}
             height={352}
-            className="absolute inset-0 size-full scale-110 object-cover blur-3xl"
+            className="absolute inset-0 size-full scale-125 object-cover opacity-80 blur-3xl saturate-150"
             fallbackSrc="/icons/web-app-manifest-192x192.png"
           />
-          <div className="absolute inset-0 bg-background/20 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.06)_0%,rgba(0,0,0,0.2)_48%,rgba(0,0,0,0.5)_100%)]" />
           <div className="relative z-10 flex size-full items-center justify-center p-5">
-          <MediaImage
-            src={albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
-            alt={songTitle}
-            width={352}
-            height={352}
-            className="max-h-full w-full rounded-lg object-contain shadow-2xl"
-            fallbackSrc="/icons/web-app-manifest-192x192.png"
-          />
+            <MediaImage
+              src={albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
+              alt={songTitle}
+              width={352}
+              height={352}
+              className="max-h-full w-full rounded-lg object-contain drop-shadow-[0_18px_40px_rgba(0,0,0,0.42)]"
+              fallbackSrc="/icons/web-app-manifest-192x192.png"
+            />
           </div>
         </div>
       </div>
