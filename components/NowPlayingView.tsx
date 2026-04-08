@@ -209,14 +209,28 @@ export function NowPlayingView() {
   const NowPlayingContent = () => (
     <div className="flex-grow space-y-6">
       <div className="relative">
-        <MediaImage
-          src={albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
-          alt={songTitle}
-          width={352}
-          height={352}
-          className="rounded-lg aspect-square object-cover w-full"
-          fallbackSrc="/icons/web-app-manifest-192x192.png"
-        />
+        <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-border/60 bg-muted/30">
+          <MediaImage
+            src={albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
+            alt=""
+            aria-hidden
+            width={352}
+            height={352}
+            className="absolute inset-0 size-full scale-110 object-cover blur-3xl"
+            fallbackSrc="/icons/web-app-manifest-192x192.png"
+          />
+          <div className="absolute inset-0 bg-background/20 backdrop-blur-sm" />
+          <div className="relative z-10 flex size-full items-center justify-center p-5">
+          <MediaImage
+            src={albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
+            alt={songTitle}
+            width={352}
+            height={352}
+            className="max-h-full w-full rounded-lg object-contain shadow-2xl"
+            fallbackSrc="/icons/web-app-manifest-192x192.png"
+          />
+          </div>
+        </div>
       </div>
       <div className="flex justify-between items-start">
         <div>

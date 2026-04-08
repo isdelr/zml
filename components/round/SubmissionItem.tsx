@@ -671,7 +671,7 @@ export function SubmissionItem({
                 alt={song.songTitle}
                 width={48}
                 height={48}
-                className="rounded"
+                className="size-12 rounded object-cover"
                 fallbackSrc="/icons/web-app-manifest-192x192.png"
               />
               {otherListeners && otherListeners.length > 0 && (
@@ -809,7 +809,7 @@ export function SubmissionItem({
                 alt={song.songTitle}
                 width={40}
                 height={40}
-                className="rounded"
+                className="size-10 rounded object-cover"
                 fallbackSrc="/icons/web-app-manifest-192x192.png"
               />
               {otherListeners && otherListeners.length > 0 && (
