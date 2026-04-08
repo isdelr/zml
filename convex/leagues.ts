@@ -1428,7 +1428,9 @@ export const getLeagueStatsTrajectory = query({
     return {
       hasData: true,
       leagueStartAt: league._creationTime,
-      rangeEndAt: finishedRounds.at(-1)?.votingDeadline ?? league._creationTime,
+      rangeEndAt:
+        finishedRounds[finishedRounds.length - 1]?.votingDeadline ??
+        league._creationTime,
       series,
       points,
     };
