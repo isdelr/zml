@@ -11,10 +11,12 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  buildLeagueHref,
   buildLeagueRoundHref,
   getPreferredRoundId,
 } from "@/lib/leagues/navigation";
 import { Standings } from "@/components/Standings";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const LeagueHeader = dynamicImport(() =>
   import("@/components/league/LeagueHeader").then((mod) => ({
@@ -41,6 +43,11 @@ const LeagueSettingsDialog = dynamicImport(() =>
     default: mod.LeagueSettingsDialog,
   })),
 );
+const LeagueStatsPanel = dynamicImport(() =>
+  import("@/components/league/LeagueStatsPanel").then((mod) => ({
+    default: mod.LeagueStatsPanel,
+  })),
+);
 
 interface LeaguePageProps {
   leagueId: string;
@@ -59,6 +66,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const deferredSearchTerm = useDeferredValue(searchTerm.trim());
   const parsedLeagueId = leagueId as Id<"leagues">;
+  const activeTab = searchParams.get("tab") === "stats" ? "stats" : "overview";
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
   };
@@ -115,8 +123,44 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
     );
   };
 
+  const handleTabChange = (nextTab: string) => {
+    if (nextTab === activeTab) {
+      return;
+    }
+
+    if (nextTab === "stats") {
+      router.push(
+        buildLeagueHref({
+          leagueId,
+          searchParams,
+          tab: "stats",
+        }),
+      );
+      return;
+    }
+
+    if (selectedRoundId) {
+      router.push(
+        buildLeagueRoundHref({
+          leagueId,
+          roundId: selectedRoundId,
+          searchParams,
+        }),
+      );
+      return;
+    }
+
+    router.push(
+      buildLeagueHref({
+        leagueId,
+        searchParams,
+      }),
+    );
+  };
+
   useEffect(() => {
     if (
+      activeTab === "overview" &&
       (status === "CanLoadMore" || status === "Exhausted") &&
       rounds &&
       rounds.length > 0 &&
@@ -133,6 +177,7 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
       }
     }
   }, [
+    activeTab,
     leagueId,
     preferredRoundId,
     rounds,
@@ -212,41 +257,55 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
         playerActions={playerActions}
       />
       <LeagueInfo leagueData={leagueData} />
-      <div className="mb-12 grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
-        <section className="overflow-hidden rounded-2xl border bg-card/60">
-          <div className="border-b px-4 py-3">
-            <h2 className="text-lg font-semibold">Standings</h2>
-          </div>
-          <div className="px-4 py-3 xl:h-[34rem] xl:overflow-y-auto xl:pr-3">
-            <Standings leagueId={parsedLeagueId} />
-          </div>
-        </section>
-        <section className="overflow-hidden rounded-2xl border bg-card/60">
-          <div className="border-b px-4 py-3">
-            <h2 className="text-lg font-semibold">Rounds</h2>
-          </div>
-          <div className="px-4 py-3 xl:h-[34rem] xl:overflow-y-auto xl:pr-3">
-            <LeagueRounds
-              rounds={rounds || []}
-              hasLoaded={status !== "LoadingFirstPage"}
-              selectedRoundId={selectedRoundId}
-              leagueId={leagueId}
-            />
-          </div>
-          {status === "CanLoadMore" && (
-            <div className="border-t px-4 py-3">
-              <Button
-                onClick={() => loadMore(10)}
-                variant="outline"
-                className="w-full"
-              >
-                Load More Rounds
-              </Button>
+      <Tabs
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="mb-8 gap-4"
+      >
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="stats">Stats</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      {activeTab === "stats" ? (
+        <LeagueStatsPanel leagueId={parsedLeagueId} />
+      ) : (
+        <div className="mb-12 grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
+          <section className="overflow-hidden rounded-2xl border bg-card/60">
+            <div className="border-b px-4 py-3">
+              <h2 className="text-lg font-semibold">Standings</h2>
             </div>
-          )}
-        </section>
-      </div>
-      {selectedRound && leagueData ? (
+            <div className="px-4 py-3 xl:h-[34rem] xl:overflow-y-auto xl:pr-3">
+              <Standings leagueId={parsedLeagueId} />
+            </div>
+          </section>
+          <section className="overflow-hidden rounded-2xl border bg-card/60">
+            <div className="border-b px-4 py-3">
+              <h2 className="text-lg font-semibold">Rounds</h2>
+            </div>
+            <div className="px-4 py-3 xl:h-[34rem] xl:overflow-y-auto xl:pr-3">
+              <LeagueRounds
+                rounds={rounds || []}
+                hasLoaded={status !== "LoadingFirstPage"}
+                selectedRoundId={selectedRoundId}
+                leagueId={leagueId}
+              />
+            </div>
+            {status === "CanLoadMore" && (
+              <div className="border-t px-4 py-3">
+                <Button
+                  onClick={() => loadMore(10)}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Load More Rounds
+                </Button>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+      {activeTab === "overview" && selectedRound && leagueData ? (
         <div className="mt-8">
           <RoundDetail
             round={selectedRound}

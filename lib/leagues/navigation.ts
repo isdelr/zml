@@ -4,6 +4,7 @@ type RoundLike = {
 };
 
 type SearchParamsInput = URLSearchParams | string;
+type LeagueTab = "overview" | "stats";
 
 function createSearchParams(searchParams: SearchParamsInput) {
   return new URLSearchParams(
@@ -14,6 +15,26 @@ function createSearchParams(searchParams: SearchParamsInput) {
 function withQueryString(pathname: string, searchParams: URLSearchParams) {
   const queryString = searchParams.toString();
   return queryString ? `${pathname}?${queryString}` : pathname;
+}
+
+export function buildLeagueHref({
+  leagueId,
+  searchParams,
+  tab = "overview",
+}: {
+  leagueId: string;
+  searchParams: SearchParamsInput;
+  tab?: LeagueTab;
+}) {
+  const nextSearchParams = createSearchParams(searchParams);
+  nextSearchParams.delete("round");
+  nextSearchParams.delete("tab");
+
+  if (tab === "stats") {
+    nextSearchParams.set("tab", "stats");
+  }
+
+  return withQueryString(`/leagues/${leagueId}`, nextSearchParams);
 }
 
 export function getPreferredRoundId(rounds: RoundLike[] | null | undefined) {

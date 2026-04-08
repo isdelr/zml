@@ -24,6 +24,7 @@ import { resolveUserAvatarUrl } from "./userAvatar";
 import {
   buildLeagueRoundSchedule,
   buildScheduledRoundResequencePatches,
+  sortRoundsInLeagueOrder,
 } from "../lib/rounds/schedule";
 import {
   MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
@@ -106,6 +107,36 @@ function buildRoundImageScope(
   return resolveMediaAccessScope(allowPublic, viewerUserId);
 }
 
+function buildLeagueStatsRankMap(
+  totalsByUserId: Map<string, number>,
+  sortedUserIds: string[],
+  userNamesById: Map<string, string>,
+) {
+  return new Map(
+    [...sortedUserIds]
+      .sort((leftUserId, rightUserId) => {
+        const pointsDifference =
+          (totalsByUserId.get(rightUserId) ?? 0) -
+          (totalsByUserId.get(leftUserId) ?? 0);
+        if (pointsDifference !== 0) {
+          return pointsDifference;
+        }
+
+        const leftName = userNamesById.get(leftUserId) ?? leftUserId;
+        const rightName = userNamesById.get(rightUserId) ?? rightUserId;
+        const nameDifference = leftName.localeCompare(rightName, undefined, {
+          sensitivity: "base",
+        });
+        if (nameDifference !== 0) {
+          return nameDifference;
+        }
+
+        return leftUserId.localeCompare(rightUserId);
+      })
+      .map((userId, index) => [userId, index + 1]),
+  );
+}
+
 const publicLeaguePreviewValidator = v.object({
   _id: v.id("leagues"),
   _creationTime: v.number(),
@@ -129,6 +160,32 @@ const exploreLeaguePreviewValidator = v.object({
   roundArt: v.array(v.string()),
   isActive: v.boolean(),
   visibility: v.union(v.literal("public"), v.literal("private")),
+});
+
+const leagueStatsMetricValidator = v.object({
+  userId: v.id("users"),
+  totalPoints: v.number(),
+  rank: v.number(),
+  upvotesReceived: v.number(),
+  downvotesReceived: v.number(),
+  pointsDelta: v.number(),
+  upvotesDelta: v.number(),
+  downvotesDelta: v.number(),
+});
+
+const leagueStatsPointValidator = v.object({
+  key: v.string(),
+  label: v.string(),
+  shortLabel: v.string(),
+  timestamp: v.number(),
+  kind: v.union(
+    v.literal("league_start"),
+    v.literal("finished_round"),
+    v.literal("league_end"),
+  ),
+  roundId: v.optional(v.id("rounds")),
+  roundTitle: v.optional(v.string()),
+  metrics: v.array(leagueStatsMetricValidator),
 });
 
 async function buildLeaguePreview(
@@ -1072,6 +1129,309 @@ export const getLeagueStandings = query({
     );
 
     return standings;
+  },
+});
+
+export const getLeagueStatsTrajectory = query({
+  args: { leagueId: v.id("leagues") },
+  returns: v.union(
+    v.null(),
+    v.object({
+      hasData: v.boolean(),
+      leagueStartAt: v.number(),
+      rangeEndAt: v.number(),
+      series: v.array(
+        v.object({
+          userId: v.id("users"),
+          name: v.string(),
+          image: v.optional(v.string()),
+        }),
+      ),
+      points: v.array(leagueStatsPointValidator),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    const { league, canView } = await canViewLeague(ctx, args.leagueId, userId);
+    if (!league || !canView) {
+      return null;
+    }
+
+    const [standingsDocs, memberships, rounds] = await Promise.all([
+      ctx.db
+        .query("leagueStandings")
+        .withIndex("by_league_and_points", (q) => q.eq("leagueId", args.leagueId))
+        .order("desc")
+        .collect(),
+      ctx.db
+        .query("memberships")
+        .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+        .collect(),
+      ctx.db
+        .query("rounds")
+        .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+        .collect(),
+    ]);
+
+    const activeMemberIds = memberships
+      .filter((membership) => !membership.isSpectator && !membership.isBanned)
+      .map((membership) => membership.userId);
+    const seriesUserIds = [
+      ...new Set([
+        ...standingsDocs.map((standing) => standing.userId),
+        ...activeMemberIds,
+      ]),
+    ];
+    const users = await Promise.all(
+      seriesUserIds.map((memberId) => ctx.db.get("users", memberId)),
+    );
+    const userById = new Map(
+      users
+        .filter((user): user is NonNullable<typeof user> => user !== null)
+        .map((user) => [user._id.toString(), user]),
+    );
+    const userNamesById = new Map(
+      seriesUserIds.map((memberId) => [
+        memberId.toString(),
+        userById.get(memberId.toString())?.name ?? "Unknown User",
+      ]),
+    );
+
+    const orderedSeriesUserIds = [
+      ...new Set([
+        ...standingsDocs.map((standing) => standing.userId.toString()),
+        ...seriesUserIds.map((memberId) => memberId.toString()),
+      ]),
+    ];
+    const series = await Promise.all(
+      orderedSeriesUserIds.map(async (memberId) => {
+        const member = userById.get(memberId);
+        return {
+          userId: memberId as Id<"users">,
+          name: userNamesById.get(memberId) ?? "Unknown User",
+          image: (await resolveUserAvatarUrl(storage, member)) ?? undefined,
+        };
+      }),
+    );
+
+    const finishedRounds = sortRoundsInLeagueOrder(rounds).filter(
+      (round) => round.status === "finished",
+    );
+    const baseMetrics = series.map((member) => ({
+      userId: member.userId,
+      totalPoints: 0,
+      rank: 1,
+      upvotesReceived: 0,
+      downvotesReceived: 0,
+      pointsDelta: 0,
+      upvotesDelta: 0,
+      downvotesDelta: 0,
+    }));
+
+    if (finishedRounds.length === 0) {
+      return {
+        hasData: false,
+        leagueStartAt: league._creationTime,
+        rangeEndAt: league._creationTime,
+        series,
+        points: [
+          {
+            key: "league-start",
+            label: "League start",
+            shortLabel: "Start",
+            timestamp: league._creationTime,
+            kind: "league_start" as const,
+            metrics: baseMetrics,
+          },
+        ],
+      };
+    }
+
+    const [roundResultsByRound, submissionsByRound, votesByRound] =
+      await Promise.all([
+        Promise.all(
+          finishedRounds.map((round) =>
+            ctx.db
+              .query("roundResults")
+              .withIndex("by_round", (q) => q.eq("roundId", round._id))
+              .collect(),
+          ),
+        ),
+        Promise.all(
+          finishedRounds.map((round) =>
+            ctx.db
+              .query("submissions")
+              .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+              .collect(),
+          ),
+        ),
+        Promise.all(
+          finishedRounds.map((round) =>
+            ctx.db
+              .query("votes")
+              .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+              .collect(),
+          ),
+        ),
+      ]);
+
+    const cumulativePointsByUser = new Map(
+      orderedSeriesUserIds.map((memberId) => [memberId, 0]),
+    );
+    const cumulativeUpvotesByUser = new Map(
+      orderedSeriesUserIds.map((memberId) => [memberId, 0]),
+    );
+    const cumulativeDownvotesByUser = new Map(
+      orderedSeriesUserIds.map((memberId) => [memberId, 0]),
+    );
+
+    const initialPoints = [
+      {
+        key: "league-start",
+        label: "League start",
+        shortLabel: "Start",
+        timestamp: league._creationTime,
+        kind: "league_start" as const,
+        metrics: baseMetrics,
+      },
+    ];
+
+    const points = finishedRounds.reduce<
+      Array<{
+        key: string;
+        label: string;
+        shortLabel: string;
+        timestamp: number;
+        kind: "league_start" | "finished_round" | "league_end";
+        roundId?: Id<"rounds">;
+        roundTitle?: string;
+        metrics: Array<{
+          userId: Id<"users">;
+          totalPoints: number;
+          rank: number;
+          upvotesReceived: number;
+          downvotesReceived: number;
+          pointsDelta: number;
+          upvotesDelta: number;
+          downvotesDelta: number;
+        }>;
+      }>
+    >((allPoints, round, roundIndex) => {
+      const pointsDeltaByUser = new Map(
+        orderedSeriesUserIds.map((memberId) => [memberId, 0]),
+      );
+      const upvotesDeltaByUser = new Map(
+        orderedSeriesUserIds.map((memberId) => [memberId, 0]),
+      );
+      const downvotesDeltaByUser = new Map(
+        orderedSeriesUserIds.map((memberId) => [memberId, 0]),
+      );
+      const roundResults = roundResultsByRound[roundIndex] ?? [];
+      const submissions = submissionsByRound[roundIndex] ?? [];
+      const votes = votesByRound[roundIndex] ?? [];
+      const submissionOwnerById = new Map(
+        submissions.map((submission) => [
+          submission._id.toString(),
+          submission.userId.toString(),
+        ]),
+      );
+
+      for (const result of roundResults) {
+        const resultUserId = result.userId.toString();
+        pointsDeltaByUser.set(
+          resultUserId,
+          (pointsDeltaByUser.get(resultUserId) ?? 0) + result.points,
+        );
+      }
+
+      for (const vote of votes) {
+        const submissionOwnerId = submissionOwnerById.get(
+          vote.submissionId.toString(),
+        );
+        if (!submissionOwnerId) {
+          continue;
+        }
+
+        if (vote.vote > 0) {
+          upvotesDeltaByUser.set(
+            submissionOwnerId,
+            (upvotesDeltaByUser.get(submissionOwnerId) ?? 0) + vote.vote,
+          );
+          continue;
+        }
+
+        if (vote.vote < 0) {
+          downvotesDeltaByUser.set(
+            submissionOwnerId,
+            (downvotesDeltaByUser.get(submissionOwnerId) ?? 0) +
+              Math.abs(vote.vote),
+          );
+        }
+      }
+
+      for (const memberId of orderedSeriesUserIds) {
+        cumulativePointsByUser.set(
+          memberId,
+          (cumulativePointsByUser.get(memberId) ?? 0) +
+            (pointsDeltaByUser.get(memberId) ?? 0),
+        );
+        cumulativeUpvotesByUser.set(
+          memberId,
+          (cumulativeUpvotesByUser.get(memberId) ?? 0) +
+            (upvotesDeltaByUser.get(memberId) ?? 0),
+        );
+        cumulativeDownvotesByUser.set(
+          memberId,
+          (cumulativeDownvotesByUser.get(memberId) ?? 0) +
+            (downvotesDeltaByUser.get(memberId) ?? 0),
+        );
+      }
+
+      const ranksByUser = buildLeagueStatsRankMap(
+        cumulativePointsByUser,
+        orderedSeriesUserIds,
+        userNamesById,
+      );
+      const isLastFinishedRound = roundIndex === finishedRounds.length - 1;
+      const leagueIsFinished =
+        rounds.length > 0 && rounds.every((leagueRound) => leagueRound.status === "finished");
+
+      allPoints.push({
+        key: round._id.toString(),
+        label: leagueIsFinished && isLastFinishedRound ? "League end" : round.title,
+        shortLabel:
+          leagueIsFinished && isLastFinishedRound
+            ? "End"
+            : `R${roundIndex + 1}`,
+        timestamp: round.votingDeadline,
+        kind:
+          leagueIsFinished && isLastFinishedRound
+            ? "league_end"
+            : "finished_round",
+        roundId: round._id,
+        roundTitle: round.title,
+        metrics: orderedSeriesUserIds.map((memberId) => ({
+          userId: memberId as Id<"users">,
+          totalPoints: cumulativePointsByUser.get(memberId) ?? 0,
+          rank: ranksByUser.get(memberId) ?? orderedSeriesUserIds.length,
+          upvotesReceived: cumulativeUpvotesByUser.get(memberId) ?? 0,
+          downvotesReceived: cumulativeDownvotesByUser.get(memberId) ?? 0,
+          pointsDelta: pointsDeltaByUser.get(memberId) ?? 0,
+          upvotesDelta: upvotesDeltaByUser.get(memberId) ?? 0,
+          downvotesDelta: downvotesDeltaByUser.get(memberId) ?? 0,
+        })),
+      });
+
+      return allPoints;
+    }, initialPoints);
+
+    return {
+      hasData: true,
+      leagueStartAt: league._creationTime,
+      rangeEndAt: finishedRounds.at(-1)?.votingDeadline ?? league._creationTime,
+      series,
+      points,
+    };
   },
 });
 

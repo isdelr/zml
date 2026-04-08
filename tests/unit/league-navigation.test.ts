@@ -1,11 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildLeagueHref,
   buildLeagueRoundHref,
   getPreferredRoundId,
 } from "@/lib/leagues/navigation";
 
 describe("league navigation", () => {
+  it("builds stats links on the base league page", () => {
+    expect(
+      buildLeagueHref({
+        leagueId: "league-1",
+        searchParams: "foo=bar&round=old-round",
+        tab: "stats",
+      }),
+    ).toBe("/leagues/league-1?foo=bar&tab=stats");
+  });
+
   it("builds round links without the removed tab query", () => {
     expect(
       buildLeagueRoundHref({

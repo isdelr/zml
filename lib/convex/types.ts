@@ -7,6 +7,9 @@ export type LeagueData = NonNullable<
 export type LeagueSearchResults = FunctionReturnType<
   typeof api.leagueViews.searchInLeague
 >;
+export type LeagueStatsTrajectory = FunctionReturnType<
+  typeof api.leagues.getLeagueStatsTrajectory
+>;
 export type RoundForLeague = FunctionReturnType<
   typeof api.rounds.getForLeague
 >["page"][number];
