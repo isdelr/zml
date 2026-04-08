@@ -45,17 +45,12 @@ export type LeagueStatsChartRow = {
   [key: string]: number | string | undefined;
 };
 
-const SERIES_COLOR_RECIPES = [
+const SERIES_COLOR_TOKENS = [
   "var(--chart-1)",
   "var(--chart-2)",
   "var(--chart-3)",
   "var(--chart-4)",
   "var(--chart-5)",
-  "color-mix(in oklch, var(--chart-1) 68%, var(--chart-2))",
-  "color-mix(in oklch, var(--chart-2) 68%, var(--chart-3))",
-  "color-mix(in oklch, var(--chart-3) 68%, var(--chart-4))",
-  "color-mix(in oklch, var(--chart-4) 68%, var(--chart-5))",
-  "color-mix(in oklch, var(--chart-5) 68%, var(--chart-1))",
 ] as const;
 
 type MetricField =
@@ -72,7 +67,26 @@ export function getLeagueStatsField(userId: string, field: MetricField) {
 }
 
 export function getLeagueStatsSeriesColor(index: number) {
-  return SERIES_COLOR_RECIPES[index % SERIES_COLOR_RECIPES.length];
+  const primary = SERIES_COLOR_TOKENS[index % SERIES_COLOR_TOKENS.length];
+  const secondary =
+    SERIES_COLOR_TOKENS[(index + 2) % SERIES_COLOR_TOKENS.length];
+  const tertiary =
+    SERIES_COLOR_TOKENS[(index + 4) % SERIES_COLOR_TOKENS.length];
+  const blendDepth = Math.floor(index / SERIES_COLOR_TOKENS.length);
+
+  if (blendDepth === 0) {
+    return primary;
+  }
+
+  if (blendDepth === 1) {
+    return `color-mix(in oklch, ${primary} 58%, ${secondary})`;
+  }
+
+  if (blendDepth === 2) {
+    return `color-mix(in oklch, ${primary} 42%, ${secondary})`;
+  }
+
+  return `color-mix(in oklch, color-mix(in oklch, ${primary} 52%, ${secondary}) 70%, ${tertiary})`;
 }
 
 export function buildLeagueStatsChartRows(

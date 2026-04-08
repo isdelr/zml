@@ -93,6 +93,8 @@ describe("league stats helpers", () => {
   it("cycles series colors from the accent-aware palette", () => {
     expect(getLeagueStatsSeriesColor(0)).toBe("var(--chart-1)");
     expect(getLeagueStatsSeriesColor(5)).toContain("color-mix");
-    expect(getLeagueStatsSeriesColor(10)).toBe("var(--chart-1)");
+    expect(getLeagueStatsSeriesColor(10)).toContain("color-mix");
+    expect(getLeagueStatsSeriesColor(0)).not.toBe(getLeagueStatsSeriesColor(5));
+    expect(getLeagueStatsSeriesColor(5)).not.toBe(getLeagueStatsSeriesColor(10));
   });
 });
