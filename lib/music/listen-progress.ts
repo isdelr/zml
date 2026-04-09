@@ -1,4 +1,4 @@
-import { parseWaveformJson } from "@/lib/submission/waveform-json";
+import { parseWaveformJson } from "../submission/waveform-json";
 
 const MIN_ALLOWED_PROGRESS_JUMP_SECONDS = 15;
 const MAX_ALLOWED_PROGRESS_JUMP_SECONDS = 60;
