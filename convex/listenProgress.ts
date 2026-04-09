@@ -6,8 +6,8 @@ import { getAuthUserId } from "./authCore";
 import { Doc } from "./_generated/dataModel";
 import {
   getAllowedProgressJumpSeconds,
+  getCanonicalSubmissionDurationInfo,
   getCappedProgressSeconds,
-  getNormalizedDurationSeconds,
   getRequiredListenTimeSeconds,
   hasCompletedRequiredListenTime,
 } from "../lib/music/listen-progress";
@@ -15,6 +15,7 @@ import {
 type SubmissionDurationInfo = {
   durationSec: number;
   derivedFromWaveform: boolean;
+  shouldPersistDuration: boolean;
 };
 
 type UpdateProgressResult = {
@@ -33,62 +34,17 @@ type YouTubePlaylistSessionSnapshot = {
   remainingSec: number;
 };
 
-function getDurationFromWaveform(waveformJson: string | undefined): number | null {
-  if (!waveformJson) return null;
-
-  try {
-    const parsed: unknown = JSON.parse(waveformJson);
-    if (typeof parsed !== "object" || parsed === null) return null;
-
-    const record = parsed as Record<string, unknown>;
-    const length = Number(record.length);
-    const samplesPerPixel = Number(record.samples_per_pixel);
-    const sampleRate = Number(record.sample_rate);
-
-    if (!Number.isFinite(length) || !Number.isFinite(samplesPerPixel) || !Number.isFinite(sampleRate)) {
-      return null;
-    }
-    if (length <= 0 || samplesPerPixel <= 0 || sampleRate <= 0) return null;
-
-    const durationSec = Math.floor((length * samplesPerPixel) / sampleRate);
-    return durationSec > 0 ? durationSec : null;
-  } catch {
-    return null;
-  }
-}
-
 function getSubmissionDurationInfo(
   submission: Doc<"submissions">,
 ): SubmissionDurationInfo | null {
-  const hasFiniteDuration =
-    submission.duration !== undefined &&
-    submission.duration !== null &&
-    Number.isFinite(submission.duration);
-  if (hasFiniteDuration) {
-    return {
-      durationSec: Math.max(0, Math.floor(submission.duration as number)),
-      derivedFromWaveform: false,
-    };
-  }
+  const durationInfo = getCanonicalSubmissionDurationInfo({
+    submissionType: submission.submissionType,
+    durationSeconds: submission.duration,
+    waveformJson: submission.waveform,
+  });
+  if (!durationInfo) return null;
 
-  if (submission.submissionType === "file") {
-    const waveformDurationSec = getDurationFromWaveform(submission.waveform);
-    if (waveformDurationSec !== null) {
-      return {
-        durationSec: waveformDurationSec,
-        derivedFromWaveform: true,
-      };
-    }
-  }
-
-  if (submission.submissionType === "youtube") {
-    return {
-      durationSec: 180,
-      derivedFromWaveform: false,
-    };
-  }
-
-  return null;
+  return durationInfo;
 }
 
 async function getYouTubePlaylistSessionDoc(
@@ -432,12 +388,9 @@ export const updateProgress = mutation({
 
     // If we still don't have a usable duration (e.g., malformed file submission), skip.
     if (!durationInfo) return null;
-    const { durationSec, derivedFromWaveform } = durationInfo;
+    const { durationSec, shouldPersistDuration } = durationInfo;
 
-    if (
-      derivedFromWaveform &&
-      (submission.duration === undefined || submission.duration === null)
-    ) {
+    if (shouldPersistDuration) {
       await ctx.db.patch("submissions", submission._id, { duration: durationSec });
     }
 

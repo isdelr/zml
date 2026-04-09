@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   getAllowedProgressJumpSeconds,
+  getCanonicalSubmissionDurationInfo,
   getCappedProgressSeconds,
-  getCompletionCatchUpSyncAttempts,
   getPlaylistListenUnlocks,
   getRequiredListenTimeSeconds,
   getTotalPlaylistRequiredListenSeconds,
@@ -70,28 +70,38 @@ describe("listen progress sync helpers", () => {
     ).toBe(296);
   });
 
-  it("estimates how many bounded writes are needed to catch up completion", () => {
-    expect(
-      getCompletionCatchUpSyncAttempts({
-        desiredProgressSeconds: 300,
-        lastKnownProgressSeconds: 0,
-        durationSeconds: 300,
-      }),
-    ).toBe(10);
-
-    expect(
-      getCompletionCatchUpSyncAttempts({
-        desiredProgressSeconds: 296,
-        lastKnownProgressSeconds: 290,
-        durationSeconds: 300,
-      }),
-    ).toBe(1);
-  });
-
   it("uses an integer-second completion threshold for persistence", () => {
     expect(getRequiredListenTimeSeconds(241.9, 50, 10)).toBe(241);
     expect(hasCompletedRequiredListenTime(240, 241.9, 50, 10)).toBe(false);
     expect(hasCompletedRequiredListenTime(241, 241.9, 50, 10)).toBe(true);
+  });
+
+  it("prefers waveform duration for file submissions and flags rounded-up stored durations for self-healing", () => {
+    const durationInfo = getCanonicalSubmissionDurationInfo({
+      submissionType: "file",
+      durationSeconds: 479,
+      waveformJson: JSON.stringify({
+        length: 7469,
+        samples_per_pixel: 256,
+        sample_rate: 4000,
+      }),
+    });
+
+    expect(durationInfo).toEqual({
+      durationSec: 478,
+      derivedFromWaveform: true,
+      shouldPersistDuration: true,
+    });
+    expect(hasCompletedRequiredListenTime(477, 478, 100, 15)).toBe(false);
+    expect(hasCompletedRequiredListenTime(478, 478, 100, 15)).toBe(true);
+  });
+
+  it("requires a full listen when the protection cap exceeds the song length", () => {
+    expect(getRequiredListenTimeSeconds(8 * 60, 100, 15)).toBe(8 * 60);
+    expect(hasCompletedRequiredListenTime(8 * 60 - 1, 8 * 60, 100, 15)).toBe(
+      false,
+    );
+    expect(hasCompletedRequiredListenTime(8 * 60, 8 * 60, 100, 15)).toBe(true);
   });
 
   it("derives progressive playlist unlock thresholds from full listens capped by protection time", () => {

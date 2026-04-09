@@ -54,7 +54,7 @@ export async function parseAudioFileMetadata(
 
   return {
     durationSeconds: metadata.format.duration
-      ? Math.round(metadata.format.duration)
+      ? Math.floor(metadata.format.duration)
       : undefined,
     title: metadata.common.title || undefined,
     artist: artist || undefined,

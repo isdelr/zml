@@ -30,7 +30,6 @@ import {
 } from "@/lib/music/youtube-playlist-session";
 import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
 import {
-  getCompletionCatchUpSyncAttempts,
   getTotalPlaylistRequiredListenSeconds,
 } from "@/lib/music/listen-progress";
 
@@ -403,7 +402,9 @@ export function MusicPlayer() {
     };
   }, [getPresignedSongUrl, nextTrack, nextTrackCachedUrl]);
 
-  const syncCurrentTrackListenProgress = useCallback(async () => {
+  const syncCurrentTrackListenProgress = useCallback(async (
+    progressSecondsOverride?: number,
+  ) => {
     if (
       !currentTrack ||
       currentTrack.submissionType !== "file" ||
@@ -417,79 +418,35 @@ export function MusicPlayer() {
       currentTrackListenProgress?.progressSeconds ?? 0,
       listenedUntilRef.current,
       currentTime,
+      Number.isFinite(progressSecondsOverride) ? (progressSecondsOverride ?? 0) : 0,
     );
     if (!Number.isFinite(progressSeconds) || progressSeconds <= 0) {
       return null;
     }
 
-    const audioDuration = audioRef.current?.duration;
-    const effectiveDuration =
-      typeof audioDuration === "number" && Number.isFinite(audioDuration) && audioDuration > 0
-        ? audioDuration
-        : duration;
-    const shouldCatchUpToCompletion =
-      effectiveDuration > 0 &&
-      shouldMarkListenCompleted(
-        progressSeconds,
-        effectiveDuration,
-        leagueData.listenPercentage,
-        leagueData.listenTimeLimitMinutes,
-      );
-    const maxAttempts = shouldCatchUpToCompletion
-      ? getCompletionCatchUpSyncAttempts({
-          desiredProgressSeconds: progressSeconds,
-          lastKnownProgressSeconds:
-            currentTrackListenProgress?.progressSeconds ?? 0,
-          durationSeconds: effectiveDuration,
-        })
-      : 1;
+    const result = await updateListenProgress({
+      submissionId: currentTrack._id,
+      progressSeconds,
+    });
 
-    let latestResult: { progressSeconds: number; isCompleted: boolean } | null =
-      null;
-    let lastPersistedProgress = currentTrackListenProgress?.progressSeconds ?? 0;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      const result = await updateListenProgress({
-        submissionId: currentTrack._id,
-        progressSeconds,
-      });
-      latestResult = result;
-
-      if (!result) {
-        break;
-      }
-
+    if (result) {
       listenedUntilRef.current = Math.max(
         listenedUntilRef.current,
         result.progressSeconds,
+        Number.isFinite(progressSecondsOverride) ? (progressSecondsOverride ?? 0) : 0,
       );
-
       if (result.isCompleted) {
         actions.setListenProgress(currentTrack._id, true);
-        break;
       }
-
-      if (!shouldCatchUpToCompletion) {
-        break;
-      }
-
-      if (result.progressSeconds <= lastPersistedProgress) {
-        break;
-      }
-
-      lastPersistedProgress = result.progressSeconds;
     }
 
-    return latestResult;
+    return result;
   }, [
     actions,
     audioRef,
     currentTrack,
     currentTrackListenProgress?.progressSeconds,
-    duration,
     leagueData?.enforceListenPercentage,
-    leagueData?.listenPercentage,
-    leagueData?.listenTimeLimitMinutes,
     updateListenProgress,
   ]);
 
@@ -625,7 +582,10 @@ export function MusicPlayer() {
   }, [syncCurrentTrackListenProgress]);
 
   const handleTrackStep = useCallback(
-    async (direction: 1 | -1) => {
+    async (
+      direction: 1 | -1,
+      options?: { skipCurrentTrackSync?: boolean },
+    ) => {
       if (trackAdvanceInFlightRef.current) {
         return;
       }
@@ -633,7 +593,9 @@ export function MusicPlayer() {
       trackAdvanceInFlightRef.current = true;
 
       try {
-        syncCurrentTrackListenProgressInBackground();
+        if (!options?.skipCurrentTrackSync) {
+          syncCurrentTrackListenProgressInBackground();
+        }
 
         const adjacentIndex = getAdjacentQueueIndex(direction);
         if (adjacentIndex === null) {
@@ -684,11 +646,36 @@ export function MusicPlayer() {
   }, [handleTrackStep]);
 
   const handleEnded = async () => {
-    if (repeatMode === "one" && audioRef.current) {
-      audioRef.current.currentTime = 0;
-      await audioRef.current.play();
+    const audioElement = audioRef.current;
+
+    if (
+      audioElement &&
+      currentTrack?.submissionType === "file" &&
+      leagueData?.enforceListenPercentage
+    ) {
+      const endedProgressSeconds =
+        Number.isFinite(audioElement.duration) && audioElement.duration > 0
+          ? audioElement.duration
+          : audioElement.currentTime;
+
+      if (Number.isFinite(endedProgressSeconds) && endedProgressSeconds > 0) {
+        listenedUntilRef.current = Math.max(
+          listenedUntilRef.current,
+          endedProgressSeconds,
+        );
+        try {
+          await syncCurrentTrackListenProgress(endedProgressSeconds);
+        } catch (error: unknown) {
+          console.error("Failed to sync listen progress at track end", error);
+        }
+      }
+    }
+
+    if (repeatMode === "one" && audioElement) {
+      audioElement.currentTime = 0;
+      await audioElement.play();
     } else {
-      await handlePlayNext();
+      await handleTrackStep(1, { skipCurrentTrackSync: true });
     }
   };
 

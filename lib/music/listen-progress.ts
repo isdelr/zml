@@ -22,10 +22,16 @@ type NextProgressSyncParams = {
   durationSeconds: number;
 };
 
-type CompletionCatchUpSyncParams = {
-  desiredProgressSeconds: number;
-  lastKnownProgressSeconds: number;
-  durationSeconds: number;
+type CanonicalSubmissionDurationInfoArgs = {
+  submissionType: "file" | "youtube";
+  durationSeconds: number | null | undefined;
+  waveformJson?: string;
+};
+
+export type CanonicalSubmissionDurationInfo = {
+  durationSec: number;
+  derivedFromWaveform: boolean;
+  shouldPersistDuration: boolean;
 };
 
 function normalizeSeconds(value: number): number {
@@ -56,6 +62,75 @@ function getPlaylistUnlocks<TSubmissionId>(
 
 export function getNormalizedDurationSeconds(durationSeconds: number): number {
   return normalizeSeconds(durationSeconds);
+}
+
+export function getDurationFromWaveformJson(
+  waveformJson: string | undefined,
+): number | null {
+  if (!waveformJson) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(waveformJson);
+    if (typeof parsed !== "object" || parsed === null) return null;
+
+    const record = parsed as Record<string, unknown>;
+    const length = Number(record.length);
+    const samplesPerPixel = Number(record.samples_per_pixel);
+    const sampleRate = Number(record.sample_rate);
+
+    if (
+      !Number.isFinite(length) ||
+      !Number.isFinite(samplesPerPixel) ||
+      !Number.isFinite(sampleRate)
+    ) {
+      return null;
+    }
+    if (length <= 0 || samplesPerPixel <= 0 || sampleRate <= 0) return null;
+
+    const durationSec = Math.floor((length * samplesPerPixel) / sampleRate);
+    return durationSec > 0 ? durationSec : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getCanonicalSubmissionDurationInfo({
+  submissionType,
+  durationSeconds,
+  waveformJson,
+}: CanonicalSubmissionDurationInfoArgs): CanonicalSubmissionDurationInfo | null {
+  const normalizedStoredDuration = Number.isFinite(durationSeconds)
+    ? getNormalizedDurationSeconds(durationSeconds as number)
+    : null;
+
+  if (submissionType === "file") {
+    const waveformDurationSec = getDurationFromWaveformJson(waveformJson);
+    if (waveformDurationSec !== null) {
+      return {
+        durationSec: waveformDurationSec,
+        derivedFromWaveform: true,
+        shouldPersistDuration: normalizedStoredDuration !== waveformDurationSec,
+      };
+    }
+  }
+
+  if (normalizedStoredDuration !== null) {
+    return {
+      durationSec: normalizedStoredDuration,
+      derivedFromWaveform: false,
+      shouldPersistDuration: false,
+    };
+  }
+
+  if (submissionType === "youtube") {
+    return {
+      durationSec: 180,
+      derivedFromWaveform: false,
+      shouldPersistDuration: false,
+    };
+  }
+
+  return null;
 }
 
 export function getRequiredListenTimeSeconds(
@@ -214,20 +289,4 @@ export function getNextProgressSecondsToSync({
   }
 
   return capped;
-}
-
-export function getCompletionCatchUpSyncAttempts({
-  desiredProgressSeconds,
-  lastKnownProgressSeconds,
-  durationSeconds,
-}: CompletionCatchUpSyncParams): number {
-  const desired = normalizeSeconds(desiredProgressSeconds);
-  const lastKnown = normalizeSeconds(lastKnownProgressSeconds);
-  if (desired <= 0 || desired <= lastKnown) {
-    return 1;
-  }
-
-  const jumpDurationBasis = durationSeconds > 0 ? durationSeconds : desired;
-  const allowedJumpSeconds = getAllowedProgressJumpSeconds(jumpDurationBasis);
-  return Math.max(1, Math.ceil((desired - lastKnown) / allowedJumpSeconds));
 }
