@@ -22,6 +22,12 @@ type NextProgressSyncParams = {
   durationSeconds: number;
 };
 
+type CompletionCatchUpSyncParams = {
+  desiredProgressSeconds: number;
+  lastKnownProgressSeconds: number;
+  durationSeconds: number;
+};
+
 function normalizeSeconds(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.floor(value));
@@ -208,4 +214,20 @@ export function getNextProgressSecondsToSync({
   }
 
   return capped;
+}
+
+export function getCompletionCatchUpSyncAttempts({
+  desiredProgressSeconds,
+  lastKnownProgressSeconds,
+  durationSeconds,
+}: CompletionCatchUpSyncParams): number {
+  const desired = normalizeSeconds(desiredProgressSeconds);
+  const lastKnown = normalizeSeconds(lastKnownProgressSeconds);
+  if (desired <= 0 || desired <= lastKnown) {
+    return 1;
+  }
+
+  const jumpDurationBasis = durationSeconds > 0 ? durationSeconds : desired;
+  const allowedJumpSeconds = getAllowedProgressJumpSeconds(jumpDurationBasis);
+  return Math.max(1, Math.ceil((desired - lastKnown) / allowedJumpSeconds));
 }

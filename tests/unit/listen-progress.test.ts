@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getAllowedProgressJumpSeconds,
   getCappedProgressSeconds,
+  getCompletionCatchUpSyncAttempts,
   getPlaylistListenUnlocks,
   getRequiredListenTimeSeconds,
   getTotalPlaylistRequiredListenSeconds,
@@ -67,6 +68,24 @@ describe("listen progress sync helpers", () => {
         durationSeconds: 300,
       }),
     ).toBe(296);
+  });
+
+  it("estimates how many bounded writes are needed to catch up completion", () => {
+    expect(
+      getCompletionCatchUpSyncAttempts({
+        desiredProgressSeconds: 300,
+        lastKnownProgressSeconds: 0,
+        durationSeconds: 300,
+      }),
+    ).toBe(10);
+
+    expect(
+      getCompletionCatchUpSyncAttempts({
+        desiredProgressSeconds: 296,
+        lastKnownProgressSeconds: 290,
+        durationSeconds: 300,
+      }),
+    ).toBe(1);
   });
 
   it("uses an integer-second completion threshold for persistence", () => {

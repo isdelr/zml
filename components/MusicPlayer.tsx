@@ -29,7 +29,10 @@ import {
   openYouTubeUrlWithAppFallback,
 } from "@/lib/music/youtube-playlist-session";
 import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
-import { getTotalPlaylistRequiredListenSeconds } from "@/lib/music/listen-progress";
+import {
+  getCompletionCatchUpSyncAttempts,
+  getTotalPlaylistRequiredListenSeconds,
+} from "@/lib/music/listen-progress";
 
 const PlayerTrackInfo = dynamicImport(() =>
   import("@/components/player/PlayerTrackInfo").then((mod) => ({
@@ -419,28 +422,74 @@ export function MusicPlayer() {
       return null;
     }
 
-    const result = await updateListenProgress({
-      submissionId: currentTrack._id,
-      progressSeconds,
-    });
+    const audioDuration = audioRef.current?.duration;
+    const effectiveDuration =
+      typeof audioDuration === "number" && Number.isFinite(audioDuration) && audioDuration > 0
+        ? audioDuration
+        : duration;
+    const shouldCatchUpToCompletion =
+      effectiveDuration > 0 &&
+      shouldMarkListenCompleted(
+        progressSeconds,
+        effectiveDuration,
+        leagueData.listenPercentage,
+        leagueData.listenTimeLimitMinutes,
+      );
+    const maxAttempts = shouldCatchUpToCompletion
+      ? getCompletionCatchUpSyncAttempts({
+          desiredProgressSeconds: progressSeconds,
+          lastKnownProgressSeconds:
+            currentTrackListenProgress?.progressSeconds ?? 0,
+          durationSeconds: effectiveDuration,
+        })
+      : 1;
 
-    if (result) {
+    let latestResult: { progressSeconds: number; isCompleted: boolean } | null =
+      null;
+    let lastPersistedProgress = currentTrackListenProgress?.progressSeconds ?? 0;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const result = await updateListenProgress({
+        submissionId: currentTrack._id,
+        progressSeconds,
+      });
+      latestResult = result;
+
+      if (!result) {
+        break;
+      }
+
       listenedUntilRef.current = Math.max(
         listenedUntilRef.current,
         result.progressSeconds,
       );
+
       if (result.isCompleted) {
         actions.setListenProgress(currentTrack._id, true);
+        break;
       }
+
+      if (!shouldCatchUpToCompletion) {
+        break;
+      }
+
+      if (result.progressSeconds <= lastPersistedProgress) {
+        break;
+      }
+
+      lastPersistedProgress = result.progressSeconds;
     }
 
-    return result;
+    return latestResult;
   }, [
     actions,
     audioRef,
     currentTrack,
     currentTrackListenProgress?.progressSeconds,
+    duration,
     leagueData?.enforceListenPercentage,
+    leagueData?.listenPercentage,
+    leagueData?.listenTimeLimitMinutes,
     updateListenProgress,
   ]);
 
