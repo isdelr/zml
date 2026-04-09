@@ -6,6 +6,10 @@ import WaveformData from "waveform-data";
 import { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/lib/convex/api";
 import { toErrorMessage } from "@/lib/errors";
+import {
+  parseWaveformJson,
+  shouldRegenerateCachedWaveform,
+} from "@/lib/submission/waveform-json";
 import { Song } from "@/types";
 
 type UseSubmissionWaveformArgs = {
@@ -83,7 +87,11 @@ export function useSubmissionWaveform({
       if (!payload.waveformJson) {
         throw new Error("Waveform generation response is missing waveformJson.");
       }
-      return WaveformData.create(JSON.parse(payload.waveformJson));
+      const parsed = parseWaveformJson(payload.waveformJson);
+      if (!parsed?.isCurrent) {
+        throw new Error("Waveform generation response contains an invalid payload.");
+      }
+      return WaveformData.create(parsed.waveform);
     };
 
     const run = async () => {
@@ -93,10 +101,13 @@ export function useSubmissionWaveform({
         setWaveformData(null);
       });
 
-      if (cachedWaveform?.waveform) {
+      if (cachedWaveform?.waveform && !shouldRegenerateCachedWaveform(cachedWaveform.waveform)) {
         try {
-          const data = JSON.parse(cachedWaveform.waveform);
-          const waveform = WaveformData.create(data);
+          const parsed = parseWaveformJson(cachedWaveform.waveform);
+          if (!parsed?.isCurrent) {
+            throw new Error("Cached waveform payload is stale.");
+          }
+          const waveform = WaveformData.create(parsed.waveform);
           queueMicrotask(() => {
             if (isCancelled) return;
             setWaveformData(waveform);

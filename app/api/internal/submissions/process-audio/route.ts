@@ -13,6 +13,7 @@ import {
   transcodeToAac,
 } from "@/lib/submission/audio-transcode";
 import { generateWaveformJsonFromAudioFile } from "@/lib/submission/server-waveform";
+import { parseWaveformJson } from "@/lib/submission/waveform-json";
 
 const storage = new B2Storage();
 
@@ -95,6 +96,9 @@ export async function POST(request: Request) {
     );
     await transcodeToAac(inputPath, outputPath);
     const waveformJson = await generateWaveformJsonFromAudioFile(outputPath);
+    if (!parseWaveformJson(waveformJson)?.isCurrent) {
+      throw new Error("Generated waveform payload is invalid.");
+    }
 
     const newKey = `submissions/audio/${randomUUID()}.m4a`;
     const { size: outputSize } = await fs.stat(outputPath);

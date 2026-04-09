@@ -45,6 +45,7 @@ import {
 } from "../lib/comments/visibility";
 import { maybeAutoStartVotingAfterSubmissionCompletion } from "../lib/convex-server/rounds/auto-transition";
 import { getUserSubmissionCompletionCount } from "../lib/rounds/submission-completion";
+import { parseWaveformJson } from "../lib/submission/waveform-json";
 
 const storage = new B2Storage();
 const TROLL_SUBMISSION_BAN_THRESHOLD = 2;
@@ -1526,13 +1527,8 @@ export const storeWaveformInternal = internalMutation({
     }
     if (submission.waveform) {
       // Keep a valid existing waveform, but allow replacing malformed legacy seed values.
-      try {
-        const parsed = JSON.parse(submission.waveform);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          return;
-        }
-      } catch {
-        // Fall through and replace malformed JSON.
+      if (parseWaveformJson(submission.waveform)?.isCurrent) {
+        return;
       }
     }
     await ctx.db.patch("submissions", args.submissionId, {

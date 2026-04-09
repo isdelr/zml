@@ -1,3 +1,5 @@
+import { parseWaveformJson } from "@/lib/submission/waveform-json";
+
 const MIN_ALLOWED_PROGRESS_JUMP_SECONDS = 15;
 const MAX_ALLOWED_PROGRESS_JUMP_SECONDS = 60;
 const DEFAULT_SYNC_DELTA_SECONDS = 15;
@@ -70,10 +72,8 @@ export function getDurationFromWaveformJson(
   if (!waveformJson) return null;
 
   try {
-    const parsed: unknown = JSON.parse(waveformJson);
-    if (typeof parsed !== "object" || parsed === null) return null;
-
-    const record = parsed as Record<string, unknown>;
+    const parsed = parseWaveformJson(waveformJson, { mode: "header" });
+    const record = parsed?.waveform ?? (JSON.parse(waveformJson) as Record<string, unknown>);
     const length = Number(record.length);
     const samplesPerPixel = Number(record.samples_per_pixel);
     const sampleRate = Number(record.sample_rate);

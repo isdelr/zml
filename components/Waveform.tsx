@@ -1,18 +1,24 @@
-// File: components/Waveform.tsx
-
 "use client";
 
-import React, { useRef, useEffect, MouseEvent, useState } from "react";
+import React, { MouseEvent, useEffect, useRef, useState } from "react";
 import WaveformData from "waveform-data";
-import { cn } from "@/lib/utils";
+import { toSvg } from "jdenticon";
 import { Id } from "@/convex/_generated/dataModel";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import {
+  getCachedWaveformBars,
+  getWaveformAmplitudeScale,
+} from "@/lib/music/waveform-render";
+import { cn } from "@/lib/utils";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { toSvg } from "jdenticon";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+
+const BAR_WIDTH = 2;
+const BAR_GAP = 1;
+const TOTAL_BAR_WIDTH = BAR_WIDTH + BAR_GAP;
 
 export interface WaveformComment {
   id: Id<"comments">;
@@ -41,53 +47,109 @@ const formatTime = (seconds: number) => {
 };
 
 export function Waveform({
-                           waveform,
-                           progress,
-                           duration,
-                           onSeek,
-                           className,
-                           comments,
-                           savedProgress,
-                         }: WaveformProps) {
+  waveform,
+  progress,
+  duration,
+  onSeek,
+  className,
+  comments,
+  savedProgress,
+}: WaveformProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [hoveredCommentId, setHoveredCommentId] = useState<Id<"comments"> | null>(null);
+  const [hoveredCommentId, setHoveredCommentId] = useState<Id<"comments"> | null>(
+    null,
+  );
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const measure = () => {
+      const rect = element.getBoundingClientRect();
+      const nextSize = {
+        width: Math.max(0, Math.floor(rect.width)),
+        height: Math.max(0, Math.floor(rect.height)),
+      };
+
+      setCanvasSize((currentSize) =>
+        currentSize.width === nextSize.width &&
+        currentSize.height === nextSize.height
+          ? currentSize
+          : nextSize,
+      );
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      measure();
+    });
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !waveform) return;
+    if (!canvas) return;
+
+    const width = canvasSize.width || canvas.clientWidth;
+    const height = canvasSize.height || canvas.clientHeight;
+    if (width <= 0 || height <= 0) {
+      return;
+    }
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    canvas.width = Math.max(1, Math.floor(width * dpr));
+    canvas.height = Math.max(1, Math.floor(height * dpr));
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
-
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
     ctx.clearRect(0, 0, width, height);
 
-    // Safety guards against edge cases that could cause out-of-bounds reads
-    const channel = waveform.channel(0);
-    const channelLength = Math.max(0, waveform.length || 0);
-    if (channelLength === 0) {
-      // Nothing to draw
+    const middleY = height / 2;
+    const requestedBarCount = Math.max(1, Math.floor(width / TOTAL_BAR_WIDTH));
+    const displayBars = getCachedWaveformBars(waveform, requestedBarCount);
+
+    if (displayBars.barCount === 0) {
       return;
     }
 
-    const middleY = height / 2;
-
-    const barWidth = 2;
-    const barGap = 1;
-    const totalBarWidth = barWidth + barGap;
-    const numBars = Math.max(1, Math.floor(width / totalBarWidth)); // ensure at least 1 bar
-
-    const progressInBars = duration > 0 ? (progress / duration) * numBars : 0;
-    const savedProgressInBars =
-      duration > 0 && savedProgress ? (savedProgress / duration) * numBars : 0;
+    const progressBarCount =
+      duration > 0
+        ? Math.min(
+            displayBars.barCount,
+            Math.max(
+              0,
+              Math.floor((Math.max(0, progress) / duration) * displayBars.barCount),
+            ),
+          )
+        : 0;
+    const savedProgressBarCount =
+      duration > 0 && typeof savedProgress === "number" && Number.isFinite(savedProgress)
+        ? Math.min(
+            displayBars.barCount,
+            Math.max(
+              0,
+              Math.floor(
+                (Math.max(0, savedProgress) / duration) * displayBars.barCount,
+              ),
+            ),
+          )
+        : 0;
 
     const primaryColor = getComputedStyle(document.documentElement)
       .getPropertyValue("--primary")
@@ -95,43 +157,27 @@ export function Waveform({
     const mutedColor = getComputedStyle(document.documentElement)
       .getPropertyValue("--muted-foreground")
       .trim();
+    const { positiveMax, negativeMax } = getWaveformAmplitudeScale(
+      displayBars.bits,
+    );
 
-    ctx.lineWidth = barWidth;
+    ctx.lineWidth = BAR_WIDTH;
     ctx.lineCap = "round";
-
-    // Map a bar index [0..numBars-1] to a valid sample index [0..channelLength-1]
-    // This mapping guarantees we never exceed the data bounds.
-    const sampleIndexForBar = (barIndex: number) => {
-      if (numBars === 1) return 0; // single bar -> first sample
-      const rawIndex =
-        (barIndex * (channelLength - 1)) / (numBars - 1); // exact mapping
-      const idx = Math.floor(rawIndex);
-      // Clamp defensively to avoid any out-of-bounds access in waveform-data
-      return Math.min(Math.max(idx, 0), channelLength - 1);
-    };
 
     const drawBars = (limit: number, color: string) => {
       ctx.strokeStyle = color;
-      for (let i = 0; i < limit; i++) {
-        const x = barGap + i * totalBarWidth + barWidth / 2;
 
-        const sampleIndex = sampleIndexForBar(i);
-
-        // Guard against any unexpected library behavior with try/catch,
-        // but this should not be hit thanks to the clamping above.
-        let maxSample = 0;
-        let minSample = 0;
-        try {
-          maxSample = channel.max_sample(sampleIndex);
-          minSample = channel.min_sample(sampleIndex);
-        } catch {
-          // If something went wrong, skip this bar instead of crashing
+      for (let index = 0; index < limit; index += 1) {
+        const bar = displayBars.bars[index];
+        if (!bar) {
           continue;
         }
 
-        const topHalfHeight = (maxSample / 127) * middleY;
-        const bottomHalfHeight = (Math.abs(minSample) / 128) * middleY;
-
+        const x = BAR_GAP + index * TOTAL_BAR_WIDTH + BAR_WIDTH / 2;
+        const topHalfHeight =
+          (Math.max(0, bar.maxSample) / positiveMax) * middleY;
+        const bottomHalfHeight =
+          (Math.abs(Math.min(0, bar.minSample)) / negativeMax) * middleY;
         const barTopY = middleY - topHalfHeight;
         const barBottomY = middleY + bottomHalfHeight;
 
@@ -142,40 +188,41 @@ export function Waveform({
       }
     };
 
-    // 1. Draw all bars in muted color
-    drawBars(numBars, mutedColor);
+    drawBars(displayBars.barCount, mutedColor);
 
-    // 2. Draw saved progress with transparent primary
-    if (savedProgressInBars > 0) {
+    if (savedProgressBarCount > 0) {
       ctx.globalAlpha = 0.3;
-      drawBars(Math.min(numBars, Math.floor(savedProgressInBars)), primaryColor);
-      ctx.globalAlpha = 1.0;
+      drawBars(savedProgressBarCount, primaryColor);
+      ctx.globalAlpha = 1;
     }
 
-    // 3. Draw played progress with solid primary
-    drawBars(Math.min(numBars, Math.floor(progressInBars)), primaryColor);
-  }, [waveform, progress, duration, savedProgress]);
+    if (progressBarCount > 0) {
+      drawBars(progressBarCount, primaryColor);
+    }
+  }, [canvasSize.height, canvasSize.width, duration, progress, savedProgress, waveform]);
 
-  const handleSeek = (e: MouseEvent<HTMLDivElement>) => {
-    const target = e.currentTarget as HTMLElement;
+  const handleSeek = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.currentTarget as HTMLElement;
     if (!duration) return;
 
     const rect = target.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const seekFraction = clickX / rect.width;
+    if (rect.width <= 0) return;
+
+    const clickX = event.clientX - rect.left;
+    const seekFraction = Math.min(1, Math.max(0, clickX / rect.width));
     const seekTime = duration * seekFraction;
     onSeek(seekTime);
   };
 
-  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+  const handleMouseDown = (event: MouseEvent<HTMLDivElement>) => {
     if (hoveredCommentId) return;
     setIsDragging(true);
-    handleSeek(e);
+    handleSeek(event);
   };
 
-  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = (event: MouseEvent<HTMLDivElement>) => {
     if (isDragging) {
-      handleSeek(e);
+      handleSeek(event);
     }
   };
 
@@ -197,6 +244,7 @@ export function Waveform({
 
   return (
     <div
+      ref={containerRef}
       className={cn("relative w-full cursor-pointer", className)}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -218,8 +266,8 @@ export function Waveform({
                   left: `${duration > 0 ? (comment.time / duration) * 100 : 0}%`,
                   transform: "translateX(-50%)",
                 }}
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={(event) => {
+                  event.stopPropagation();
                   onSeek(comment.time);
                 }}
               >

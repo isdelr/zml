@@ -13,6 +13,10 @@ import {
   buildTempAudioPath,
 } from "@/lib/submission/audio-transcode";
 import { generateWaveformJsonFromAudioFile } from "@/lib/submission/server-waveform";
+import {
+  parseWaveformJson,
+  shouldRegenerateCachedWaveform,
+} from "@/lib/submission/waveform-json";
 import { storageBodyToNodeReadable } from "@/lib/storage/object-body";
 
 const storage = new B2Storage();
@@ -33,19 +37,6 @@ type GenerateWaveformPayload = {
 
 function createConvexClient() {
   return new ConvexHttpClient(convexUrl);
-}
-
-function isValidWaveformJson(waveformJson: string | null | undefined) {
-  if (!waveformJson) {
-    return false;
-  }
-
-  try {
-    const parsed = JSON.parse(waveformJson);
-    return Boolean(parsed && typeof parsed === "object" && !Array.isArray(parsed));
-  } catch {
-    return false;
-  }
 }
 
 export const runtime = "nodejs";
@@ -87,7 +78,7 @@ export async function POST(request: Request) {
       submissionId: payload.submissionId as Id<"submissions">,
     });
     const waveformJson = cachedWaveform?.waveform;
-    if (isValidWaveformJson(waveformJson)) {
+    if (!shouldRegenerateCachedWaveform(waveformJson)) {
       return NextResponse.json({ waveformJson });
     }
   } catch (error) {
@@ -148,6 +139,9 @@ export async function POST(request: Request) {
     );
 
     const waveformJson = await generateWaveformJsonFromAudioFile(inputPath);
+    if (!parseWaveformJson(waveformJson)?.isCurrent) {
+      throw new Error("Generated waveform payload is invalid.");
+    }
     await convex.mutation(api.submissions.storeWaveform, {
       submissionId: payload.submissionId as Id<"submissions">,
       waveformJson,
