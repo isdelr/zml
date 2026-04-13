@@ -7,6 +7,7 @@ import {
   EXTENSION_REQUEST_WINDOW_RATIO,
   MAX_EXTENSION_REQUESTS_PER_LEAGUE_USER,
   formatExtensionPollRequestWindowLabel,
+  getLockedExtensionPollResult,
   getExtensionPollResolution,
   getExtensionPollMinimumTurnout,
   getExtensionPollRequestWindowMs,
@@ -135,6 +136,37 @@ describe("extension poll helpers", () => {
     });
   });
 
+  it("detects when an extension poll result is mathematically locked", () => {
+    expect(
+      getLockedExtensionPollResult({
+        yesVotes: 3,
+        noVotes: 0,
+        eligibleVoterCount: 5,
+      }),
+    ).toBe("approved");
+    expect(
+      getLockedExtensionPollResult({
+        yesVotes: 0,
+        noVotes: 3,
+        eligibleVoterCount: 5,
+      }),
+    ).toBe("rejected");
+    expect(
+      getLockedExtensionPollResult({
+        yesVotes: 2,
+        noVotes: 0,
+        eligibleVoterCount: 4,
+      }),
+    ).toBeNull();
+    expect(
+      getLockedExtensionPollResult({
+        yesVotes: 0,
+        noVotes: 2,
+        eligibleVoterCount: 4,
+      }),
+    ).toBeNull();
+  });
+
   it("requires at least half of eligible voters for a valid poll result", () => {
     expect(EXTENSION_POLL_MIN_TURNOUT_RATIO).toBe(0.5);
     expect(getExtensionPollMinimumTurnout(1)).toBe(1);
@@ -142,6 +174,44 @@ describe("extension poll helpers", () => {
     expect(getExtensionPollMinimumTurnout(6)).toBe(3);
     expect(hasExtensionPollReachedMinimumTurnout(1, 3)).toBe(false);
     expect(hasExtensionPollReachedMinimumTurnout(2, 3)).toBe(true);
+    expect(
+      getExtensionPollResolution({
+        yesVotes: 1,
+        noVotes: 0,
+        eligibleVoterCount: 4,
+      }),
+    ).toEqual({
+      result: "insufficient_turnout",
+      appliedExtensionMs: 0,
+    });
+  });
+
+  it("still leaves tie and low-turnout cases to normal end-of-poll resolution", () => {
+    expect(
+      getLockedExtensionPollResult({
+        yesVotes: 2,
+        noVotes: 2,
+        eligibleVoterCount: 4,
+      }),
+    ).toBeNull();
+    expect(
+      getExtensionPollResolution({
+        yesVotes: 2,
+        noVotes: 2,
+        eligibleVoterCount: 4,
+      }),
+    ).toEqual({
+      result: "tie",
+      appliedExtensionMs: EXTENSION_POLL_TIE_EXTENSION_MS,
+    });
+
+    expect(
+      getLockedExtensionPollResult({
+        yesVotes: 1,
+        noVotes: 0,
+        eligibleVoterCount: 4,
+      }),
+    ).toBeNull();
     expect(
       getExtensionPollResolution({
         yesVotes: 1,

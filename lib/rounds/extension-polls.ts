@@ -28,6 +28,7 @@ export type ExtensionPollResolutionResult =
   | "tie"
   | "rejected"
   | "insufficient_turnout";
+export type LockedExtensionPollResult = "approved" | "rejected";
 
 export type ExtensionPollType = "submission" | "voting";
 
@@ -178,6 +179,22 @@ export function getExtensionPollResolution(args: {
     result: "rejected",
     appliedExtensionMs: 0,
   };
+}
+
+export function getLockedExtensionPollResult(args: {
+  yesVotes: number;
+  noVotes: number;
+  eligibleVoterCount: number;
+}): LockedExtensionPollResult | null {
+  if (args.yesVotes * 2 > args.eligibleVoterCount) {
+    return "approved";
+  }
+
+  if (args.noVotes * 2 > args.eligibleVoterCount) {
+    return "rejected";
+  }
+
+  return null;
 }
 
 export function getExtensionPollMinimumTurnout(eligibleVoterCount: number): number {

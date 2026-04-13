@@ -21,6 +21,7 @@ import {
   EXTENSION_POLL_TIE_EXTENSION_MS,
   EXTENSION_REASON_MIN_LENGTH,
   formatExtensionPollRequestWindowLabel,
+  getLockedExtensionPollResult,
   getExtensionPollResolution,
   getExtensionPollRequestWindowMs,
   getFinalizedVotingParticipantIds,
@@ -766,11 +767,22 @@ export const castVote = mutation({
     const updatedPoll = await ctx.db.get("extensionPolls", poll._id);
     if (
       updatedPoll &&
-      updatedPoll.status === "open" &&
-      updatedPoll.yesVotes + updatedPoll.noVotes >= updatedPoll.eligibleVoterCount
+      updatedPoll.status === "open"
     ) {
-      await resolvePoll(ctx, updatedPoll, Date.now());
-      return { resolved: true };
+      const totalVotes = updatedPoll.yesVotes + updatedPoll.noVotes;
+      const lockedResult = getLockedExtensionPollResult({
+        yesVotes: updatedPoll.yesVotes,
+        noVotes: updatedPoll.noVotes,
+        eligibleVoterCount: updatedPoll.eligibleVoterCount,
+      });
+
+      if (
+        totalVotes >= updatedPoll.eligibleVoterCount ||
+        lockedResult !== null
+      ) {
+        await resolvePoll(ctx, updatedPoll, Date.now());
+        return { resolved: true };
+      }
     }
 
     return { resolved: false };
