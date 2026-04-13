@@ -355,6 +355,7 @@ export function ExtensionPollPanel({
   const isOpen = poll.status === "open";
   const canCurrentUserVote =
     isOpen && poll.currentUserEligibleToVote && poll.currentUserVote === null;
+  const showLiveVoteCount = isOpen && poll.canCurrentUserSeeLiveVoteCount;
 
   return (
     <Card className="border-border/80 bg-background/95">
@@ -371,6 +372,26 @@ export function ExtensionPollPanel({
           </div>
           <p className="text-sm leading-6 text-foreground">{poll.reason}</p>
         </div>
+
+        {showLiveVoteCount ? (
+          <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
+            <Vote className="mt-0.5 size-4 text-primary" />
+            <div className="space-y-1">
+              <p className="text-foreground">
+                Current turnout:{" "}
+                <span className="font-medium">
+                  {poll.totalVotes} of {poll.eligibleVoterCount}
+                </span>{" "}
+                eligible votes cast.
+              </p>
+              <p className="text-muted-foreground">
+                At least {poll.minimumTurnout} vote
+                {poll.minimumTurnout === 1 ? "" : "s"} are needed for the poll
+                to count.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         {isOpen ? (
           canCurrentUserVote ? (

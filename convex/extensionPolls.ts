@@ -21,6 +21,7 @@ import {
   EXTENSION_POLL_TIE_EXTENSION_MS,
   EXTENSION_REASON_MIN_LENGTH,
   formatExtensionPollRequestWindowLabel,
+  getExtensionPollMinimumTurnout,
   getLockedExtensionPollResult,
   getExtensionPollResolution,
   getExtensionPollRequestWindowMs,
@@ -477,6 +478,19 @@ export const getForRound = query({
     let canRequest = false;
     let remainingRequests = 0;
     let eligibleVoterCount = poll?.eligibleVoterCount ?? 0;
+    let currentUserIsPendingParticipant = false;
+
+    const requestContext =
+      isActivePhase && userId && activeMembership
+        ? await getRequestContext(ctx, round, league)
+        : null;
+
+    if (requestContext && userId) {
+      currentUserIsPendingParticipant =
+        args.type === "submission"
+          ? requestContext.pendingSubmitterIdSet.has(userId.toString())
+          : requestContext.pendingVoterIdSet.has(userId.toString());
+    }
 
     if (isActivePhase) {
       if (!userId) {
@@ -501,16 +515,12 @@ export const getForRound = query({
         } else if (remainingRequests === 0) {
           requestEligibilityReason = "already_used_limit";
         } else {
-          const requestContext = await getRequestContext(ctx, round, league);
-          const isPendingParticipant =
-            args.type === "submission"
-              ? requestContext.pendingSubmitterIdSet.has(userId.toString())
-              : requestContext.pendingVoterIdSet.has(userId.toString());
+          const isPendingParticipant = currentUserIsPendingParticipant;
 
           eligibleVoterCount =
             args.type === "submission"
-              ? requestContext.submittedMemberIds.length
-              : requestContext.finalizedVoterIds.length;
+              ? requestContext?.submittedMemberIds.length ?? 0
+              : requestContext?.finalizedVoterIds.length ?? 0;
 
           if (!isPendingParticipant) {
             requestEligibilityReason = "not_pending_participant";
@@ -549,6 +559,11 @@ export const getForRound = query({
             resolvesAt: poll.resolvesAt,
             appliedExtensionMs: poll.appliedExtensionMs ?? 0,
             resolvedAt: poll.resolvedAt ?? null,
+            totalVotes: poll.yesVotes + poll.noVotes,
+            eligibleVoterCount: poll.eligibleVoterCount,
+            minimumTurnout: getExtensionPollMinimumTurnout(
+              poll.eligibleVoterCount,
+            ),
             currentUserVote:
               (currentUserVote?.vote as ExtensionPollVoteChoice | undefined) ?? null,
             currentUserEligibleToVote,
@@ -556,6 +571,8 @@ export const getForRound = query({
               poll.status === "open" &&
               currentUserEligibleToVote &&
               currentUserVote === null,
+            canCurrentUserSeeLiveVoteCount:
+              poll.status === "open" && currentUserIsPendingParticipant,
           }
         : null,
       request: {

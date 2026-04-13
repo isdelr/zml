@@ -251,6 +251,7 @@ describe("ExtensionPollPanel", () => {
     expect(
       screen.getByRole("button", { name: /no extension/i }),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/current turnout:/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/50% turnout/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/closes/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^open$/i)).not.toBeInTheDocument();
@@ -293,6 +294,58 @@ describe("ExtensionPollPanel", () => {
     expect(
       screen.queryByRole("button", { name: /request voting extension/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows live turnout to members still waiting on the extension result", () => {
+    vi.mocked(useMutation)
+      .mockReturnValueOnce(vi.fn() as never)
+      .mockReturnValueOnce(vi.fn() as never);
+
+    render(
+      <ExtensionPollPanel
+        pollType="voting"
+        roundId={"round-1" as never}
+        roundStatus="voting"
+        state={
+          {
+            type: "voting",
+            poll: {
+              _id: "poll-1",
+              type: "voting",
+              reason: "I am traveling and need more time to finish listening.",
+              status: "open",
+              result: "pending",
+              openedAt: new Date("2026-04-03T10:00:00Z").getTime(),
+              resolvesAt: new Date("2026-04-04T10:00:00Z").getTime(),
+              eligibleVoterCount: 4,
+              yesVotes: 1,
+              noVotes: 0,
+              totalVotes: 1,
+              minimumTurnout: 2,
+              appliedExtensionMs: 0,
+              resolvedAt: null,
+              currentUserVote: null,
+              currentUserEligibleToVote: false,
+              canCurrentUserVote: false,
+              canCurrentUserSeeLiveVoteCount: true,
+            },
+            request: {
+              canRequest: false,
+              remainingRequests: 1,
+              eligibilityReason: "already_exists",
+              eligibleVoterCount: 4,
+              requestWindowMs: 24 * 60 * 60 * 1000,
+              isWithinWindow: true,
+              isActiveMember: true,
+            },
+          } as never
+        }
+      />,
+    );
+
+    expect(screen.getByText(/current turnout:/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 4/i)).toBeInTheDocument();
+    expect(screen.getByText(/at least 2 votes are needed for the poll to count/i)).toBeInTheDocument();
   });
 
   it("shows a simple voted message without live totals once a vote is cast", () => {
@@ -345,6 +398,7 @@ describe("ExtensionPollPanel", () => {
       screen.queryByText(/your anonymous vote is locked in/i),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Grant")).not.toBeInTheDocument();
+    expect(screen.queryByText(/current turnout:/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/50% turnout/i)).not.toBeInTheDocument();
   });
 });
