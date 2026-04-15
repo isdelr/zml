@@ -16,7 +16,7 @@ describe("pending participation helpers", () => {
     ).toEqual(["u2", "u3"]);
   });
 
-  it("counts multi and album submissions by collection", () => {
+  it("counts multi submissions by track and album submissions by collection", () => {
     expect(
       getPendingSubmissionParticipantIds(
         [{ _id: "u1" }, { _id: "u2" }],
@@ -25,10 +25,10 @@ describe("pending participation helpers", () => {
           { userId: "u1", collectionId: "c1" },
           { userId: "u2", collectionId: "c2" },
         ],
-        1,
+        2,
         "multi",
       ),
-    ).toEqual([]);
+    ).toEqual(["u2"]);
 
     expect(
       getPendingSubmissionParticipantIds(

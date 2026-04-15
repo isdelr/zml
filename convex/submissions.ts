@@ -544,7 +544,7 @@ export const submitSong = mutation({
       submissionMode,
       userId,
     );
-    if (submissionMode === "album" || submissionMode === "multi") {
+    if (submissionMode === "album") {
       const collectionId = args.collectionId?.trim();
       const hasExistingCollection =
         !!collectionId &&

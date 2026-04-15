@@ -9,8 +9,8 @@ export type SubmissionCompletionLike = {
 
 const toId = (value: IdLike) => value.toString();
 
-function isCollectionMode(submissionMode: RoundSubmissionMode) {
-  return submissionMode === "multi" || submissionMode === "album";
+function countsByCollection(submissionMode: RoundSubmissionMode) {
+  return submissionMode === "album";
 }
 
 export function getSubmissionCompletionCountsByUser(
@@ -23,7 +23,7 @@ export function getSubmissionCompletionCountsByUser(
   for (const submission of submissions ?? []) {
     const userId = toId(submission.userId);
 
-    if (isCollectionMode(submissionMode)) {
+    if (countsByCollection(submissionMode)) {
       const collectionId = submission.collectionId?.trim();
       if (collectionId) {
         const collections = collectionCounts.get(userId) ?? new Set<string>();

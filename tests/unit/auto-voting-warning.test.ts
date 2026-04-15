@@ -70,4 +70,24 @@ describe("willSubmissionImmediatelyStartVoting", () => {
       }),
     ).toBe(true);
   });
+
+  it("handles multi rounds by track count even when tracks share a collection", () => {
+    expect(
+      willSubmissionImmediatelyStartVoting({
+        roundStatus: "submissions",
+        isFirstRound: false,
+        submissionMode: "multi",
+        submissionsPerUser: 2,
+        activeMemberCount: 2,
+        currentUserId: "u2",
+        submissions: [
+          { userId: "u1" },
+          { userId: "u1" },
+          { userId: "u2", collectionId: "mix-a" },
+        ],
+        additionalSubmissionUnits: 1,
+        hasIncompleteFileSubmissions: false,
+      }),
+    ).toBe(true);
+  });
 });
