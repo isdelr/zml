@@ -518,14 +518,18 @@ export function SubmissionItem({
       ? buildDownloadUrl(song.songFileUrl, song._id)
       : undefined;
 
+  const renderVotingComment = () => (
+    <ExpandableText
+      textClassName="text-xs leading-4 text-muted-foreground"
+      buttonClassName="px-2"
+    >
+      {votingComment}
+    </ExpandableText>
+  );
+
   const renderSubmitterInfo = () =>
     roundStatus === "voting" ? (
-      <ExpandableText
-        textClassName="text-xs leading-4 text-muted-foreground"
-        buttonClassName="px-2"
-      >
-        {votingComment}
-      </ExpandableText>
+      renderVotingComment()
     ) : (
       <div className="flex items-center gap-2 text-sm">
         <Avatar className="size-6">
@@ -731,7 +735,9 @@ export function SubmissionItem({
             className="notranslate mt-3 flex items-start justify-between gap-3"
             translate="no"
           >
-            <div className="min-w-0 flex-1">{renderSubmitterInfo()}</div>
+            {roundStatus !== "voting" ? (
+              <div className="min-w-0 flex-1">{renderSubmitterInfo()}</div>
+            ) : null}
             <div className="flex items-center gap-0.5">
               {roundStatus === "voting" && renderVoteButtonGroup()}
               <SubmissionCommentComposerButton
@@ -848,7 +854,9 @@ export function SubmissionItem({
               </p>
             </div>
           </div>
-          <div className="min-w-0">{renderSubmitterInfo()}</div>
+          <div className="min-w-0">
+            {roundStatus === "voting" ? renderVotingComment() : renderSubmitterInfo()}
+          </div>
           {roundStatus === "finished" ? (
             <div className="min-w-0">{renderVoteGroups()}</div>
           ) : null}

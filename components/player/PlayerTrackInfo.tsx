@@ -67,6 +67,25 @@ export const PlayerTrackInfo = memo(function PlayerTrackInfo({
           {metadataText}
         </OverflowText>
       </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "size-8 shrink-0 md:hidden",
+          isContextViewOpen && "bg-accent text-accent-foreground",
+        )}
+        title={
+          isContextViewOpen ? "Hide now playing view" : "Show now playing view"
+        }
+        aria-label={
+          isContextViewOpen ? "Hide now playing view" : "Show now playing view"
+        }
+        onClick={onToggleContextView}
+      >
+        <PanelRight
+          className={cn("size-4", isContextViewOpen && "text-primary")}
+        />
+      </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -80,16 +99,6 @@ export const PlayerTrackInfo = memo(function PlayerTrackInfo({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56 md:hidden">
-          <DropdownMenuItem onClick={onToggleContextView}>
-            <PanelRight
-              className={cn("size-4", isContextViewOpen && "text-primary")}
-            />
-            <span>
-              {isContextViewOpen
-                ? "Hide now playing view"
-                : "Show now playing view"}
-            </span>
-          </DropdownMenuItem>
           <DropdownMenuItem onClick={onBookmarkToggle}>
             <Bookmark
               className={cn(

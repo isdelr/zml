@@ -83,7 +83,7 @@ export function ExpandableText({
         ref={probeRef}
         className={cn(
           "pointer-events-none absolute inset-x-0 top-0 -z-10 overflow-hidden opacity-0",
-          "whitespace-normal break-words [overflow-wrap:anywhere]",
+          "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
           clampClass,
           textClassName,
         )}
@@ -94,7 +94,7 @@ export function ExpandableText({
         id={contentId}
         data-slot="expandable-text-content"
         className={cn(
-          "whitespace-normal break-words [overflow-wrap:anywhere]",
+          "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
           !isExpanded && clampClass,
           textClassName,
         )}

@@ -7,6 +7,7 @@ import { ExpandableText } from "@/components/ui/expandable-text";
 const shortText = "Short comment";
 const longText =
   "Long overflow comment that should clamp in the submission list until the user chooses to expand it.";
+const multilineText = "First paragraph.\n\nSecond paragraph.";
 
 const originalClientHeight = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
@@ -110,5 +111,23 @@ describe("ExpandableText", () => {
       screen.getByRole("button", { name: /view more/i }),
     ).toBeInTheDocument();
     expect(content).toHaveClass("line-clamp-3");
+  });
+
+  it("preserves manual line breaks in the rendered content", () => {
+    const { container } = render(
+      <ExpandableText textClassName="text-xs leading-4">
+        {multilineText}
+      </ExpandableText>,
+    );
+
+    const content = container.querySelector(
+      '[data-slot="expandable-text-content"]',
+    );
+    const probe = container.querySelector('[data-slot="expandable-text-probe"]');
+
+    expect(content?.textContent).toContain("First paragraph.");
+    expect(content?.textContent).toContain("Second paragraph.");
+    expect(content).toHaveClass("whitespace-pre-wrap");
+    expect(probe).toHaveClass("whitespace-pre-wrap");
   });
 });
