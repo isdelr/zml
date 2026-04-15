@@ -242,7 +242,7 @@ export function NowPlayingView() {
         </div>
       </div>
       {comment && (
-        <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground">
+        <blockquote className="whitespace-pre-wrap border-l-2 pl-3 text-sm italic text-muted-foreground">
           “{comment}”
         </blockquote>
       )}
