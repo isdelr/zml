@@ -7,7 +7,11 @@ RUN apk add --no-cache libc6-compat ffmpeg
 
 FROM base AS deps
 COPY package.json package-lock.json ./
-RUN npm ci --include=optional
+RUN --mount=type=cache,target=/root/.npm \
+  npm ci --include=optional \
+    --fetch-retries=5 \
+    --fetch-retry-mintimeout=20000 \
+    --fetch-retry-maxtimeout=120000
 
 FROM base AS builder
 ENV NODE_ENV=production
@@ -45,14 +49,12 @@ HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=3 \
 STOPSIGNAL SIGTERM
 CMD ["node", "server.js"]
 
-FROM base AS dev
+FROM deps AS dev
 ENV NODE_ENV=development
 ARG APP_RELEASE
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
 ARG NEXT_PUBLIC_APP_RELEASE
-COPY package.json package-lock.json ./
-RUN npm ci --include=optional
 ENV APP_RELEASE=$APP_RELEASE
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 ENV NEXT_PUBLIC_SENTRY_ENVIRONMENT=$NEXT_PUBLIC_SENTRY_ENVIRONMENT
