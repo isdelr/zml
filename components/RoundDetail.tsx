@@ -338,6 +338,9 @@ export function RoundDetail({
       onPresenceStart: handleYouTubePresenceStart,
       onMarkCompletedLocal: handleMarkCompletedLocal,
     });
+  const shouldAutoOpenYouTubeOnReach = !(
+    isPlaying && presenceSource === "player"
+  );
 
   const ytInfoWithPresenceControl = useMemo(
     () => ({
@@ -585,7 +588,9 @@ export function RoundDetail({
             positiveVotesRemaining={positiveVotesRemaining}
             negativeVotesRemaining={negativeVotesRemaining}
             isVoteFinal={isVoteFinal}
-            onReachYouTube={ensureAutoOpenOnce}
+            onReachYouTube={
+              shouldAutoOpenYouTubeOnReach ? ensureAutoOpenOnce : undefined
+            }
             ytInfo={ytInfoWithPresenceControl}
           />
         </>

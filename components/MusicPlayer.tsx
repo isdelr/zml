@@ -30,6 +30,8 @@ import {
 } from "@/lib/music/youtube-playlist-session";
 import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
 import {
+  getCompletionCatchUpSyncAttempts,
+  getCompletionSyncProgressSeconds,
   getTotalPlaylistRequiredListenSeconds,
 } from "@/lib/music/listen-progress";
 
@@ -414,39 +416,99 @@ export function MusicPlayer() {
     }
 
     const currentTime = audioRef.current?.currentTime ?? 0;
-    const progressSeconds = Math.max(
+    const rawProgressSeconds = Math.max(
       currentTrackListenProgress?.progressSeconds ?? 0,
       listenedUntilRef.current,
       currentTime,
       Number.isFinite(progressSecondsOverride) ? (progressSecondsOverride ?? 0) : 0,
     );
+    const audioDuration = audioRef.current?.duration;
+    const effectiveDuration =
+      typeof audioDuration === "number" &&
+      Number.isFinite(audioDuration) &&
+      audioDuration > 0
+        ? audioDuration
+        : Number.isFinite(currentTrack.duration)
+          ? (currentTrack.duration ?? 0)
+          : 0;
+    const progressSeconds =
+      effectiveDuration > 0
+        ? getCompletionSyncProgressSeconds({
+            progressSeconds: rawProgressSeconds,
+            durationSeconds: effectiveDuration,
+            listenPercentage: leagueData.listenPercentage,
+            listenTimeLimitMinutes: leagueData.listenTimeLimitMinutes,
+          })
+        : rawProgressSeconds;
     if (!Number.isFinite(progressSeconds) || progressSeconds <= 0) {
       return null;
     }
 
-    const result = await updateListenProgress({
-      submissionId: currentTrack._id,
-      progressSeconds,
-    });
+    const shouldCatchUpToCompletion =
+      effectiveDuration > 0 &&
+      shouldMarkListenCompleted(
+        progressSeconds,
+        effectiveDuration,
+        leagueData.listenPercentage,
+        leagueData.listenTimeLimitMinutes,
+      );
+    const maxAttempts = shouldCatchUpToCompletion
+      ? getCompletionCatchUpSyncAttempts({
+          desiredProgressSeconds: progressSeconds,
+          lastKnownProgressSeconds:
+            currentTrackListenProgress?.progressSeconds ?? 0,
+          durationSeconds: effectiveDuration,
+          listenPercentage: leagueData.listenPercentage,
+          listenTimeLimitMinutes: leagueData.listenTimeLimitMinutes,
+        })
+      : 1;
 
-    if (result) {
+    let latestResult: { progressSeconds: number; isCompleted: boolean } | null =
+      null;
+    let lastPersistedProgress = currentTrackListenProgress?.progressSeconds ?? 0;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const result = await updateListenProgress({
+        submissionId: currentTrack._id,
+        progressSeconds,
+      });
+      latestResult = result;
+
+      if (!result) {
+        break;
+      }
+
       listenedUntilRef.current = Math.max(
         listenedUntilRef.current,
         result.progressSeconds,
         Number.isFinite(progressSecondsOverride) ? (progressSecondsOverride ?? 0) : 0,
       );
+
       if (result.isCompleted) {
         actions.setListenProgress(currentTrack._id, true);
+        break;
       }
+
+      if (!shouldCatchUpToCompletion) {
+        break;
+      }
+
+      if (result.progressSeconds <= lastPersistedProgress) {
+        break;
+      }
+
+      lastPersistedProgress = result.progressSeconds;
     }
 
-    return result;
+    return latestResult;
   }, [
     actions,
     audioRef,
     currentTrack,
     currentTrackListenProgress?.progressSeconds,
     leagueData?.enforceListenPercentage,
+    leagueData?.listenPercentage,
+    leagueData?.listenTimeLimitMinutes,
     updateListenProgress,
   ]);
 
@@ -478,9 +540,15 @@ export function MusicPlayer() {
         if (manualSeekRef.current) manualSeekRef.current = false;
 
         if (!alreadyMet) {
+          const completionSyncProgress = getCompletionSyncProgressSeconds({
+            progressSeconds: listenedUntilRef.current,
+            durationSeconds: audioElement.duration,
+            listenPercentage: leagueData.listenPercentage,
+            listenTimeLimitMinutes: leagueData.listenTimeLimitMinutes,
+          });
           if (
             shouldMarkListenCompleted(
-              listenedUntilRef.current,
+              completionSyncProgress,
               audioElement.duration,
               leagueData.listenPercentage,
               leagueData.listenTimeLimitMinutes,
@@ -489,7 +557,7 @@ export function MusicPlayer() {
             const trackId = currentTrack._id;
             if (completionSyncTrackRef.current !== trackId) {
               completionSyncTrackRef.current = trackId;
-              void syncCurrentTrackListenProgress()
+              void syncCurrentTrackListenProgress(completionSyncProgress)
                 .then((result) => {
                   if (!result?.isCompleted) {
                     completionSyncTrackRef.current = null;
@@ -594,7 +662,49 @@ export function MusicPlayer() {
 
       try {
         if (!options?.skipCurrentTrackSync) {
-          syncCurrentTrackListenProgressInBackground();
+          const audioElement = audioRef.current;
+          const audioDuration = audioElement?.duration;
+          const effectiveDuration =
+            typeof audioDuration === "number" &&
+            Number.isFinite(audioDuration) &&
+            audioDuration > 0
+              ? audioDuration
+              : Number.isFinite(currentTrack?.duration)
+                ? (currentTrack?.duration ?? 0)
+                : 0;
+          const currentProgress = Math.max(
+            listenedUntilRef.current,
+            audioElement?.currentTime ?? 0,
+          );
+          const completionSyncProgress =
+            effectiveDuration > 0
+              ? getCompletionSyncProgressSeconds({
+                  progressSeconds: currentProgress,
+                  durationSeconds: effectiveDuration,
+                  listenPercentage: leagueData?.listenPercentage,
+                  listenTimeLimitMinutes: leagueData?.listenTimeLimitMinutes,
+                })
+              : currentProgress;
+          const shouldAwaitCompletionSync = !!(
+            currentTrack?.submissionType === "file" &&
+            leagueData?.enforceListenPercentage &&
+            effectiveDuration &&
+            effectiveDuration > 0 &&
+            !currentTrackListenProgress?.isCompleted &&
+            !isCurrentTrackListened &&
+            shouldMarkListenCompleted(
+              completionSyncProgress,
+              effectiveDuration,
+              leagueData.listenPercentage,
+              leagueData.listenTimeLimitMinutes,
+            )
+          );
+
+          if (shouldAwaitCompletionSync) {
+            await syncCurrentTrackListenProgress(completionSyncProgress);
+          } else {
+            syncCurrentTrackListenProgressInBackground();
+          }
         }
 
         const adjacentIndex = getAdjacentQueueIndex(direction);
@@ -630,9 +740,16 @@ export function MusicPlayer() {
     },
     [
       actions,
+      currentTrack,
+      currentTrackListenProgress?.isCompleted,
       getAdjacentQueueIndex,
+      isCurrentTrackListened,
+      leagueData?.enforceListenPercentage,
+      leagueData?.listenPercentage,
+      leagueData?.listenTimeLimitMinutes,
       openYouTubePlaylistFromQueue,
       queue,
+      syncCurrentTrackListenProgress,
       syncCurrentTrackListenProgressInBackground,
     ],
   );

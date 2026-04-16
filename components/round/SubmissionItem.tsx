@@ -25,7 +25,7 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/convex/api";
 import { buildSubmissionAudioDownloadPath } from "@/lib/media/delivery";
 import { Song } from "@/types";
@@ -286,6 +286,12 @@ export function SubmissionItem({
   const isListenRequirementMetLocally = useMusicPlayerStore(
     (state) => state.listenProgress[song._id] === true,
   );
+  const playPointerStateRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    moved: boolean;
+  } | null>(null);
   const isLinkSubmission = song.submissionType === "youtube";
 
   // Troll submission functionality
@@ -517,6 +523,55 @@ export function SubmissionItem({
     canDownloadAudio && song.songFileUrl
       ? buildDownloadUrl(song.songFileUrl, song._id)
       : undefined;
+  const handlePlayPointerDown = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "mouse") return;
+    playPointerStateRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      moved: false,
+    };
+  };
+  const handlePlayPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    const pointerState = playPointerStateRef.current;
+    if (!pointerState || pointerState.pointerId !== event.pointerId) return;
+    const deltaX = Math.abs(event.clientX - pointerState.x);
+    const deltaY = Math.abs(event.clientY - pointerState.y);
+    if (deltaX > 8 || deltaY > 8) {
+      pointerState.moved = true;
+    }
+  };
+  const handlePlayPointerUp = (event: React.PointerEvent<HTMLElement>) => {
+    const pointerState = playPointerStateRef.current;
+    if (!pointerState || pointerState.pointerId !== event.pointerId) return;
+    window.setTimeout(() => {
+      if (playPointerStateRef.current === pointerState) {
+        playPointerStateRef.current = null;
+      }
+    }, 0);
+  };
+  const handlePlayPointerCancel = (event: React.PointerEvent<HTMLElement>) => {
+    if (playPointerStateRef.current?.pointerId === event.pointerId) {
+      playPointerStateRef.current = null;
+    }
+  };
+  const handlePlayClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (playPointerStateRef.current?.moved) {
+      event.preventDefault();
+      event.stopPropagation();
+      playPointerStateRef.current = null;
+      return;
+    }
+    playPointerStateRef.current = null;
+    onPlaySong();
+  };
+  const playGestureHandlers = {
+    onPointerDown: handlePlayPointerDown,
+    onPointerMove: handlePlayPointerMove,
+    onPointerUp: handlePlayPointerUp,
+    onPointerCancel: handlePlayPointerCancel,
+    onClick: handlePlayClick,
+  };
 
   const renderVotingComment = () => (
     <ExpandableText
@@ -668,7 +723,7 @@ export function SubmissionItem({
           <div className="flex items-center gap-3">
             <div
               className="relative flex-shrink-0 cursor-pointer"
-              onClick={onPlaySong}
+              {...playGestureHandlers}
             >
               <MediaImage
                 src={song.albumArtUrl ?? "/icons/web-app-manifest-192x192.png"}
@@ -691,7 +746,10 @@ export function SubmissionItem({
                 )}
               </div>
             </div>
-            <div className="min-w-0 flex-1 cursor-pointer" onClick={onPlaySong}>
+            <div
+              className="min-w-0 flex-1 cursor-pointer"
+              {...playGestureHandlers}
+            >
               <div className="flex min-w-0 items-center gap-1.5">
                 <OverflowText
                   as="p"
@@ -781,7 +839,7 @@ export function SubmissionItem({
           <div className="w-10 flex items-center justify-center">
             <div
               className="relative w-10 h-10 flex items-center justify-center group/play"
-              onClick={onPlaySong}
+              {...playGestureHandlers}
             >
               <span
                 className={cn(
@@ -807,7 +865,7 @@ export function SubmissionItem({
           </div>
           <div
             className="flex items-center gap-4 min-w-0 cursor-pointer"
-            onClick={onPlaySong}
+            {...playGestureHandlers}
           >
             <div className="relative flex-shrink-0">
               <MediaImage

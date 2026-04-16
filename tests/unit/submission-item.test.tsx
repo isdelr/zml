@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { SubmissionItem } from "@/components/round/SubmissionItem";
@@ -30,52 +30,54 @@ vi.mock("@/components/ui/media-image", () => ({
 }));
 
 describe("SubmissionItem", () => {
+  const renderSubmissionItem = (overrides = {}) => {
+    const props = {
+      song: {
+        _id: "submission-1",
+        roundId: "round-1",
+        leagueId: "league-1",
+        songTitle: "Night Drive",
+        artist: "Test Artist",
+        albumArtUrl: null,
+        songFileUrl: "https://example.com/song.m4a",
+        songLink: null,
+        submissionType: "file",
+        comment: "First paragraph.\n\nSecond paragraph.",
+      } as never,
+      index: 0,
+      isThisSongPlaying: false,
+      isThisSongCurrent: false,
+      userIsSubmitter: false,
+      currentVoteValue: 0,
+      roundStatus: "voting" as const,
+      league: {
+        creatorId: "user-1",
+        managers: [],
+        enforceListenPercentage: false,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+        limitVotesPerSubmission: false,
+      } as never,
+      canManageLeague: false,
+      hasVoted: false,
+      canVote: true,
+      votingEligibilityReason: undefined,
+      onVoteClick: vi.fn(),
+      onBookmark: vi.fn(),
+      onPlaySong: vi.fn(),
+      listenProgress: undefined,
+      listeners: [],
+      voteDetails: [],
+      currentUser: null,
+      ...overrides,
+    };
+
+    render(<SubmissionItem {...props} />);
+    return props;
+  };
+
   it("renders the voting comment summary only once so it stays desktop-only", () => {
-    render(
-      <SubmissionItem
-        song={
-          {
-            _id: "submission-1",
-            roundId: "round-1",
-            leagueId: "league-1",
-            songTitle: "Night Drive",
-            artist: "Test Artist",
-            albumArtUrl: null,
-            songFileUrl: "https://example.com/song.m4a",
-            songLink: null,
-            submissionType: "file",
-            comment: "First paragraph.\n\nSecond paragraph.",
-          } as never
-        }
-        index={0}
-        isThisSongPlaying={false}
-        isThisSongCurrent={false}
-        userIsSubmitter={false}
-        currentVoteValue={0}
-        roundStatus="voting"
-        league={
-          {
-            creatorId: "user-1",
-            managers: [],
-            enforceListenPercentage: false,
-            listenPercentage: 100,
-            listenTimeLimitMinutes: 15,
-            limitVotesPerSubmission: false,
-          } as never
-        }
-        canManageLeague={false}
-        hasVoted={false}
-        canVote={true}
-        votingEligibilityReason={undefined}
-        onVoteClick={vi.fn()}
-        onBookmark={vi.fn()}
-        onPlaySong={vi.fn()}
-        listenProgress={undefined}
-        listeners={[]}
-        voteDetails={[]}
-        currentUser={null}
-      />,
-    );
+    renderSubmissionItem();
 
     const commentSummaries = [
       ...document.querySelectorAll('[data-slot="expandable-text-content"]'),
@@ -85,5 +87,29 @@ describe("SubmissionItem", () => {
     );
 
     expect(commentSummaries).toHaveLength(1);
+  });
+
+  it("does not play or pause from a scroll gesture that starts on the play target", () => {
+    const onPlaySong = vi.fn();
+    renderSubmissionItem({ onPlaySong });
+
+    const playTarget = screen.getAllByAltText("Night Drive")[0];
+    expect(playTarget).toBeDefined();
+
+    fireEvent.pointerDown(playTarget, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 20,
+      clientY: 20,
+    });
+    fireEvent.pointerMove(playTarget, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 21,
+      clientY: 40,
+    });
+    fireEvent.click(playTarget);
+
+    expect(onPlaySong).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ const MAX_ALLOWED_PROGRESS_JUMP_SECONDS = 60;
 const DEFAULT_SYNC_DELTA_SECONDS = 15;
 const NEAR_END_THRESHOLD_SECONDS = 5;
 const DEFAULT_TIME_LIMIT_MINUTES = 999;
+const DEFAULT_COMPLETION_SYNC_GRACE_SECONDS = 8;
 
 export type PlaylistListenRequirementEntry<TSubmissionId = string> = {
   submissionIds: TSubmissionId[];
@@ -22,6 +23,22 @@ type NextProgressSyncParams = {
   desiredProgressSeconds: number;
   lastSyncedProgressSeconds: number;
   durationSeconds: number;
+};
+
+type CompletionCatchUpSyncParams = {
+  desiredProgressSeconds: number;
+  lastKnownProgressSeconds: number;
+  durationSeconds: number;
+  listenPercentage: number | null | undefined;
+  listenTimeLimitMinutes: number | null | undefined;
+};
+
+type CompletionSyncProgressParams = {
+  progressSeconds: number;
+  durationSeconds: number;
+  listenPercentage: number | null | undefined;
+  listenTimeLimitMinutes: number | null | undefined;
+  graceSeconds?: number;
 };
 
 type CanonicalSubmissionDurationInfoArgs = {
@@ -289,4 +306,55 @@ export function getNextProgressSecondsToSync({
   }
 
   return capped;
+}
+
+export function getCompletionCatchUpSyncAttempts({
+  desiredProgressSeconds,
+  lastKnownProgressSeconds,
+  durationSeconds,
+  listenPercentage,
+  listenTimeLimitMinutes,
+}: CompletionCatchUpSyncParams): number {
+  const desired = normalizeSeconds(desiredProgressSeconds);
+  const lastKnown = normalizeSeconds(lastKnownProgressSeconds);
+  const duration = normalizeSeconds(durationSeconds);
+  if (desired <= 0 || desired <= lastKnown) {
+    return 1;
+  }
+
+  const required = getRequiredListenTimeSeconds(
+    duration,
+    listenPercentage,
+    listenTimeLimitMinutes,
+  );
+  const target =
+    required > 0 && desired >= required ? Math.min(desired, required) : desired;
+  if (target <= lastKnown) {
+    return 1;
+  }
+
+  const jumpDurationBasis = duration > 0 ? duration : desired;
+  const allowedJumpSeconds = getAllowedProgressJumpSeconds(jumpDurationBasis);
+  return Math.max(1, Math.ceil((target - lastKnown) / allowedJumpSeconds));
+}
+
+export function getCompletionSyncProgressSeconds({
+  progressSeconds,
+  durationSeconds,
+  listenPercentage,
+  listenTimeLimitMinutes,
+  graceSeconds = DEFAULT_COMPLETION_SYNC_GRACE_SECONDS,
+}: CompletionSyncProgressParams): number {
+  const progress = normalizeSeconds(progressSeconds);
+  const required = getRequiredListenTimeSeconds(
+    durationSeconds,
+    listenPercentage,
+    listenTimeLimitMinutes,
+  );
+  if (required <= 0 || progress >= required) {
+    return progress;
+  }
+
+  const grace = normalizeSeconds(graceSeconds);
+  return progress + grace >= required ? required : progress;
 }

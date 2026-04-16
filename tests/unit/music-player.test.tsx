@@ -235,7 +235,7 @@ describe("MusicPlayer", () => {
     await waitFor(() => {
       expect(updateListenProgressMock).toHaveBeenCalledWith({
         submissionId: "submission-1",
-        progressSeconds: 478.6,
+        progressSeconds: 478,
       });
     });
 
@@ -245,6 +245,189 @@ describe("MusicPlayer", () => {
     expect(updateListenProgressMock.mock.invocationCallOrder[0]).toBeLessThan(
       playNextMock.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
     );
+  });
+
+  it("marks completion internally eight seconds before the full song ends", async () => {
+    updateListenProgressMock.mockResolvedValue({
+      progressSeconds: 478,
+      isCompleted: true,
+    });
+
+    const { MusicPlayer } = await import("@/components/MusicPlayer");
+    const { container } = render(<MusicPlayer />);
+    const audioElement = container.querySelector("audio");
+
+    expect(audioElement).not.toBeNull();
+    if (!audioElement) {
+      return;
+    }
+
+    Object.defineProperty(audioElement, "duration", {
+      configurable: true,
+      value: 478.6,
+    });
+    Object.defineProperty(audioElement, "currentTime", {
+      configurable: true,
+      writable: true,
+      value: 470.9,
+    });
+
+    fireEvent.timeUpdate(audioElement);
+
+    await waitFor(() => {
+      expect(updateListenProgressMock).toHaveBeenCalledWith({
+        submissionId: "submission-1",
+        progressSeconds: 478,
+      });
+    });
+
+    expect(setListenProgressMock).toHaveBeenCalledWith("submission-1", true);
+    expect(playNextMock).not.toHaveBeenCalled();
+  });
+
+  it("catches up stale server progress before marking ended playback complete", async () => {
+    useQueryMock.mockImplementation((_, args: unknown) => {
+      if (args === "skip" || !args || typeof args !== "object") {
+        return undefined;
+      }
+
+      if ("leagueId" in args) {
+        return {
+          enforceListenPercentage: true,
+          listenPercentage: 100,
+          listenTimeLimitMinutes: 15,
+        };
+      }
+
+      if ("roundId" in args) {
+        return [
+          {
+            submissionId: "submission-1",
+            progressSeconds: 0,
+            isCompleted: false,
+          },
+        ];
+      }
+
+      if ("submissionId" in args) {
+        return [];
+      }
+
+      return undefined;
+    });
+
+    [
+      47, 94, 141, 188, 235, 282, 329, 376, 423, 470,
+    ].forEach((progressSeconds) => {
+      updateListenProgressMock.mockResolvedValueOnce({
+        progressSeconds,
+        isCompleted: false,
+      });
+    });
+    updateListenProgressMock.mockResolvedValueOnce({
+      progressSeconds: 478,
+      isCompleted: true,
+    });
+
+    const { MusicPlayer } = await import("@/components/MusicPlayer");
+    const { container } = render(<MusicPlayer />);
+    const audioElement = container.querySelector("audio");
+
+    expect(audioElement).not.toBeNull();
+    if (!audioElement) {
+      return;
+    }
+
+    Object.defineProperty(audioElement, "duration", {
+      configurable: true,
+      value: 478.6,
+    });
+    Object.defineProperty(audioElement, "currentTime", {
+      configurable: true,
+      writable: true,
+      value: 478.6,
+    });
+
+    fireEvent.ended(audioElement);
+
+    await waitFor(() => {
+      expect(updateListenProgressMock).toHaveBeenCalledTimes(11);
+    });
+
+    expect(updateListenProgressMock).toHaveBeenLastCalledWith({
+      submissionId: "submission-1",
+      progressSeconds: 478,
+    });
+    expect(setListenProgressMock).toHaveBeenCalledWith("submission-1", true);
+    expect(playNextMock).toHaveBeenCalledTimes(1);
+    expect(updateListenProgressMock.mock.invocationCallOrder[10]).toBeLessThan(
+      playNextMock.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it("does not mark completion when catch-up progress stops advancing", async () => {
+    useQueryMock.mockImplementation((_, args: unknown) => {
+      if (args === "skip" || !args || typeof args !== "object") {
+        return undefined;
+      }
+
+      if ("leagueId" in args) {
+        return {
+          enforceListenPercentage: true,
+          listenPercentage: 100,
+          listenTimeLimitMinutes: 15,
+        };
+      }
+
+      if ("roundId" in args) {
+        return [
+          {
+            submissionId: "submission-1",
+            progressSeconds: 0,
+            isCompleted: false,
+          },
+        ];
+      }
+
+      if ("submissionId" in args) {
+        return [];
+      }
+
+      return undefined;
+    });
+
+    updateListenProgressMock.mockResolvedValueOnce({
+      progressSeconds: 0,
+      isCompleted: false,
+    });
+
+    const { MusicPlayer } = await import("@/components/MusicPlayer");
+    const { container } = render(<MusicPlayer />);
+    const audioElement = container.querySelector("audio");
+
+    expect(audioElement).not.toBeNull();
+    if (!audioElement) {
+      return;
+    }
+
+    Object.defineProperty(audioElement, "duration", {
+      configurable: true,
+      value: 478.6,
+    });
+    Object.defineProperty(audioElement, "currentTime", {
+      configurable: true,
+      writable: true,
+      value: 478.6,
+    });
+
+    fireEvent.ended(audioElement);
+
+    await waitFor(() => {
+      expect(playNextMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(updateListenProgressMock).toHaveBeenCalledTimes(1);
+    expect(setListenProgressMock).not.toHaveBeenCalled();
   });
 
   it("marks songs longer than the protection cap as listened once playback reaches the cap", async () => {

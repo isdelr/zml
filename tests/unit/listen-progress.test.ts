@@ -3,6 +3,8 @@ import {
   getAllowedProgressJumpSeconds,
   getCanonicalSubmissionDurationInfo,
   getCappedProgressSeconds,
+  getCompletionCatchUpSyncAttempts,
+  getCompletionSyncProgressSeconds,
   getPlaylistListenUnlocks,
   getRequiredListenTimeSeconds,
   getTotalPlaylistRequiredListenSeconds,
@@ -76,6 +78,48 @@ describe("listen progress sync helpers", () => {
     expect(hasCompletedRequiredListenTime(241, 241.9, 50, 10)).toBe(true);
   });
 
+  it("rounds internal completion sync up within the hidden grace window", () => {
+    expect(
+      getCompletionSyncProgressSeconds({
+        progressSeconds: 470.9,
+        durationSeconds: 478.6,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+      }),
+    ).toBe(478);
+
+    expect(
+      getCompletionSyncProgressSeconds({
+        progressSeconds: 469.9,
+        durationSeconds: 478.6,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+      }),
+    ).toBe(469);
+  });
+
+  it("estimates bounded writes needed to catch up completion", () => {
+    expect(
+      getCompletionCatchUpSyncAttempts({
+        desiredProgressSeconds: 300,
+        lastKnownProgressSeconds: 0,
+        durationSeconds: 300,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+      }),
+    ).toBe(10);
+
+    expect(
+      getCompletionCatchUpSyncAttempts({
+        desiredProgressSeconds: 296,
+        lastKnownProgressSeconds: 290,
+        durationSeconds: 300,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+      }),
+    ).toBe(1);
+  });
+
   it("prefers waveform duration for file submissions and flags rounded-up stored durations for self-healing", () => {
     const durationInfo = getCanonicalSubmissionDurationInfo({
       submissionType: "file",
@@ -102,6 +146,28 @@ describe("listen progress sync helpers", () => {
       false,
     );
     expect(hasCompletedRequiredListenTime(8 * 60, 8 * 60, 100, 15)).toBe(true);
+  });
+
+  it("targets the protection cap instead of full duration for catch-up attempts", () => {
+    expect(
+      getCompletionCatchUpSyncAttempts({
+        desiredProgressSeconds: 1200,
+        lastKnownProgressSeconds: 0,
+        durationSeconds: 1200,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+      }),
+    ).toBe(15);
+
+    expect(
+      getCompletionCatchUpSyncAttempts({
+        desiredProgressSeconds: 1200,
+        lastKnownProgressSeconds: 920,
+        durationSeconds: 1200,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+      }),
+    ).toBe(1);
   });
 
   it("derives progressive playlist unlock thresholds from full listens capped by protection time", () => {
