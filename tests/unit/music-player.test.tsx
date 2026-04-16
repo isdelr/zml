@@ -285,6 +285,113 @@ describe("MusicPlayer", () => {
     expect(playNextMock).not.toHaveBeenCalled();
   });
 
+  it("repairs stale near-complete progress on load without replaying the end", async () => {
+    const queue = [
+      {
+        _id: "submission-1",
+        roundId: "round-1",
+        leagueId: "league-1",
+        songTitle: "Long Song",
+        artist: "Artist",
+        albumArtUrl: null,
+        songFileUrl: "https://example.com/song.m4a",
+        songLink: null,
+        duration: 478,
+        submissionType: "file",
+      },
+    ];
+
+    useMusicPlayerStoreMock.mockImplementation(
+      (
+        selector: (state: {
+          queue: typeof queue;
+          currentTrackIndex: number;
+          isPlaying: boolean;
+          presenceSource: "player";
+          repeatMode: "none";
+          isShuffled: false;
+          seekTo: null;
+          volume: number;
+          listenProgress: Record<string, boolean>;
+          isContextViewOpen: false;
+          actions: Record<string, ReturnType<typeof vi.fn>>;
+        }) => unknown,
+      ) =>
+        selector({
+          queue,
+          currentTrackIndex: 0,
+          isPlaying: false,
+          presenceSource: "player",
+          repeatMode: "none",
+          isShuffled: false,
+          seekTo: null,
+          volume: 1,
+          listenProgress: {},
+          isContextViewOpen: false,
+          actions: {
+            openContextView: openContextViewMock,
+            playNext: playNextMock,
+            playPrevious: playPreviousMock,
+            resetSeek: resetSeekMock,
+            setIsPlaying: setIsPlayingMock,
+            setListenProgress: setListenProgressMock,
+            setPresenceSource: setPresenceSourceMock,
+            setVolume: setVolumeMock,
+            toggleContextView: toggleContextViewMock,
+            togglePlayPause: vi.fn(),
+          },
+        }),
+    );
+
+    useQueryMock.mockImplementation((_, args: unknown) => {
+      if (args === "skip" || !args || typeof args !== "object") {
+        return undefined;
+      }
+
+      if ("leagueId" in args) {
+        return {
+          enforceListenPercentage: true,
+          listenPercentage: 100,
+          listenTimeLimitMinutes: 15,
+        };
+      }
+
+      if ("roundId" in args) {
+        return [
+          {
+            submissionId: "submission-1",
+            progressSeconds: 470,
+            isCompleted: false,
+          },
+        ];
+      }
+
+      if ("submissionId" in args) {
+        return [];
+      }
+
+      return undefined;
+    });
+
+    updateListenProgressMock.mockResolvedValue({
+      progressSeconds: 478,
+      isCompleted: true,
+    });
+
+    const { MusicPlayer } = await import("@/components/MusicPlayer");
+    render(<MusicPlayer />);
+
+    await waitFor(() => {
+      expect(updateListenProgressMock).toHaveBeenCalledWith({
+        submissionId: "submission-1",
+        progressSeconds: 478,
+      });
+    });
+
+    expect(setListenProgressMock).toHaveBeenCalledWith("submission-1", true);
+    expect(playNextMock).not.toHaveBeenCalled();
+  });
+
   it("catches up stale server progress before marking ended playback complete", async () => {
     useQueryMock.mockImplementation((_, args: unknown) => {
       if (args === "skip" || !args || typeof args !== "object") {

@@ -8,6 +8,7 @@ import {
   getAllowedProgressJumpSeconds,
   getCanonicalSubmissionDurationInfo,
   getCappedProgressSeconds,
+  getCompletionSyncProgressSeconds,
   getRequiredListenTimeSeconds,
   hasCompletedRequiredListenTime,
 } from "../lib/music/listen-progress";
@@ -425,20 +426,27 @@ export const updateProgress = mutation({
     // there's nothing to do (Math.max below would keep the old value anyway).
     if (existing && reported <= existing.progressSeconds) {
       // If not completed yet, check whether existing progress already meets requirement.
+      const effectiveProgress = getCompletionSyncProgressSeconds({
+        progressSeconds: existing.progressSeconds,
+        durationSeconds: durationSec,
+        listenPercentage: league.listenPercentage,
+        listenTimeLimitMinutes: league.listenTimeLimitMinutes,
+      });
       const completed = hasCompletedRequiredListenTime(
-        existing.progressSeconds,
+        effectiveProgress,
         durationSec,
         league.listenPercentage,
         league.listenTimeLimitMinutes,
       );
       if (completed) {
         await ctx.db.patch("listenProgress", existing._id, {
+          progressSeconds: Math.max(existing.progressSeconds, effectiveProgress),
           isCompleted: true,
           roundId: submission.roundId,
         });
       }
       return {
-        progressSeconds: existing.progressSeconds,
+        progressSeconds: Math.max(existing.progressSeconds, effectiveProgress),
         isCompleted: completed,
       };
     }
@@ -456,31 +464,46 @@ export const updateProgress = mutation({
         reported,
         durationSec,
       );
+      const effectiveProgress = getCompletionSyncProgressSeconds({
+        progressSeconds: newProgress,
+        durationSeconds: durationSec,
+        listenPercentage: league.listenPercentage,
+        listenTimeLimitMinutes: league.listenTimeLimitMinutes,
+      });
       const completed = hasCompletedRequiredListenTime(
-        newProgress,
+        effectiveProgress,
         durationSec,
         league.listenPercentage,
         league.listenTimeLimitMinutes,
       );
 
       // Only write if something actually changed.
-      if (newProgress !== existing.progressSeconds || completed !== existing.isCompleted) {
+      if (
+        effectiveProgress !== existing.progressSeconds ||
+        completed !== existing.isCompleted
+      ) {
         await ctx.db.patch("listenProgress", existing._id, {
-          progressSeconds: newProgress,
+          progressSeconds: effectiveProgress,
           isCompleted: completed,
           roundId: submission.roundId,
         });
       }
       return {
-        progressSeconds: newProgress,
+        progressSeconds: effectiveProgress,
         isCompleted: completed,
       };
     } else {
       // First record: bound the initial write to the same anti-tamper jump window
       // instead of dropping to 0, so progress cannot get stuck after throttled ticks.
       const initialProgress = Math.min(reported, allowedJumpSec);
+      const effectiveProgress = getCompletionSyncProgressSeconds({
+        progressSeconds: initialProgress,
+        durationSeconds: durationSec,
+        listenPercentage: league.listenPercentage,
+        listenTimeLimitMinutes: league.listenTimeLimitMinutes,
+      });
       const completed = hasCompletedRequiredListenTime(
-        initialProgress,
+        effectiveProgress,
         durationSec,
         league.listenPercentage,
         league.listenTimeLimitMinutes,
@@ -490,11 +513,11 @@ export const updateProgress = mutation({
         userId,
         submissionId: args.submissionId,
         roundId: submission.roundId,
-        progressSeconds: initialProgress,
+        progressSeconds: effectiveProgress,
         isCompleted: completed,
       });
       return {
-        progressSeconds: initialProgress,
+        progressSeconds: effectiveProgress,
         isCompleted: completed,
       };
     }

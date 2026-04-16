@@ -649,6 +649,78 @@ export function MusicPlayer() {
     });
   }, [syncCurrentTrackListenProgress]);
 
+  useEffect(() => {
+    if (
+      !currentTrack ||
+      currentTrack.submissionType !== "file" ||
+      !leagueData?.enforceListenPercentage ||
+      currentTrackListenProgress?.isCompleted ||
+      isCurrentTrackListened
+    ) {
+      return;
+    }
+
+    const storedProgress = currentTrackListenProgress?.progressSeconds ?? 0;
+    if (storedProgress <= 0) {
+      return;
+    }
+
+    const effectiveDuration =
+      duration > 0
+        ? duration
+        : Number.isFinite(currentTrack.duration)
+          ? (currentTrack.duration ?? 0)
+          : 0;
+    if (effectiveDuration <= 0) {
+      return;
+    }
+
+    const completionSyncProgress = getCompletionSyncProgressSeconds({
+      progressSeconds: storedProgress,
+      durationSeconds: effectiveDuration,
+      listenPercentage: leagueData.listenPercentage,
+      listenTimeLimitMinutes: leagueData.listenTimeLimitMinutes,
+    });
+
+    if (
+      !shouldMarkListenCompleted(
+        completionSyncProgress,
+        effectiveDuration,
+        leagueData.listenPercentage,
+        leagueData.listenTimeLimitMinutes,
+      )
+    ) {
+      return;
+    }
+
+    const trackId = currentTrack._id;
+    if (completionSyncTrackRef.current === trackId) {
+      return;
+    }
+
+    completionSyncTrackRef.current = trackId;
+    void syncCurrentTrackListenProgress(completionSyncProgress)
+      .then((result) => {
+        if (!result?.isCompleted) {
+          completionSyncTrackRef.current = null;
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to repair listen progress", error);
+        completionSyncTrackRef.current = null;
+      });
+  }, [
+    currentTrack,
+    currentTrackListenProgress?.isCompleted,
+    currentTrackListenProgress?.progressSeconds,
+    duration,
+    isCurrentTrackListened,
+    leagueData?.enforceListenPercentage,
+    leagueData?.listenPercentage,
+    leagueData?.listenTimeLimitMinutes,
+    syncCurrentTrackListenProgress,
+  ]);
+
   const handleTrackStep = useCallback(
     async (
       direction: 1 | -1,
