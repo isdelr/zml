@@ -21,6 +21,7 @@ import { FinalVoteConfirmationDialog } from "./round/FinalVoteConfirmationDialog
 import {
   getPlaylistListenUnlocks,
   getTotalPlaylistRequiredListenSeconds,
+  hasCompletedSavedListenProgress,
 } from "@/lib/music/listen-progress";
 import { getYouTubePlaylistEntries } from "@/lib/music/youtube-queue";
 
@@ -133,10 +134,26 @@ export function RoundDetail({
   }, [listenProgressData]);
 
   const hasListenRequirementMet = useCallback(
-    (submissionId: Id<"submissions">) =>
-      listenProgressMap[submissionId]?.isCompleted === true ||
-      localListenProgress[submissionId.toString()] === true,
-    [listenProgressMap, localListenProgress],
+    (submission: { _id: Id<"submissions">; duration?: number | null }) => {
+      const submissionId = submission._id.toString();
+      const progress = listenProgressMap[submissionId];
+      return (
+        localListenProgress[submissionId] === true ||
+        hasCompletedSavedListenProgress({
+          isCompleted: progress?.isCompleted,
+          progressSeconds: progress?.progressSeconds ?? 0,
+          durationSeconds: submission.duration ?? 0,
+          listenPercentage: league.listenPercentage,
+          listenTimeLimitMinutes: league.listenTimeLimitMinutes,
+        })
+      );
+    },
+    [
+      league.listenPercentage,
+      league.listenTimeLimitMinutes,
+      listenProgressMap,
+      localListenProgress,
+    ],
   );
 
   const songsLeftToListen = useMemo(() => {
@@ -150,7 +167,7 @@ export function RoundDetail({
     );
     if (requiredSubs.length === 0) return [];
     return requiredSubs.filter(
-      (sub) => !hasListenRequirementMet(sub._id),
+      (sub) => !hasListenRequirementMet(sub),
     );
   }, [
     league.enforceListenPercentage,
@@ -170,7 +187,7 @@ export function RoundDetail({
     );
     if (requiredSubs.length === 0) return true;
     return requiredSubs.every(
-      (sub) => hasListenRequirementMet(sub._id),
+      (sub) => hasListenRequirementMet(sub),
     );
   }, [
     league.enforceListenPercentage,

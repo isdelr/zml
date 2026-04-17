@@ -52,6 +52,7 @@ import {
 import {
   getNormalizedDurationSeconds,
   getRequiredListenTimeSeconds,
+  hasCompletedSavedListenProgress,
 } from "@/lib/music/listen-progress";
 import {
   SubmissionCommentComposerButton,
@@ -374,11 +375,21 @@ export function SubmissionItem({
       userIsSubmitter
     )
       return true;
-    return listenProgress?.isCompleted || isListenRequirementMetLocally;
+    return (
+      isListenRequirementMetLocally ||
+      hasCompletedSavedListenProgress({
+        isCompleted: listenProgress?.isCompleted,
+        progressSeconds: listenProgress?.progressSeconds ?? 0,
+        durationSeconds: song.duration ?? 0,
+        listenPercentage: league.listenPercentage,
+        listenTimeLimitMinutes: league.listenTimeLimitMinutes,
+      })
+    );
   }, [
     league,
     isListenRequirementMetLocally,
     listenProgress,
+    song.duration,
     song.submissionType,
     userIsSubmitter,
     song.isTrollSubmission,

@@ -41,6 +41,10 @@ type CompletionSyncProgressParams = {
   graceSeconds?: number;
 };
 
+type SavedListenProgressCompletionParams = CompletionSyncProgressParams & {
+  isCompleted: boolean | null | undefined;
+};
+
 type CanonicalSubmissionDurationInfoArgs = {
   submissionType: "file" | "youtube";
   durationSeconds: number | null | undefined;
@@ -357,4 +361,32 @@ export function getCompletionSyncProgressSeconds({
 
   const grace = normalizeSeconds(graceSeconds);
   return progress + grace >= required ? required : progress;
+}
+
+export function hasCompletedSavedListenProgress({
+  isCompleted,
+  progressSeconds,
+  durationSeconds,
+  listenPercentage,
+  listenTimeLimitMinutes,
+  graceSeconds,
+}: SavedListenProgressCompletionParams): boolean {
+  if (isCompleted === true) {
+    return true;
+  }
+
+  const effectiveProgress = getCompletionSyncProgressSeconds({
+    progressSeconds,
+    durationSeconds,
+    listenPercentage,
+    listenTimeLimitMinutes,
+    graceSeconds,
+  });
+
+  return hasCompletedRequiredListenTime(
+    effectiveProgress,
+    durationSeconds,
+    listenPercentage,
+    listenTimeLimitMinutes,
+  );
 }

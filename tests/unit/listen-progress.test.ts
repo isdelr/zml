@@ -10,6 +10,7 @@ import {
   getTotalPlaylistRequiredListenSeconds,
   getNextProgressSecondsToSync,
   getUnlockedPlaylistSubmissionIds,
+  hasCompletedSavedListenProgress,
   hasCompletedRequiredListenTime,
 } from "@/lib/music/listen-progress";
 
@@ -96,6 +97,28 @@ describe("listen progress sync helpers", () => {
         listenTimeLimitMinutes: 15,
       }),
     ).toBe(469);
+  });
+
+  it("treats saved progress as complete even when the stored flag is stale", () => {
+    expect(
+      hasCompletedSavedListenProgress({
+        isCompleted: false,
+        progressSeconds: 188,
+        durationSeconds: 262,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 188 / 60,
+      }),
+    ).toBe(true);
+
+    expect(
+      hasCompletedSavedListenProgress({
+        isCompleted: false,
+        progressSeconds: 179,
+        durationSeconds: 262,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 188 / 60,
+      }),
+    ).toBe(false);
   });
 
   it("estimates bounded writes needed to catch up completion", () => {

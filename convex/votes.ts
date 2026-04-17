@@ -16,7 +16,11 @@ import { resolveUserAvatarUrl } from "./userAvatar";
 import { getSortedRoundSubmissions } from "../lib/rounds/submission-order";
 import { extractYouTubeVideoId } from "../lib/youtube";
 import { getYouTubePlaylistEntries } from "../lib/music/youtube-queue";
-import { getUnlockedPlaylistSubmissionIds } from "../lib/music/listen-progress";
+import {
+  getCanonicalSubmissionDurationInfo,
+  getUnlockedPlaylistSubmissionIds,
+  hasCompletedSavedListenProgress,
+} from "../lib/music/listen-progress";
 import { getVotingEligibilityReason } from "../lib/rounds/voting-participation";
 
 const storage = new B2Storage();
@@ -126,6 +130,39 @@ async function getUnlockedYouTubePlaylistSubmissionIdSet(
       league.listenTimeLimitMinutes,
     ).map((submissionId) => submissionId.toString()),
   );
+}
+
+function hasProgressCompletedSubmission(
+  progress: Doc<"listenProgress"> | undefined,
+  submission: Doc<"submissions">,
+  league: Doc<"leagues">,
+): boolean {
+  if (!progress) {
+    return false;
+  }
+  if (progress.isCompleted) {
+    return true;
+  }
+  if (!["file", "youtube"].includes(submission.submissionType)) {
+    return false;
+  }
+
+  const durationInfo = getCanonicalSubmissionDurationInfo({
+    submissionType: submission.submissionType as "file" | "youtube",
+    durationSeconds: submission.duration,
+    waveformJson: submission.waveform,
+  });
+  if (!durationInfo) {
+    return false;
+  }
+
+  return hasCompletedSavedListenProgress({
+    isCompleted: progress.isCompleted,
+    progressSeconds: progress.progressSeconds,
+    durationSeconds: durationInfo.durationSec,
+    listenPercentage: league.listenPercentage,
+    listenTimeLimitMinutes: league.listenTimeLimitMinutes,
+  });
 }
 
 export const getForRound = query({
@@ -436,8 +473,11 @@ export const castVote = mutation({
 
         if (
           shouldCheckSubmissionListen &&
-          progressBySubmissionId.get(args.submissionId.toString())?.isCompleted !==
-            true &&
+          !hasProgressCompletedSubmission(
+            progressBySubmissionId.get(args.submissionId.toString()),
+            submission,
+            league,
+          ) &&
           !unlockedYouTubeSubmissionIds.has(args.submissionId.toString())
         ) {
           throw new Error(SUBMISSION_LISTEN_REQUIREMENT_ERROR);
@@ -456,8 +496,11 @@ export const castVote = mutation({
           );
           const allCompleted = requiredSubs.every(
             (submissionDoc) =>
-              progressBySubmissionId.get(submissionDoc._id.toString())
-                ?.isCompleted === true ||
+              hasProgressCompletedSubmission(
+                progressBySubmissionId.get(submissionDoc._id.toString()),
+                submissionDoc,
+                league,
+              ) ||
               unlockedYouTubeSubmissionIds.has(submissionDoc._id.toString()),
           );
           if (!allCompleted) {
