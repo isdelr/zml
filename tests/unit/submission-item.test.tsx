@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SubmissionItem } from "@/components/round/SubmissionItem";
 
@@ -28,6 +29,38 @@ vi.mock("@/components/round/SubmissionComments", () => ({
 vi.mock("@/components/ui/media-image", () => ({
   MediaImage: ({ alt }: { alt: string }) => <img alt={alt} />,
 }));
+
+vi.mock("@/components/ui/dropdown-menu", () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => (
+    <>{children}</>
+  ),
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => (
+    <div role="menu">{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    asChild,
+    onSelect,
+  }: {
+    children: ReactNode;
+    asChild?: boolean;
+    onSelect?: () => void;
+  }) =>
+    asChild ? (
+      <>{children}</>
+    ) : (
+      <button type="button" role="menuitem" onClick={onSelect}>
+        {children}
+      </button>
+    ),
+}));
+
+afterEach(() => {
+  cleanup();
+});
 
 describe("SubmissionItem", () => {
   const renderSubmissionItem = (overrides = {}) => {
@@ -111,5 +144,80 @@ describe("SubmissionItem", () => {
     fireEvent.click(playTarget);
 
     expect(onPlaySong).not.toHaveBeenCalled();
+  });
+
+  it("shows the admin listening override directly above troll marking", () => {
+    renderSubmissionItem({
+      league: {
+        creatorId: "user-1",
+        managers: [],
+        enforceListenPercentage: true,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+        limitVotesPerSubmission: false,
+      },
+      canManageLeague: true,
+      currentUser: { _id: "user-1" },
+    });
+
+    const voidItem = screen.getAllByText("Void listening requirement")[0];
+    const trollItem = screen.getAllByText("Mark as troll submission")[0];
+
+    expect(voidItem).toBeInTheDocument();
+    expect(trollItem).toBeInTheDocument();
+    expect(
+      voidItem.compareDocumentPosition(trollItem) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("shows restore copy when the listening requirement is already voided", () => {
+    renderSubmissionItem({
+      song: {
+        _id: "submission-1",
+        roundId: "round-1",
+        leagueId: "league-1",
+        songTitle: "Night Drive",
+        artist: "Test Artist",
+        albumArtUrl: null,
+        songFileUrl: "https://example.com/song.m4a",
+        songLink: null,
+        submissionType: "file",
+        listenRequirementVoided: true,
+      } as never,
+      league: {
+        creatorId: "user-1",
+        managers: [],
+        enforceListenPercentage: true,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+        limitVotesPerSubmission: false,
+      },
+      canManageLeague: true,
+      currentUser: { _id: "user-1" },
+    });
+
+    expect(
+      screen.getAllByText("Restore listening requirement")[0],
+    ).toBeInTheDocument();
+  });
+
+  it("does not show the listening override to non-admin users", () => {
+    renderSubmissionItem({
+      league: {
+        creatorId: "user-1",
+        managers: [],
+        enforceListenPercentage: true,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+        limitVotesPerSubmission: false,
+      },
+      canManageLeague: false,
+      currentUser: { _id: "user-2" },
+    });
+
+    expect(
+      screen.queryByText("Void listening requirement"),
+    ).not.toBeInTheDocument();
   });
 });

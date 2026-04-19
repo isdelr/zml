@@ -163,7 +163,8 @@ export function RoundDetail({
       (s) =>
         ["file", "youtube"].includes(s.submissionType) &&
         s.userId !== currentUser._id &&
-        !s.isTrollSubmission,
+        !s.isTrollSubmission &&
+        !s.listenRequirementVoided,
     );
     if (requiredSubs.length === 0) return [];
     return requiredSubs.filter(
@@ -183,7 +184,8 @@ export function RoundDetail({
       (s) =>
         ["file", "youtube"].includes(s.submissionType) &&
         s.userId !== currentUser._id &&
-        !s.isTrollSubmission,
+        !s.isTrollSubmission &&
+        !s.listenRequirementVoided,
     );
     if (requiredSubs.length === 0) return true;
     return requiredSubs.every(

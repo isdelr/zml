@@ -27,6 +27,9 @@ export type Song = {
   isTrollSubmission?: boolean;
   markedAsTrollBy?: Id<"users">;
   markedAsTrollAt?: number;
+  listenRequirementVoided?: boolean;
+  listenRequirementVoidedBy?: Id<"users">;
+  listenRequirementVoidedAt?: number;
   lyrics?: string | null;
   collectionId?: string | null;
   collectionType?: "multi" | "album" | null;

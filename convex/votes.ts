@@ -448,7 +448,9 @@ export const castVote = mutation({
 
     if (league.enforceListenPercentage) {
       const shouldCheckSubmissionListen =
-        newVote !== 0 && ["file", "youtube"].includes(submission.submissionType);
+        newVote !== 0 &&
+        ["file", "youtube"].includes(submission.submissionType) &&
+        !submission.listenRequirementVoided;
       if (shouldCheckSubmissionListen || willFinalizeVotes) {
         const progressDocs = await ctx.db
           .query("listenProgress")
@@ -492,7 +494,8 @@ export const castVote = mutation({
             (s) =>
               ["file", "youtube"].includes(s.submissionType) &&
               s.userId !== userId &&
-              !s.isTrollSubmission,
+              !s.isTrollSubmission &&
+              !s.listenRequirementVoided,
           );
           const allCompleted = requiredSubs.every(
             (submissionDoc) =>

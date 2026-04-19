@@ -2327,3 +2327,75 @@ export const markAsTrollSubmission = mutation({
     return { success: true, message: "No changes made" };
   },
 });
+
+export const setListenRequirementVoided = mutation({
+  args: {
+    submissionId: v.id("submissions"),
+    isVoided: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    const submission = await ctx.db.get("submissions", args.submissionId);
+    if (!submission) {
+      throw new Error("Submission not found");
+    }
+
+    const round = await ctx.db.get("rounds", submission.roundId);
+    if (!round) {
+      throw new Error("Round not found");
+    }
+    if (round.status !== "voting") {
+      throw new Error(
+        "Listening requirement overrides are only available while voting is open.",
+      );
+    }
+
+    const league = await ctx.db.get("leagues", submission.leagueId);
+    if (!league) {
+      throw new Error("League not found");
+    }
+
+    const user = await ctx.db.get("users", userId);
+    const isOwner = league.creatorId === userId;
+    const isManager = league.managers?.includes(userId) ?? false;
+    const isGlobalAdmin = user?.isGlobalAdmin ?? false;
+
+    if (!isOwner && !isManager && !isGlobalAdmin) {
+      throw new Error("You do not have permission to manage this league.");
+    }
+
+    if (!["file", "youtube"].includes(submission.submissionType)) {
+      throw new Error("This submission does not have a listening requirement.");
+    }
+
+    if (args.isVoided && !submission.listenRequirementVoided) {
+      await ctx.db.patch("submissions", args.submissionId, {
+        listenRequirementVoided: true,
+        listenRequirementVoidedBy: userId,
+        listenRequirementVoidedAt: Date.now(),
+      });
+
+      return {
+        success: true,
+        message: "Listening requirement voided.",
+      };
+    } else if (!args.isVoided && submission.listenRequirementVoided) {
+      await ctx.db.patch("submissions", args.submissionId, {
+        listenRequirementVoided: false,
+        listenRequirementVoidedBy: undefined,
+        listenRequirementVoidedAt: undefined,
+      });
+
+      return {
+        success: true,
+        message: "Listening requirement restored.",
+      };
+    }
+
+    return { success: true, message: "No changes made" };
+  },
+});

@@ -210,6 +210,9 @@ export default defineSchema({
     isTrollSubmission: v.optional(v.boolean()),
     markedAsTrollBy: v.optional(v.id("users")),
     markedAsTrollAt: v.optional(v.number()),
+    listenRequirementVoided: v.optional(v.boolean()),
+    listenRequirementVoidedBy: v.optional(v.id("users")),
+    listenRequirementVoidedAt: v.optional(v.number()),
     lyrics: v.optional(v.string()),
     lyricsFetchFingerprint: v.optional(v.string()),
     lyricsFetchStatus: v.optional(

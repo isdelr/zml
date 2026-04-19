@@ -12,6 +12,7 @@ import {
   Headphones,
   AlertTriangle,
   Download,
+  VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -73,10 +74,13 @@ interface SubmissionActionsMenuProps {
   songLink?: string | null;
   canDownloadAudio: boolean;
   downloadUrl?: string;
+  canVoidListenRequirement: boolean;
+  isListenRequirementVoided: boolean;
   canToggleTrollSubmission: boolean;
   isTrollSubmission: boolean;
   canAdjustAdminPoints: boolean;
   onBookmark: () => void;
+  onToggleListenRequirementVoid: () => void;
   onToggleTrollSubmission: () => void;
   onAdjustAdminPoint: (delta: 1 | -1) => void;
 }
@@ -91,10 +95,13 @@ function SubmissionActionsMenu({
   songLink,
   canDownloadAudio,
   downloadUrl,
+  canVoidListenRequirement,
+  isListenRequirementVoided,
   canToggleTrollSubmission,
   isTrollSubmission,
   canAdjustAdminPoints,
   onBookmark,
+  onToggleListenRequirementVoid,
   onToggleTrollSubmission,
   onAdjustAdminPoint,
 }: SubmissionActionsMenuProps) {
@@ -103,6 +110,7 @@ function SubmissionActionsMenu({
     canBookmark ||
     canOpenOriginalLink ||
     canDownloadAudio ||
+    canVoidListenRequirement ||
     canToggleTrollSubmission ||
     canAdjustAdminPoints;
 
@@ -175,6 +183,19 @@ function SubmissionActionsMenu({
               <Download className="size-4" />
               Download audio
             </a>
+          </DropdownMenuItem>
+        ) : null}
+        {canVoidListenRequirement ? (
+          <DropdownMenuItem onSelect={onToggleListenRequirementVoid}>
+            <VolumeX
+              className={cn(
+                "size-4",
+                isListenRequirementVoided && "text-primary",
+              )}
+            />
+            {isListenRequirementVoided
+              ? "Restore listening requirement"
+              : "Void listening requirement"}
           </DropdownMenuItem>
         ) : null}
         {canToggleTrollSubmission ? (
@@ -299,6 +320,9 @@ export function SubmissionItem({
   const markAsTrollSubmission = useMutation(
     api.submissions.markAsTrollSubmission,
   );
+  const setListenRequirementVoided = useMutation(
+    api.submissions.setListenRequirementVoided,
+  );
   const adjustFinishedRoundVote = useMutation(api.votes.adjustFinishedRoundVote);
 
   // Check if current user can mark troll submissions (league owner, manager, or global admin)
@@ -319,6 +343,20 @@ export function SubmissionItem({
       toast.success(result.message);
     } catch (error) {
       toast.error(toErrorMessage(error, "Failed to update troll status."));
+    }
+  };
+
+  const handleListenRequirementVoidToggle = async () => {
+    try {
+      const result = await setListenRequirementVoided({
+        submissionId: song._id,
+        isVoided: !song.listenRequirementVoided,
+      });
+      toast.success(result.message);
+    } catch (error) {
+      toast.error(
+        toErrorMessage(error, "Failed to update listening requirement."),
+      );
     }
   };
 
@@ -369,6 +407,7 @@ export function SubmissionItem({
 
   const isListenRequirementMetForThisSong = useMemo(() => {
     if (song.isTrollSubmission) return true;
+    if (song.listenRequirementVoided) return true;
     if (
       !league.enforceListenPercentage ||
       ["file", "youtube"].includes(song.submissionType) === false ||
@@ -393,6 +432,7 @@ export function SubmissionItem({
     song.submissionType,
     userIsSubmitter,
     song.isTrollSubmission,
+    song.listenRequirementVoided,
   ]);
 
   const showListenRequirementIndicator = useMemo(() => {
@@ -528,6 +568,11 @@ export function SubmissionItem({
     roundStatus !== "submissions" &&
     isLinkSubmission &&
     Boolean(song.songLink);
+  const canVoidListenRequirement =
+    roundStatus === "voting" &&
+    canManageLeague &&
+    Boolean(league.enforceListenPercentage) &&
+    ["file", "youtube"].includes(song.submissionType);
   const canAdjustAdminPoints = roundStatus === "finished" && canManageLeague;
   const canToggleBookmark = Boolean(currentUser);
   const downloadUrl =
@@ -827,10 +872,17 @@ export function SubmissionItem({
                 songLink={song.songLink}
                 canDownloadAudio={canDownloadAudio}
                 downloadUrl={downloadUrl}
+                canVoidListenRequirement={canVoidListenRequirement}
+                isListenRequirementVoided={Boolean(
+                  song.listenRequirementVoided,
+                )}
                 canToggleTrollSubmission={canMarkTrollSubmissions}
                 isTrollSubmission={Boolean(song.isTrollSubmission)}
                 canAdjustAdminPoints={Boolean(canAdjustAdminPoints)}
                 onBookmark={onBookmark}
+                onToggleListenRequirementVoid={
+                  handleListenRequirementVoidToggle
+                }
                 onToggleTrollSubmission={handleTrollSubmissionToggle}
                 onAdjustAdminPoint={handleAdminVoteAdjustment}
               />
@@ -987,10 +1039,13 @@ export function SubmissionItem({
               songLink={song.songLink}
               canDownloadAudio={canDownloadAudio}
               downloadUrl={downloadUrl}
+              canVoidListenRequirement={canVoidListenRequirement}
+              isListenRequirementVoided={Boolean(song.listenRequirementVoided)}
               canToggleTrollSubmission={canMarkTrollSubmissions}
               isTrollSubmission={Boolean(song.isTrollSubmission)}
               canAdjustAdminPoints={Boolean(canAdjustAdminPoints)}
               onBookmark={onBookmark}
+              onToggleListenRequirementVoid={handleListenRequirementVoidToggle}
               onToggleTrollSubmission={handleTrollSubmissionToggle}
               onAdjustAdminPoint={handleAdminVoteAdjustment}
             />
