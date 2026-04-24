@@ -8,6 +8,7 @@ type LeagueMemberView = {
   name: Doc<"users">["name"];
   image: Doc<"users">["image"];
   joinDate?: number;
+  listenRequirementVoided?: boolean;
 };
 
 export type LeagueMembersSummary = {
@@ -67,6 +68,7 @@ export async function getLeagueMembersSummary(
             name: user.name,
             image: image ?? undefined,
             joinDate: membership.joinDate,
+            listenRequirementVoided: membership.listenRequirementVoided,
           },
         };
       }),
@@ -86,6 +88,7 @@ export async function getLeagueMembersSummary(
         name: undefined,
         image: undefined,
         joinDate: membership.joinDate,
+        listenRequirementVoided: membership.listenRequirementVoided,
       };
 
       if (membership.isSpectator) {

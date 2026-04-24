@@ -157,7 +157,12 @@ export function RoundDetail({
   );
 
   const songsLeftToListen = useMemo(() => {
-    if (!league.enforceListenPercentage || !submissions || !currentUser)
+    if (
+      !league.enforceListenPercentage ||
+      league.currentUserListenRequirementVoided ||
+      !submissions ||
+      !currentUser
+    )
       return [];
     const requiredSubs = submissions.filter(
       (s) =>
@@ -172,13 +177,19 @@ export function RoundDetail({
     );
   }, [
     league.enforceListenPercentage,
+    league.currentUserListenRequirementVoided,
     submissions,
     currentUser,
     hasListenRequirementMet,
   ]);
 
   const canFinalizeVotes = useMemo(() => {
-    if (!league.enforceListenPercentage || !submissions || !currentUser)
+    if (
+      !league.enforceListenPercentage ||
+      league.currentUserListenRequirementVoided ||
+      !submissions ||
+      !currentUser
+    )
       return true;
     const requiredSubs = submissions.filter(
       (s) =>
@@ -193,6 +204,7 @@ export function RoundDetail({
     );
   }, [
     league.enforceListenPercentage,
+    league.currentUserListenRequirementVoided,
     submissions,
     currentUser,
     hasListenRequirementMet,

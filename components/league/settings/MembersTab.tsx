@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useMutation } from "convex/react";
-import type { FunctionReturnType } from "convex/server";
 import { toast } from "sonner";
+import { MoreHorizontal, UserRoundX, VolumeX } from "lucide-react";
 
 import { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/lib/convex/api";
@@ -22,30 +22,42 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toSvg } from "jdenticon";
-
-type CurrentUser = FunctionReturnType<typeof api.users.getCurrentUser> | undefined;
 
 interface MembersTabProps {
   league: LeagueData;
-  currentUser: CurrentUser;
 }
 
 function MemberRow({
   name,
   image,
   id,
-  badge,
+  badges,
+  canManage,
   canKick,
+  canToggleListenRequirement,
+  isListenRequirementVoided,
   onKick,
+  onToggleListenRequirement,
   dashed,
 }: {
   name?: string | null;
   image?: string | null;
   id: Id<"users">;
-  badge?: { label: string; variant: "secondary" | "outline" };
+  badges?: Array<{ label: string; variant: "secondary" | "outline" }>;
+  canManage: boolean;
   canKick: boolean;
+  canToggleListenRequirement: boolean;
+  isListenRequirementVoided: boolean;
   onKick: (memberId: Id<"users">) => void;
+  onToggleListenRequirement: (memberId: Id<"users">, isVoided: boolean) => void;
   dashed?: boolean;
 }) {
   return (
@@ -67,24 +79,69 @@ function MemberRow({
         </Avatar>
         <div className="flex flex-col">
           <span className="font-medium">{name ?? "Unknown user"}</span>
-          {badge ? (
-            <Badge variant={badge.variant} className="w-fit text-xs">
-              {badge.label}
-            </Badge>
+          {badges && badges.length > 0 ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {badges.map((badge) => (
+                <Badge
+                  key={badge.label}
+                  variant={badge.variant}
+                  className="w-fit text-xs"
+                >
+                  {badge.label}
+                </Badge>
+              ))}
+            </div>
           ) : null}
         </div>
       </div>
-      {canKick ? (
-        <Button variant="destructive" size="sm" onClick={() => onKick(id)}>
-          Kick
-        </Button>
+      {canManage ? (
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Actions for ${name ?? "Unknown user"}`}
+            >
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {canToggleListenRequirement ? (
+              <DropdownMenuItem
+                onSelect={() =>
+                  onToggleListenRequirement(id, !isListenRequirementVoided)
+                }
+              >
+                <VolumeX className="size-4" />
+                {isListenRequirementVoided
+                  ? "Restore listening requirement"
+                  : "Void listening requirement"}
+              </DropdownMenuItem>
+            ) : null}
+            {canToggleListenRequirement && canKick ? (
+              <DropdownMenuSeparator />
+            ) : null}
+            {canKick ? (
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => onKick(id)}
+              >
+                <UserRoundX className="size-4" />
+                Kick
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : null}
     </div>
   );
 }
 
-export function MembersTab({ league, currentUser }: MembersTabProps) {
+export function MembersTab({ league }: MembersTabProps) {
   const kickMember = useMutation(api.leagues.kickMember);
+  const setMemberListenRequirementVoided = useMutation(
+    api.leagues.setMemberListenRequirementVoided,
+  );
   const [memberIdPendingKick, setMemberIdPendingKick] = useState<Id<"users"> | null>(
     null,
   );
@@ -93,14 +150,35 @@ export function MembersTab({ league, currentUser }: MembersTabProps) {
     setMemberIdPendingKick(memberIdToKick);
   };
 
+  const handleListenRequirementToggle = (
+    memberId: Id<"users">,
+    isVoided: boolean,
+  ) => {
+    toast.promise(
+      setMemberListenRequirementVoided({
+        leagueId: league._id,
+        memberId,
+        isVoided,
+      }),
+      {
+        loading: isVoided
+          ? "Voiding listening requirement..."
+          : "Restoring listening requirement...",
+        success: ({ message }) => message,
+        error: (error) =>
+          toErrorMessage(error, "Failed to update listening requirement."),
+      },
+    );
+  };
+
   const confirmKick = () => {
     if (!memberIdPendingKick) return;
     toast.promise(
       kickMember({ leagueId: league._id, memberIdToKick: memberIdPendingKick }),
       {
-      loading: "Kicking member...",
-      success: "Member kicked.",
-      error: (error) => toErrorMessage(error, "Failed to kick member."),
+        loading: "Kicking member...",
+        success: "Member kicked.",
+        error: (error) => toErrorMessage(error, "Failed to kick member."),
       },
     );
     setMemberIdPendingKick(null);
@@ -111,7 +189,7 @@ export function MembersTab({ league, currentUser }: MembersTabProps) {
     () => league.spectators ?? [],
     [league.spectators],
   );
-  const isOwner = currentUser?._id === league.creatorId;
+  const canManageMembers = league.canManageLeague;
   const memberPendingKick = useMemo(
     () =>
       [...regularMembers, ...spectators].find(
@@ -136,13 +214,22 @@ export function MembersTab({ league, currentUser }: MembersTabProps) {
                 id={member._id}
                 name={member.name}
                 image={member.image}
-                badge={
-                  member._id === league.creatorId
-                    ? { label: "Owner", variant: "secondary" }
-                    : undefined
+                badges={[
+                  ...(member._id === league.creatorId
+                    ? [{ label: "Owner", variant: "secondary" as const }]
+                    : []),
+                  ...(member.listenRequirementVoided
+                    ? [{ label: "Listen exempt", variant: "outline" as const }]
+                    : []),
+                ]}
+                canManage={canManageMembers}
+                canKick={canManageMembers && member._id !== league.creatorId}
+                canToggleListenRequirement={canManageMembers}
+                isListenRequirementVoided={
+                  member.listenRequirementVoided === true
                 }
-                canKick={isOwner && member._id !== league.creatorId}
                 onKick={handleKick}
+                onToggleListenRequirement={handleListenRequirementToggle}
               />
             ))}
           </div>
@@ -162,9 +249,13 @@ export function MembersTab({ league, currentUser }: MembersTabProps) {
                   id={spectator._id}
                   name={spectator.name}
                   image={spectator.image}
-                  badge={{ label: "Spectator", variant: "outline" }}
-                  canKick={isOwner}
+                  badges={[{ label: "Spectator", variant: "outline" }]}
+                  canManage={canManageMembers}
+                  canKick={canManageMembers}
+                  canToggleListenRequirement={false}
+                  isListenRequirementVoided={false}
                   onKick={handleKick}
+                  onToggleListenRequirement={handleListenRequirementToggle}
                   dashed
                 />
               ))}

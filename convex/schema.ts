@@ -127,6 +127,9 @@ export default defineSchema({
     isBanned: v.optional(v.boolean()),
     bannedAt: v.optional(v.number()),
     isSpectator: v.optional(v.boolean()),
+    listenRequirementVoided: v.optional(v.boolean()),
+    listenRequirementVoidedBy: v.optional(v.id("users")),
+    listenRequirementVoidedAt: v.optional(v.number()),
   })
     .index("by_league_and_user", ["leagueId", "userId"])
     .index("by_user", ["userId"])

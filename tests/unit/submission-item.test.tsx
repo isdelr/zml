@@ -87,6 +87,7 @@ describe("SubmissionItem", () => {
         creatorId: "user-1",
         managers: [],
         enforceListenPercentage: false,
+        currentUserListenRequirementVoided: false,
         listenPercentage: 100,
         listenTimeLimitMinutes: 15,
         limitVotesPerSubmission: false,
@@ -208,6 +209,7 @@ describe("SubmissionItem", () => {
         creatorId: "user-1",
         managers: [],
         enforceListenPercentage: true,
+        currentUserListenRequirementVoided: false,
         listenPercentage: 100,
         listenTimeLimitMinutes: 15,
         limitVotesPerSubmission: false,
@@ -219,5 +221,61 @@ describe("SubmissionItem", () => {
     expect(
       screen.queryByText("Void listening requirement"),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps voting disabled when the viewer has not met the listen requirement", () => {
+    renderSubmissionItem({
+      song: {
+        _id: "submission-1",
+        roundId: "round-1",
+        leagueId: "league-1",
+        songTitle: "Night Drive",
+        artist: "Test Artist",
+        albumArtUrl: null,
+        songFileUrl: "https://example.com/song.m4a",
+        songLink: null,
+        submissionType: "file",
+        duration: 240,
+      } as never,
+      league: {
+        creatorId: "user-1",
+        managers: [],
+        enforceListenPercentage: true,
+        currentUserListenRequirementVoided: false,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+        limitVotesPerSubmission: false,
+      },
+    });
+
+    expect(screen.getAllByLabelText("Upvote")[0]).toBeDisabled();
+  });
+
+  it("removes the listen-based vote lock for exempt viewers", () => {
+    renderSubmissionItem({
+      song: {
+        _id: "submission-1",
+        roundId: "round-1",
+        leagueId: "league-1",
+        songTitle: "Night Drive",
+        artist: "Test Artist",
+        albumArtUrl: null,
+        songFileUrl: "https://example.com/song.m4a",
+        songLink: null,
+        submissionType: "file",
+        duration: 240,
+      } as never,
+      league: {
+        creatorId: "user-1",
+        managers: [],
+        enforceListenPercentage: true,
+        currentUserListenRequirementVoided: true,
+        listenPercentage: 100,
+        listenTimeLimitMinutes: 15,
+        limitVotesPerSubmission: false,
+      },
+    });
+
+    expect(screen.getAllByLabelText("Upvote")[0]).not.toBeDisabled();
   });
 });

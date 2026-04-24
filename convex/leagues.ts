@@ -681,6 +681,7 @@ export const get = query({
       canManageLeague: v.boolean(),
       isMember: v.boolean(),
       isSpectator: v.boolean(),
+      currentUserListenRequirementVoided: v.boolean(),
       inviteCode: v.optional(v.union(v.string(), v.null())),
       creatorImage: v.optional(v.string()),
       members: v.array(
@@ -689,6 +690,7 @@ export const get = query({
           name: v.optional(v.string()),
           image: v.optional(v.string()),
           joinDate: v.optional(v.number()),
+          listenRequirementVoided: v.optional(v.boolean()),
         }),
       ),
       spectators: v.array(
@@ -697,6 +699,7 @@ export const get = query({
           name: v.optional(v.string()),
           image: v.optional(v.string()),
           joinDate: v.optional(v.number()),
+          listenRequirementVoided: v.optional(v.boolean()),
         }),
       ),
       activeMemberCount: v.number(),
@@ -746,6 +749,8 @@ export const get = query({
     const isOwner = userId === league.creatorId;
     const isMember = !!membership;
     const isSpectator = membership?.isSpectator ?? false;
+    const currentUserListenRequirementVoided =
+      membership?.listenRequirementVoided ?? false;
 
     // Keep this query lightweight for high-frequency subscribers.
     const canManageLeague =
@@ -763,6 +768,7 @@ export const get = query({
       canManageLeague,
       isMember,
       isSpectator,
+      currentUserListenRequirementVoided,
       inviteCode: canManageLeague ? league.inviteCode : undefined,
       members,
       spectators,
@@ -1084,6 +1090,71 @@ export const kickMember = mutation({
     }
 
     return "Member kicked successfully.";
+  },
+});
+
+export const setMemberListenRequirementVoided = mutation({
+  args: {
+    leagueId: v.id("leagues"),
+    memberId: v.id("users"),
+    isVoided: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const league = await checkLeagueManagementPermission(ctx, args.leagueId);
+
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_league_and_user", (q) =>
+        q.eq("leagueId", args.leagueId).eq("userId", args.memberId),
+      )
+      .unique();
+    if (!membership) {
+      throw new Error("This user is not a member of the league.");
+    }
+    if (membership.isSpectator) {
+      throw new Error(
+        "Listening requirement overrides are only available for full members.",
+      );
+    }
+
+    const actingUserId = await getAuthUserId(ctx);
+    if (!actingUserId) {
+      throw new Error("Authentication required.");
+    }
+
+    if (args.isVoided && !membership.listenRequirementVoided) {
+      await ctx.db.patch("memberships", membership._id, {
+        listenRequirementVoided: true,
+        listenRequirementVoidedBy: actingUserId,
+        listenRequirementVoidedAt: Date.now(),
+      });
+
+      return {
+        success: true,
+        message:
+          args.memberId === league.creatorId
+            ? "League-wide listening requirement voided for the owner."
+            : "League-wide listening requirement voided for this member.",
+      };
+    }
+
+    if (!args.isVoided && membership.listenRequirementVoided) {
+      await ctx.db.patch("memberships", membership._id, {
+        listenRequirementVoided: false,
+        listenRequirementVoidedBy: undefined,
+        listenRequirementVoidedAt: undefined,
+      });
+
+      return {
+        success: true,
+        message:
+          args.memberId === league.creatorId
+            ? "League-wide listening requirement restored for the owner."
+            : "League-wide listening requirement restored for this member.",
+      };
+    }
+
+    return { success: true, message: "No changes made." };
   },
 });
 

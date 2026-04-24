@@ -238,6 +238,183 @@ test("Convex critical paths on Docker self-hosted backend", async () => {
     /must submit a song/i,
   );
 
+  const helperMemberIds = votingMemberships
+    .map((membership) => membership.userId)
+    .filter((memberId) => memberId !== ownerId)
+    .slice(0, 2);
+  assert.equal(
+    helperMemberIds.length,
+    2,
+    "Expected at least two active members for listen-exemption coverage",
+  );
+  const [helperMemberOneId, helperMemberTwoId] = helperMemberIds;
+  const helperMemberOneClient = createUserClient(helperMemberOneId);
+  const helperMemberTwoClient = createUserClient(helperMemberTwoId);
+
+  const exemptionLeagueId = await ownerClient.mutation("leagues:create", {
+    name: `${namespace} Listen Exemption`,
+    description: "Regression coverage for league-wide listen exemptions.",
+    isPublic: true,
+    submissionDeadline: 24,
+    votingDeadline: 24,
+    maxPositiveVotes: 2,
+    maxNegativeVotes: 0,
+    enforceListenPercentage: true,
+    listenPercentage: 100,
+    listenTimeLimitMinutes: 10,
+    limitVotesPerSubmission: false,
+    rounds: [
+      {
+        title: "Listen Exemption Round",
+        description: "Covers per-song and final-vote listen gating.",
+        submissionsPerUser: 1,
+        genres: ["Test"],
+        submissionMode: "single",
+      },
+    ],
+  });
+
+  await helperMemberOneClient.mutation("leagues:joinPublicLeague", {
+    leagueId: exemptionLeagueId,
+    asSpectator: false,
+  });
+  await helperMemberTwoClient.mutation("leagues:joinPublicLeague", {
+    leagueId: exemptionLeagueId,
+    asSpectator: false,
+  });
+
+  const exemptionRounds = await ownerClient.query("rounds:getForLeague", {
+    leagueId: exemptionLeagueId,
+    paginationOpts: { cursor: null, numItems: 10 },
+  });
+  const exemptionRoundId = exemptionRounds.page[0]?._id;
+  assert.ok(exemptionRoundId, "Expected the custom exemption round to exist");
+
+  const submitYoutubeSong = (client, songTitle, songLink, albumArtUrlValue) =>
+    client.mutation("submissions:submitSong", {
+      roundId: exemptionRoundId,
+      submissionType: "youtube",
+      songTitle,
+      artist: "Listen Exemption Test",
+      songLink,
+      albumArtUrlValue,
+      duration: 240,
+    });
+
+  await submitYoutubeSong(
+    ownerClient,
+    `${namespace} Owner Song`,
+    "https://www.youtube.com/watch?v=aaaaaaaabbb",
+    "https://example.com/owner.jpg",
+  );
+  await submitYoutubeSong(
+    helperMemberOneClient,
+    `${namespace} Helper One Song`,
+    "https://www.youtube.com/watch?v=bbbbbbbbaaa",
+    "https://example.com/helper-one.jpg",
+  );
+  await submitYoutubeSong(
+    helperMemberTwoClient,
+    `${namespace} Helper Two Song`,
+    "https://www.youtube.com/watch?v=ccccccccddd",
+    "https://example.com/helper-two.jpg",
+  );
+
+  await ownerClient.mutation("rounds:manageRoundState", {
+    roundId: exemptionRoundId,
+    action: "startVoting",
+  });
+
+  const exemptionSubmissions = await ownerClient.query("submissions:getForRound", {
+    roundId: exemptionRoundId,
+  });
+  const listenedSubmission = exemptionSubmissions.find(
+    (submission) => submission.userId === helperMemberOneId,
+  );
+  const incompleteSubmission = exemptionSubmissions.find(
+    (submission) => submission.userId === helperMemberTwoId,
+  );
+  assert.ok(listenedSubmission, "Expected a required submission to mark as listened");
+  assert.ok(incompleteSubmission, "Expected a second required submission to leave incomplete");
+
+  await assert.rejects(
+    () =>
+      ownerClient.mutation("votes:castVote", {
+        submissionId: incompleteSubmission._id,
+        delta: 1,
+      }),
+    /required listening for this submission/i,
+  );
+
+  const markedCompleted = await ownerClient.mutation(
+    "listenProgress:markCompletedBatch",
+    {
+      roundId: exemptionRoundId,
+      submissionIds: [listenedSubmission._id],
+    },
+  );
+  assert.equal(markedCompleted.updated, 1);
+
+  await ownerClient.mutation("votes:castVote", {
+    submissionId: listenedSubmission._id,
+    delta: 1,
+  });
+
+  await assert.rejects(
+    () =>
+      ownerClient.mutation("votes:castVote", {
+        submissionId: listenedSubmission._id,
+        delta: 1,
+        confirmFinal: true,
+      }),
+    /required listening for all submissions/i,
+  );
+
+  await ownerClient.mutation("leagues:setMemberListenRequirementVoided", {
+    leagueId: exemptionLeagueId,
+    memberId: ownerId,
+    isVoided: true,
+  });
+  await ownerClient.mutation("leagues:setMemberListenRequirementVoided", {
+    leagueId: exemptionLeagueId,
+    memberId: ownerId,
+    isVoided: false,
+  });
+
+  await assert.rejects(
+    () =>
+      ownerClient.mutation("votes:castVote", {
+        submissionId: listenedSubmission._id,
+        delta: 1,
+        confirmFinal: true,
+      }),
+    /required listening for all submissions/i,
+  );
+
+  await ownerClient.mutation("leagues:setMemberListenRequirementVoided", {
+    leagueId: exemptionLeagueId,
+    memberId: ownerId,
+    isVoided: true,
+  });
+
+  await ownerClient.mutation("votes:castVote", {
+    submissionId: incompleteSubmission._id,
+    delta: 1,
+    confirmFinal: true,
+  });
+
+  const exemptionVoteStatus = await ownerClient.query("votes:getForUserInRound", {
+    roundId: exemptionRoundId,
+  });
+  assert.equal(exemptionVoteStatus.upvotesUsed, 2);
+  assert.equal(exemptionVoteStatus.downvotesUsed, 0);
+  assert.equal(exemptionVoteStatus.hasVoted, true);
+
+  const exemptLeague = await ownerClient.query("leagues:get", {
+    leagueId: exemptionLeagueId,
+  });
+  assert.equal(exemptLeague?.currentUserListenRequirementVoided, true);
+
   const recipientId = spectatorId;
   const triggeringUserId = ownerId === recipientId ? targetSubmission.userId : ownerId;
   const recipientClient = createUserClient(recipientId);

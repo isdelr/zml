@@ -389,6 +389,8 @@ export const castVote = mutation({
         "Spectators cannot vote. Join as a full member to participate.",
       );
     }
+    const hasLeagueWideListenOverride =
+      membership?.listenRequirementVoided === true;
 
     const { maxUp, maxDown } = getVoteLimits(round, league);
 
@@ -446,7 +448,7 @@ export const castVote = mutation({
     const newNegUsed = voteStep.nextDownvotesUsed;
     const willFinalizeVotes = newPosUsed === maxUp && newNegUsed === maxDown;
 
-    if (league.enforceListenPercentage) {
+    if (league.enforceListenPercentage && !hasLeagueWideListenOverride) {
       const shouldCheckSubmissionListen =
         newVote !== 0 &&
         ["file", "youtube"].includes(submission.submissionType) &&

@@ -408,6 +408,7 @@ export function SubmissionItem({
   const isListenRequirementMetForThisSong = useMemo(() => {
     if (song.isTrollSubmission) return true;
     if (song.listenRequirementVoided) return true;
+    if (league.currentUserListenRequirementVoided) return true;
     if (
       !league.enforceListenPercentage ||
       ["file", "youtube"].includes(song.submissionType) === false ||

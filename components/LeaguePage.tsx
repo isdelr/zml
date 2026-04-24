@@ -319,7 +319,6 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
         <DialogContent className="max-w-2xl">
           <LeagueSettingsDialog
             league={leagueData}
-            currentUser={currentUser}
             onClose={() => setIsSettingsOpen(false)}
           />
         </DialogContent>

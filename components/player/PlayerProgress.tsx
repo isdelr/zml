@@ -55,6 +55,7 @@ export const PlayerProgress = memo(function PlayerProgress({
   // No per-link timer for YouTube; handled by round-level playlist timer.
   const showListenRequirement =
     leagueData?.enforceListenPercentage &&
+    !leagueData?.currentUserListenRequirementVoided &&
     currentTrack?.submissionType === "file" &&
     duration > 0;
 

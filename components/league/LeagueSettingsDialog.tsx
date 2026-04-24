@@ -1,8 +1,5 @@
 "use client";
 
-import type { FunctionReturnType } from "convex/server";
-
-import { api } from "@/lib/convex/api";
 import type { LeagueData } from "@/lib/convex/types";
 import {
   Card,
@@ -17,17 +14,13 @@ import { MembersTab } from "@/components/league/settings/MembersTab";
 import { InviteTab } from "@/components/league/settings/InviteTab";
 import { RoundsTab } from "@/components/league/settings/RoundsTab";
 
-type CurrentUser = FunctionReturnType<typeof api.users.getCurrentUser> | undefined;
-
 interface LeagueSettingsDialogProps {
   league: LeagueData;
-  currentUser: CurrentUser;
   onClose: () => void;
 }
 
 export function LeagueSettingsDialog({
   league,
-  currentUser,
   onClose,
 }: LeagueSettingsDialogProps) {
   return (
@@ -73,7 +66,7 @@ export function LeagueSettingsDialog({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <MembersTab league={league} currentUser={currentUser} />
+            <MembersTab league={league} />
           </CardContent>
         </Card>
       </TabsContent>
