@@ -4,10 +4,16 @@ import { useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Crown, TrendingDown, TrendingUp, Medal } from "lucide-react";
+import { Crown, TrendingDown, TrendingUp, Medal, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toSvg } from "jdenticon";
 import { Skeleton } from "./ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 interface StandingsProps {
   leagueId: Id<"leagues">;
@@ -41,20 +47,20 @@ export function Standings({ leagueId }: StandingsProps) {
 
   return (
     <div className="space-y-1">
-      {standings.map((player, index) => (
+      {standings.map((player) => (
         <div
           key={player.userId}
           className="flex items-center gap-3 py-1.5 text-left"
         >
           <div className="flex w-5 items-center justify-center text-sm font-semibold text-muted-foreground">
-            {index === 0 ? (
+            {player.rank === 1 ? (
               <Crown className="size-4 text-warning" />
-            ) : index === 1 ? (
+            ) : player.rank === 2 ? (
               <span className="text-gray-400">2</span>
-            ) : index === 2 ? (
+            ) : player.rank === 3 ? (
               <span className="text-primary/80 dark:text-primary">3</span>
             ) : (
-              <span>{index + 1}</span>
+              <span>{player.rank}</span>
             )}
           </div>
           <Avatar className="size-8">
@@ -63,9 +69,32 @@ export function Standings({ leagueId }: StandingsProps) {
               dangerouslySetInnerHTML={{ __html: toSvg(player.userId, 32) }}
             />
           </Avatar>
-          <p className="min-w-0 truncate text-sm font-semibold">
-            {player.name}
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="min-w-0 truncate text-sm font-semibold">
+                {player.name}
+              </p>
+              {player.wonOnTieBreak ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="border-primary/25 bg-primary/10 px-1.5 text-[10px] uppercase tracking-[0.12em] text-primary/80 dark:text-primary"
+                    >
+                      <Flag className="size-3" />
+                      TB
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      {player.tieBreakSummary ??
+                        "Won tie-break on round placements."}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+            </div>
+          </div>
           <div
             className={cn(
               "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold",

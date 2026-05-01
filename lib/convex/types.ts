@@ -10,6 +10,9 @@ export type LeagueSearchResults = FunctionReturnType<
 export type LeagueStatsTrajectory = FunctionReturnType<
   typeof api.leagues.getLeagueStatsTrajectory
 >;
+export type LeagueCompletionSummary = FunctionReturnType<
+  typeof api.leagues.getLeagueCompletionSummary
+>;
 export type RoundForLeague = FunctionReturnType<
   typeof api.rounds.getForLeague
 >["page"][number];

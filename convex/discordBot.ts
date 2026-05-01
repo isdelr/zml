@@ -13,6 +13,7 @@ import {
   getPrimaryDiscordServerIdFromEnv,
   isAllowedDiscordServerId,
 } from "../lib/discord/server-access";
+import { buildLeagueRankings } from "../lib/convex-server/leagues/ranking";
 import { resolveShouldMentionDiscordUsers } from "../lib/discord/reminder-mentions";
 import { sortRoundsInLeagueOrder } from "../lib/rounds/schedule";
 
@@ -363,22 +364,50 @@ export const getLeagueLeaderboardForUser = internalQuery({
       return null;
     }
 
-    const standingsDocs = await ctx.db
-      .query("leagueStandings")
-      .withIndex("by_league_and_points", (q) => q.eq("leagueId", args.leagueId))
-      .order("desc")
-      .collect();
-    const limit = Math.max(1, Math.min(args.limit ?? 10, 20));
-    const topStandings = standingsDocs.slice(0, limit);
-
-    const users = await Promise.all(
-      topStandings.map((standing) => ctx.db.get("users", standing.userId)),
+    const [standingsDocs, rounds] = await Promise.all([
+      ctx.db
+        .query("leagueStandings")
+        .withIndex("by_league_and_points", (q) => q.eq("leagueId", args.leagueId))
+        .order("desc")
+        .collect(),
+      ctx.db
+        .query("rounds")
+        .withIndex("by_league", (q) => q.eq("leagueId", args.leagueId))
+        .collect(),
+    ]);
+    const finishedRounds = sortRoundsInLeagueOrder(rounds).filter(
+      (round) => round.status === "finished",
     );
+    const roundResults = (
+      await Promise.all(
+        finishedRounds.map((round) =>
+          ctx.db
+            .query("roundResults")
+            .withIndex("by_round", (q) => q.eq("roundId", round._id))
+            .collect(),
+        ),
+      )
+    ).flat();
+    const limit = Math.max(1, Math.min(args.limit ?? 10, 20));
+    const users = await Promise.all(
+      standingsDocs.map((standing) => ctx.db.get("users", standing.userId)),
+    );
+    const userNamesById = new Map(
+      standingsDocs.map((standing, index) => [
+        standing.userId.toString(),
+        users[index]?.name ?? "Unknown User",
+      ]),
+    );
+    const topStandings = buildLeagueRankings({
+      standings: standingsDocs,
+      roundResults,
+      userNamesById,
+    }).slice(0, limit);
 
-    const standings: StandingSummary[] = topStandings.map((standing, index) => ({
+    const standings: StandingSummary[] = topStandings.map((standing) => ({
       userId: standing.userId,
-      rank: index + 1,
-      name: users[index]?.name ?? "Unknown User",
+      rank: standing.rank,
+      name: userNamesById.get(standing.userId.toString()) ?? "Unknown User",
       totalPoints: standing.totalPoints,
       totalWins: standing.totalWins,
     }));

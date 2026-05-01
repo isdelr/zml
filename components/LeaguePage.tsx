@@ -48,6 +48,11 @@ const LeagueStatsPanel = dynamicImport(() =>
     default: mod.LeagueStatsPanel,
   })),
 );
+const LeagueWinnersCard = dynamicImport(() =>
+  import("@/components/league/LeagueWinnersCard").then((mod) => ({
+    default: mod.LeagueWinnersCard,
+  })),
+);
 
 interface LeaguePageProps {
   leagueId: string;
@@ -270,39 +275,42 @@ export function LeaguePage({ leagueId }: LeaguePageProps) {
       {activeTab === "stats" ? (
         <LeagueStatsPanel leagueId={parsedLeagueId} />
       ) : (
-        <div className="mb-12 grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
-          <section className="overflow-hidden rounded-2xl border bg-card/60">
-            <div className="border-b px-4 py-3">
-              <h2 className="text-lg font-semibold">Standings</h2>
-            </div>
-            <div className="px-4 py-3 xl:h-[34rem] xl:overflow-y-auto xl:pr-3">
-              <Standings leagueId={parsedLeagueId} />
-            </div>
-          </section>
-          <section className="overflow-hidden rounded-2xl border bg-card/60">
-            <div className="border-b px-4 py-3">
-              <h2 className="text-lg font-semibold">Rounds</h2>
-            </div>
-            <div className="px-4 py-3 xl:h-[34rem] xl:overflow-y-auto xl:pr-3">
-              <LeagueRounds
-                rounds={rounds || []}
-                hasLoaded={status !== "LoadingFirstPage"}
-                selectedRoundId={selectedRoundId}
-                leagueId={leagueId}
-              />
-            </div>
-            {status === "CanLoadMore" && (
-              <div className="border-t px-4 py-3">
-                <Button
-                  onClick={() => loadMore(10)}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Load More Rounds
-                </Button>
+        <div className="mb-12">
+          <LeagueWinnersCard leagueId={parsedLeagueId} />
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
+            <section className="overflow-hidden rounded-2xl border bg-card/60">
+              <div className="border-b px-4 py-3">
+                <h2 className="text-lg font-semibold">Standings</h2>
               </div>
-            )}
-          </section>
+              <div className="px-4 py-3 xl:h-[34rem] xl:overflow-y-auto xl:pr-3">
+                <Standings leagueId={parsedLeagueId} />
+              </div>
+            </section>
+            <section className="overflow-hidden rounded-2xl border bg-card/60">
+              <div className="border-b px-4 py-3">
+                <h2 className="text-lg font-semibold">Rounds</h2>
+              </div>
+              <div className="px-4 py-3 xl:h-[34rem] xl:overflow-y-auto xl:pr-3">
+                <LeagueRounds
+                  rounds={rounds || []}
+                  hasLoaded={status !== "LoadingFirstPage"}
+                  selectedRoundId={selectedRoundId}
+                  leagueId={leagueId}
+                />
+              </div>
+              {status === "CanLoadMore" && (
+                <div className="border-t px-4 py-3">
+                  <Button
+                    onClick={() => loadMore(10)}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Load More Rounds
+                  </Button>
+                </div>
+              )}
+            </section>
+          </div>
         </div>
       )}
       {activeTab === "overview" && selectedRound && leagueData ? (

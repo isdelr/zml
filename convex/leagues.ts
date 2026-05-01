@@ -18,11 +18,14 @@ import {
   checkLeagueOwnership,
   generateInviteCode,
 } from "../lib/convex-server/leagues/permissions";
+import { buildLeagueRankings } from "../lib/convex-server/leagues/ranking";
 import { getLeagueMembersSummary } from "../lib/convex-server/leagues/members";
 import { recalculateAndStoreRoundResults } from "../lib/convex-server/leagues/results";
+import { resolveSubmissionMediaUrls } from "../lib/convex-server/submissions/media";
 import { resolveUserAvatarUrl } from "./userAvatar";
 import {
   buildLeagueRoundSchedule,
+  getRoundOrderValue,
   buildScheduledRoundResequencePatches,
   sortRoundsInLeagueOrder,
 } from "../lib/rounds/schedule";
@@ -34,6 +37,7 @@ import {
   buildRoundImageMediaUrl,
   resolveMediaAccessScope,
 } from "../lib/media/delivery";
+import { buildLeagueCompletionAnnouncement } from "../lib/discord/league-completion-announcement";
 
 const storage = new B2Storage();
 
@@ -48,11 +52,9 @@ const sortLeaguesForDisplay = (a: Doc<"leagues">, b: Doc<"leagues">) => {
 };
 
 function buildStandingRankMap(
-  standings: Array<{ userId: Id<"users"> }>,
+  standings: Array<{ userId: Id<"users">; rank: number }>,
 ): Map<string, number> {
-  return new Map(
-    standings.map((standing, index) => [standing.userId.toString(), index + 1]),
-  );
+  return new Map(standings.map((standing) => [standing.userId.toString(), standing.rank]));
 }
 
 function buildStandingsShiftMessage(
@@ -194,6 +196,119 @@ const leagueStatsInteractionEntryValidator = v.object({
   image: v.optional(v.string()),
   count: v.number(),
 });
+
+const leagueStandingEntryValidator = v.object({
+  userId: v.id("users"),
+  rank: v.number(),
+  name: v.string(),
+  image: v.optional(v.string()),
+  totalPoints: v.number(),
+  wonOnTieBreak: v.boolean(),
+  tieBreakSummary: v.union(v.string(), v.null()),
+});
+
+const leagueCompletionFinisherValidator = v.object({
+  userId: v.id("users"),
+  rank: v.number(),
+  name: v.string(),
+  image: v.optional(v.string()),
+  totalPoints: v.number(),
+  wonOnTieBreak: v.boolean(),
+  tieBreakSummary: v.union(v.string(), v.null()),
+});
+
+const leagueCompletionSubmissionValidator = v.object({
+  submissionId: v.id("submissions"),
+  roundId: v.id("rounds"),
+  roundTitle: v.string(),
+  songTitle: v.string(),
+  artist: v.string(),
+  albumArtUrl: v.union(v.string(), v.null()),
+  points: v.number(),
+});
+
+type LeagueCompletionSummaryData = {
+  isLeagueFinished: boolean;
+  standingsDocs: Doc<"leagueStandings">[];
+  rankedStandings: ReturnType<typeof buildLeagueRankings>;
+  userById: Map<string, Doc<"users">>;
+  userNamesById: Map<string, string>;
+  rounds: Doc<"rounds">[];
+  finishedRounds: Doc<"rounds">[];
+  roundResults: Doc<"roundResults">[];
+};
+
+async function getLeagueFinishedRoundsAndResults(
+  ctx: Pick<QueryCtx, "db">,
+  leagueId: Id<"leagues">,
+) {
+  const rounds = await ctx.db
+    .query("rounds")
+    .withIndex("by_league", (q) => q.eq("leagueId", leagueId))
+    .collect();
+  const finishedRounds = sortRoundsInLeagueOrder(rounds).filter(
+    (round) => round.status === "finished",
+  );
+  const roundResultsByRound = await Promise.all(
+    finishedRounds.map((round) =>
+      ctx.db
+        .query("roundResults")
+        .withIndex("by_round", (q) => q.eq("roundId", round._id))
+        .collect(),
+    ),
+  );
+
+  return {
+    rounds,
+    finishedRounds,
+    roundResults: roundResultsByRound.flat(),
+  };
+}
+
+async function buildLeagueCompletionSummaryData(
+  ctx: Pick<QueryCtx, "db">,
+  leagueId: Id<"leagues">,
+): Promise<LeagueCompletionSummaryData> {
+  const [standingsDocs, { rounds, finishedRounds, roundResults }] = await Promise.all([
+    ctx.db
+      .query("leagueStandings")
+      .withIndex("by_league_and_points", (q) => q.eq("leagueId", leagueId))
+      .order("desc")
+      .collect(),
+    getLeagueFinishedRoundsAndResults(ctx, leagueId),
+  ]);
+  const userIds = [...new Set(standingsDocs.map((standing) => standing.userId))];
+  const users = await Promise.all(
+    userIds.map((memberId) => ctx.db.get("users", memberId)),
+  );
+  const userById = new Map(
+    users
+      .filter((member): member is NonNullable<typeof member> => member !== null)
+      .map((member) => [member._id.toString(), member]),
+  );
+  const userNamesById = new Map(
+    userIds.map((memberId) => [
+      memberId.toString(),
+      userById.get(memberId.toString())?.name ?? "Unknown User",
+    ]),
+  );
+  const rankedStandings = buildLeagueRankings({
+    standings: standingsDocs,
+    roundResults,
+    userNamesById,
+  });
+
+  return {
+    isLeagueFinished: rounds.length > 0 && finishedRounds.length === rounds.length,
+    standingsDocs,
+    rankedStandings,
+    userById,
+    userNamesById,
+    rounds,
+    finishedRounds,
+    roundResults,
+  };
+}
 
 async function buildLeaguePreview(
   ctx: QueryCtx,
@@ -1160,14 +1275,7 @@ export const setMemberListenRequirementVoided = mutation({
 
 export const getLeagueStandings = query({
   args: { leagueId: v.id("leagues") },
-  returns: v.array(
-    v.object({
-      userId: v.id("users"),
-      name: v.string(),
-      image: v.optional(v.string()),
-      totalPoints: v.number(),
-    }),
-  ),
+  returns: v.array(leagueStandingEntryValidator),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     const { canView } = await canViewLeague(ctx, args.leagueId, userId);
@@ -1175,11 +1283,14 @@ export const getLeagueStandings = query({
       return [];
     }
 
-    const standingsDocs = await ctx.db
-      .query("leagueStandings")
-      .withIndex("by_league_and_points", (q) => q.eq("leagueId", args.leagueId))
-      .order("desc")
-      .collect();
+    const [standingsDocs, { roundResults }] = await Promise.all([
+      ctx.db
+        .query("leagueStandings")
+        .withIndex("by_league_and_points", (q) => q.eq("leagueId", args.leagueId))
+        .order("desc")
+        .collect(),
+      getLeagueFinishedRoundsAndResults(ctx, args.leagueId),
+    ]);
 
     const userIds = [
       ...new Set(standingsDocs.map((standing) => standing.userId)),
@@ -1193,19 +1304,152 @@ export const getLeagueStandings = query({
         .map((user) => [user._id.toString(), user]),
     );
 
-    const standings = await Promise.all(
-      standingsDocs.map(async (standing) => {
+    const userNamesById = new Map(
+      userIds.map((memberId) => [
+        memberId.toString(),
+        userById.get(memberId.toString())?.name ?? "Unknown User",
+      ]),
+    );
+    const rankedStandings = buildLeagueRankings({
+      standings: standingsDocs,
+      roundResults,
+      userNamesById,
+    });
+
+    return Promise.all(
+      rankedStandings.map(async (standing) => {
         const user = userById.get(standing.userId.toString());
         return {
           userId: standing.userId,
-          name: user?.name ?? "Unknown User",
+          rank: standing.rank,
+          name: userNamesById.get(standing.userId.toString()) ?? "Unknown User",
           image: (await resolveUserAvatarUrl(storage, user)) ?? undefined,
           totalPoints: standing.totalPoints,
+          wonOnTieBreak: standing.wonOnTieBreak,
+          tieBreakSummary: standing.tieBreakSummary,
+        };
+      }),
+    );
+  },
+});
+
+export const getLeagueCompletionSummary = query({
+  args: { leagueId: v.id("leagues") },
+  returns: v.object({
+    isLeagueFinished: v.boolean(),
+    topFinishers: v.array(leagueCompletionFinisherValidator),
+    winnerSubmissions: v.array(leagueCompletionSubmissionValidator),
+  }),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    const { league, canView } = await canViewLeague(ctx, args.leagueId, userId);
+    if (!league || !canView) {
+      return {
+        isLeagueFinished: false,
+        topFinishers: [],
+        winnerSubmissions: [],
+      };
+    }
+
+    const summaryData = await buildLeagueCompletionSummaryData(ctx, args.leagueId);
+    if (!summaryData.isLeagueFinished || summaryData.standingsDocs.length === 0) {
+      return {
+        isLeagueFinished: summaryData.isLeagueFinished,
+        topFinishers: [],
+        winnerSubmissions: [],
+      };
+    }
+    const topFinishers = await Promise.all(
+      summaryData.rankedStandings.slice(0, 3).map(async (standing) => {
+        const user = summaryData.userById.get(standing.userId.toString());
+        return {
+          userId: standing.userId,
+          rank: standing.rank,
+          name:
+            summaryData.userNamesById.get(standing.userId.toString()) ??
+            "Unknown User",
+          image: (await resolveUserAvatarUrl(storage, user)) ?? undefined,
+          totalPoints: standing.totalPoints,
+          wonOnTieBreak: standing.wonOnTieBreak,
+          tieBreakSummary: standing.tieBreakSummary,
         };
       }),
     );
 
-    return standings;
+    const champion = summaryData.rankedStandings[0];
+    if (!champion) {
+      return {
+        isLeagueFinished: summaryData.isLeagueFinished,
+        topFinishers,
+        winnerSubmissions: [],
+      };
+    }
+
+    const championSubmissions = await ctx.db
+      .query("submissions")
+      .withIndex("by_user_and_league", (q) =>
+        q.eq("userId", champion.userId).eq("leagueId", args.leagueId),
+      )
+      .collect();
+
+    const roundById = new Map(
+      summaryData.finishedRounds.map((round) => [round._id.toString(), round]),
+    );
+    const resultBySubmissionId = new Map(
+      summaryData.roundResults.map((result) => [result.submissionId.toString(), result]),
+    );
+
+    const winnerSubmissions = (
+      await Promise.all(
+        championSubmissions
+          .filter((submission) => roundById.has(submission.roundId.toString()))
+          .map(async (submission) => {
+            const round = roundById.get(submission.roundId.toString());
+            const result = resultBySubmissionId.get(submission._id.toString());
+            if (!round || !result) {
+              return null;
+            }
+
+            const { albumArtUrl } = await resolveSubmissionMediaUrls(
+              storage,
+              submission,
+              {
+                allowPublic: league.isPublic,
+                viewerUserId: userId,
+              },
+            );
+
+            return {
+              submissionId: submission._id,
+              roundId: submission.roundId,
+              roundTitle: round.title,
+              songTitle: submission.songTitle,
+              artist: submission.artist,
+              albumArtUrl,
+              points: result.points,
+            };
+          }),
+      )
+    )
+      .filter(
+        (submission): submission is NonNullable<typeof submission> => submission !== null,
+      )
+      .sort((left, right) => {
+        const leftRound = roundById.get(left.roundId.toString());
+        const rightRound = roundById.get(right.roundId.toString());
+        if (!leftRound || !rightRound) {
+          return 0;
+        }
+        return (
+          getRoundOrderValue(leftRound) - getRoundOrderValue(rightRound)
+        );
+      });
+
+    return {
+      isLeagueFinished: summaryData.isLeagueFinished,
+      topFinishers,
+      winnerSubmissions,
+    };
   },
 });
 
@@ -1748,6 +1992,8 @@ export const calculateAndStoreResults = internalMutation({
       .withIndex("by_league_and_points", (q) => q.eq("leagueId", league._id))
       .order("desc")
       .collect();
+    const { roundResults: previousRoundResults } =
+      await getLeagueFinishedRoundsAndResults(ctx, league._id);
 
     await recalculateAndStoreRoundResults(ctx, roundId);
 
@@ -1756,10 +2002,44 @@ export const calculateAndStoreResults = internalMutation({
       .withIndex("by_league_and_points", (q) => q.eq("leagueId", league._id))
       .order("desc")
       .collect();
+    const { roundResults: nextRoundResults } =
+      await getLeagueFinishedRoundsAndResults(ctx, league._id);
 
-    const previousRanks = buildStandingRankMap(previousStandings);
-    const nextRanks = buildStandingRankMap(nextStandings);
-    const standingsShiftNotifications = nextStandings.flatMap((standing) => {
+    const rankingUserIds = [
+      ...new Set([
+        ...previousStandings.map((standing) => standing.userId),
+        ...nextStandings.map((standing) => standing.userId),
+      ]),
+    ];
+    const rankingUsers = await Promise.all(
+      rankingUserIds.map((userId) => ctx.db.get("users", userId)),
+    );
+    const rankingUserById = new Map(
+      rankingUsers
+        .filter((user): user is NonNullable<typeof user> => user !== null)
+        .map((user) => [user._id.toString(), user]),
+    );
+    const rankingUserNamesById = new Map(
+      rankingUserIds.map((userId) => [
+        userId.toString(),
+        rankingUserById.get(userId.toString())?.name ?? "Unknown User",
+      ]),
+    );
+
+    const previousRanks = buildStandingRankMap(
+      buildLeagueRankings({
+        standings: previousStandings,
+        roundResults: previousRoundResults,
+        userNamesById: rankingUserNamesById,
+      }),
+    );
+    const nextRankings = buildLeagueRankings({
+      standings: nextStandings,
+      roundResults: nextRoundResults,
+      userNamesById: rankingUserNamesById,
+    });
+    const nextRanks = buildStandingRankMap(nextRankings);
+    const standingsShiftNotifications = nextRankings.flatMap((standing) => {
       const nextRank = nextRanks.get(standing.userId.toString());
       if (!nextRank) {
         return [];
@@ -1791,25 +2071,84 @@ export const calculateAndStoreResults = internalMutation({
       ];
     });
 
-    if (standingsShiftNotifications.length === 0) {
+    if (standingsShiftNotifications.length > 0) {
+      const createdNotifications: {
+        notificationId: Id<"notifications">;
+        userId: Id<"users">;
+        type:
+          | "new_comment"
+          | "round_submission"
+          | "round_voting"
+          | "round_extension_poll"
+          | "round_finished";
+        source: string | null;
+      }[] = await ctx.runMutation(
+        internal.notifications.createManyUniqueBySource,
+        { notifications: standingsShiftNotifications },
+      );
+      if (createdNotifications.length > 0) {
+        await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundNotification, {
+          leagueId: league._id,
+          roundId: round._id,
+          roundStatus: "finished",
+          reminderKind: "standings_shift",
+          message: `Standings changed after "${round.title}" in "${league.name}". Check the updated leaderboard.`,
+          actionUrl: `/leagues/${league._id}`,
+          source: `standings-shift:${round._id}`,
+          targetUserIds: createdNotifications.map(
+            (notification: { userId: Id<"users"> }) => notification.userId,
+          ),
+        });
+      }
+    }
+
+    const completionSummary = await buildLeagueCompletionSummaryData(ctx, league._id);
+    if (
+      !completionSummary.isLeagueFinished ||
+      completionSummary.rankedStandings.length === 0
+    ) {
       return;
     }
 
-    const createdNotifications: {
-      notificationId: Id<"notifications">;
-      userId: Id<"users">;
-      type:
-        | "new_comment"
-        | "round_submission"
-        | "round_voting"
-        | "round_extension_poll"
-        | "round_finished";
-      source: string | null;
-    }[] = await ctx.runMutation(
-      internal.notifications.createManyUniqueBySource,
-      { notifications: standingsShiftNotifications },
-    );
-    if (createdNotifications.length === 0) {
+    const championStanding = completionSummary.rankedStandings[0];
+    const championName = championStanding
+      ? completionSummary.userNamesById.get(championStanding.userId.toString()) ??
+        "Unknown User"
+      : null;
+    if (!championStanding || !championName) {
+      return;
+    }
+
+    const championSubmissionCount = await ctx.db
+      .query("submissions")
+      .withIndex("by_user_and_league", (q) =>
+        q.eq("userId", championStanding.userId).eq("leagueId", league._id),
+      )
+      .collect()
+      .then((submissions) => submissions.length);
+    const podium = completionSummary.rankedStandings.slice(0, 3).map((standing) => ({
+      name:
+        completionSummary.userNamesById.get(standing.userId.toString()) ??
+        "Unknown User",
+      totalPoints: standing.totalPoints,
+      totalWins: standing.totalWins,
+      wonOnTieBreak: standing.wonOnTieBreak,
+      tieBreakSummary: standing.tieBreakSummary,
+    }));
+    const championSummary = podium[0];
+    if (!championSummary) {
+      return;
+    }
+
+    const participantUserIds = (
+      await ctx.db
+        .query("memberships")
+        .withIndex("by_league", (q) => q.eq("leagueId", league._id))
+        .collect()
+    )
+      .filter((membership) => !membership.isSpectator && !membership.isBanned)
+      .map((membership) => membership.userId);
+    if (participantUserIds.length === 0) {
       return;
     }
 
@@ -1817,13 +2156,22 @@ export const calculateAndStoreResults = internalMutation({
       leagueId: league._id,
       roundId: round._id,
       roundStatus: "finished",
-      reminderKind: "standings_shift",
-      message: `Standings changed after "${round.title}" in "${league.name}". Check the updated leaderboard.`,
+      reminderKind: "transition",
+      message: buildLeagueCompletionAnnouncement({
+        leagueName: league.name,
+        champion: championSummary,
+        championSubmissionCount,
+        championWonOnTieBreak: championSummary.wonOnTieBreak,
+        championTieBreakSummary: championSummary.tieBreakSummary,
+        runnersUp: podium.slice(1).map((finisher) => ({
+          name: finisher.name,
+          totalPoints: finisher.totalPoints,
+          totalWins: finisher.totalWins,
+        })),
+      }),
       actionUrl: `/leagues/${league._id}`,
-      source: `standings-shift:${round._id}`,
-      targetUserIds: createdNotifications.map(
-        (notification: { userId: Id<"users"> }) => notification.userId,
-      ),
+      source: `league-finished:${league._id}:${round._id}`,
+      targetUserIds: participantUserIds,
     });
   },
 });
