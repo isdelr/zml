@@ -29,6 +29,7 @@ import {
   buildScheduledRoundResequencePatches,
   sortRoundsInLeagueOrder,
 } from "../lib/rounds/schedule";
+import { buildLeagueExportRoundStandingsSnapshots } from "../lib/convex-server/leagues/export-summary";
 import {
   MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
   MAX_LEAGUE_UPVOTES_PER_MEMBER,
@@ -139,6 +140,17 @@ function buildLeagueStatsRankMap(
   );
 }
 
+function hasLeagueManagementAccess(
+  league: Doc<"leagues">,
+  userId: Id<"users"> | null,
+) {
+  return (
+    Boolean(userId) &&
+    (league.creatorId === userId ||
+      Boolean(userId && league.managers?.includes(userId)))
+  );
+}
+
 const publicLeaguePreviewValidator = v.object({
   _id: v.id("leagues"),
   _creationTime: v.number(),
@@ -207,6 +219,17 @@ const leagueStandingEntryValidator = v.object({
   tieBreakSummary: v.union(v.string(), v.null()),
 });
 
+const leagueExportStandingEntryValidator = v.object({
+  userId: v.id("users"),
+  rank: v.number(),
+  name: v.string(),
+  image: v.optional(v.string()),
+  totalPoints: v.number(),
+  totalWins: v.number(),
+  wonOnTieBreak: v.boolean(),
+  tieBreakSummary: v.union(v.string(), v.null()),
+});
+
 const leagueCompletionFinisherValidator = v.object({
   userId: v.id("users"),
   rank: v.number(),
@@ -225,6 +248,37 @@ const leagueCompletionSubmissionValidator = v.object({
   artist: v.string(),
   albumArtUrl: v.union(v.string(), v.null()),
   points: v.number(),
+});
+
+const leagueExportRoundWinnerValidator = v.object({
+  userId: v.id("users"),
+  name: v.string(),
+  image: v.optional(v.string()),
+  songTitle: v.string(),
+  points: v.number(),
+});
+
+const leagueExportSubmissionValidator = v.object({
+  submissionId: v.id("submissions"),
+  userId: v.id("users"),
+  submitterName: v.string(),
+  submitterImage: v.optional(v.string()),
+  songTitle: v.string(),
+  artist: v.string(),
+  albumArtUrl: v.union(v.string(), v.null()),
+  points: v.number(),
+  isWinner: v.boolean(),
+});
+
+const leagueExportRoundValidator = v.object({
+  roundId: v.id("rounds"),
+  roundOrder: v.number(),
+  roundTitle: v.string(),
+  roundDescription: v.string(),
+  roundImageUrl: v.union(v.string(), v.null()),
+  winners: v.array(leagueExportRoundWinnerValidator),
+  submissions: v.array(leagueExportSubmissionValidator),
+  standings: v.array(leagueExportStandingEntryValidator),
 });
 
 type LeagueCompletionSummaryData = {
@@ -868,9 +922,7 @@ export const get = query({
       membership?.listenRequirementVoided ?? false;
 
     // Keep this query lightweight for high-frequency subscribers.
-    const canManageLeague =
-      Boolean(userId) &&
-      (isOwner || Boolean(userId && league.managers?.includes(userId)));
+    const canManageLeague = hasLeagueManagementAccess(league, userId);
 
     return {
       ...league,
@@ -1330,6 +1382,332 @@ export const getLeagueStandings = query({
         };
       }),
     );
+  },
+});
+
+export const getLeagueExportSummary = query({
+  args: { leagueId: v.id("leagues") },
+  returns: v.union(
+    v.object({
+      status: v.literal("not_found"),
+    }),
+    v.object({
+      status: v.literal("forbidden"),
+    }),
+    v.object({
+      status: v.literal("ok"),
+      league: v.object({
+        leagueId: v.id("leagues"),
+        name: v.string(),
+        description: v.string(),
+        memberCount: v.number(),
+        totalRounds: v.number(),
+        finishedRoundCount: v.number(),
+      }),
+      rounds: v.array(leagueExportRoundValidator),
+      finalSummary: v.object({
+        standings: v.array(leagueExportStandingEntryValidator),
+        topFinishers: v.array(leagueCompletionFinisherValidator),
+        winnerSubmissions: v.array(leagueCompletionSubmissionValidator),
+      }),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    const league = await ctx.db.get("leagues", args.leagueId);
+    if (!league) {
+      return { status: "not_found" as const };
+    }
+
+    if (!hasLeagueManagementAccess(league, userId)) {
+      return { status: "forbidden" as const };
+    }
+
+    const [{ memberCount }, summaryData] = await Promise.all([
+      getLeagueMembersSummary(ctx, args.leagueId, {
+        includeUserProfiles: false,
+      }),
+      buildLeagueCompletionSummaryData(ctx, args.leagueId),
+    ]);
+
+    const roundResultsByRoundId = new Map<string, Doc<"roundResults">[]>();
+    for (const result of summaryData.roundResults) {
+      const roundKey = result.roundId.toString();
+      const results = roundResultsByRoundId.get(roundKey) ?? [];
+      results.push(result);
+      roundResultsByRoundId.set(roundKey, results);
+    }
+
+    const roundStandingsSnapshots = buildLeagueExportRoundStandingsSnapshots({
+      finishedRounds: summaryData.finishedRounds,
+      roundResults: summaryData.roundResults,
+      userNamesById: summaryData.userNamesById,
+    });
+    const standingsByRoundId = new Map(
+      roundStandingsSnapshots.map((snapshot) => [
+        snapshot.roundId.toString(),
+        snapshot.standings,
+      ]),
+    );
+
+    const submissionsByRound = await Promise.all(
+      summaryData.finishedRounds.map((round) =>
+        ctx.db
+          .query("submissions")
+          .withIndex("by_round_and_user", (q) => q.eq("roundId", round._id))
+          .collect(),
+      ),
+    );
+    const allSubmissions = submissionsByRound.flat();
+    const allUserIds = [
+      ...new Set([
+        ...allSubmissions.map((submission) => submission.userId),
+        ...summaryData.rankedStandings.map((standing) => standing.userId),
+      ]),
+    ];
+    const users = await Promise.all(
+      allUserIds.map((participantUserId) => ctx.db.get("users", participantUserId)),
+    );
+    const userById = new Map(
+      users
+        .filter((user): user is NonNullable<typeof user> => user !== null)
+        .map((user) => [user._id.toString(), user]),
+    );
+    const avatarEntries = await Promise.all(
+      [...userById.values()].map(
+        async (user): Promise<readonly [string, string | undefined]> => [
+          user._id.toString(),
+          (await resolveUserAvatarUrl(storage, user)) ?? undefined,
+        ],
+      ),
+    );
+    const avatarByUserId = new Map<string, string | undefined>(avatarEntries);
+
+    const rounds = await Promise.all(
+      summaryData.finishedRounds.map(async (round, roundIndex) => {
+        const roundKey = round._id.toString();
+        const roundResults = roundResultsByRoundId.get(roundKey) ?? [];
+        const submissions = submissionsByRound[roundIndex] ?? [];
+        const resultBySubmissionId = new Map(
+          roundResults.map((result) => [result.submissionId.toString(), result]),
+        );
+
+        const winners = await Promise.all(
+          roundResults
+            .filter((result) => result.isWinner)
+            .map(async (result) => {
+              const submission = submissions.find(
+                (currentSubmission) => currentSubmission._id === result.submissionId,
+              );
+              const user = userById.get(result.userId.toString());
+              if (!submission || !user) {
+                return null;
+              }
+
+              return {
+                userId: result.userId,
+                name: user.name ?? "Unknown User",
+                image: avatarByUserId.get(result.userId.toString()),
+                songTitle: submission.songTitle,
+                points: result.points,
+              };
+            }),
+        );
+
+        const roundImageUrl =
+          round.imageKey && userId
+            ? await buildRoundImageMediaUrl({
+                roundId: round._id,
+                storageKey: round.imageKey,
+                scope: buildRoundImageScope(league.isPublic, userId) ?? {
+                  type: "public",
+                },
+              })
+            : null;
+
+        const sortedSubmissions = await Promise.all(
+          [...submissions]
+            .sort((left, right) => {
+              const leftResult = resultBySubmissionId.get(left._id.toString());
+              const rightResult = resultBySubmissionId.get(right._id.toString());
+              return (rightResult?.points ?? 0) - (leftResult?.points ?? 0);
+            })
+            .map(async (submission) => {
+              const user = userById.get(submission.userId.toString());
+              const result = resultBySubmissionId.get(submission._id.toString());
+              if (!user || !result) {
+                return null;
+              }
+
+              const { albumArtUrl } = await resolveSubmissionMediaUrls(
+                storage,
+                submission,
+                {
+                  allowPublic: league.isPublic,
+                  viewerUserId: userId,
+                },
+              );
+
+              return {
+                submissionId: submission._id,
+                userId: submission.userId,
+                submitterName: user.name ?? "Unknown User",
+                submitterImage: avatarByUserId.get(submission.userId.toString()),
+                songTitle: submission.songTitle,
+                artist: submission.artist,
+                albumArtUrl,
+                points: result.points,
+                isWinner: result.isWinner,
+              };
+            }),
+        );
+
+        return {
+          roundId: round._id,
+          roundOrder: getRoundOrderValue(round) + 1,
+          roundTitle: round.title,
+          roundDescription: round.description,
+          roundImageUrl,
+          winners: winners.filter(
+            (winner): winner is NonNullable<typeof winner> => winner !== null,
+          ),
+          submissions: sortedSubmissions.filter(
+            (submission): submission is NonNullable<typeof submission> =>
+              submission !== null,
+          ),
+          standings: (standingsByRoundId.get(roundKey) ?? []).map((standing) => {
+            const standingUser = userById.get(standing.userId.toString());
+            return {
+              userId: standing.userId,
+              rank: standing.rank,
+              name:
+                summaryData.userNamesById.get(standing.userId.toString()) ??
+                "Unknown User",
+              image: standingUser
+                ? avatarByUserId.get(standing.userId.toString())
+                : undefined,
+              totalPoints: standing.totalPoints,
+              totalWins: standing.totalWins,
+              wonOnTieBreak: standing.wonOnTieBreak,
+              tieBreakSummary: standing.tieBreakSummary,
+            };
+          }),
+        };
+      }),
+    );
+
+    const topFinishers = await Promise.all(
+      summaryData.rankedStandings.slice(0, 3).map(async (standing) => {
+        const user = userById.get(standing.userId.toString());
+        return {
+          userId: standing.userId,
+          rank: standing.rank,
+          name:
+            summaryData.userNamesById.get(standing.userId.toString()) ??
+            "Unknown User",
+          image: user ? avatarByUserId.get(standing.userId.toString()) : undefined,
+          totalPoints: standing.totalPoints,
+          wonOnTieBreak: standing.wonOnTieBreak,
+          tieBreakSummary: standing.tieBreakSummary,
+        };
+      }),
+    );
+
+    const champion = summaryData.rankedStandings[0];
+    const championSubmissions = champion
+      ? await ctx.db
+          .query("submissions")
+          .withIndex("by_user_and_league", (q) =>
+            q.eq("userId", champion.userId).eq("leagueId", args.leagueId),
+          )
+          .collect()
+      : [];
+    const roundById = new Map(
+      summaryData.finishedRounds.map((round) => [round._id.toString(), round]),
+    );
+    const resultBySubmissionId = new Map(
+      summaryData.roundResults.map((result) => [result.submissionId.toString(), result]),
+    );
+
+    const winnerSubmissions = (
+      await Promise.all(
+        championSubmissions
+          .filter((submission) => roundById.has(submission.roundId.toString()))
+          .map(async (submission) => {
+            const round = roundById.get(submission.roundId.toString());
+            const result = resultBySubmissionId.get(submission._id.toString());
+            if (!round || !result) {
+              return null;
+            }
+
+            const { albumArtUrl } = await resolveSubmissionMediaUrls(
+              storage,
+              submission,
+              {
+                allowPublic: league.isPublic,
+                viewerUserId: userId,
+              },
+            );
+
+            return {
+              submissionId: submission._id,
+              roundId: submission.roundId,
+              roundTitle: round.title,
+              songTitle: submission.songTitle,
+              artist: submission.artist,
+              albumArtUrl,
+              points: result.points,
+            };
+          }),
+      )
+    )
+      .filter(
+        (submission): submission is NonNullable<typeof submission> => submission !== null,
+      )
+      .sort((left, right) => {
+        const leftRound = roundById.get(left.roundId.toString());
+        const rightRound = roundById.get(right.roundId.toString());
+        if (!leftRound || !rightRound) {
+          return 0;
+        }
+        return getRoundOrderValue(leftRound) - getRoundOrderValue(rightRound);
+      });
+
+    return {
+      status: "ok" as const,
+      league: {
+        leagueId: league._id,
+        name: league.name,
+        description: league.description,
+        memberCount,
+        totalRounds: summaryData.rounds.length,
+        finishedRoundCount: summaryData.finishedRounds.length,
+      },
+      rounds,
+      finalSummary: {
+        standings: await Promise.all(
+          summaryData.rankedStandings.map(async (standing) => {
+            const user = userById.get(standing.userId.toString());
+            return {
+              userId: standing.userId,
+              rank: standing.rank,
+              name:
+                summaryData.userNamesById.get(standing.userId.toString()) ??
+                "Unknown User",
+              image: user
+                ? avatarByUserId.get(standing.userId.toString())
+                : undefined,
+              totalPoints: standing.totalPoints,
+              totalWins: standing.totalWins,
+              wonOnTieBreak: standing.wonOnTieBreak,
+              tieBreakSummary: standing.tieBreakSummary,
+            };
+          }),
+        ),
+        topFinishers,
+        winnerSubmissions,
+      },
+    };
   },
 });
 

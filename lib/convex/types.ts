@@ -13,6 +13,9 @@ export type LeagueStatsTrajectory = FunctionReturnType<
 export type LeagueCompletionSummary = FunctionReturnType<
   typeof api.leagues.getLeagueCompletionSummary
 >;
+export type LeagueExportSummary = FunctionReturnType<
+  typeof api.leagues.getLeagueExportSummary
+>;
 export type RoundForLeague = FunctionReturnType<
   typeof api.rounds.getForLeague
 >["page"][number];

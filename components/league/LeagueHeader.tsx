@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Search, Users, Copy, Settings, LogOut } from "lucide-react";
+import { Search, Users, Copy, Settings, LogOut, ScrollText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -126,6 +127,19 @@ export function LeagueHeader({
         )}
 
         {/* Settings Dialog Trigger */}
+        {leagueData.canManageLeague && (
+          <Button asChild variant="outline">
+            <Link
+              href={`/reports/leagues/${leagueData._id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ScrollText className="mr-2 size-4" />
+              Export Summary
+            </Link>
+          </Button>
+        )}
+
         {leagueData.canManageLeague && (
           <Button variant="outline" size="icon" onClick={onSettingsOpen}>
             <Settings className="size-4" />
