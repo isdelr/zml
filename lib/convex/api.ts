@@ -37,11 +37,22 @@ type DeleteRoundReference = FunctionReference<
   { success: boolean }
 >;
 
+type SwapRoundScheduleSlotsReference = FunctionReference<
+  "mutation",
+  "public",
+  {
+    firstRoundId: Id<"rounds">;
+    secondRoundId: Id<"rounds">;
+  },
+  { success: boolean }
+>;
+
 // Frontend/server-app contract boundary for Convex function references.
 export const api = generatedApi as typeof generatedApi & {
   rounds: typeof generatedApi.rounds & {
     createRound: CreateRoundReference;
     deleteRound: DeleteRoundReference;
     sendParticipationReminder: SendParticipationReminderReference;
+    swapRoundScheduleSlots: SwapRoundScheduleSlotsReference;
   };
 };

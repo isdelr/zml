@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildLeagueRoundSchedule,
   buildNextRoundStartNowPatchesAfterFinish,
+  buildRoundScheduleSwapPatches,
   buildRoundShiftPatches,
   buildRoundStartNowPatches,
   buildScheduledRoundResequencePatches,
@@ -262,5 +263,208 @@ describe("round schedule", () => {
         },
       ],
     });
+  });
+
+  it("swaps two scheduled round schedule slots", () => {
+    const rounds = [
+      {
+        _id: "round-1",
+        order: 0,
+        status: "scheduled" as const,
+        submissionStartsAt: new Date("2026-04-01T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-04-04T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-04-07T00:00:00Z").getTime(),
+      },
+      {
+        _id: "round-2",
+        order: 1,
+        status: "scheduled" as const,
+        submissionStartsAt: new Date("2026-04-08T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-04-11T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-04-14T00:00:00Z").getTime(),
+      },
+    ];
+
+    expect(
+      buildRoundScheduleSwapPatches({
+        rounds,
+        firstRoundId: "round-1",
+        secondRoundId: "round-2",
+        submissionHours: 72,
+      }),
+    ).toEqual([
+      {
+        roundId: "round-1",
+        patch: {
+          order: 1,
+          status: "scheduled",
+          submissionStartsAt: new Date("2026-04-08T00:00:00Z").getTime(),
+          submissionDeadline: new Date("2026-04-11T00:00:00Z").getTime(),
+          votingDeadline: new Date("2026-04-14T00:00:00Z").getTime(),
+        },
+      },
+      {
+        roundId: "round-2",
+        patch: {
+          order: 0,
+          status: "scheduled",
+          submissionStartsAt: new Date("2026-04-01T00:00:00Z").getTime(),
+          submissionDeadline: new Date("2026-04-04T00:00:00Z").getTime(),
+          votingDeadline: new Date("2026-04-07T00:00:00Z").getTime(),
+        },
+      },
+    ]);
+  });
+
+  it("swaps a submissions round with a scheduled round", () => {
+    const rounds = [
+      {
+        _id: "round-1",
+        order: 0,
+        status: "submissions" as const,
+        submissionStartsAt: new Date("2026-03-25T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-03-28T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-03-31T00:00:00Z").getTime(),
+      },
+      {
+        _id: "round-2",
+        order: 1,
+        status: "scheduled" as const,
+        submissionStartsAt: new Date("2026-04-01T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-04-04T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-04-07T00:00:00Z").getTime(),
+      },
+    ];
+
+    expect(
+      buildRoundScheduleSwapPatches({
+        rounds,
+        firstRoundId: "round-1",
+        secondRoundId: "round-2",
+        submissionHours: 72,
+      }),
+    ).toEqual([
+      {
+        roundId: "round-1",
+        patch: {
+          order: 1,
+          status: "scheduled",
+          submissionStartsAt: new Date("2026-04-01T00:00:00Z").getTime(),
+          submissionDeadline: new Date("2026-04-04T00:00:00Z").getTime(),
+          votingDeadline: new Date("2026-04-07T00:00:00Z").getTime(),
+        },
+      },
+      {
+        roundId: "round-2",
+        patch: {
+          order: 0,
+          status: "submissions",
+          submissionStartsAt: new Date("2026-03-25T00:00:00Z").getTime(),
+          submissionDeadline: new Date("2026-03-28T00:00:00Z").getTime(),
+          votingDeadline: new Date("2026-03-31T00:00:00Z").getTime(),
+        },
+      },
+    ]);
+  });
+
+  it("swaps non-adjacent rounds without touching the middle slot", () => {
+    const rounds = [
+      {
+        _id: "round-1",
+        order: 0,
+        status: "submissions" as const,
+        submissionStartsAt: new Date("2026-03-25T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-03-28T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-03-31T00:00:00Z").getTime(),
+      },
+      {
+        _id: "round-2",
+        order: 1,
+        status: "scheduled" as const,
+        submissionStartsAt: new Date("2026-04-01T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-04-04T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-04-07T00:00:00Z").getTime(),
+      },
+      {
+        _id: "round-3",
+        order: 2,
+        status: "scheduled" as const,
+        submissionStartsAt: new Date("2026-04-08T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-04-11T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-04-14T00:00:00Z").getTime(),
+      },
+    ];
+
+    expect(
+      buildRoundScheduleSwapPatches({
+        rounds,
+        firstRoundId: "round-1",
+        secondRoundId: "round-3",
+        submissionHours: 72,
+      }).map(({ roundId }) => roundId),
+    ).toEqual(["round-1", "round-3"]);
+  });
+
+  it("normalizes legacy round order values while swapping", () => {
+    const rounds = [
+      {
+        _id: "round-1",
+        _creationTime: 10,
+        status: "submissions" as const,
+        submissionStartsAt: new Date("2026-03-25T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-03-28T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-03-31T00:00:00Z").getTime(),
+      },
+      {
+        _id: "round-2",
+        _creationTime: 20,
+        status: "scheduled" as const,
+        submissionStartsAt: new Date("2026-04-01T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-04-04T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-04-07T00:00:00Z").getTime(),
+      },
+      {
+        _id: "round-3",
+        _creationTime: 30,
+        status: "scheduled" as const,
+        submissionStartsAt: new Date("2026-04-08T00:00:00Z").getTime(),
+        submissionDeadline: new Date("2026-04-11T00:00:00Z").getTime(),
+        votingDeadline: new Date("2026-04-14T00:00:00Z").getTime(),
+      },
+    ];
+
+    expect(
+      buildRoundScheduleSwapPatches({
+        rounds,
+        firstRoundId: "round-1",
+        secondRoundId: "round-3",
+        submissionHours: 72,
+      }),
+    ).toEqual([
+      {
+        roundId: "round-1",
+        patch: {
+          order: 2,
+          status: "scheduled",
+          submissionStartsAt: new Date("2026-04-08T00:00:00Z").getTime(),
+          submissionDeadline: new Date("2026-04-11T00:00:00Z").getTime(),
+          votingDeadline: new Date("2026-04-14T00:00:00Z").getTime(),
+        },
+      },
+      {
+        roundId: "round-2",
+        patch: { order: 1 },
+      },
+      {
+        roundId: "round-3",
+        patch: {
+          order: 0,
+          status: "submissions",
+          submissionStartsAt: new Date("2026-03-25T00:00:00Z").getTime(),
+          submissionDeadline: new Date("2026-03-28T00:00:00Z").getTime(),
+          votingDeadline: new Date("2026-03-31T00:00:00Z").getTime(),
+        },
+      },
+    ]);
   });
 });

@@ -27,6 +27,22 @@ export type BuiltRoundSchedule = {
   votingDeadline: number;
 };
 
+export type SwappableRoundScheduleStatus = Extract<
+  RoundLifecycleStatus,
+  "scheduled" | "submissions"
+>;
+
+export type RoundScheduleSwapPatch = {
+  roundId: string;
+  patch: {
+    order?: number;
+    status?: SwappableRoundScheduleStatus;
+    submissionStartsAt?: number;
+    submissionDeadline?: number;
+    votingDeadline?: number;
+  };
+};
+
 export function hoursToMs(hours: number): number {
   return hours * HOUR_MS;
 }
@@ -247,6 +263,100 @@ export function buildNextRoundStartNowPatchesAfterFinish<
       submissionHours: args.submissionHours,
     }),
   };
+}
+
+function isSwappableRoundScheduleStatus(
+  status: RoundLifecycleStatus,
+): status is SwappableRoundScheduleStatus {
+  return status === "scheduled" || status === "submissions";
+}
+
+function getRoundScheduleSlot<TRound extends RoundScheduleShape>(
+  round: TRound,
+  order: number,
+  submissionHours: number,
+) {
+  return {
+    order,
+    status: round.status as SwappableRoundScheduleStatus,
+    submissionStartsAt: getSubmissionStart(round, submissionHours),
+    submissionDeadline: round.submissionDeadline,
+    votingDeadline: round.votingDeadline,
+  };
+}
+
+export function buildRoundScheduleSwapPatches<
+  TRound extends RoundScheduleShape & { _id: string },
+>(args: {
+  rounds: TRound[];
+  firstRoundId: string;
+  secondRoundId: string;
+  submissionHours: number;
+}): RoundScheduleSwapPatch[] {
+  if (args.firstRoundId === args.secondRoundId) {
+    return [];
+  }
+
+  const sortedRounds = sortRoundsInLeagueOrder(args.rounds);
+  const firstIndex = sortedRounds.findIndex(
+    (round) => round._id.toString() === args.firstRoundId,
+  );
+  const secondIndex = sortedRounds.findIndex(
+    (round) => round._id.toString() === args.secondRoundId,
+  );
+
+  if (firstIndex === -1 || secondIndex === -1) {
+    return [];
+  }
+
+  const firstRound = sortedRounds[firstIndex];
+  const secondRound = sortedRounds[secondIndex];
+
+  if (
+    !isSwappableRoundScheduleStatus(firstRound.status) ||
+    !isSwappableRoundScheduleStatus(secondRound.status)
+  ) {
+    return [];
+  }
+
+  const swappedSlots = new Map<string, ReturnType<typeof getRoundScheduleSlot>>([
+    [
+      firstRound._id.toString(),
+      getRoundScheduleSlot(
+        secondRound,
+        secondIndex,
+        args.submissionHours,
+      ),
+    ],
+    [
+      secondRound._id.toString(),
+      getRoundScheduleSlot(firstRound, firstIndex, args.submissionHours),
+    ],
+  ]);
+
+  const patches: RoundScheduleSwapPatch[] = [];
+
+  sortedRounds.forEach((round, index) => {
+    const roundId = round._id.toString();
+    const swappedSlot = swappedSlots.get(roundId);
+
+    if (swappedSlot) {
+      patches.push({
+        roundId,
+        patch: swappedSlot,
+      });
+      return;
+    }
+
+    if (round.order !== index) {
+      patches.push({
+        roundId,
+        patch: { order: index },
+      });
+    }
+  });
+
+  return patches;
 }
 
 export function buildScheduledRoundResequencePatches<

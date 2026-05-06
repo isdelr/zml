@@ -46,6 +46,7 @@ import {
 import { getVoteLimits } from "../lib/convex-server/voteLimits";
 import {
   buildLeagueRoundSchedule,
+  buildRoundScheduleSwapPatches,
   buildRoundStartNowPatches,
   buildRoundShiftPatches,
   buildScheduledRoundResequencePatches,
@@ -1283,6 +1284,163 @@ export const deleteRound = mutation({
         .filter((membership) => membership.userId !== userId)
         .map((membership) => membership.userId),
     });
+
+    return { success: true };
+  },
+});
+
+export const swapRoundScheduleSlots = mutation({
+  args: {
+    firstRoundId: v.id("rounds"),
+    secondRoundId: v.id("rounds"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    if (args.firstRoundId === args.secondRoundId) {
+      throw new Error("Choose two different rounds to swap.");
+    }
+
+    const [firstRound, secondRound] = await Promise.all([
+      ctx.db.get(args.firstRoundId),
+      ctx.db.get(args.secondRoundId),
+    ]);
+
+    if (!firstRound || !secondRound) {
+      throw new Error("Round not found.");
+    }
+
+    if (firstRound.leagueId.toString() !== secondRound.leagueId.toString()) {
+      throw new Error("Rounds must belong to the same league.");
+    }
+
+    const { league, userId } = await requireOwnerManagerOrGlobalAdmin(
+      ctx,
+      firstRound.leagueId,
+    );
+
+    const isSwappableStatus = (status: Doc<"rounds">["status"]) =>
+      status === "scheduled" || status === "submissions";
+
+    if (
+      !isSwappableStatus(firstRound.status) ||
+      !isSwappableStatus(secondRound.status)
+    ) {
+      throw new Error(
+        "Only scheduled rounds and rounds accepting submissions can be swapped.",
+      );
+    }
+
+    const leagueRounds = await ctx.db
+      .query("rounds")
+      .withIndex("by_league", (q) => q.eq("leagueId", firstRound.leagueId))
+      .collect();
+    const schedulePatches = buildRoundScheduleSwapPatches({
+      rounds: leagueRounds.map((leagueRound) => ({
+        ...leagueRound,
+        _id: leagueRound._id.toString(),
+      })),
+      firstRoundId: firstRound._id.toString(),
+      secondRoundId: secondRound._id.toString(),
+      submissionHours: league.submissionDeadline,
+    });
+
+    if (schedulePatches.length === 0) {
+      throw new Error("Could not determine the updated round schedule.");
+    }
+
+    const patchByRoundId = new Map(
+      schedulePatches.map(({ roundId, patch }) => [roundId, patch]),
+    );
+    const now = Date.now();
+
+    for (const { patch } of schedulePatches) {
+      if (
+        patch.status === "scheduled" &&
+        patch.submissionStartsAt !== undefined &&
+        patch.submissionStartsAt < now
+      ) {
+        throw new Error("Cannot schedule a round to start in the past.");
+      }
+
+      if (
+        patch.status === "submissions" &&
+        patch.submissionDeadline !== undefined &&
+        patch.submissionDeadline < now
+      ) {
+        throw new Error(
+          "Cannot open submissions with a deadline in the past.",
+        );
+      }
+    }
+
+    const swappedRounds = [firstRound, secondRound];
+    const roundBecomingSubmissions = swappedRounds.find((round) => {
+      const patch = patchByRoundId.get(round._id.toString());
+      return round.status !== "submissions" && patch?.status === "submissions";
+    });
+    const roundLeavingSubmissions = swappedRounds.find((round) => {
+      const patch = patchByRoundId.get(round._id.toString());
+      return round.status === "submissions" && patch?.status === "scheduled";
+    });
+
+    await Promise.all(
+      schedulePatches.map(({ roundId, patch }) =>
+        ctx.db.patch("rounds", roundId as Id<"rounds">, patch),
+      ),
+    );
+
+    if (roundLeavingSubmissions) {
+      await ctx.scheduler.runAfter(0, internal.extensionPolls.closeOpenForRound, {
+        roundId: roundLeavingSubmissions._id,
+      });
+    }
+
+    const activeMemberships = (
+      await ctx.db
+        .query("memberships")
+        .withIndex("by_league", (q) => q.eq("leagueId", firstRound.leagueId))
+        .collect()
+    ).filter((membership) => !membership.isBanned && !membership.isSpectator);
+
+    const notificationRound = roundBecomingSubmissions ?? firstRound;
+    const notificationPatch =
+      patchByRoundId.get(notificationRound._id.toString()) ?? {};
+    const notificationStatus =
+      notificationPatch.status ?? notificationRound.status;
+    const notificationDeadline =
+      notificationStatus === "submissions"
+        ? notificationPatch.submissionDeadline
+        : notificationPatch.submissionStartsAt;
+    const message =
+      roundBecomingSubmissions && roundLeavingSubmissions
+        ? `"${roundBecomingSubmissions.title}" is now open for submissions in "${league.name}". "${roundLeavingSubmissions.title}" moved to the later scheduled slot.`
+        : `The rounds "${firstRound.title}" and "${secondRound.title}" swapped places in "${league.name}".`;
+
+    await ctx.scheduler.runAfter(0, internal.discordBot.dispatchRoundNotification, {
+      leagueId: firstRound.leagueId,
+      roundId: notificationRound._id,
+      roundTitle: notificationRound.title,
+      roundStatus:
+        notificationStatus === "submissions" ? "submissions" : "scheduled",
+      reminderKind: "schedule_changed",
+      message,
+      deadlineMs: notificationDeadline,
+      source: `round-schedule:${firstRound.leagueId}:swapped:${firstRound._id}:${secondRound._id}:${now}`,
+      actionUrl: `/leagues/${firstRound.leagueId}/round/${notificationRound._id}`,
+      targetUserIds: activeMemberships
+        .filter((membership) => membership.userId !== userId)
+        .map((membership) => membership.userId),
+    });
+
+    if (roundBecomingSubmissions) {
+      await maybeAutoStartVotingAfterSubmissionCompletion(
+        ctx,
+        roundBecomingSubmissions._id,
+        userId,
+      );
+    }
 
     return { success: true };
   },

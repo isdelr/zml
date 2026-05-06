@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import {
+  ArrowLeftRight,
   Clock3,
   Loader2,
   PlusCircle,
@@ -113,13 +114,51 @@ function getRoundScheduleSummary(round: RoundForLeague) {
   return `Finished ${formatShortDateTime(round.votingDeadline)}`;
 }
 
+function isRoundSwappable(round: RoundForLeague) {
+  return round.status === "scheduled" || round.status === "submissions";
+}
+
+function getRoundSwapPreview(
+  firstRound: RoundForLeague | null,
+  secondRound: RoundForLeague | null,
+) {
+  if (!firstRound || !secondRound) {
+    return "Choose two rounds to preview the swap.";
+  }
+
+  const firstSummary = getRoundScheduleSummary(firstRound).toLowerCase();
+  const secondSummary = getRoundScheduleSummary(secondRound).toLowerCase();
+
+  if (
+    firstRound.status === "submissions" &&
+    secondRound.status === "scheduled"
+  ) {
+    return `"${secondRound.title}" will open for submissions with the current submission deadline. "${firstRound.title}" will move to the scheduled slot: ${secondSummary}.`;
+  }
+
+  if (
+    firstRound.status === "scheduled" &&
+    secondRound.status === "submissions"
+  ) {
+    return `"${firstRound.title}" will open for submissions with the current submission deadline. "${secondRound.title}" will move to the scheduled slot: ${firstSummary}.`;
+  }
+
+  return `"${firstRound.title}" will move to ${secondSummary}, and "${secondRound.title}" will move to ${firstSummary}.`;
+}
+
 export function RoundsTab({ league }: RoundsTabProps) {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const createRound = useMutation(api.rounds.createRound);
   const deleteRound = useMutation(api.rounds.deleteRound);
+  const swapRoundScheduleSlots = useMutation(api.rounds.swapRoundScheduleSlots);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false);
+  const [swapFirstRoundId, setSwapFirstRoundId] =
+    useState<Id<"rounds"> | null>(null);
+  const [swapSecondRoundId, setSwapSecondRoundId] =
+    useState<Id<"rounds"> | null>(null);
   const [roundPendingDelete, setRoundPendingDelete] =
     useState<RoundForLeague | null>(null);
   const selectedRoundId = (
@@ -140,6 +179,29 @@ export function RoundsTab({ league }: RoundsTabProps) {
     control: form.control,
     name: "submissionMode",
   });
+  const swappableRounds = rounds.filter(isRoundSwappable);
+  const selectedSwapFirstRound =
+    swappableRounds.find((round) => round._id === swapFirstRoundId) ?? null;
+  const selectedSwapSecondRound =
+    swappableRounds.find((round) => round._id === swapSecondRoundId) ?? null;
+  const canSubmitSwap =
+    swapFirstRoundId !== null &&
+    swapSecondRoundId !== null &&
+    swapFirstRoundId !== swapSecondRoundId;
+
+  const getDefaultSwapSecondRoundId = (firstRoundId: Id<"rounds"> | null) =>
+    swappableRounds.find((round) => round._id !== firstRoundId)?._id ?? null;
+
+  const openSwapDialog = (initialRound?: RoundForLeague) => {
+    const firstRoundId =
+      initialRound && isRoundSwappable(initialRound)
+        ? initialRound._id
+        : (swappableRounds[0]?._id ?? null);
+
+    setSwapFirstRoundId(firstRoundId);
+    setSwapSecondRoundId(getDefaultSwapSecondRoundId(firstRoundId));
+    setIsSwapDialogOpen(true);
+  };
 
   const handleCreateRound = async (values: RoundManagementValues) => {
     const promise = createRound({
@@ -200,6 +262,26 @@ export function RoundsTab({ league }: RoundsTabProps) {
     }
   };
 
+  const handleSwapRounds = async () => {
+    if (!canSubmitSwap || !swapFirstRoundId || !swapSecondRoundId) {
+      return;
+    }
+
+    const promise = swapRoundScheduleSlots({
+      firstRoundId: swapFirstRoundId,
+      secondRoundId: swapSecondRoundId,
+    });
+
+    toast.promise(promise, {
+      loading: "Swapping rounds...",
+      success: "Rounds swapped.",
+      error: (error) => toErrorMessage(error, "Failed to swap rounds."),
+    });
+
+    await promise;
+    setIsSwapDialogOpen(false);
+  };
+
   return (
     <>
       <div className="space-y-4">
@@ -211,10 +293,21 @@ export function RoundsTab({ league }: RoundsTabProps) {
               rounds can be removed to protect active play and finished results.
             </p>
           </div>
-          <Button type="button" onClick={() => setIsCreateDialogOpen(true)}>
-            <PlusCircle className="mr-2 size-4" />
-            Add Round
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={swappableRounds.length < 2}
+              onClick={() => openSwapDialog()}
+            >
+              <ArrowLeftRight className="mr-2 size-4" />
+              Swap rounds
+            </Button>
+            <Button type="button" onClick={() => setIsCreateDialogOpen(true)}>
+              <PlusCircle className="mr-2 size-4" />
+              Add Round
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -232,6 +325,7 @@ export function RoundsTab({ league }: RoundsTabProps) {
                 const statusBadge = getRoundStatusBadge(round);
                 const StatusIcon = statusBadge.icon;
                 const canDelete = round.status === "scheduled";
+                const canSwap = isRoundSwappable(round);
 
                 return (
                   <div
@@ -255,22 +349,37 @@ export function RoundsTab({ league }: RoundsTabProps) {
                         </p>
                       </div>
 
-                      {canDelete ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => setRoundPendingDelete(round)}
-                        >
-                          <Trash2 className="mr-2 size-4" />
-                          Delete
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          Locked
-                        </span>
-                      )}
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {canSwap ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={swappableRounds.length < 2}
+                            onClick={() => openSwapDialog(round)}
+                          >
+                            <ArrowLeftRight className="mr-2 size-4" />
+                            Swap
+                          </Button>
+                        ) : null}
+                        {canDelete ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => setRoundPendingDelete(round)}
+                          >
+                            <Trash2 className="mr-2 size-4" />
+                            Delete
+                          </Button>
+                        ) : null}
+                        {!canSwap && !canDelete ? (
+                          <span className="text-xs text-muted-foreground">
+                            Locked
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 );
@@ -589,6 +698,119 @@ export function RoundsTab({ league }: RoundsTabProps) {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isSwapDialogOpen}
+        onOpenChange={(open) => {
+          setIsSwapDialogOpen(open);
+          if (!open) {
+            setSwapFirstRoundId(null);
+            setSwapSecondRoundId(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Swap rounds</DialogTitle>
+            <DialogDescription>
+              Exchange the schedule slots for two scheduled or submission
+              rounds. Voting and finished rounds stay locked.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">First round</label>
+                <Select
+                  value={swapFirstRoundId ?? ""}
+                  onValueChange={(value) => {
+                    const nextRoundId = value as Id<"rounds">;
+                    setSwapFirstRoundId(nextRoundId);
+                    if (nextRoundId === swapSecondRoundId) {
+                      setSwapSecondRoundId(
+                        getDefaultSwapSecondRoundId(nextRoundId),
+                      );
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full" aria-label="First round">
+                    <SelectValue placeholder="Select a round" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {swappableRounds.map((round) => (
+                      <SelectItem
+                        key={round._id}
+                        value={round._id}
+                        disabled={round._id === swapSecondRoundId}
+                      >
+                        {round.title} - {getRoundStatusBadge(round).label} -{" "}
+                        {getRoundScheduleSummary(round)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Second round</label>
+                <Select
+                  value={swapSecondRoundId ?? ""}
+                  onValueChange={(value) => {
+                    const nextRoundId = value as Id<"rounds">;
+                    setSwapSecondRoundId(nextRoundId);
+                    if (nextRoundId === swapFirstRoundId) {
+                      setSwapFirstRoundId(
+                        getDefaultSwapSecondRoundId(nextRoundId),
+                      );
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full" aria-label="Second round">
+                    <SelectValue placeholder="Select a round" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {swappableRounds.map((round) => (
+                      <SelectItem
+                        key={round._id}
+                        value={round._id}
+                        disabled={round._id === swapFirstRoundId}
+                      >
+                        {round.title} - {getRoundStatusBadge(round).label} -{" "}
+                        {getRoundScheduleSummary(round)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+              {getRoundSwapPreview(
+                selectedSwapFirstRound,
+                selectedSwapSecondRound,
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsSwapDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!canSubmitSwap}
+              onClick={() => void handleSwapRounds()}
+            >
+              Swap rounds
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
