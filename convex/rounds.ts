@@ -5,6 +5,7 @@ import {
   internalMutation,
   internalAction,
   internalQuery,
+  type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
 import { getAuthUserId } from "./authCore";
@@ -146,6 +147,40 @@ function getNextRoundOrder(rounds: Array<Pick<Doc<"rounds">, "order">>) {
       -1,
     ) + 1
   );
+}
+
+async function claimRoundImageUpload(
+  ctx: Pick<MutationCtx, "runMutation">,
+  input: {
+    key: string;
+    ownerUserId: Id<"users">;
+    roundId: Id<"rounds">;
+  },
+) {
+  await ctx.runMutation(internal.files.claimStorageUpload, {
+    key: input.key,
+    ownerUserId: input.ownerUserId,
+    kind: "league_image",
+    claimType: "round_image",
+    claimId: input.roundId,
+  });
+}
+
+async function scheduleRoundImageDeletion(
+  ctx: Pick<MutationCtx, "scheduler">,
+  key: string | null | undefined,
+) {
+  if (!key) {
+    return;
+  }
+
+  await ctx.scheduler.runAfter(0, internal.submissions.deleteSubmissionFiles, {
+    keys: [key],
+    failureLabel: "stale round image",
+  });
+  await ctx.scheduler.runAfter(0, internal.files.markStorageUploadsDeleted, {
+    keys: [key],
+  });
 }
 
 export const get = query({
@@ -939,6 +974,7 @@ export const updateRound = mutation({
     roundId: v.id("rounds"),
     title: v.string(),
     description: v.string(),
+    imageKey: v.optional(v.union(v.string(), v.null())),
     submissionsPerUser: v.number(),
     maxPositiveVotes: v.optional(v.union(v.number(), v.null())),
     maxNegativeVotes: v.optional(v.union(v.number(), v.null())),
@@ -1049,8 +1085,33 @@ export const updateRound = mutation({
       }
     }
 
-    const { roundId, ...updates } = args;
-    await ctx.db.patch("rounds", roundId, updates);
+    const { roundId, imageKey, ...updates } = args;
+    const nextImageKey =
+      imageKey === undefined ? round.imageKey : (imageKey ?? undefined);
+
+    if (
+      imageKey !== undefined &&
+      nextImageKey &&
+      nextImageKey !== round.imageKey
+    ) {
+      await claimRoundImageUpload(ctx, {
+        key: nextImageKey,
+        ownerUserId: adminUserId,
+        roundId,
+      });
+    }
+
+    const patch: Partial<Doc<"rounds">> = { ...updates };
+    if (imageKey !== undefined) {
+      patch.imageKey = nextImageKey;
+    }
+
+    await ctx.db.patch("rounds", roundId, patch);
+
+    if (imageKey !== undefined && round.imageKey !== nextImageKey) {
+      await scheduleRoundImageDeletion(ctx, round.imageKey);
+    }
+
     return "Round updated successfully.";
   },
 });

@@ -252,7 +252,10 @@ export async function buildRoundImageMediaUrl(input: {
   storageKey: string;
   scope: MediaAccessScope;
 }): Promise<string> {
-  return buildRoundImageMediaPath(input.roundId);
+  return appendMediaCacheVersion(
+    buildRoundImageMediaPath(input.roundId),
+    input.storageKey,
+  );
 }
 
 export async function buildUserAvatarMediaUrl(input: {

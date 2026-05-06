@@ -46,7 +46,7 @@ import {
 } from "@/lib/rounds/deadline-adjustments";
 
 interface RoundAdminControlsProps {
-  round: Doc<"rounds">;
+  round: Doc<"rounds"> & { art?: string | null };
   submissions:
     | FunctionReturnType<typeof api.submissions.getForRound>
     | undefined;
