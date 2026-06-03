@@ -5,9 +5,9 @@ import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "./authCore";
 import { Doc } from "./_generated/dataModel";
 import {
-  getAllowedProgressJumpSeconds,
   getCanonicalSubmissionDurationInfo,
   getCappedProgressSeconds,
+  getCompletionAttemptDurationSeconds,
   getCompletionSyncProgressSeconds,
   getRequiredListenTimeSeconds,
   hasCompletedRequiredListenTime,
@@ -367,6 +367,8 @@ export const updateProgress = mutation({
   args: {
     submissionId: v.id("submissions"),
     progressSeconds: v.number(),
+    isCompletionAttempt: v.optional(v.boolean()),
+    mediaDurationSeconds: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<UpdateProgressResult | null> => {
     const userId = await getAuthUserId(ctx);
@@ -389,10 +391,21 @@ export const updateProgress = mutation({
 
     // If we still don't have a usable duration (e.g., malformed file submission), skip.
     if (!durationInfo) return null;
-    const { durationSec, shouldPersistDuration } = durationInfo;
+    const canonicalDurationSec = durationInfo.durationSec;
+    const durationSec = getCompletionAttemptDurationSeconds({
+      canonicalDurationSeconds: canonicalDurationSec,
+      mediaDurationSeconds: args.mediaDurationSeconds,
+      progressSeconds: args.progressSeconds,
+      isCompletionAttempt: args.isCompletionAttempt,
+    });
 
-    if (shouldPersistDuration) {
-      await ctx.db.patch("submissions", submission._id, { duration: durationSec });
+    if (
+      durationInfo.shouldPersistDuration &&
+      durationSec === canonicalDurationSec
+    ) {
+      await ctx.db.patch("submissions", submission._id, {
+        duration: canonicalDurationSec,
+      });
     }
 
     const league = await ctx.db.get("leagues", submission.leagueId);
@@ -401,7 +414,7 @@ export const updateProgress = mutation({
       return null;
     }
 
-    // Normalize and clamp reported progress to [0, durationSec] and to integer seconds
+    // Normalize and clamp reported progress to the duration used for this decision.
     const reported = Math.max(
       0,
       Math.min(durationSec, Math.floor(args.progressSeconds)),
@@ -418,6 +431,48 @@ export const updateProgress = mutation({
     if (existing?.isCompleted) {
       return {
         progressSeconds: existing.progressSeconds,
+        isCompleted: true,
+      };
+    }
+
+    const existingProgressSeconds = existing?.progressSeconds ?? 0;
+    const completionAttemptProgress = getCompletionSyncProgressSeconds({
+      progressSeconds: Math.max(existingProgressSeconds, reported),
+      durationSeconds: durationSec,
+      listenPercentage: league.listenPercentage,
+      listenTimeLimitMinutes: league.listenTimeLimitMinutes,
+    });
+    const completionAttemptCompleted =
+      args.isCompletionAttempt === true &&
+      hasCompletedRequiredListenTime(
+        completionAttemptProgress,
+        durationSec,
+        league.listenPercentage,
+        league.listenTimeLimitMinutes,
+      );
+
+    if (completionAttemptCompleted) {
+      const progressSeconds = Math.max(
+        existingProgressSeconds,
+        completionAttemptProgress,
+      );
+      if (existing) {
+        await ctx.db.patch("listenProgress", existing._id, {
+          progressSeconds,
+          isCompleted: true,
+          roundId: submission.roundId,
+        });
+      } else {
+        await ctx.db.insert("listenProgress", {
+          userId,
+          submissionId: args.submissionId,
+          roundId: submission.roundId,
+          progressSeconds,
+          isCompleted: true,
+        });
+      }
+      return {
+        progressSeconds,
         isCompleted: true,
       };
     }
@@ -450,13 +505,6 @@ export const updateProgress = mutation({
         isCompleted: completed,
       };
     }
-
-    // Anti-tampering: Bound unnaturally large jumps forward between updates.
-    // Use a bounded allowance that scales gently with track length.
-    // - Minimum allowance: 15s (network hiccups, tab throttling)
-    // - Maximum allowance: 60s (prevent huge leaps)
-    // - Also consider up to 10% of track length for very short tracks.
-    const allowedJumpSec = getAllowedProgressJumpSeconds(durationSec);
 
     if (existing) {
       const newProgress = getCappedProgressSeconds(
@@ -495,7 +543,7 @@ export const updateProgress = mutation({
     } else {
       // First record: bound the initial write to the same anti-tamper jump window
       // instead of dropping to 0, so progress cannot get stuck after throttled ticks.
-      const initialProgress = Math.min(reported, allowedJumpSec);
+      const initialProgress = getCappedProgressSeconds(0, reported, durationSec);
       const effectiveProgress = getCompletionSyncProgressSeconds({
         progressSeconds: initialProgress,
         durationSeconds: durationSec,

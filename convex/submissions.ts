@@ -44,6 +44,7 @@ import {
   shouldRevealCommentIdentity,
 } from "../lib/comments/visibility";
 import { maybeAutoStartVotingAfterSubmissionCompletion } from "../lib/convex-server/rounds/auto-transition";
+import { getDurationFromWaveformJson } from "../lib/music/listen-progress";
 import { getUserSubmissionCompletionCount } from "../lib/rounds/submission-completion";
 import { parseWaveformJson } from "../lib/submission/waveform-json";
 
@@ -76,6 +77,7 @@ const storeWaveformInternalRef = makeFunctionReference<
   {
     submissionId: Id<"submissions">;
     waveformJson?: string;
+    replaceExisting?: boolean;
   }
 >("submissions:storeWaveformInternal") as unknown as FunctionReference<
   "mutation",
@@ -83,6 +85,7 @@ const storeWaveformInternalRef = makeFunctionReference<
   {
     submissionId: Id<"submissions">;
     waveformJson?: string;
+    replaceExisting?: boolean;
   }
 >;
 
@@ -746,6 +749,7 @@ export const editSong = mutation({
       updates.songFileKey = undefined;
       updates.originalSongFileKey = args.songFileKey ?? undefined;
       updates.songFileLegacyKey = undefined;
+      updates.waveform = undefined;
       updates.fileProcessingStatus = args.songFileKey ? "queued" : undefined;
       updates.fileProcessingError = undefined;
       updates.fileProcessingQueuedAt = args.songFileKey
@@ -788,6 +792,7 @@ export const editSong = mutation({
       updates.songFileKey = undefined;
       updates.originalSongFileKey = undefined;
       updates.songFileLegacyKey = undefined;
+      updates.waveform = undefined;
       updates.fileProcessingStatus = "ready";
       updates.fileProcessingError = undefined;
       updates.fileProcessingStartedAt = undefined;
@@ -1514,6 +1519,7 @@ export const storeWaveformInternal = internalMutation({
   args: {
     submissionId: v.id("submissions"),
     waveformJson: v.optional(v.string()),
+    replaceExisting: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     if (!args.waveformJson) {
@@ -1523,7 +1529,7 @@ export const storeWaveformInternal = internalMutation({
     if (!submission) {
       throw new Error("Submission not found");
     }
-    if (submission.waveform) {
+    if (submission.waveform && !args.replaceExisting) {
       // Keep a valid existing waveform, but allow replacing malformed legacy seed values.
       if (parseWaveformJson(submission.waveform)?.isCurrent) {
         return;
@@ -1770,6 +1776,7 @@ export const completeQueuedSubmissionAudioProcessing = internalMutation({
     submissionId: v.id("submissions"),
     expectedSourceKey: v.string(),
     convertedSongFileKey: v.string(),
+    waveformJson: v.optional(v.string()),
   },
   returns: v.object({
     applied: v.boolean(),
@@ -1796,10 +1803,13 @@ export const completeQueuedSubmissionAudioProcessing = internalMutation({
       submission.songFileKey !== args.convertedSongFileKey
         ? submission.songFileKey
         : null;
+    const waveformDurationSec = getDurationFromWaveformJson(args.waveformJson);
 
     await ctx.db.patch("submissions", args.submissionId, {
       songFileKey: args.convertedSongFileKey,
       originalSongFileKey: undefined,
+      ...(args.waveformJson ? { waveform: args.waveformJson } : {}),
+      ...(waveformDurationSec !== null ? { duration: waveformDurationSec } : {}),
       fileProcessingStatus: "ready",
       fileProcessingError: undefined,
       fileProcessingCompletedAt: Date.now(),
@@ -1898,6 +1908,7 @@ export const processQueuedSubmissionAudio = internalAction({
           submissionId: args.submissionId,
           expectedSourceKey: sourceKey,
           convertedSongFileKey,
+          waveformJson: payload.waveformJson,
         },
       );
 
@@ -1918,20 +1929,6 @@ export const processQueuedSubmissionAudio = internalAction({
           }
         }
         return { processed: false };
-      }
-
-      if (payload.waveformJson) {
-        try {
-          await ctx.runMutation(storeWaveformInternalRef, {
-            submissionId: args.submissionId,
-            waveformJson: payload.waveformJson,
-          });
-        } catch (error) {
-          console.error(
-            `Failed to store generated waveform for submission "${args.submissionId}"`,
-            error,
-          );
-        }
       }
 
       for (const key of keysToDelete) {

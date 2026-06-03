@@ -25,14 +25,6 @@ type NextProgressSyncParams = {
   durationSeconds: number;
 };
 
-type CompletionCatchUpSyncParams = {
-  desiredProgressSeconds: number;
-  lastKnownProgressSeconds: number;
-  durationSeconds: number;
-  listenPercentage: number | null | undefined;
-  listenTimeLimitMinutes: number | null | undefined;
-};
-
 type CompletionSyncProgressParams = {
   progressSeconds: number;
   durationSeconds: number;
@@ -49,6 +41,13 @@ type CanonicalSubmissionDurationInfoArgs = {
   submissionType: "file" | "youtube";
   durationSeconds: number | null | undefined;
   waveformJson?: string;
+};
+
+type CompletionAttemptDurationParams = {
+  canonicalDurationSeconds: number;
+  mediaDurationSeconds: number | null | undefined;
+  progressSeconds: number;
+  isCompletionAttempt: boolean | null | undefined;
 };
 
 export type CanonicalSubmissionDurationInfo = {
@@ -312,36 +311,6 @@ export function getNextProgressSecondsToSync({
   return capped;
 }
 
-export function getCompletionCatchUpSyncAttempts({
-  desiredProgressSeconds,
-  lastKnownProgressSeconds,
-  durationSeconds,
-  listenPercentage,
-  listenTimeLimitMinutes,
-}: CompletionCatchUpSyncParams): number {
-  const desired = normalizeSeconds(desiredProgressSeconds);
-  const lastKnown = normalizeSeconds(lastKnownProgressSeconds);
-  const duration = normalizeSeconds(durationSeconds);
-  if (desired <= 0 || desired <= lastKnown) {
-    return 1;
-  }
-
-  const required = getRequiredListenTimeSeconds(
-    duration,
-    listenPercentage,
-    listenTimeLimitMinutes,
-  );
-  const target =
-    required > 0 && desired >= required ? Math.min(desired, required) : desired;
-  if (target <= lastKnown) {
-    return 1;
-  }
-
-  const jumpDurationBasis = duration > 0 ? duration : desired;
-  const allowedJumpSeconds = getAllowedProgressJumpSeconds(jumpDurationBasis);
-  return Math.max(1, Math.ceil((target - lastKnown) / allowedJumpSeconds));
-}
-
 export function getCompletionSyncProgressSeconds({
   progressSeconds,
   durationSeconds,
@@ -361,6 +330,32 @@ export function getCompletionSyncProgressSeconds({
 
   const grace = normalizeSeconds(graceSeconds);
   return progress + grace >= required ? required : progress;
+}
+
+export function getCompletionAttemptDurationSeconds({
+  canonicalDurationSeconds,
+  mediaDurationSeconds,
+  progressSeconds,
+  isCompletionAttempt,
+}: CompletionAttemptDurationParams): number {
+  const canonicalDuration = normalizeSeconds(canonicalDurationSeconds);
+  const mediaDuration =
+    typeof mediaDurationSeconds === "number"
+      ? normalizeSeconds(mediaDurationSeconds)
+      : 0;
+  const progress = normalizeSeconds(progressSeconds);
+
+  if (
+    isCompletionAttempt !== true ||
+    canonicalDuration <= 0 ||
+    mediaDuration <= 0 ||
+    mediaDuration >= canonicalDuration ||
+    progress < mediaDuration
+  ) {
+    return canonicalDuration;
+  }
+
+  return mediaDuration;
 }
 
 export function hasCompletedSavedListenProgress({

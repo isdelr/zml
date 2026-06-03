@@ -30,7 +30,6 @@ import {
 } from "@/lib/music/youtube-playlist-session";
 import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
 import {
-  getCompletionCatchUpSyncAttempts,
   getCompletionSyncProgressSeconds,
   getTotalPlaylistRequiredListenSeconds,
 } from "@/lib/music/listen-progress";
@@ -444,7 +443,7 @@ export function MusicPlayer() {
       return null;
     }
 
-    const shouldCatchUpToCompletion =
+    const isCompletionAttempt =
       effectiveDuration > 0 &&
       shouldMarkListenCompleted(
         progressSeconds,
@@ -452,32 +451,19 @@ export function MusicPlayer() {
         leagueData.listenPercentage,
         leagueData.listenTimeLimitMinutes,
       );
-    const maxAttempts = shouldCatchUpToCompletion
-      ? getCompletionCatchUpSyncAttempts({
-          desiredProgressSeconds: progressSeconds,
-          lastKnownProgressSeconds:
-            currentTrackListenProgress?.progressSeconds ?? 0,
-          durationSeconds: effectiveDuration,
-          listenPercentage: leagueData.listenPercentage,
-          listenTimeLimitMinutes: leagueData.listenTimeLimitMinutes,
-        })
-      : 1;
 
-    let latestResult: { progressSeconds: number; isCompleted: boolean } | null =
-      null;
-    let lastPersistedProgress = currentTrackListenProgress?.progressSeconds ?? 0;
+    const result = await updateListenProgress({
+      submissionId: currentTrack._id,
+      progressSeconds,
+      ...(isCompletionAttempt
+        ? {
+            isCompletionAttempt: true,
+            mediaDurationSeconds: effectiveDuration,
+          }
+        : {}),
+    });
 
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      const result = await updateListenProgress({
-        submissionId: currentTrack._id,
-        progressSeconds,
-      });
-      latestResult = result;
-
-      if (!result) {
-        break;
-      }
-
+    if (result) {
       listenedUntilRef.current = Math.max(
         listenedUntilRef.current,
         result.progressSeconds,
@@ -486,21 +472,10 @@ export function MusicPlayer() {
 
       if (result.isCompleted) {
         actions.setListenProgress(currentTrack._id, true);
-        break;
       }
-
-      if (!shouldCatchUpToCompletion) {
-        break;
-      }
-
-      if (result.progressSeconds <= lastPersistedProgress) {
-        break;
-      }
-
-      lastPersistedProgress = result.progressSeconds;
     }
 
-    return latestResult;
+    return result;
   }, [
     actions,
     audioRef,

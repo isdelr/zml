@@ -3,7 +3,7 @@ import {
   getAllowedProgressJumpSeconds,
   getCanonicalSubmissionDurationInfo,
   getCappedProgressSeconds,
-  getCompletionCatchUpSyncAttempts,
+  getCompletionAttemptDurationSeconds,
   getCompletionSyncProgressSeconds,
   getPlaylistListenUnlocks,
   getRequiredListenTimeSeconds,
@@ -121,26 +121,33 @@ describe("listen progress sync helpers", () => {
     ).toBe(false);
   });
 
-  it("estimates bounded writes needed to catch up completion", () => {
+  it("uses shorter playable media duration only for reached completion attempts", () => {
     expect(
-      getCompletionCatchUpSyncAttempts({
-        desiredProgressSeconds: 300,
-        lastKnownProgressSeconds: 0,
-        durationSeconds: 300,
-        listenPercentage: 100,
-        listenTimeLimitMinutes: 15,
+      getCompletionAttemptDurationSeconds({
+        canonicalDurationSeconds: 322,
+        mediaDurationSeconds: 249.8,
+        progressSeconds: 249,
+        isCompletionAttempt: true,
       }),
-    ).toBe(10);
+    ).toBe(249);
 
     expect(
-      getCompletionCatchUpSyncAttempts({
-        desiredProgressSeconds: 296,
-        lastKnownProgressSeconds: 290,
-        durationSeconds: 300,
-        listenPercentage: 100,
-        listenTimeLimitMinutes: 15,
+      getCompletionAttemptDurationSeconds({
+        canonicalDurationSeconds: 322,
+        mediaDurationSeconds: 249.8,
+        progressSeconds: 248,
+        isCompletionAttempt: true,
       }),
-    ).toBe(1);
+    ).toBe(322);
+
+    expect(
+      getCompletionAttemptDurationSeconds({
+        canonicalDurationSeconds: 322,
+        mediaDurationSeconds: 249.8,
+        progressSeconds: 249,
+        isCompletionAttempt: false,
+      }),
+    ).toBe(322);
   });
 
   it("prefers waveform duration for file submissions and flags rounded-up stored durations for self-healing", () => {
@@ -171,26 +178,15 @@ describe("listen progress sync helpers", () => {
     expect(hasCompletedRequiredListenTime(8 * 60, 8 * 60, 100, 15)).toBe(true);
   });
 
-  it("targets the protection cap instead of full duration for catch-up attempts", () => {
+  it("does not let completion media duration extend the canonical duration", () => {
     expect(
-      getCompletionCatchUpSyncAttempts({
-        desiredProgressSeconds: 1200,
-        lastKnownProgressSeconds: 0,
-        durationSeconds: 1200,
-        listenPercentage: 100,
-        listenTimeLimitMinutes: 15,
+      getCompletionAttemptDurationSeconds({
+        canonicalDurationSeconds: 322,
+        mediaDurationSeconds: 400,
+        progressSeconds: 400,
+        isCompletionAttempt: true,
       }),
-    ).toBe(15);
-
-    expect(
-      getCompletionCatchUpSyncAttempts({
-        desiredProgressSeconds: 1200,
-        lastKnownProgressSeconds: 920,
-        durationSeconds: 1200,
-        listenPercentage: 100,
-        listenTimeLimitMinutes: 15,
-      }),
-    ).toBe(1);
+    ).toBe(322);
   });
 
   it("derives progressive playlist unlock thresholds from full listens capped by protection time", () => {
