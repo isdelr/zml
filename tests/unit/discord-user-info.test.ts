@@ -25,7 +25,7 @@ describe("discord user info gating", () => {
     expect(result).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://discord.com/api/users/@me/guilds",
+      "https://discord.com/api/v10/users/@me/guilds",
       expect.objectContaining({
         headers: { Authorization: "Bearer discord-token" },
       }),

@@ -1,8 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import {
-  getPresignedUrlRefreshDelayMs,
-  parsePresignedUrlExpiry,
-} from "@/lib/music/presigned-url";
+import { describe, expect, it } from "vitest";
+import { parsePresignedUrlExpiry } from "@/lib/music/presigned-url";
 
 describe("presigned url helpers", () => {
   it("parses X-Amz-Date and X-Amz-Expires into expiry timestamp", () => {
@@ -17,17 +14,5 @@ describe("presigned url helpers", () => {
       "https://media.example.com/api/media/submissions/abc/audio?mediaExpires=1770000000000&mediaToken=test",
     );
     expect(expiry).toBe(1770000000000);
-  });
-
-  it("falls back to default delay when expiry is missing", () => {
-    expect(getPresignedUrlRefreshDelayMs(null)).toBe(15 * 60 * 1000);
-  });
-
-  it("applies safety window when computing delay", () => {
-    vi.spyOn(Date, "now").mockReturnValue(1_000_000);
-    const expiry = 1_000_000 + 10 * 60 * 1000;
-    expect(getPresignedUrlRefreshDelayMs(expiry, Date.now())).toBe(
-      9 * 60 * 1000,
-    );
   });
 });

@@ -976,7 +976,6 @@ export const getForRound = query({
         const isAnonymous = round.status === "voting";
 
         const { albumArtUrl, songFileUrl } = await resolveSubmissionMediaUrls(
-          storage,
           submission,
           {
             allowPublic: league.isPublic,
@@ -1095,7 +1094,6 @@ export const getMySubmissions = query({
         if (!league) return null;
 
         const { albumArtUrl, songFileUrl } = await resolveSubmissionMediaUrls(
-          storage,
           submission,
           {
             allowPublic: league.isPublic,

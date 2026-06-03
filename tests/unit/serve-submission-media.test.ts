@@ -58,14 +58,10 @@ describe("serveMediaStorageAsset", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+      "public, max-age=31536000, immutable",
     );
-    expect(response.headers.get("CDN-Cache-Control")).toBe(
-      "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
-    );
-    expect(response.headers.get("Cloudflare-CDN-Cache-Control")).toBe(
-      "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
-    );
+    expect(response.headers.has("CDN-Cache-Control")).toBe(false);
+    expect(response.headers.has("Cloudflare-CDN-Cache-Control")).toBe(false);
     expect(response.headers.get("Vary")).toBe("Range");
     expect(response.headers.get("Accept-Ranges")).toBe("bytes");
   });
@@ -108,10 +104,8 @@ describe("serveMediaStorageAsset", () => {
 
     expect(response.status).toBe(206);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
-    expect(response.headers.get("CDN-Cache-Control")).toBe("private, no-store");
-    expect(response.headers.get("Cloudflare-CDN-Cache-Control")).toBe(
-      "private, no-store",
-    );
+    expect(response.headers.has("CDN-Cache-Control")).toBe(false);
+    expect(response.headers.has("Cloudflare-CDN-Cache-Control")).toBe(false);
     expect(response.headers.get("Vary")).toBe("Range");
   });
 
@@ -138,13 +132,9 @@ describe("serveMediaStorageAsset", () => {
     );
 
     expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+      "public, max-age=31536000, immutable",
     );
-    expect(response.headers.get("CDN-Cache-Control")).toBe(
-      "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
-    );
-    expect(response.headers.get("Cloudflare-CDN-Cache-Control")).toBe(
-      "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
-    );
+    expect(response.headers.has("CDN-Cache-Control")).toBe(false);
+    expect(response.headers.has("Cloudflare-CDN-Cache-Control")).toBe(false);
   });
 });

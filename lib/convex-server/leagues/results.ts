@@ -1,6 +1,11 @@
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import type { MutationCtx } from "../../../convex/_generated/server";
 import { getVoteLimits } from "../voteLimits";
+import {
+  getEffectiveStandardVoteTotal,
+  getFinalizedVoterIdSet,
+  isSubmissionPenalized,
+} from "../../rounds/effective-votes";
 
 export async function recalculateAndStoreRoundResults(
   ctx: MutationCtx,
@@ -29,22 +34,8 @@ export async function recalculateAndStoreRoundResults(
     .withIndex("by_round", (q) => q.eq("roundId", roundId))
     .collect();
 
-  const budgetByUser = new Map<string, { up: number; down: number }>();
-  for (const vote of allVotes) {
-    const key = vote.userId.toString();
-    const entry = budgetByUser.get(key) ?? { up: 0, down: 0 };
-    if (vote.vote > 0) entry.up += vote.vote;
-    else if (vote.vote < 0) entry.down += Math.abs(vote.vote);
-    budgetByUser.set(key, entry);
-  }
-
   const { maxUp, maxDown } = getVoteLimits(round, league);
-  const finalizedVoters = new Set<string>();
-  for (const [userId, { up, down }] of budgetByUser.entries()) {
-    if (up === maxUp && down === maxDown) {
-      finalizedVoters.add(userId);
-    }
-  }
+  const finalizedVoters = getFinalizedVoterIdSet(allVotes, maxUp, maxDown);
 
   const votesBySubmission = new Map<string, Doc<"votes">[]>();
   for (const vote of allVotes) {
@@ -97,26 +88,20 @@ export async function recalculateAndStoreRoundResults(
     const submissionKey = submission._id.toString();
     const standardVotes = votesBySubmission.get(submissionKey) ?? [];
     const adminVotes = adminAdjustmentsBySubmission.get(submissionKey) ?? [];
-    const submitterFinalized = finalizedVoters.has(submission.userId.toString());
-    const isTrollSubmission = submission.isTrollSubmission ?? false;
+    const penaltyApplied = isSubmissionPenalized(submission, finalizedVoters);
 
-    let points = 0;
-    if (!submitterFinalized || isTrollSubmission) {
-      for (const vote of standardVotes) {
-        if (vote.vote < 0) points += vote.vote;
-      }
-    } else {
-      for (const vote of standardVotes) {
-        points += vote.vote;
-      }
-    }
+    let points = getEffectiveStandardVoteTotal(
+      standardVotes,
+      submission,
+      finalizedVoters,
+    );
     for (const vote of adminVotes) {
       points += vote.vote;
     }
 
     perSubmission.set(submissionKey, {
       points,
-      penaltyApplied: !submitterFinalized || isTrollSubmission,
+      penaltyApplied,
     });
   }
 

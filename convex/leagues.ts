@@ -1540,7 +1540,6 @@ export const getLeagueExportSummary = query({
               }
 
               const { albumArtUrl } = await resolveSubmissionMediaUrls(
-                storage,
                 submission,
                 {
                   allowPublic: league.isPublic,
@@ -1641,7 +1640,6 @@ export const getLeagueExportSummary = query({
             }
 
             const { albumArtUrl } = await resolveSubmissionMediaUrls(
-              storage,
               submission,
               {
                 allowPublic: league.isPublic,
@@ -1789,7 +1787,6 @@ export const getLeagueCompletionSummary = query({
             }
 
             const { albumArtUrl } = await resolveSubmissionMediaUrls(
-              storage,
               submission,
               {
                 allowPublic: league.isPublic,

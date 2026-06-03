@@ -1,12 +1,10 @@
 import type { Doc } from "../../../convex/_generated/dataModel";
-import type { B2Storage } from "../../../convex/b2Storage";
 import {
   buildSubmissionMediaUrl,
   resolveMediaAccessScope,
 } from "../../media/delivery";
 
 export async function resolveSubmissionMediaUrls(
-  _storage: Pick<B2Storage, "getUrl">,
   submission: Doc<"submissions">,
   access: {
     allowPublic: boolean;

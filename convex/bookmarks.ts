@@ -1,10 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "./authCore";
-import { B2Storage } from "./b2Storage";
 import { resolveSubmissionMediaUrls } from "../lib/convex-server/submissions/media";
-
-const storage = new B2Storage();
 
 export const toggleBookmark = mutation({
   args: { submissionId: v.id("submissions") },
@@ -88,7 +85,6 @@ export const getBookmarkedSongs = query({
         if (!league) return null;
 
         const { albumArtUrl, songFileUrl } = await resolveSubmissionMediaUrls(
-          storage,
           submission,
           {
             allowPublic: league.isPublic,

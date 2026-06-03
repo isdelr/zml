@@ -9,7 +9,6 @@ const withBundleAnalyzer = createBundleAnalyzer({
 
 const storageEndpoint =
   process.env.B2_ENDPOINT ??
-  process.env.R2_ENDPOINT ??
   "https://s3.us-west-004.backblazeb2.com";
 const storageHostname = (() => {
   try {

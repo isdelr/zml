@@ -60,6 +60,10 @@ import {
   buildRoundImageMediaUrl,
   resolveMediaAccessScope,
 } from "../lib/media/delivery";
+import {
+  getEffectiveStandardVoteScore,
+  getFinalizedVoterIdSet,
+} from "../lib/rounds/effective-votes";
 
 const storage = new B2Storage();
 type DeadlineReminderContext = {
@@ -1556,6 +1560,8 @@ export const getVoteSummary = query({
       .withIndex("by_round", (q) => q.eq("roundId", args.roundId))
       .collect();
     if (votes.length === 0 && adminAdjustments.length === 0) return [];
+    const { maxUp, maxDown } = getVoteLimits(round, league);
+    const finalizedVoterIds = getFinalizedVoterIdSet(votes, maxUp, maxDown);
 
     const submissions = await ctx.db
       .query("submissions")
@@ -1603,13 +1609,22 @@ export const getVoteSummary = query({
           adminAdjustmentsBySubmission.get(submission._id.toString()) || [];
         const standardVoteDetails = await Promise.all(
           submissionVotes.map(async (vote) => {
+            const effectiveScore = getEffectiveStandardVoteScore(
+              vote,
+              submission,
+              finalizedVoterIds,
+            );
+            if (effectiveScore === 0 && vote.vote > 0) {
+              return null;
+            }
+
             const voter = userMap.get(vote.userId.toString());
             const voterImage = await resolveUserAvatarUrl(storage, voter);
             return {
               voterId: vote.userId,
               voterName: voter?.name ?? "Unknown",
               voterImage,
-              score: vote.vote,
+              score: effectiveScore,
             };
           }),
         );
@@ -1620,10 +1635,15 @@ export const getVoteSummary = query({
           score: adjustment.vote,
           isAdminAdjustment: true,
         }));
-        const voteDetails = [...standardVoteDetails, ...adminVoteDetails];
+        const voteDetails = [
+          ...standardVoteDetails.filter(
+            (voteDetail): voteDetail is NonNullable<typeof voteDetail> =>
+              voteDetail !== null,
+          ),
+          ...adminVoteDetails,
+        ];
 
         const { albumArtUrl } = await resolveSubmissionMediaUrls(
-          storage,
           submission,
           {
             allowPublic: league.isPublic,

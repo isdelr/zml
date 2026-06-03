@@ -1,6 +1,3 @@
-const DEFAULT_SAFETY_WINDOW_MS = 60_000;
-const DEFAULT_FALLBACK_REFRESH_MS = 15 * 60 * 1000;
-
 export function parsePresignedUrlExpiry(url?: string | null): number | null {
   if (!url) return null;
 
@@ -36,14 +33,4 @@ export function parsePresignedUrlExpiry(url?: string | null): number | null {
   } catch {
     return null;
   }
-}
-
-export function getPresignedUrlRefreshDelayMs(
-  expiryMs: number | null,
-  nowMs = Date.now(),
-  safetyWindowMs = DEFAULT_SAFETY_WINDOW_MS,
-  fallbackRefreshMs = DEFAULT_FALLBACK_REFRESH_MS,
-): number {
-  if (!expiryMs) return fallbackRefreshMs;
-  return Math.max(0, expiryMs - safetyWindowMs - nowMs);
 }

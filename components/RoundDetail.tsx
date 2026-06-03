@@ -1,13 +1,13 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/lib/convex/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMusicPlayerStore } from "@/hooks/useMusicPlayerStore";
 import { Song } from "@/types";
 import type { LeagueData, RoundForLeague } from "@/lib/convex/types";
 import { dynamicImport } from "@/components/ui/dynamic-import";
-import { useMemo, useCallback } from "react";
+import { useEffect, useMemo, useCallback, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getSortedRoundSubmissions } from "@/lib/rounds/submission-order";
 import { getRoundSubmitterSummary } from "@/lib/rounds/submitter-summary";
@@ -79,6 +79,35 @@ export function RoundDetail({
   );
 
   const currentUser = useQuery(api.users.getCurrentUser);
+  const markRoundNotificationsAsRead = useMutation(
+    api.notifications.markRoundNotificationsAsRead,
+  );
+  const markedNotificationRouteRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    const routeKey = `${currentUser._id}:${league._id}:${round._id}`;
+    if (markedNotificationRouteRef.current === routeKey) {
+      return;
+    }
+    markedNotificationRouteRef.current = routeKey;
+
+    void markRoundNotificationsAsRead({
+      leagueId: league._id,
+      roundId: round._id,
+    }).catch((error: unknown) => {
+      console.warn("Failed to clear round notifications", error);
+      markedNotificationRouteRef.current = null;
+    });
+  }, [
+    currentUser,
+    league._id,
+    markRoundNotificationsAsRead,
+    round._id,
+  ]);
   const listenersBySubmission = useQuery(api.presence.listForRound, {
     roundId: round._id,
   });

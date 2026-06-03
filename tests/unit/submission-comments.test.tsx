@@ -1,12 +1,17 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SubmissionComments } from "@/components/round/SubmissionComments";
+import {
+  SubmissionCommentComposerButton,
+  SubmissionComments,
+} from "@/components/round/SubmissionComments";
 
 const useQueryMock = vi.fn();
+const useConvexAuthMock = vi.fn(() => ({ isAuthenticated: false }));
+const windowSizeMock = vi.fn(() => ({ width: 1024, height: 768 }));
 
 vi.mock("convex/react", () => ({
-  useConvexAuth: vi.fn(() => ({ isAuthenticated: false })),
+  useConvexAuth: () => useConvexAuthMock(),
   useMutation: vi.fn(() => ({
     withOptimisticUpdate: () => vi.fn(),
   })),
@@ -22,9 +27,17 @@ vi.mock("@/hooks/useMusicPlayerStore", () => ({
     }),
 }));
 
+vi.mock("@/hooks/useWindowSize", () => ({
+  useWindowSize: () => windowSizeMock(),
+}));
+
 describe("SubmissionComments", () => {
   beforeEach(() => {
     useQueryMock.mockReset();
+    useConvexAuthMock.mockReset();
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: false });
+    windowSizeMock.mockReset();
+    windowSizeMock.mockReturnValue({ width: 1024, height: 768 });
   });
 
   afterEach(() => {
@@ -99,5 +112,43 @@ describe("SubmissionComments", () => {
         .getAllByText(/^(Older comment|Newest comment)$/)
         .map((element) => element.textContent),
     ).toEqual(["Newest comment", "Older comment"]);
+  });
+
+  it("bounds the mobile composer textarea and keeps sheet actions sticky", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: true });
+    windowSizeMock.mockReturnValue({ width: 390, height: 844 });
+    useQueryMock.mockReturnValue({
+      _id: "user-1",
+      name: "Alice",
+      image: null,
+    });
+
+    render(
+      <SubmissionCommentComposerButton
+        submissionId={"submission-1" as never}
+        roundId={"round-1" as never}
+        roundStatus="voting"
+        submissionTitle="Night Drive"
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Add comment"));
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveClass("flex");
+    expect(dialog.className).toContain("max-h-[min(85dvh");
+
+    const textarea = screen.getByPlaceholderText(
+      "Add your thoughts... use @M:SS to link a time.",
+    );
+    expect(textarea).toHaveClass("max-h-32");
+    expect(textarea).toHaveClass("resize-none");
+    expect(textarea.className).toContain("[field-sizing:fixed]");
+
+    const actionRow = screen.getByRole("button", {
+      name: "Post comment",
+    }).parentElement?.parentElement;
+    expect(actionRow).toHaveClass("sticky");
+    expect(actionRow).toHaveClass("bottom-0");
   });
 });

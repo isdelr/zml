@@ -12,6 +12,7 @@ import { getAuthUserId } from "./authCore";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { paginationOptsValidator } from "convex/server";
+import { isNotificationLinkForRound } from "../lib/notifications/round-link";
 
 type NotificationType =
   | "new_comment"
@@ -571,6 +572,45 @@ export const markAllAsRead = mutation({
     for (const notification of unread) {
       await ctx.db.patch("notifications", notification._id, { read: true });
     }
+  },
+});
+
+export const markRoundNotificationsAsRead = mutation({
+  args: {
+    leagueId: v.id("leagues"),
+    roundId: v.id("rounds"),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated.");
+    }
+
+    const unread = await ctx.db
+      .query("notifications")
+      .withIndex("by_user_and_read", (q) =>
+        q.eq("userId", userId).eq("read", false),
+      )
+      .collect();
+
+    let markedCount = 0;
+    for (const notification of unread) {
+      if (
+        !isNotificationLinkForRound(
+          notification.link,
+          args.leagueId,
+          args.roundId,
+        )
+      ) {
+        continue;
+      }
+
+      await ctx.db.patch(notification._id, { read: true });
+      markedCount += 1;
+    }
+
+    return markedCount;
   },
 });
 

@@ -155,22 +155,19 @@ function inferRegionFromEndpoint(endpoint) {
 }
 
 function getStorageConfigOrThrow() {
-  const bucket = process.env.B2_BUCKET ?? process.env.R2_BUCKET;
-  const endpoint = process.env.B2_ENDPOINT ?? process.env.R2_ENDPOINT;
-  const accessKeyId =
-    process.env.B2_KEY_ID ?? process.env.B2_APPLICATION_KEY_ID ?? process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey =
-    process.env.B2_APPLICATION_KEY ?? process.env.B2_KEY ?? process.env.R2_SECRET_ACCESS_KEY;
+  const bucket = process.env.B2_BUCKET;
+  const endpoint = process.env.B2_ENDPOINT;
+  const accessKeyId = process.env.B2_KEY_ID;
+  const secretAccessKey = process.env.B2_APPLICATION_KEY;
 
   if (!bucket || !endpoint || !accessKeyId || !secretAccessKey) {
     throw new Error(
-      "Missing B2/R2 credentials. Set B2_BUCKET, B2_ENDPOINT, B2_KEY_ID, and B2_APPLICATION_KEY.",
+      "Missing B2 credentials. Set B2_BUCKET, B2_ENDPOINT, B2_KEY_ID, and B2_APPLICATION_KEY.",
     );
   }
 
-  const isB2 = endpoint.includes("backblazeb2.com");
   const region =
-    process.env.B2_REGION ?? process.env.AWS_REGION ?? inferRegionFromEndpoint(endpoint) ?? "auto";
+    process.env.B2_REGION ?? inferRegionFromEndpoint(endpoint) ?? "us-east-005";
 
   return {
     bucket,
@@ -178,7 +175,7 @@ function getStorageConfigOrThrow() {
     accessKeyId,
     secretAccessKey,
     region,
-    forcePathStyle: isB2,
+    forcePathStyle: true,
   };
 }
 

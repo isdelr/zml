@@ -180,8 +180,11 @@ export function SubmissionCommentComposerButton({
     }
   };
 
-  const composerBody = (
-    <div className="space-y-4">
+  const renderComposerBody = (surface: "sheet" | "popover") => {
+    const isSheet = surface === "sheet";
+
+    return (
+    <div className={cn(isSheet ? "flex min-h-0 flex-col gap-4" : "space-y-4")}>
       <div className="flex items-start gap-3">
         <Avatar className="mt-0.5 size-8 flex-shrink-0">
           <AvatarImage src={composerIdentity.image ?? undefined} />
@@ -207,6 +210,12 @@ export function SubmissionCommentComposerButton({
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             rows={4}
+            className={cn(
+              "overflow-y-auto",
+              isSheet
+                ? "max-h-32 min-h-24 resize-none [field-sizing:fixed]"
+                : "max-h-56 resize-y",
+            )}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
@@ -228,8 +237,14 @@ export function SubmissionCommentComposerButton({
               />
             </div>
           ) : null}
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
+          <div
+            className={cn(
+              "flex items-center justify-between gap-3",
+              isSheet &&
+                "sticky bottom-0 -mx-4 border-t border-border bg-background/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur",
+            )}
+          >
+            <p className={cn("text-xs text-muted-foreground", isSheet && "sr-only")}>
               {showCommentImmediately
                 ? "Press Ctrl/Cmd + Enter to post quickly."
                 : "Press Ctrl/Cmd + Enter to queue it for the end of voting."}
@@ -256,7 +271,8 @@ export function SubmissionCommentComposerButton({
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   if (!isAuthenticated) {
     return null;
@@ -290,15 +306,17 @@ export function SubmissionCommentComposerButton({
       </Button>
       <SheetContent
         side="bottom"
-        className="max-h-[85dvh] rounded-t-3xl px-0 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-0"
+        className="flex max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-0.75rem))] flex-col rounded-t-3xl px-0 pb-0 pt-0"
       >
-        <SheetHeader className="border-b px-4 py-4 text-left">
+        <SheetHeader className="shrink-0 border-b px-4 py-4 text-left">
           <SheetTitle className="text-base">
             Comment on {submissionTitle}
           </SheetTitle>
           <SheetDescription>{composerVisibilityDescription}</SheetDescription>
         </SheetHeader>
-        <div className="overflow-y-auto px-4 py-4">{composerBody}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+          {renderComposerBody("sheet")}
+        </div>
       </SheetContent>
     </Sheet>
   ) : (
@@ -313,7 +331,7 @@ export function SubmissionCommentComposerButton({
             Comment on {submissionTitle}
           </p>
         </div>
-        {composerBody}
+        {renderComposerBody("popover")}
       </PopoverContent>
     </Popover>
   );

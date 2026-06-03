@@ -12,7 +12,7 @@ import { storageBodyToWebReadableStream } from "@/lib/storage/object-body";
 
 const storage = new B2Storage();
 const MEDIA_SHARED_CACHE_CONTROL =
-  "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400";
+  "public, max-age=31536000, immutable";
 const MEDIA_PRIVATE_CACHE_CONTROL = "private, no-store";
 
 function resolveMediaCacheControl(input: {
@@ -72,8 +72,6 @@ function setStandardMediaHeaders(
   },
 ) {
   headers.set("Cache-Control", input.cacheControl);
-  headers.set("CDN-Cache-Control", input.cacheControl);
-  headers.set("Cloudflare-CDN-Cache-Control", input.cacheControl);
   headers.set("Accept-Ranges", "bytes");
   headers.set("Vary", "Range");
   headers.set("X-Content-Type-Options", "nosniff");

@@ -2,10 +2,7 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { getAuthUserId } from "./authCore";
 import { Doc } from "./_generated/dataModel";
-import { B2Storage } from "./b2Storage";
 import { resolveSubmissionMediaUrls } from "../lib/convex-server/submissions/media";
-
-const storage = new B2Storage();
 
 export const searchInLeague = query({
   args: {
@@ -117,7 +114,6 @@ export const searchInLeague = query({
       filteredSubs.map(async (submission) => {
         const round = roundMap.get(submission.roundId.toString());
         const { albumArtUrl, songFileUrl } = await resolveSubmissionMediaUrls(
-          storage,
           submission,
           {
             allowPublic: league.isPublic,
