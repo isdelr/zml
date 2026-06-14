@@ -63,6 +63,14 @@ const precacheEntries = self.__SW_MANIFEST
 
 const runtimeCaching: RuntimeCaching[] = [
   {
+    matcher: ({ sameOrigin, url }) =>
+      sameOrigin && url.pathname.startsWith("/api/media/"),
+    method: "GET",
+    // Media can take longer than page/API data to start streaming from B2.
+    // A service-worker timeout has no fallback here, so it becomes ERR_FAILED.
+    handler: new NetworkOnly(),
+  },
+  {
     matcher: ({ request }) => request.headers.has("authorization"),
     method: "GET",
     handler: new NetworkOnly({ networkTimeoutSeconds: 10 }),
