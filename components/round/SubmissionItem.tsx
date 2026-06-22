@@ -278,6 +278,7 @@ interface SubmissionItemProps {
         voterName: string;
         voterImage: string | null;
         score: number;
+        isDiscarded: boolean;
         isAdminAdjustment?: boolean;
       }[]
     | undefined;
@@ -556,6 +557,7 @@ export function SubmissionItem({
           voterName: vote.voterName,
           voterImage: vote.voterImage,
           score: vote.score,
+          isDiscarded: vote.isDiscarded,
           isAdminAdjustment: vote.isAdminAdjustment ?? false,
         })),
       ),
@@ -666,23 +668,32 @@ export function SubmissionItem({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         {voteGroups.map((group) => (
           <div
-            key={group.score}
-            className="flex max-w-full items-center gap-2 rounded-full border bg-muted/40 px-2 py-1"
+            key={`${group.score}:${group.isDiscarded ? "discarded" : "applied"}`}
+            className={cn(
+              "flex max-w-full items-center gap-2 rounded-full border px-2 py-1",
+              group.isDiscarded
+                ? "border-dashed border-muted-foreground/50 bg-muted/20"
+                : "bg-muted/40",
+            )}
+            aria-label={group.isDiscarded ? "Discarded votes" : undefined}
           >
             <span
               className={cn(
                 "shrink-0 text-sm font-semibold tabular-nums",
-                group.score > 0
-                  ? "text-success"
-                  : group.score < 0
-                    ? "text-destructive"
-                    : "text-muted-foreground",
+                group.isDiscarded
+                  ? "text-muted-foreground line-through decoration-2"
+                  : group.score > 0
+                    ? "text-success"
+                    : group.score < 0
+                      ? "text-destructive"
+                      : "text-muted-foreground",
               )}
             >
               {formatVoteScore(group.score)}
             </span>
             <AvatarRoster
               users={group.users}
+              className={cn(group.isDiscarded && "grayscale opacity-60")}
               avatarClassName="size-6"
             />
           </div>

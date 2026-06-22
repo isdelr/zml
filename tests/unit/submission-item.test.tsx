@@ -123,6 +123,54 @@ describe("SubmissionItem", () => {
     expect(commentSummaries).toHaveLength(1);
   });
 
+  it("shows both upvote and downvote summaries on finished submissions", () => {
+    renderSubmissionItem({
+      roundStatus: "finished",
+      voteDetails: [
+        {
+          voterId: "upvoter-1",
+          voterName: "Up Voter",
+          voterImage: null,
+          score: 1,
+          isDiscarded: false,
+        },
+        {
+          voterId: "downvoter-1",
+          voterName: "Down Voter",
+          voterImage: null,
+          score: -1,
+          isDiscarded: false,
+        },
+      ],
+    });
+
+    expect(screen.getAllByText("+1")).not.toHaveLength(0);
+    expect(screen.getAllByText("-1")).not.toHaveLength(0);
+    expect(screen.getAllByTitle("Up Voter")).not.toHaveLength(0);
+    expect(screen.getAllByTitle("Down Voter")).not.toHaveLength(0);
+  });
+
+  it("visually distinguishes discarded upvotes", () => {
+    renderSubmissionItem({
+      roundStatus: "finished",
+      voteDetails: [
+        {
+          voterId: "late-voter-1",
+          voterName: "Late Voter",
+          voterImage: null,
+          score: 1,
+          isDiscarded: true,
+        },
+      ],
+    });
+
+    expect(screen.getAllByText("+1")).not.toHaveLength(0);
+    expect(screen.queryByText("not counted")).not.toBeInTheDocument();
+    for (const discardedGroup of screen.getAllByLabelText("Discarded votes")) {
+      expect(discardedGroup).toHaveClass("border-dashed", "bg-muted/20");
+    }
+  });
+
   it("does not play or pause from a scroll gesture that starts on the play target", () => {
     const onPlaySong = vi.fn();
     renderSubmissionItem({ onPlaySong });

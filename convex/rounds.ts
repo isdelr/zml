@@ -1516,6 +1516,7 @@ const songVoteDetailValidator = v.object({
   voterName: v.string(),
   voterImage: v.union(v.string(), v.null()),
   score: v.number(),
+  isDiscarded: v.boolean(),
   isAdminAdjustment: v.optional(v.boolean()),
 });
 
@@ -1614,17 +1615,14 @@ export const getVoteSummary = query({
               submission,
               finalizedVoterIds,
             );
-            if (effectiveScore === 0 && vote.vote > 0) {
-              return null;
-            }
-
             const voter = userMap.get(vote.userId.toString());
             const voterImage = await resolveUserAvatarUrl(storage, voter);
             return {
               voterId: vote.userId,
               voterName: voter?.name ?? "Unknown",
               voterImage,
-              score: effectiveScore,
+              score: vote.vote,
+              isDiscarded: effectiveScore !== vote.vote,
             };
           }),
         );
@@ -1633,15 +1631,10 @@ export const getVoteSummary = query({
           voterName: "Admin adjustment",
           voterImage: null,
           score: adjustment.vote,
+          isDiscarded: false,
           isAdminAdjustment: true,
         }));
-        const voteDetails = [
-          ...standardVoteDetails.filter(
-            (voteDetail): voteDetail is NonNullable<typeof voteDetail> =>
-              voteDetail !== null,
-          ),
-          ...adminVoteDetails,
-        ];
+        const voteDetails = [...standardVoteDetails, ...adminVoteDetails];
 
         const { albumArtUrl } = await resolveSubmissionMediaUrls(
           submission,

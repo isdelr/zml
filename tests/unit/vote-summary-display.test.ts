@@ -31,6 +31,7 @@ describe("vote summary display helpers", () => {
     expect(groups).toEqual([
       {
         score: 2,
+        isDiscarded: false,
         users: [
           { _id: "u1", name: "Ana", image: null, isAdminAdjustment: false },
           { _id: "u2", name: "Bruno", image: null, isAdminAdjustment: false },
@@ -38,6 +39,7 @@ describe("vote summary display helpers", () => {
       },
       {
         score: -1,
+        isDiscarded: false,
         users: [
           { _id: "u3", name: "Carla", image: null, isAdminAdjustment: false },
         ],
@@ -70,6 +72,7 @@ describe("vote summary display helpers", () => {
     expect(groups).toEqual([
       {
         score: 1,
+        isDiscarded: false,
         users: [
           {
             _id: "admin-1",
@@ -80,6 +83,50 @@ describe("vote summary display helpers", () => {
           {
             _id: "u1",
             name: "Ana",
+            image: null,
+            isAdminAdjustment: false,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("keeps discarded votes separate from applied votes with the same score", () => {
+    const groups = groupVoteSummaryDetailsByScore([
+      {
+        voterId: "u1",
+        voterName: "Applied",
+        score: 1,
+        isDiscarded: false,
+      },
+      {
+        voterId: "u2",
+        voterName: "Discarded",
+        score: 1,
+        isDiscarded: true,
+      },
+    ]);
+
+    expect(groups).toEqual([
+      {
+        score: 1,
+        isDiscarded: false,
+        users: [
+          {
+            _id: "u1",
+            name: "Applied",
+            image: null,
+            isAdminAdjustment: false,
+          },
+        ],
+      },
+      {
+        score: 1,
+        isDiscarded: true,
+        users: [
+          {
+            _id: "u2",
+            name: "Discarded",
             image: null,
             isAdminAdjustment: false,
           },
