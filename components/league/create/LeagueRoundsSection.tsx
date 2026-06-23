@@ -1,4 +1,5 @@
 import { PlusCircle } from "lucide-react";
+import { useState } from "react";
 import { useFieldArray, useWatch } from "react-hook-form";
 import { createDefaultRound } from "@/lib/leagues/create-league-form";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,48 @@ export function LeagueRoundsSection({
     name: "rounds",
   });
   const watchedRounds = useWatch({ control: form.control, name: "rounds" });
+  const [expandedRoundIndex, setExpandedRoundIndex] = useState<number | null>(0);
+
+  const handleAddRound = () => {
+    setExpandedRoundIndex(fields.length);
+    append(createDefaultRound());
+  };
+
+  const handleRemoveRound = (index: number) => {
+    setPreviews((current) => {
+      const removedPreview = current[index];
+      if (removedPreview) {
+        URL.revokeObjectURL(removedPreview);
+      }
+
+      return Object.fromEntries(
+        Object.entries(current).flatMap(([key, value]) => {
+          const currentIndex = Number(key);
+          if (currentIndex < index) {
+            return [[key, value]];
+          }
+          if (currentIndex > index) {
+            return [[String(currentIndex - 1), value]];
+          }
+          return [];
+        }),
+      );
+    });
+
+    setExpandedRoundIndex((current) => {
+      if (current === null) {
+        return null;
+      }
+      if (current === index) {
+        return index < fields.length - 1 ? index : Math.max(0, index - 1);
+      }
+      if (current > index) {
+        return current - 1;
+      }
+      return current;
+    });
+    remove(index);
+  };
 
   return (
     <div className="space-y-4">
@@ -30,7 +73,7 @@ export function LeagueRoundsSection({
           <h3 className="text-lg font-semibold">Rounds</h3>
           <Badge variant="secondary">Required</Badge>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => append(createDefaultRound())}>
+        <Button type="button" variant="outline" size="sm" onClick={handleAddRound}>
           <PlusCircle className="mr-2 size-4" />
           Add Round
         </Button>
@@ -43,10 +86,18 @@ export function LeagueRoundsSection({
             form={form}
             index={index}
             fieldsLength={fields.length}
-            onRemove={() => remove(index)}
+            onRemove={() => handleRemoveRound(index)}
             previewUrl={previews[index]}
             setPreviews={setPreviews}
             isAlbumMode={watchedRounds?.[index]?.submissionMode === "album"}
+            isExpanded={expandedRoundIndex === index}
+            onToggle={() =>
+              setExpandedRoundIndex((current) =>
+                current === index ? null : index,
+              )
+            }
+            title={watchedRounds?.[index]?.title}
+            description={watchedRounds?.[index]?.description}
           />
         ))}
       </div>

@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  getSubmissionSettingsError,
+  MAX_SUBMISSIONS_PER_USER,
+} from "@/lib/rounds/submission-settings";
 
 const albumConfigSchema = z
   .object({
@@ -17,14 +21,30 @@ export const roundManagementSchema = z
       .min(10, "Description must be at least 10 characters."),
     submissionsPerUser: z.coerce
       .number()
+      .int("Must be a whole number.")
       .min(1, "Must be at least 1.")
-      .max(5, "Max 5 submissions."),
+      .max(
+        MAX_SUBMISSIONS_PER_USER,
+        `Max ${MAX_SUBMISSIONS_PER_USER} submissions.`,
+      ),
     genres: z.array(z.string()).default([]),
     submissionMode: z.enum(["single", "multi", "album"]).default("single"),
     submissionInstructions: z.string().optional(),
     albumConfig: albumConfigSchema,
   })
   .superRefine((data, ctx) => {
+    const submissionSettingsError = getSubmissionSettingsError({
+      submissionsPerUser: data.submissionsPerUser,
+      submissionMode: data.submissionMode,
+    });
+    if (submissionSettingsError) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: submissionSettingsError,
+        path: ["submissionsPerUser"],
+      });
+    }
+
     if (data.submissionMode !== "album" || !data.albumConfig) {
       return;
     }

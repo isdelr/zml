@@ -34,6 +34,7 @@ import {
   MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
   MAX_LEAGUE_UPVOTES_PER_MEMBER,
 } from "../lib/leagues/vote-limits";
+import { getSubmissionSettingsError } from "../lib/rounds/submission-settings";
 import {
   buildRoundImageMediaUrl,
   resolveMediaAccessScope,
@@ -568,6 +569,30 @@ export const create = mutation({
       throw new Error(
         `Downvotes must be between 0 and ${MAX_LEAGUE_DOWNVOTES_PER_MEMBER}.`,
       );
+    }
+    if (args.limitVotesPerSubmission) {
+      if (
+        args.maxPositiveVotesPerSubmission === undefined ||
+        args.maxPositiveVotesPerSubmission < 1
+      ) {
+        throw new Error("Max upvotes per submission must be at least 1.");
+      }
+      if (
+        args.maxNegativeVotesPerSubmission === undefined ||
+        args.maxNegativeVotesPerSubmission < 1
+      ) {
+        throw new Error("Max downvotes per submission must be at least 1.");
+      }
+    }
+
+    for (const [index, round] of args.rounds.entries()) {
+      const submissionSettingsError = getSubmissionSettingsError({
+        submissionsPerUser: round.submissionsPerUser ?? 1,
+        submissionMode: round.submissionMode ?? "single",
+      });
+      if (submissionSettingsError) {
+        throw new Error(`Round ${index + 1}: ${submissionSettingsError}`);
+      }
     }
 
     // Generate a unique invite code for the league
@@ -1158,6 +1183,34 @@ export const updateLeague = mutation({
       (updates.votingDeadline < 1 || updates.votingDeadline > maxHours)
     ) {
       throw new Error(`Voting period must be between 1 and ${maxHours} hours.`);
+    }
+    if (
+      updates.maxPositiveVotesPerSubmission !== undefined &&
+      updates.maxPositiveVotesPerSubmission < 1
+    ) {
+      throw new Error("Max upvotes per submission must be at least 1.");
+    }
+    if (
+      updates.maxNegativeVotesPerSubmission !== undefined &&
+      updates.maxNegativeVotesPerSubmission < 1
+    ) {
+      throw new Error("Max downvotes per submission must be at least 1.");
+    }
+
+    if (updates.limitVotesPerSubmission === true) {
+      const nextPositiveLimit =
+        updates.maxPositiveVotesPerSubmission ??
+        league.maxPositiveVotesPerSubmission;
+      const nextNegativeLimit =
+        updates.maxNegativeVotesPerSubmission ??
+        league.maxNegativeVotesPerSubmission;
+
+      if (nextPositiveLimit === undefined || nextPositiveLimit < 1) {
+        throw new Error("Max upvotes per submission must be at least 1.");
+      }
+      if (nextNegativeLimit === undefined || nextNegativeLimit < 1) {
+        throw new Error("Max downvotes per submission must be at least 1.");
+      }
     }
 
     await ctx.db.patch("leagues", leagueId, updates);

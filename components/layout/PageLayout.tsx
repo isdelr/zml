@@ -102,12 +102,12 @@ export function PageLayout({ children }: PageLayoutProps) {
   }, [pathname, actions]);
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-dvh min-h-0 overflow-hidden bg-background">
       <Sidebar />
       <div
         ref={scrollContainerRef}
         className={cn(
-          "flex flex-1 flex-col overflow-y-auto",
+          "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain",
           // Add extra padding if the music player is active.
           currentTrackIndex !== null && "pb-56 xl:pb-20",
         )}

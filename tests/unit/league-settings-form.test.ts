@@ -47,4 +47,19 @@ describe("leagueEditSchema", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("rejects zero per-submission downvote limits when enabled", () => {
+    const result = leagueEditSchema.safeParse({
+      ...buildValidLeagueEditInput(),
+      limitVotesPerSubmission: true,
+      maxPositiveVotesPerSubmission: 2,
+      maxNegativeVotesPerSubmission: 0,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join("."));
+      expect(paths).toContain("maxNegativeVotesPerSubmission");
+    }
+  });
 });

@@ -64,6 +64,7 @@ import {
   getEffectiveStandardVoteScore,
   getFinalizedVoterIdSet,
 } from "../lib/rounds/effective-votes";
+import { getSubmissionSettingsError } from "../lib/rounds/submission-settings";
 
 const storage = new B2Storage();
 type DeadlineReminderContext = {
@@ -1010,6 +1011,15 @@ export const updateRound = mutation({
     // Compare effective values (default undefined to 1) so changing only vote limits doesn't wipe submissions
     const prevSubmissionsPerUser = round.submissionsPerUser ?? 1;
     const nextSubmissionsPerUser = args.submissionsPerUser ?? 1;
+    const nextSubmissionMode =
+      args.submissionMode ?? round.submissionMode ?? "single";
+    const submissionSettingsError = getSubmissionSettingsError({
+      submissionsPerUser: nextSubmissionsPerUser,
+      submissionMode: nextSubmissionMode,
+    });
+    if (submissionSettingsError) {
+      throw new Error(submissionSettingsError);
+    }
     const submissionsPerUserChanged =
       prevSubmissionsPerUser !== nextSubmissionsPerUser;
     if (submissionsPerUserChanged && round.status === "voting") {
@@ -1159,8 +1169,12 @@ export const createRound = mutation({
     if (description.length < 10) {
       throw new Error("Description must be at least 10 characters.");
     }
-    if (args.submissionsPerUser < 1 || args.submissionsPerUser > 5) {
-      throw new Error("Submissions per user must be between 1 and 5.");
+    const submissionSettingsError = getSubmissionSettingsError({
+      submissionsPerUser: args.submissionsPerUser,
+      submissionMode: args.submissionMode ?? "single",
+    });
+    if (submissionSettingsError) {
+      throw new Error(submissionSettingsError);
     }
     if (
       args.submissionMode === "album" &&

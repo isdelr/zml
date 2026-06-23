@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "convex/react";
+import { useEffect, useRef } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Loader2, Info } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +14,10 @@ import {
   type LeagueEditInput,
   type LeagueEditOutput,
 } from "@/lib/leagues/league-settings-form";
+import {
+  getDefaultNegativeVotesPerSubmission,
+  getDefaultPositiveVotesPerSubmission,
+} from "@/lib/leagues/vote-limits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -46,6 +51,11 @@ interface GeneralSettingsTabProps {
   onClose: () => void;
 }
 
+function toFiniteNumber(value: unknown, fallback: number) {
+  const numberValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
 export function GeneralSettingsTab({
   league,
   onClose,
@@ -62,8 +72,12 @@ export function GeneralSettingsTab({
       maxPositiveVotes: league.maxPositiveVotes,
       maxNegativeVotes: league.maxNegativeVotes,
       limitVotesPerSubmission: league.limitVotesPerSubmission ?? false,
-      maxPositiveVotesPerSubmission: league.maxPositiveVotesPerSubmission,
-      maxNegativeVotesPerSubmission: league.maxNegativeVotesPerSubmission,
+      maxPositiveVotesPerSubmission:
+        league.maxPositiveVotesPerSubmission ??
+        getDefaultPositiveVotesPerSubmission(league.maxPositiveVotes),
+      maxNegativeVotesPerSubmission:
+        league.maxNegativeVotesPerSubmission ??
+        getDefaultNegativeVotesPerSubmission(league.maxNegativeVotes),
     },
   });
 
@@ -71,6 +85,57 @@ export function GeneralSettingsTab({
     control: form.control,
     name: "limitVotesPerSubmission",
   });
+  const maxPositiveVotes = useWatch({
+    control: form.control,
+    name: "maxPositiveVotes",
+  });
+  const maxNegativeVotes = useWatch({
+    control: form.control,
+    name: "maxNegativeVotes",
+  });
+  const positiveVoteCapDefault = getDefaultPositiveVotesPerSubmission(
+    toFiniteNumber(maxPositiveVotes, 1),
+  );
+  const negativeVoteCapDefault = getDefaultNegativeVotesPerSubmission(
+    toFiniteNumber(maxNegativeVotes, 0),
+  );
+  const previousVoteCapDefaultsRef = useRef({
+    positive: positiveVoteCapDefault,
+    negative: negativeVoteCapDefault,
+  });
+
+  useEffect(() => {
+    const previousDefaults = previousVoteCapDefaultsRef.current;
+    const currentPositiveLimit = form.getValues(
+      "maxPositiveVotesPerSubmission",
+    );
+    const currentNegativeLimit = form.getValues(
+      "maxNegativeVotesPerSubmission",
+    );
+
+    if (
+      currentPositiveLimit === undefined ||
+      currentPositiveLimit === previousDefaults.positive
+    ) {
+      form.setValue("maxPositiveVotesPerSubmission", positiveVoteCapDefault, {
+        shouldValidate: true,
+      });
+    }
+
+    if (
+      currentNegativeLimit === undefined ||
+      currentNegativeLimit === previousDefaults.negative
+    ) {
+      form.setValue("maxNegativeVotesPerSubmission", negativeVoteCapDefault, {
+        shouldValidate: true,
+      });
+    }
+
+    previousVoteCapDefaultsRef.current = {
+      positive: positiveVoteCapDefault,
+      negative: negativeVoteCapDefault,
+    };
+  }, [form, negativeVoteCapDefault, positiveVoteCapDefault]);
 
   async function onSubmit(values: LeagueEditOutput) {
     toast.promise(updateLeague({ leagueId: league._id, ...values }), {
@@ -277,7 +342,21 @@ export function GeneralSettingsTab({
                     <FormControl>
                       <Switch
                         checked={field.value}
-                        onCheckedChange={field.onChange}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          if (checked) {
+                            form.setValue(
+                              "maxPositiveVotesPerSubmission",
+                              positiveVoteCapDefault,
+                              { shouldValidate: true },
+                            );
+                            form.setValue(
+                              "maxNegativeVotesPerSubmission",
+                              negativeVoteCapDefault,
+                              { shouldValidate: true },
+                            );
+                          }
+                        }}
                       />
                     </FormControl>
                   </FormItem>
@@ -294,6 +373,7 @@ export function GeneralSettingsTab({
                         <FormControl>
                           <Input
                             type="number"
+                            min={1}
                             {...field}
                             value={(field.value as number) ?? ""}
                             placeholder="e.g., 3"
@@ -315,6 +395,7 @@ export function GeneralSettingsTab({
                         <FormControl>
                           <Input
                             type="number"
+                            min={1}
                             {...field}
                             value={(field.value as number) ?? ""}
                             placeholder="e.g., 1"

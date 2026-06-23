@@ -3,11 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   createDefaultRound,
   createLeagueFormSchema,
+  defaultCreateLeagueFormValues,
 } from "@/lib/leagues/create-league-form";
 import {
+  getDefaultNegativeVotesPerSubmission,
+  getDefaultPositiveVotesPerSubmission,
   MAX_LEAGUE_DOWNVOTES_PER_MEMBER,
   MAX_LEAGUE_UPVOTES_PER_MEMBER,
 } from "@/lib/leagues/vote-limits";
+import { MAX_SUBMISSIONS_PER_USER } from "@/lib/rounds/submission-settings";
 
 function buildValidLeagueInput() {
   return {
@@ -18,8 +22,11 @@ function buildValidLeagueInput() {
     votingDeadline: 72,
     maxPositiveVotes: 5,
     maxNegativeVotes: 1,
-    limitVotesPerSubmission: false,
-    enforceListenPercentage: false,
+    limitVotesPerSubmission: true,
+    maxPositiveVotesPerSubmission: getDefaultPositiveVotesPerSubmission(5),
+    maxNegativeVotesPerSubmission: getDefaultNegativeVotesPerSubmission(1),
+    enforceListenPercentage: true,
+    listenTimeLimitMinutes: 15,
     rounds: [
       {
         title: "Round One",
@@ -57,6 +64,14 @@ describe("createLeagueFormSchema", () => {
     });
   });
 
+  it("creates expected league rule defaults", () => {
+    expect(defaultCreateLeagueFormValues.limitVotesPerSubmission).toBe(true);
+    expect(defaultCreateLeagueFormValues.maxPositiveVotesPerSubmission).toBe(3);
+    expect(defaultCreateLeagueFormValues.maxNegativeVotesPerSubmission).toBe(1);
+    expect(defaultCreateLeagueFormValues.enforceListenPercentage).toBe(true);
+    expect(defaultCreateLeagueFormValues.listenTimeLimitMinutes).toBe(15);
+  });
+
   it("accepts a valid base league payload", () => {
     const result = createLeagueFormSchema.safeParse(buildValidLeagueInput());
     expect(result.success).toBe(true);
@@ -84,6 +99,78 @@ describe("createLeagueFormSchema", () => {
       const paths = result.error.issues.map((issue) => issue.path.join("."));
       expect(paths).toContain("maxPositiveVotes");
       expect(paths).toContain("maxNegativeVotes");
+    }
+  });
+
+  it("accepts submissions per user up to the configured cap", () => {
+    const result = createLeagueFormSchema.safeParse({
+      ...buildValidLeagueInput(),
+      rounds: [
+        {
+          ...buildValidLeagueInput().rounds[0],
+          submissionsPerUser: MAX_SUBMISSIONS_PER_USER,
+          submissionMode: "multi",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects submissions per user above the configured cap", () => {
+    const result = createLeagueFormSchema.safeParse({
+      ...buildValidLeagueInput(),
+      rounds: [
+        {
+          ...buildValidLeagueInput().rounds[0],
+          submissionsPerUser: MAX_SUBMISSIONS_PER_USER + 1,
+          submissionMode: "multi",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join("."));
+      expect(paths).toContain("rounds.0.submissionsPerUser");
+    }
+  });
+
+  it("rejects single-song mode with multiple songs per participant", () => {
+    const result = createLeagueFormSchema.safeParse({
+      ...buildValidLeagueInput(),
+      rounds: [
+        {
+          ...buildValidLeagueInput().rounds[0],
+          submissionsPerUser: 2,
+          submissionMode: "single",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join("."));
+      expect(paths).toContain("rounds.0.submissionsPerUser");
+    }
+  });
+
+  it("rejects multiple-song modes with one song per participant", () => {
+    const result = createLeagueFormSchema.safeParse({
+      ...buildValidLeagueInput(),
+      rounds: [
+        {
+          ...buildValidLeagueInput().rounds[0],
+          submissionsPerUser: 1,
+          submissionMode: "multi",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join("."));
+      expect(paths).toContain("rounds.0.submissionsPerUser");
     }
   });
 
@@ -123,6 +210,7 @@ describe("createLeagueFormSchema", () => {
       rounds: [
         {
           ...buildValidLeagueInput().rounds[0],
+          submissionsPerUser: 2,
           submissionMode: "album",
           albumConfig: {
             allowPartial: false,

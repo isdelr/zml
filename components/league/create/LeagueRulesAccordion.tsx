@@ -1,5 +1,5 @@
 import { useWatch } from "react-hook-form";
-import { Info } from "lucide-react";
+import { useEffect, useRef } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -16,10 +16,17 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  getDefaultNegativeVotesPerSubmission,
+  getDefaultPositiveVotesPerSubmission,
+} from "@/lib/leagues/vote-limits";
 import type { CreateLeagueForm } from "./form-types";
+
+function toFiniteNumber(value: unknown, fallback: number) {
+  const numberValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
 
 export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
   const limitVotesPerSubmission = useWatch({
@@ -30,10 +37,61 @@ export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
     control: form.control,
     name: "enforceListenPercentage",
   });
+  const maxPositiveVotes = useWatch({
+    control: form.control,
+    name: "maxPositiveVotes",
+  });
+  const maxNegativeVotes = useWatch({
+    control: form.control,
+    name: "maxNegativeVotes",
+  });
+  const positiveVoteCapDefault = getDefaultPositiveVotesPerSubmission(
+    toFiniteNumber(maxPositiveVotes, 1),
+  );
+  const negativeVoteCapDefault = getDefaultNegativeVotesPerSubmission(
+    toFiniteNumber(maxNegativeVotes, 0),
+  );
+  const previousVoteCapDefaultsRef = useRef({
+    positive: positiveVoteCapDefault,
+    negative: negativeVoteCapDefault,
+  });
+
+  useEffect(() => {
+    const previousDefaults = previousVoteCapDefaultsRef.current;
+    const currentPositiveLimit = form.getValues(
+      "maxPositiveVotesPerSubmission",
+    );
+    const currentNegativeLimit = form.getValues(
+      "maxNegativeVotesPerSubmission",
+    );
+
+    if (
+      currentPositiveLimit === undefined ||
+      currentPositiveLimit === previousDefaults.positive
+    ) {
+      form.setValue("maxPositiveVotesPerSubmission", positiveVoteCapDefault, {
+        shouldValidate: true,
+      });
+    }
+
+    if (
+      currentNegativeLimit === undefined ||
+      currentNegativeLimit === previousDefaults.negative
+    ) {
+      form.setValue("maxNegativeVotesPerSubmission", negativeVoteCapDefault, {
+        shouldValidate: true,
+      });
+    }
+
+    previousVoteCapDefaultsRef.current = {
+      positive: positiveVoteCapDefault,
+      negative: negativeVoteCapDefault,
+    };
+  }, [form, negativeVoteCapDefault, positiveVoteCapDefault]);
 
   return (
-    <Accordion type="multiple" className="w-full">
-      <AccordionItem value="voting" className="mb-4 rounded-lg border px-4">
+    <Accordion type="single" collapsible className="w-full">
+      <AccordionItem value="voting" className="rounded-lg border px-4">
         <AccordionTrigger className="hover:no-underline">
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold">Voting Rules</span>
@@ -99,28 +157,8 @@ export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
               )}
             />
           </div>
-        </AccordionContent>
-      </AccordionItem>
 
-      <AccordionItem value="advanced" className="rounded-lg border px-4">
-        <AccordionTrigger className="hover:no-underline">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-semibold">Advanced Options</span>
-            <Badge variant="outline">Optional</Badge>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="size-4 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>These settings are optional and add extra rules</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </AccordionTrigger>
-        <AccordionContent className="space-y-6 pt-4">
-          <div className="space-y-4">
+          <div className="space-y-4 border-t pt-4">
             <FormField
               control={form.control}
               name="limitVotesPerSubmission"
@@ -133,7 +171,24 @@ export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
                     </FormDescription>
                   </div>
                   <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (checked) {
+                          form.setValue(
+                            "maxPositiveVotesPerSubmission",
+                            positiveVoteCapDefault,
+                            { shouldValidate: true },
+                          );
+                          form.setValue(
+                            "maxNegativeVotesPerSubmission",
+                            negativeVoteCapDefault,
+                            { shouldValidate: true },
+                          );
+                        }
+                      }}
+                    />
                   </FormControl>
                 </FormItem>
               )}
@@ -149,6 +204,7 @@ export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
                       <FormControl>
                         <Input
                           type="number"
+                          min={1}
                           placeholder="e.g., 3"
                           {...field}
                           value={(field.value as number) || ""}
@@ -167,6 +223,7 @@ export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
                       <FormControl>
                         <Input
                           type="number"
+                          min={1}
                           placeholder="e.g., 1"
                           {...field}
                           value={(field.value as number) || ""}
@@ -180,9 +237,7 @@ export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
             )}
           </div>
 
-          <Separator />
-
-          <div className="space-y-4">
+          <div className="space-y-4 border-t pt-4">
             <FormField
               control={form.control}
               name="enforceListenPercentage"

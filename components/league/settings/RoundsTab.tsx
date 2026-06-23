@@ -21,7 +21,6 @@ import { type VariantProps } from "class-variance-authority";
 import { api } from "@/lib/convex/api";
 import type { LeagueData, RoundForLeague } from "@/lib/convex/types";
 import { toErrorMessage } from "@/lib/errors";
-import { genres as availableGenres } from "@/lib/genres";
 import {
   buildLeagueRoundHref,
   getPreferredRoundId,
@@ -46,12 +45,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -62,7 +55,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -72,6 +64,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { SubmissionModeSettings } from "@/components/round/SubmissionModeSettings";
 
 interface RoundsTabProps {
   league: LeagueData;
@@ -209,9 +202,8 @@ export function RoundsTab({ league }: RoundsTabProps) {
       title: values.title,
       description: values.description,
       submissionsPerUser: values.submissionsPerUser,
-      genres: values.genres,
+      genres: [],
       submissionMode: values.submissionMode,
-      submissionInstructions: values.submissionInstructions,
       albumConfig: values.albumConfig,
     });
 
@@ -453,233 +445,121 @@ export function RoundsTab({ league }: RoundsTabProps) {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="submissionsPerUser"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Songs per Participant</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={5}
-                          {...field}
-                          value={(field.value as number) || ""}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Choose how many songs each participant can submit.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                <SubmissionModeSettings
+                  form={form}
+                  submissionsPerUserName="submissionsPerUser"
+                  submissionModeName="submissionMode"
                 />
               </div>
 
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="advanced" className="rounded-lg border px-4">
-                  <AccordionTrigger className="hover:no-underline">
-                    Advanced Options
-                  </AccordionTrigger>
-                  <AccordionContent className="space-y-4 pt-4">
-                    <FormField
-                      control={form.control}
-                      name="submissionMode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Submission Mode</FormLabel>
+              {submissionMode === "album" ? (
+                <div className="grid gap-4 rounded-lg border bg-muted/50 p-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="albumConfig.minTracks"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Minimum Tracks</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            {...field}
+                            value={
+                              typeof field.value === "number"
+                                ? field.value
+                                : ""
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="albumConfig.maxTracks"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Maximum Tracks</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            {...field}
+                            value={
+                              typeof field.value === "number"
+                                ? field.value
+                                : ""
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="albumConfig.allowPartial"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Allow Partial Albums</FormLabel>
+                        <FormControl>
                           <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
+                            onValueChange={(value) =>
+                              field.onChange(value === "true")
+                            }
+                            value={
+                              field.value === undefined
+                                ? "false"
+                                : String(field.value)
+                            }
                           >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a submission mode" />
-                              </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="single">Single song</SelectItem>
-                              <SelectItem value="multi">
-                                Multiple songs (shuffled)
-                              </SelectItem>
-                              <SelectItem value="album">
-                                Multiple songs (keep track order)
-                              </SelectItem>
+                              <SelectItem value="false">No</SelectItem>
+                              <SelectItem value="true">Yes</SelectItem>
                             </SelectContent>
                           </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="submissionInstructions"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Submission Instructions</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Optional guidance shown when members submit."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {submissionMode === "album" ? (
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField
-                          control={form.control}
-                          name="albumConfig.minTracks"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Minimum Tracks</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  {...field}
-                                  value={
-                                    typeof field.value === "number"
-                                      ? field.value
-                                      : ""
-                                  }
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="albumConfig.maxTracks"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Maximum Tracks</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  {...field}
-                                  value={
-                                    typeof field.value === "number"
-                                      ? field.value
-                                      : ""
-                                  }
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="albumConfig.allowPartial"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Allow Partial Albums</FormLabel>
-                              <FormControl>
-                                <Select
-                                  onValueChange={(value) =>
-                                    field.onChange(value === "true")
-                                  }
-                                  value={
-                                    field.value === undefined
-                                      ? "false"
-                                      : String(field.value)
-                                  }
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="false">No</SelectItem>
-                                    <SelectItem value="true">Yes</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="albumConfig.requireReleaseYear"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Require Release Year</FormLabel>
-                              <FormControl>
-                                <Select
-                                  onValueChange={(value) =>
-                                    field.onChange(value === "true")
-                                  }
-                                  value={
-                                    field.value === undefined
-                                      ? "true"
-                                      : String(field.value)
-                                  }
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="true">Yes</SelectItem>
-                                    <SelectItem value="false">No</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    ) : null}
-
-                    <FormField
-                      control={form.control}
-                      name="genres"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Genres</FormLabel>
-                          <FormDescription>
-                            Optional tags that help define the round.
-                          </FormDescription>
-                          <FormControl>
-                            <div className="flex flex-wrap gap-2">
-                              {availableGenres.map((genre) => {
-                                const isSelected = field.value?.includes(genre);
-                                return (
-                                  <Badge
-                                    key={genre}
-                                    variant={isSelected ? "default" : "outline"}
-                                    className="cursor-pointer"
-                                    onClick={() => {
-                                      const currentValue = field.value ?? [];
-                                      const nextValue = isSelected
-                                        ? currentValue.filter(
-                                            (value) => value !== genre,
-                                          )
-                                        : [...currentValue, genre];
-                                      field.onChange(nextValue);
-                                    }}
-                                  >
-                                    {genre}
-                                  </Badge>
-                                );
-                              })}
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="albumConfig.requireReleaseYear"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Require Release Year</FormLabel>
+                        <FormControl>
+                          <Select
+                            onValueChange={(value) =>
+                              field.onChange(value === "true")
+                            }
+                            value={
+                              field.value === undefined
+                                ? "true"
+                                : String(field.value)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">Yes</SelectItem>
+                              <SelectItem value="false">No</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              ) : null}
 
               <DialogFooter>
                 <Button

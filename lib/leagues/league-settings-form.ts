@@ -19,7 +19,7 @@ export const leagueEditSchema = z
     maxNegativeVotes: z.coerce.number().min(0),
     limitVotesPerSubmission: z.boolean(),
     maxPositiveVotesPerSubmission: z.coerce.number().min(1).optional(),
-    maxNegativeVotesPerSubmission: z.coerce.number().min(0).optional(),
+    maxNegativeVotesPerSubmission: z.coerce.number().min(1).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.limitVotesPerSubmission) {

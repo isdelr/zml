@@ -1,33 +1,19 @@
-import { Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ChevronDown, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlbumSettingsFields } from "@/components/league/create/AlbumSettingsFields";
-import { GenreSelectorField } from "@/components/league/create/GenreSelectorField";
 import { RoundImagePicker } from "@/components/league/create/RoundImagePicker";
+import { SubmissionModeSettings } from "@/components/round/SubmissionModeSettings";
+import { cn } from "@/lib/utils";
 import type { CreateLeagueForm, PreviewMapSetter } from "./form-types";
 
 type RoundCardProps = {
@@ -38,6 +24,10 @@ type RoundCardProps = {
   previewUrl?: string;
   setPreviews: PreviewMapSetter;
   isAlbumMode: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+  title?: string;
+  description?: string;
 };
 
 export function RoundCard({
@@ -48,25 +38,66 @@ export function RoundCard({
   previewUrl,
   setPreviews,
   isAlbumMode,
+  isExpanded,
+  onToggle,
+  title,
+  description,
 }: RoundCardProps) {
+  const displayTitle = title?.trim();
+  const displayDescription = description?.trim();
+  const summaryLabel = [
+    `Round ${index + 1}`,
+    displayTitle || "Untitled round",
+    displayDescription,
+  ]
+    .filter(Boolean)
+    .join(" - ");
+
   return (
-    <Card className="relative">
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Round {index + 1}</CardTitle>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            onClick={onRemove}
-            disabled={fieldsLength <= 1}
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Card className="relative gap-0 py-0">
+      <div className="flex items-center gap-2 p-3 sm:p-4">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          aria-expanded={isExpanded}
+          aria-label={summaryLabel}
+          onClick={onToggle}
+        >
+          <ChevronDown
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform",
+              isExpanded && "rotate-180",
+            )}
+          />
+          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="shrink-0 text-sm font-semibold">
+              Round {index + 1}
+            </span>
+            <span className="min-w-0 truncate text-sm">
+              {displayTitle || "Untitled round"}
+            </span>
+            {displayDescription ? (
+              <span className="min-w-0 truncate text-sm text-muted-foreground">
+                {displayDescription}
+              </span>
+            ) : null}
+          </span>
+        </button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={onRemove}
+          disabled={fieldsLength <= 1}
+          aria-label={`Delete round ${index + 1}`}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+
+      {isExpanded ? (
+        <CardContent className="space-y-4 border-t px-4 pb-4 pt-4 sm:px-5">
         <div className="flex flex-col-reverse gap-6 md:flex-row">
           <div className="flex-1 space-y-4">
             <FormField
@@ -98,27 +129,10 @@ export function RoundCard({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name={`rounds.${index}.submissionsPerUser`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Songs per Participant</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={5}
-                      {...field}
-                      value={(field.value as number) || ""}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    How many songs each participant can submit (1-5)
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
+            <SubmissionModeSettings
+              form={form}
+              submissionsPerUserName={`rounds.${index}.submissionsPerUser`}
+              submissionModeName={`rounds.${index}.submissionMode`}
             />
           </div>
 
@@ -132,74 +146,9 @@ export function RoundCard({
           </div>
         </div>
 
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="advanced" className="rounded-lg border px-4">
-            <AccordionTrigger className="hover:no-underline">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Advanced Options</span>
-                <Badge variant="outline" className="text-xs">
-                  Optional
-                </Badge>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-4">
-              <FormField
-                control={form.control}
-                name={`rounds.${index}.submissionMode`}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Submission Mode</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a submission mode" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="single">Single song</SelectItem>
-                        <SelectItem value="multi">
-                          Multiple songs (shuffled)
-                        </SelectItem>
-                        <SelectItem value="album">
-                          Multiple songs (keep track order)
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Choose how submissions should be grouped and presented.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name={`rounds.${index}.submissionInstructions`}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Submission Instructions</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="e.g., Submit your favorite 3 tracks from the 90s..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Additional guidance shown to participants when submitting.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {isAlbumMode && <AlbumSettingsFields form={form} index={index} />}
-
-              <GenreSelectorField form={form} index={index} />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+        {isAlbumMode && <AlbumSettingsFields form={form} index={index} />}
       </CardContent>
+      ) : null}
     </Card>
   );
 }

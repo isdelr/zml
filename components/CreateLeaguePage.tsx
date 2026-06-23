@@ -60,10 +60,9 @@ export function CreateLeaguePage() {
             title: round.title,
             description: round.description,
             submissionsPerUser: round.submissionsPerUser,
-            genres: round.genres ?? [],
+            genres: [],
             imageKey,
             submissionMode: round.submissionMode,
-            submissionInstructions: round.submissionInstructions,
             albumConfig: round.albumConfig,
           };
         }),
@@ -83,29 +82,28 @@ export function CreateLeaguePage() {
   }
 
   return (
-    <div className="min-h-full bg-background p-4 text-foreground md:p-8">
-      <Card className="mx-auto max-w-4xl">
-        <CardHeader>
+    <div className="min-h-full bg-background p-3 text-foreground sm:p-4 xl:p-6">
+      <Card className="mx-auto w-full max-w-3xl gap-4 py-4">
+        <CardHeader className="px-4 sm:px-5">
           <CardTitle>Create a New League</CardTitle>
           <CardDescription>
-            Define your league&apos;s settings and add its initial rounds. Start with the basics and
-            expand the advanced sections as needed.
+            Define your league&apos;s settings and add its initial rounds.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-5">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               <LeagueBasicInfoSection form={form} />
 
-              <Separator className="my-6" />
+              <Separator className="my-5" />
 
               <LeagueRoundsSection form={form} previews={previews} setPreviews={setPreviews} />
 
-              <Separator className="my-6" />
+              <Separator className="my-5" />
 
               <LeagueRulesAccordion form={form} />
 
-              <Separator className="my-6" />
+              <Separator className="my-5" />
 
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => router.back()}>
