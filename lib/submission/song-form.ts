@@ -34,24 +34,29 @@ export const songSubmissionFormSchema = z
     duration: z.number().optional(),
   })
   .superRefine((data, ctx) => {
-    if (!data.songTitle?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Song title is required.",
-        path: ["songTitle"],
-      });
-    }
-
-    if (!data.artist?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Artist is required.",
-        path: ["artist"],
-      });
-    }
-
     if (data.submissionType === "manual") {
+      let hasMissingManualRequirement = false;
+
+      if (!data.songTitle?.trim()) {
+        hasMissingManualRequirement = true;
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Song title is required.",
+          path: ["songTitle"],
+        });
+      }
+
+      if (!data.artist?.trim()) {
+        hasMissingManualRequirement = true;
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Artist is required.",
+          path: ["artist"],
+        });
+      }
+
       if (!data.songFile?.size) {
+        hasMissingManualRequirement = true;
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Song file is required.",
@@ -60,10 +65,19 @@ export const songSubmissionFormSchema = z
       }
 
       if (!data.albumArtFile?.size) {
+        hasMissingManualRequirement = true;
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Album art is required.",
           path: ["albumArtFile"],
+        });
+      }
+
+      if (hasMissingManualRequirement) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please complete the required fields for your chosen submission type.",
+          path: ["submissionType"],
         });
       }
     }

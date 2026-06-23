@@ -12,6 +12,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { MediaImage } from "@/components/ui/media-image";
 import { TabsContent } from "@/components/ui/tabs";
 import type { SongSubmissionFormValues } from "@/lib/submission/song-form";
@@ -40,21 +41,22 @@ export function SongLinkTab({
           render={({ field }) => (
             <FormItem>
               <FormLabel>YouTube Link</FormLabel>
-              <FormControl>
-                <div className="relative">
+              <div className="relative">
+                <FormControl>
                   <Input
+                    className="pr-10"
                     placeholder="https://www.youtube.com/watch?v=8OcKBa9QYaI"
                     {...field}
                   />
-                  <div className="absolute inset-y-0 right-0 flex items-center gap-2 pr-3">
-                    {isFetchingLinkMeta ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <YouTubeIcon className="size-4 text-red-500" />
-                    )}
-                  </div>
+                </FormControl>
+                <div className="absolute inset-y-0 right-0 flex items-center gap-2 pr-3">
+                  {isFetchingLinkMeta ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <YouTubeIcon className="size-4 text-red-500" />
+                  )}
                 </div>
-              </FormControl>
+              </div>
               <FormDescription>
                 Paste the link to the song you want to submit. We&apos;ll fetch
                 the details automatically.
@@ -70,7 +72,7 @@ export function SongLinkTab({
             !detailsUnlocked && "opacity-55",
           )}
         >
-          <FormLabel>Album Art</FormLabel>
+          <Label>Album Art</Label>
           {albumArtPreview ? (
             <MediaImage
               src={albumArtPreview}
