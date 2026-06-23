@@ -7,12 +7,29 @@ import webpush, { PushSubscription, WebPushError } from "web-push";
 import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 
-if (process.env.VAPID_PUBLIC_KEY&& process.env.VAPID_PRIVATE_KEY) {
+const VAPID_SUBJECT = "mailto:isaias005@hotmail.com";
+
+function normalizeVapidKey(value: string | undefined) {
+  return (value ?? "").replace(/\s+/g, "").trim();
+}
+
+function configureWebPush() {
+  const publicKey = normalizeVapidKey(process.env.VAPID_PUBLIC_KEY);
+  const privateKey = normalizeVapidKey(process.env.VAPID_PRIVATE_KEY);
+  if (!publicKey || !privateKey) {
+    return false;
+  }
+
   webpush.setVapidDetails(
-    "mailto:isaias005@hotmail.com",
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY,
+    VAPID_SUBJECT,
+    publicKey,
+    privateKey,
   );
+  return true;
+}
+
+function shouldDeactivateSubscription(statusCode: number) {
+  return [400, 401, 403, 404, 410].includes(statusCode);
 }
 
 // FIX: Define a type for the action's arguments
@@ -50,7 +67,7 @@ export const send = internalAction({
   },
 
   handler: async (ctx: ActionCtx, args: SendArgs): Promise<SendResult> => {
-    if (!process.env.VAPID_PUBLIC_KEY|| !process.env.VAPID_PRIVATE_KEY) {
+    if (!configureWebPush()) {
       console.error("[Push] VAPID keys not configured");
       return { success: false, error: "VAPID keys not configured" };
     }
@@ -94,16 +111,25 @@ export const send = internalAction({
         successCount++;
       } catch (error) {
         const webPushError = error as WebPushError;
+        const statusCode =
+          typeof webPushError.statusCode === "number"
+            ? webPushError.statusCode
+            : 0;
+        const errorBody =
+          typeof webPushError.body === "string"
+            ? webPushError.body
+            : webPushError.message || "Unknown web push error";
         failureCount++;
         errors.push({
           endpoint: sub.endpoint.substring(0, 50) + "...",
-          statusCode: webPushError.statusCode,
-          error: webPushError.body,
+          statusCode,
+          error: errorBody,
         });
 
-        if (webPushError.statusCode === 404 || webPushError.statusCode === 410) {
+        if (shouldDeactivateSubscription(statusCode)) {
           await ctx.runMutation(internal.webPush.removeSubscription, {
             endpoint: fullSubscriptionObject.endpoint,
+            reason: `web-push-${statusCode}`,
           });
         }
       }

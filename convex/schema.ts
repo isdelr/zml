@@ -52,6 +52,7 @@ export default defineSchema({
   pushSubscriptions: defineTable({
     userId: v.id("users"),
     endpoint: v.string(),
+    applicationServerKey: v.optional(v.string()),
     subscription: v.object({
       keys: v.object({
         p256dh: v.string(),

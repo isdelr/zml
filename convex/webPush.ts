@@ -10,9 +10,14 @@ const subscriptionDetailsSchema = v.object({
   }),
 });
 
+function normalizeVapidPublicKey(value: string | undefined) {
+  return (value ?? "").replace(/\s+/g, "").trim();
+}
+
 export const subscribe = mutation({
   args: {
     endpoint: v.string(),
+    applicationServerKey: v.string(),
     subscription: subscriptionDetailsSchema,
   },
   handler: async (ctx, args) => {
@@ -35,13 +40,37 @@ export const subscribe = mutation({
       throw new Error("Missing required keys in subscription");
     }
 
+    const serverApplicationServerKey = normalizeVapidPublicKey(
+      process.env.VAPID_PUBLIC_KEY,
+    );
+    const clientApplicationServerKey = normalizeVapidPublicKey(
+      args.applicationServerKey,
+    );
+    if (!serverApplicationServerKey) {
+      console.error("[WebPush] VAPID_PUBLIC_KEY is missing in Convex env");
+      throw new Error("Push notifications are not configured on the server.");
+    }
+    if (clientApplicationServerKey !== serverApplicationServerKey) {
+      console.error("[WebPush] Client/server VAPID public key mismatch", {
+        clientKeyLength: clientApplicationServerKey.length,
+        serverKeyLength: serverApplicationServerKey.length,
+      });
+      throw new Error(
+        "Push notification keys are out of sync. Rebuild the frontend with the server VAPID public key.",
+      );
+    }
+
     const existingByEndpoint = await ctx.db.query("pushSubscriptions").withIndex("by_endpoint", (q) => q.eq("endpoint", args.endpoint)).first();
     if (existingByEndpoint) {
       if (existingByEndpoint.userId === userId) {
         console.log("[WebPush] Updating existing subscription for same user");
         await ctx.db.patch("pushSubscriptions", existingByEndpoint._id, {
+          applicationServerKey: clientApplicationServerKey,
           subscription: args.subscription,
           updatedAt: Date.now(),
+          isActive: true,
+          deactivatedAt: undefined,
+          deactivationReason: undefined,
         });
         return { success: true, updated: true };
       } else {
@@ -66,6 +95,7 @@ export const subscribe = mutation({
     const newSubscription = await ctx.db.insert("pushSubscriptions", {
       userId,
       endpoint: args.endpoint,
+      applicationServerKey: clientApplicationServerKey,
       subscription: args.subscription,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -107,15 +137,20 @@ export const unsubscribe = mutation({
 export const removeSubscription = internalMutation({
   args: { endpoint: v.string(), reason: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    console.log(`[WebPush] Removing subscription due to: ${args.reason || "unknown reason"}`);
+    console.log(`[WebPush] Deactivating subscription due to: ${args.reason || "unknown reason"}`);
     console.log(`[WebPush] Endpoint: ${args.endpoint.substring(0, 50)}...`);
     const existing = await ctx.db.query("pushSubscriptions").withIndex("by_endpoint", (q) => q.eq("endpoint", args.endpoint)).first();
     if (existing) {
-      await ctx.db.delete("pushSubscriptions", existing._id);
-      console.log("[WebPush] Subscription removed successfully");
+      await ctx.db.patch("pushSubscriptions", existing._id, {
+        isActive: false,
+        deactivatedAt: Date.now(),
+        deactivationReason: args.reason ?? "unknown",
+        updatedAt: Date.now(),
+      });
+      console.log("[WebPush] Subscription deactivated successfully");
       return { success: true, removed: true };
     } else {
-      console.log("[WebPush] Subscription not found for removal");
+      console.log("[WebPush] Subscription not found for deactivation");
       return { success: true, removed: false };
     }
   },
@@ -126,12 +161,13 @@ export const getSubscriptionsForUser = internalQuery({
   handler: async (ctx, args) => {
     const subscriptions = await ctx.db
       .query("pushSubscriptions")
-      .withIndex("by_user_and_active", (q) =>
-        q.eq("userId", args.userId).eq("isActive", true),
-      )
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
-    console.log(`[WebPush] Found ${subscriptions.length} active subscriptions for user ${args.userId}`);
-    return subscriptions;
+    const activeSubscriptions = subscriptions.filter(
+      (subscription) => subscription.isActive !== false,
+    );
+    console.log(`[WebPush] Found ${activeSubscriptions.length} active subscriptions for user ${args.userId}`);
+    return activeSubscriptions;
   },
 });
 

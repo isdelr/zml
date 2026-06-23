@@ -85,7 +85,7 @@ services:
         NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
         NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-development}
         NEXT_PUBLIC_APP_RELEASE: ${APP_RELEASE:-0.1.0-dev}
-        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
         B2_ENDPOINT: ${B2_ENDPOINT:-https://s3.us-east-005.backblazeb2.com}
     restart: unless-stopped
     depends_on:
@@ -105,6 +105,7 @@ services:
       NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
       NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-development}
       NEXT_PUBLIC_APP_RELEASE: ${APP_RELEASE:-0.1.0-dev}
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
     command: sh -c "npm ci && npm run dev"
     ports:
       - "3000:3000"

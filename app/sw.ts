@@ -174,14 +174,11 @@ self.addEventListener("push", (event) => {
       type: "window",
       includeUncontrolled: true,
     });
-    const hasVisibleClient = clientsArr.some((client) => {
-      if ("visibilityState" in client && client.visibilityState === "visible") {
-        return true;
-      }
-      return "focused" in client && client.focused;
-    });
+    const hasFocusedClient = clientsArr.some(
+      (client) => "focused" in client && client.focused,
+    );
 
-    if (hasVisibleClient) {
+    if (hasFocusedClient) {
       return;
     }
 
@@ -201,15 +198,23 @@ self.addEventListener("push", (event) => {
       vibrate: [100, 50, 100],
       tag: data.tag || `${data.data?.url || "/"}:${Date.now()}`,
       data: { url: data.data?.url || "/" },
-      actions: [
+    };
+
+    const notificationApi =
+      typeof Notification !== "undefined"
+        ? (Notification as typeof Notification & { maxActions?: number })
+        : null;
+    const maxActions = notificationApi?.maxActions ?? 0;
+    if (maxActions > 0) {
+      options.actions = [
         {
           action: "open",
           title: "Open",
           icon: "/icons/web-app-manifest-192x192.png",
         },
         { action: "close", title: "Close" },
-      ],
-    };
+      ].slice(0, maxActions);
+    }
 
     await self.registration.showNotification(
       data.title || "ZML Notification",

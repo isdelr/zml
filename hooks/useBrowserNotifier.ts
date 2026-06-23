@@ -28,8 +28,18 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+function normalizeVapidPublicKey(vapidPublicKey: string) {
+  return vapidPublicKey.replace(/\s+/g, "").trim();
+}
+
 function getValidatedApplicationServerKey(vapidPublicKey: string) {
-  const normalized = vapidPublicKey.trim();
+  const normalized = normalizeVapidPublicKey(vapidPublicKey);
+  if (!normalized) {
+    throw new Error("NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing.");
+  }
+  if (!/^[A-Za-z0-9_-]+={0,2}$/.test(normalized)) {
+    throw new Error("NEXT_PUBLIC_VAPID_PUBLIC_KEY is not valid base64url.");
+  }
   const applicationServerKey = urlBase64ToUint8Array(normalized);
   if (
     applicationServerKey.length !== 65 ||
@@ -40,6 +50,34 @@ function getValidatedApplicationServerKey(vapidPublicKey: string) {
     );
   }
   return applicationServerKey;
+}
+
+function bufferSourceToUint8Array(bufferSource: BufferSource | null) {
+  if (!bufferSource) {
+    return null;
+  }
+  if (bufferSource instanceof ArrayBuffer) {
+    return new Uint8Array(bufferSource);
+  }
+  return new Uint8Array(
+    bufferSource.buffer,
+    bufferSource.byteOffset,
+    bufferSource.byteLength,
+  );
+}
+
+function applicationServerKeysMatch(
+  subscription: PushSubscription,
+  applicationServerKey: Uint8Array,
+) {
+  const existingKey = bufferSourceToUint8Array(
+    subscription.options.applicationServerKey,
+  );
+  if (!existingKey || existingKey.length !== applicationServerKey.length) {
+    return false;
+  }
+
+  return existingKey.every((byte, index) => byte === applicationServerKey[index]);
 }
 
 type NavigatorWithStandalone = Navigator & {
@@ -75,6 +113,7 @@ function isStandaloneDisplayMode() {
 async function syncSubscriptionToServer(
   subscription: PushSubscription,
   subscribe: ReturnType<typeof useMutation<typeof api.webPush.subscribe>>,
+  applicationServerKey: string,
 ) {
   const subscriptionJSON = subscription.toJSON();
 
@@ -89,6 +128,7 @@ async function syncSubscriptionToServer(
 
   await subscribe({
     endpoint: subscriptionJSON.endpoint,
+    applicationServerKey,
     subscription: {
       keys: {
         p256dh: subscriptionJSON.keys.p256dh,
@@ -98,6 +138,24 @@ async function syncSubscriptionToServer(
   });
 
   return true;
+}
+
+async function unsubscribeStaleSubscription(
+  subscription: PushSubscription,
+  unsubscribe: ReturnType<typeof useMutation<typeof api.webPush.unsubscribe>>,
+) {
+  const endpoint = subscription.endpoint;
+  await subscription.unsubscribe().catch((error) => {
+    console.warn("[Push] Browser unsubscribe failed:", error);
+  });
+
+  if (!endpoint) {
+    return;
+  }
+
+  await unsubscribe({ endpoint }).catch((error) => {
+    console.warn("[Push] Failed to remove stale subscription from server:", error);
+  });
 }
 
 export function useBrowserNotifier() {
@@ -114,8 +172,24 @@ export function useBrowserNotifier() {
   });
   const currentUser = useQuery(api.users.getCurrentUser, {});
   const subscribe = useMutation(api.webPush.subscribe);
+  const unsubscribe = useMutation(api.webPush.unsubscribe);
   const isSyncingSubscription = useRef(false);
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+  const normalizedVapidPublicKey = useMemo(
+    () => normalizeVapidPublicKey(vapidPublicKey),
+    [vapidPublicKey],
+  );
+  const applicationServerKey = useMemo(() => {
+    if (!isHydrated) {
+      return null;
+    }
+    try {
+      return getValidatedApplicationServerKey(normalizedVapidPublicKey);
+    } catch (error) {
+      console.error("[Push] Invalid VAPID public key:", error);
+      return null;
+    }
+  }, [isHydrated, normalizedVapidPublicKey]);
   const [isAppleMobile, setIsAppleMobile] = useState(() => isAppleMobileBrowser());
   const [isStandalone, setIsStandalone] = useState(() => isStandaloneDisplayMode());
   const [dontAskAgain, setDontAskAgain] = useState(() => {
@@ -176,6 +250,58 @@ export function useBrowserNotifier() {
   }, [isHydrated]);
   const requiresIosInstallForPush = isAppleMobile && !isStandalone;
 
+  const ensurePushSubscription = useCallback(async () => {
+    if (!currentUser?._id) {
+      return false;
+    }
+
+    if (!("serviceWorker" in navigator)) {
+      console.error("[Push] Service workers are unavailable in this browser.");
+      return false;
+    }
+
+    if (!applicationServerKey || !normalizedVapidPublicKey) {
+      console.error("[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing or invalid.");
+      return false;
+    }
+
+    if (requiresIosInstallForPush) {
+      return false;
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (
+      subscription &&
+      !applicationServerKeysMatch(subscription, applicationServerKey)
+    ) {
+      console.info("[Push] Existing subscription uses an old VAPID key. Re-subscribing.");
+      await unsubscribeStaleSubscription(subscription, unsubscribe);
+      subscription = null;
+    }
+
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey,
+      });
+    }
+
+    return await syncSubscriptionToServer(
+      subscription,
+      subscribe,
+      normalizedVapidPublicKey,
+    );
+  }, [
+    applicationServerKey,
+    currentUser?._id,
+    normalizedVapidPublicKey,
+    requiresIosInstallForPush,
+    subscribe,
+    unsubscribe,
+  ]);
+
   const syncExistingPushSubscription = useCallback(async () => {
     if (isSyncingSubscription.current) {
       return false;
@@ -189,30 +315,10 @@ export function useBrowserNotifier() {
       return false;
     }
 
-    if (!("serviceWorker" in navigator)) {
-      console.error("[Push] Service workers are unavailable in this browser.");
-      return false;
-    }
-
-    if (!vapidPublicKey) {
-      console.error("[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing in the client bundle.");
-      return false;
-    }
-
-    if (requiresIosInstallForPush) {
-      return false;
-    }
-
     isSyncingSubscription.current = true;
 
     try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      if (!subscription) {
-        return false;
-      }
-
-      return await syncSubscriptionToServer(subscription, subscribe);
+      return await ensurePushSubscription();
     } catch (error) {
       console.error("[Push] Failed to sync existing subscription:", error, {
         permission,
@@ -225,10 +331,8 @@ export function useBrowserNotifier() {
     }
   }, [
     currentUser?._id,
+    ensurePushSubscription,
     permission,
-    requiresIosInstallForPush,
-    subscribe,
-    vapidPublicKey,
   ]);
 
   useEffect(() => {
@@ -251,8 +355,9 @@ export function useBrowserNotifier() {
       return true;
     }
 
-    return permission === "default" && isPushSupported;
+    return permission === "default" && isPushSupported && Boolean(applicationServerKey);
   }, [
+    applicationServerKey,
     dontAskAgain,
     isHydrated,
     isPushSupported,
@@ -272,6 +377,10 @@ export function useBrowserNotifier() {
       );
       return;
     }
+    if (!applicationServerKey) {
+      console.error("[Push] Cannot request push permission without a valid VAPID public key.");
+      return;
+    }
     const currentPermission = await Notification.requestPermission();
     setPermission(currentPermission);
     if (currentPermission !== "granted") {
@@ -284,29 +393,15 @@ export function useBrowserNotifier() {
       setDontAskAgain(false);
       setIsTemporarilyDismissed(false);
       try {
-        const registration = await navigator.serviceWorker.ready;
-        const applicationServerKey =
-          getValidatedApplicationServerKey(vapidPublicKey ?? "");
-
         console.info("[Push] Attempting browser subscription", {
           isSecureContext,
           origin: window.location.origin,
           permission: currentPermission,
-          scope: registration.scope,
-          hasActiveWorker: Boolean(registration.active),
-          vapidPublicKeyLength: vapidPublicKey?.length ?? 0,
+          vapidPublicKeyLength: normalizedVapidPublicKey.length,
           applicationServerKeyLength: applicationServerKey.length,
         });
 
-        let subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey,
-          });
-        }
-
-        await syncSubscriptionToServer(subscription, subscribe);
+        await ensurePushSubscription();
       } catch (error) {
         const errorName =
           error instanceof DOMException || error instanceof Error
@@ -323,11 +418,16 @@ export function useBrowserNotifier() {
           isSecureContext,
           origin: window.location.origin,
           hasServiceWorker: "serviceWorker" in navigator,
-          vapidPublicKeyLength: vapidPublicKey?.length ?? 0,
+          vapidPublicKeyLength: normalizedVapidPublicKey.length,
         });
       }
     }
-  }, [requiresIosInstallForPush, subscribe, vapidPublicKey]);
+  }, [
+    applicationServerKey,
+    ensurePushSubscription,
+    normalizedVapidPublicKey.length,
+    requiresIosInstallForPush,
+  ]);
 
   const showNotification = useCallback(
     (title: string, options?: NotificationOptions) => {
