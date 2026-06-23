@@ -7,7 +7,7 @@ import { DiscordIcon } from "@/components/icons/BrandIcons";
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   unable_to_get_user_info:
-    "We couldn't finish Discord sign-in. Make sure this Discord account is in the required server and try again.",
+    "We couldn't finish Discord sign-in. Make sure this Discord account is in an allowed server and try again.",
   state_mismatch:
     "Sign-in session expired or was blocked by browser privacy settings. Please try again.",
   state_not_found:

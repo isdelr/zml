@@ -10,7 +10,7 @@ import {
 import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
-  getPrimaryDiscordServerIdFromEnv,
+  getAllowedDiscordServerIdsFromEnv,
   isAllowedDiscordServerId,
 } from "../lib/discord/server-access";
 import { buildLeagueRankings } from "../lib/convex-server/leagues/ranking";
@@ -47,6 +47,12 @@ type RoundSummary = {
   submissionStartsAt: number | null;
   submissionDeadline: number;
   votingDeadline: number;
+};
+
+type ReminderWebhookResponse = {
+  ok?: boolean;
+  skipped?: boolean;
+  reason?: string;
 };
 
 const DEFAULT_PAGINATION_OPTS = {
@@ -218,6 +224,14 @@ async function resolveDiscordUserIdsForAppUsers(
   return uniqueAppUserIds
     .map((userId) => discordUserIds.get(userId))
     .filter((value): value is string => typeof value === "string" && value.length > 0);
+}
+
+async function readReminderWebhookResponse(response: Response): Promise<ReminderWebhookResponse | null> {
+  try {
+    return (await response.json()) as ReminderWebhookResponse;
+  } catch {
+    return null;
+  }
 }
 
 async function signWebhookPayload(secret: string, timestamp: string, body: string) {
@@ -588,13 +602,13 @@ export const dispatchRoundNotification = internalAction({
   handler: async (ctx, args) => {
     const webhookUrl = getReminderWebhookUrl();
     const webhookSecret = getWebhookSecret();
-    const primaryServerId = getPrimaryDiscordServerIdFromEnv();
-    if (!webhookUrl || !webhookSecret || !primaryServerId) {
+    const allowedServerIds = getAllowedDiscordServerIdsFromEnv();
+    if (!webhookUrl || !webhookSecret || allowedServerIds.length === 0) {
       console.warn("[discord-bot] reminder dispatch skipped because bot webhook config is incomplete");
       return { dispatched: false, mentionedCount: 0 };
     }
 
-    const [league, round] = await Promise.all([
+    const [league, round, activeMemberships] = await Promise.all([
       ctx.runQuery(internal.discordBot.getLeagueMetadataForDispatch, {
         leagueId: args.leagueId,
       }),
@@ -603,8 +617,35 @@ export const dispatchRoundNotification = internalAction({
         : ctx.runQuery(internal.discordBot.getRoundMetadataForDispatch, {
             roundId: args.roundId,
           }),
+      ctx.runQuery(internal.notifications.getLeagueMemberships, {
+        leagueId: args.leagueId,
+      }),
     ]);
     if (!league || !round) {
+      return { dispatched: false, mentionedCount: 0 };
+    }
+
+    const leagueParticipantUserIds = [
+      ...new Set(
+        activeMemberships.map((membership: Doc<"memberships">) =>
+          membership.userId.toString(),
+        ),
+      ),
+    ].map((userId) => userId as Id<"users">);
+    if (leagueParticipantUserIds.length === 0) {
+      return { dispatched: false, mentionedCount: 0 };
+    }
+
+    const leagueParticipantDiscordUserIds = await resolveDiscordUserIdsForAppUsers(
+      ctx,
+      leagueParticipantUserIds,
+    );
+    if (leagueParticipantDiscordUserIds.length !== leagueParticipantUserIds.length) {
+      console.warn("[discord-bot] reminder dispatch skipped because not every league participant has a linked Discord account", {
+        leagueId: args.leagueId,
+        participantCount: leagueParticipantUserIds.length,
+        linkedDiscordCount: leagueParticipantDiscordUserIds.length,
+      });
       return { dispatched: false, mentionedCount: 0 };
     }
 
@@ -619,45 +660,68 @@ export const dispatchRoundNotification = internalAction({
       return { dispatched: false, mentionedCount: 0 };
     }
 
-    const payload = {
-      serverId: primaryServerId,
-      leagueId: args.leagueId,
-      leagueName: league.name,
-      roundId: args.roundId,
-      roundTitle: round.title,
-      roundStatus: args.roundStatus,
-      reminderKind: args.reminderKind,
-      message: args.message,
-      deadlineMs: args.deadlineMs ?? null,
-      actionUrl: buildActionUrl(args.actionUrl, args.leagueId, args.roundId),
-      source: args.source ?? null,
-      mentionDiscordUserIds,
-    };
+    let dispatchedServerCount = 0;
+    let skippedServerCount = 0;
 
-    const body = JSON.stringify(payload);
-    const timestamp = Date.now().toString();
-    const signature = await signWebhookPayload(webhookSecret, timestamp, body);
+    for (const serverId of allowedServerIds) {
+      const payload = {
+        serverId,
+        leagueId: args.leagueId,
+        leagueName: league.name,
+        roundId: args.roundId,
+        roundTitle: round.title,
+        roundStatus: args.roundStatus,
+        reminderKind: args.reminderKind,
+        message: args.message,
+        deadlineMs: args.deadlineMs ?? null,
+        actionUrl: buildActionUrl(args.actionUrl, args.leagueId, args.roundId),
+        source: args.source ?? null,
+        leagueParticipantDiscordUserIds,
+        mentionDiscordUserIds,
+      };
 
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-zml-timestamp": timestamp,
-        "x-zml-signature": signature,
-      },
-      body,
-    });
-    if (!response.ok) {
-      console.error("[discord-bot] reminder webhook failed", {
-        status: response.status,
-        source: args.source,
+      const body = JSON.stringify(payload);
+      const timestamp = Date.now().toString();
+      const signature = await signWebhookPayload(webhookSecret, timestamp, body);
+
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-zml-timestamp": timestamp,
+          "x-zml-signature": signature,
+        },
+        body,
       });
-      return { dispatched: false, mentionedCount: 0 };
+      if (!response.ok) {
+        console.error("[discord-bot] reminder webhook failed", {
+          status: response.status,
+          serverId,
+          source: args.source,
+        });
+        continue;
+      }
+
+      const responsePayload = await readReminderWebhookResponse(response);
+      if (responsePayload?.skipped) {
+        skippedServerCount += 1;
+        console.info("[discord-bot] reminder webhook skipped server", {
+          serverId,
+          reason: responsePayload.reason,
+          source: args.source,
+        });
+        continue;
+      }
+
+      dispatchedServerCount += 1;
     }
 
     return {
-      dispatched: true,
-      mentionedCount: mentionDiscordUserIds.length,
+      dispatched: dispatchedServerCount > 0,
+      mentionedCount:
+        dispatchedServerCount > 0 ? mentionDiscordUserIds.length : 0,
+      dispatchedServerCount,
+      skippedServerCount,
     };
   },
 });

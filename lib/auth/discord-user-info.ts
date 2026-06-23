@@ -44,7 +44,7 @@ function resolveDiscordAvatarUrl(profile: DiscordProfile) {
 async function assertDiscordGuildMembership(accessToken: string) {
   const requiredServerIds = getAllowedDiscordServerIdsFromEnv();
   if (requiredServerIds.length === 0) {
-    throw new Error("DISCORD_SERVER_ID is required and must include at least one server.");
+    throw new Error("DISCORD_SERVER_ID is required and must include at least one allowed server.");
   }
 
   const guildsResponse = await fetch("https://discord.com/api/v10/users/@me/guilds", {
@@ -62,7 +62,7 @@ async function assertDiscordGuildMembership(accessToken: string) {
   );
   if (!isMember) {
     throw new Error(
-      "You must be a member of the required Discord server to sign in.",
+      "You must be a member of an allowed Discord server to sign in.",
     );
   }
 }
