@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-import { isYouTubeLink } from "@/lib/youtube";
+import {
+  MAX_IMAGE_SIZE_BYTES,
+  MAX_IMAGE_SIZE_MB,
+  MAX_SONG_SIZE_BYTES,
+  MAX_SONG_SIZE_MB,
+} from "@/lib/submission/constants";
+import { extractYouTubeVideoId } from "@/lib/youtube";
 
 export const editSubmissionFormSchema = z
   .object({
@@ -10,8 +16,20 @@ export const editSubmissionFormSchema = z
     albumName: z.string().optional(),
     year: z.number().optional(),
     comment: z.string().optional(),
-    albumArtFile: z.instanceof(File).optional(),
-    songFile: z.instanceof(File).optional(),
+    albumArtFile: z
+      .instanceof(File)
+      .optional()
+      .refine(
+        (file) => !file || file.size <= MAX_IMAGE_SIZE_BYTES,
+        `Max image size is ${MAX_IMAGE_SIZE_MB}MB.`,
+      ),
+    songFile: z
+      .instanceof(File)
+      .optional()
+      .refine(
+        (file) => !file || file.size <= MAX_SONG_SIZE_BYTES,
+        `Max song size is ${MAX_SONG_SIZE_MB}MB.`,
+      ),
     songLink: z.string().optional(),
     duration: z.number().optional(),
   })
@@ -23,7 +41,7 @@ export const editSubmissionFormSchema = z
           message: "A YouTube link is required.",
           path: ["songLink"],
         });
-      } else if (!isYouTubeLink(data.songLink)) {
+      } else if (!extractYouTubeVideoId(data.songLink)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Please provide a valid YouTube link.",

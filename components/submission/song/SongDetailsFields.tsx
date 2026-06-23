@@ -10,18 +10,18 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import type { EditSubmissionFormValues } from "@/lib/submission/edit-form";
+import type { SongSubmissionFormValues } from "@/lib/submission/song-form";
 import { cn } from "@/lib/utils";
 
-interface EditBasicsFieldsProps {
-  form: UseFormReturn<EditSubmissionFormValues>;
+interface SongDetailsFieldsProps {
+  form: UseFormReturn<SongSubmissionFormValues>;
   disabled?: boolean;
 }
 
-export function EditBasicsFields({
+export function SongDetailsFields({
   form,
   disabled = false,
-}: EditBasicsFieldsProps) {
+}: SongDetailsFieldsProps) {
   return (
     <div
       className={cn(
@@ -36,7 +36,11 @@ export function EditBasicsFields({
           <FormItem>
             <FormLabel>Song Title</FormLabel>
             <FormControl>
-              <Input disabled={disabled} {...field} />
+              <Input
+                placeholder="e.g., Bohemian Rhapsody"
+                disabled={disabled}
+                {...field}
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -50,7 +54,7 @@ export function EditBasicsFields({
             <FormLabel>Artist</FormLabel>
             <FormControl>
               <Input
-                placeholder="Artist 1, Artist 2"
+                placeholder="e.g., Artist 1, Artist 2"
                 disabled={disabled}
                 {...field}
               />
@@ -66,7 +70,11 @@ export function EditBasicsFields({
           <FormItem>
             <FormLabel>Album</FormLabel>
             <FormControl>
-              <Input placeholder="Album name" disabled={disabled} {...field} />
+              <Input
+                placeholder="e.g., A Night at the Opera"
+                disabled={disabled}
+                {...field}
+              />
             </FormControl>
             <FormMessage />
           </FormItem>

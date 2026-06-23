@@ -19,7 +19,7 @@ import {
   editSubmissionFormSchema,
   type EditSubmissionFormValues,
 } from "@/lib/submission/edit-form";
-import { isYouTubeLink } from "@/lib/youtube";
+import { extractYouTubeVideoId } from "@/lib/youtube";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -50,6 +50,8 @@ type PendingSubmissionEdit = {
   metadata: SongLinkMetadata | null;
 };
 
+type MetadataReadState = "idle" | "reading" | "ready";
+
 export function EditSubmissionForm({
   submission,
   onSubmitted,
@@ -66,6 +68,15 @@ export function EditSubmissionForm({
   });
   const uploadSubmissionSongFile = useUploadSubmissionSongFile();
 
+  const initialSubmissionType =
+    submission.submissionType === "file" ? "file" : "link";
+  const hasExistingFileSource = Boolean(
+    submission.submissionType === "file" &&
+    (submission.songFileKey ||
+      submission.originalSongFileKey ||
+      submission.songFileUrl),
+  );
+
   const [albumArtPreview, setAlbumArtPreview] = useState<string | null>(
     submission.albumArtUrl,
   );
@@ -73,6 +84,15 @@ export function EditSubmissionForm({
     submission.songFileUrl
       ? "Current song file saved. Upload to replace."
       : null,
+  );
+  const [fileMetadataState, setFileMetadataState] = useState<MetadataReadState>(
+    hasExistingFileSource ? "ready" : "idle",
+  );
+  const [linkMetadataState, setLinkMetadataState] = useState<MetadataReadState>(
+    initialSubmissionType === "link" && submission.songLink ? "ready" : "idle",
+  );
+  const [linkAlbumArtPreview, setLinkAlbumArtPreview] = useState<string | null>(
+    initialSubmissionType === "link" ? submission.albumArtUrl : null,
   );
   const [warningState, setWarningState] = useState<{
     isOpen: boolean;
@@ -93,9 +113,7 @@ export function EditSubmissionForm({
   const [isFetchingLinkMeta, setIsFetchingLinkMeta] = useState(false);
   const fetchLinkDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFetchedLinkRef = useRef<string | null>(null);
-
-  const initialSubmissionType =
-    submission.submissionType === "file" ? "file" : "link";
+  const linkMetadataRef = useRef<SongLinkMetadata | null>(null);
 
   const form = useForm<EditSubmissionFormValues>({
     resolver: zodResolver(editSubmissionFormSchema),
@@ -115,27 +133,75 @@ export function EditSubmissionForm({
     control: form.control,
     name: "songLink",
   });
+  const watchedSubmissionType = useWatch({
+    control: form.control,
+    name: "submissionType",
+  });
+
+  const detailsDisabled =
+    watchedSubmissionType === "file"
+      ? fileMetadataState !== "ready"
+      : linkMetadataState !== "ready";
 
   useEffect(() => {
     lastFetchedLinkRef.current = submission.songLink ?? null;
   }, [submission.songLink]);
 
   useEffect(() => {
-    if (form.getValues("submissionType") !== "link") return;
-    if (!watchedLink) return;
+    if (watchedSubmissionType !== "link") return;
 
-    const link = watchedLink.trim();
-    if (!isYouTubeLink(link)) return;
-    if (lastFetchedLinkRef.current === link) return;
+    const link = watchedLink?.trim() ?? "";
+    const videoId = extractYouTubeVideoId(link);
+
+    if (!videoId) {
+      if (fetchLinkDebounce.current) {
+        clearTimeout(fetchLinkDebounce.current);
+      }
+      linkMetadataRef.current = null;
+      setLinkMetadataState("idle");
+      setLinkAlbumArtPreview(null);
+      setIsFetchingLinkMeta(false);
+      return;
+    }
+
+    const initialLink = submission.songLink?.trim() ?? "";
+    if (link === initialLink && initialSubmissionType === "link") {
+      setLinkMetadataState("ready");
+      setLinkAlbumArtPreview(submission.albumArtUrl);
+      return;
+    }
+
+    if (lastFetchedLinkRef.current === link && linkMetadataRef.current) {
+      setLinkMetadataState("ready");
+      setLinkAlbumArtPreview(linkMetadataRef.current.albumArtUrl ?? null);
+      return;
+    }
 
     if (fetchLinkDebounce.current) {
       clearTimeout(fetchLinkDebounce.current);
     }
 
+    linkMetadataRef.current = null;
+    setLinkAlbumArtPreview(null);
+    setLinkMetadataState("reading");
+
     fetchLinkDebounce.current = setTimeout(async () => {
       setIsFetchingLinkMeta(true);
       try {
         const metadata = await getSongMetadataFromLink({ link });
+        const currentLink = form.getValues("songLink")?.trim() ?? "";
+        if (
+          currentLink !== link ||
+          form.getValues("submissionType") !== "link"
+        ) {
+          return;
+        }
+
+        linkMetadataRef.current = metadata;
+        lastFetchedLinkRef.current = link;
+        setLinkAlbumArtPreview(metadata.albumArtUrl ?? null);
+        setLinkMetadataState("ready");
+
         if (metadata.songTitle) {
           form.setValue("songTitle", metadata.songTitle, {
             shouldValidate: true,
@@ -147,8 +213,14 @@ export function EditSubmissionForm({
         if (typeof metadata.duration === "number") {
           form.setValue("duration", metadata.duration);
         }
-        lastFetchedLinkRef.current = link;
       } catch (error) {
+        const currentLink = form.getValues("songLink")?.trim() ?? "";
+        if (currentLink === link) {
+          linkMetadataRef.current = null;
+          setLinkMetadataState("idle");
+          setLinkAlbumArtPreview(null);
+          toast.error("Could not fetch YouTube details from that link.");
+        }
         console.error("Failed to fetch metadata for link:", error);
       } finally {
         setIsFetchingLinkMeta(false);
@@ -160,7 +232,29 @@ export function EditSubmissionForm({
         clearTimeout(fetchLinkDebounce.current);
       }
     };
-  }, [watchedLink, form, getSongMetadataFromLink]);
+  }, [
+    watchedLink,
+    watchedSubmissionType,
+    form,
+    getSongMetadataFromLink,
+    initialSubmissionType,
+    submission.albumArtUrl,
+    submission.songLink,
+  ]);
+
+  const getMetadataForLink = async (link: string) => {
+    const trimmedLink = link.trim();
+    if (lastFetchedLinkRef.current === trimmedLink && linkMetadataRef.current) {
+      return linkMetadataRef.current;
+    }
+
+    const metadata = await getSongMetadataFromLink({ link: trimmedLink });
+    lastFetchedLinkRef.current = trimmedLink;
+    linkMetadataRef.current = metadata;
+    setLinkAlbumArtPreview(metadata.albumArtUrl ?? null);
+    setLinkMetadataState("ready");
+    return metadata;
+  };
 
   const handleFinalSubmit = async (
     values: EditSubmissionFormValues,
@@ -172,19 +266,18 @@ export function EditSubmissionForm({
         if (!values.songLink) throw new Error("Link is missing.");
 
         const metadata =
-          metadataOverride ??
-          (await getSongMetadataFromLink({ link: values.songLink }));
+          metadataOverride ?? (await getMetadataForLink(values.songLink));
         await editSong({
           submissionId: submission._id,
-          songTitle: values.songTitle,
-          artist: values.artist,
-          albumName: values.albumName,
+          songTitle: values.songTitle?.trim() || metadata.songTitle,
+          artist: values.artist?.trim() || metadata.artist,
+          albumName: values.albumName?.trim() || undefined,
           year: values.year,
           comment: values.comment,
           submissionType: metadata.submissionType,
-          songLink: values.songLink,
+          songLink: values.songLink.trim(),
           albumArtUrlValue: metadata.albumArtUrl ?? undefined,
-          duration: metadata.duration,
+          duration: values.duration ?? metadata.duration,
           albumArtKey: null,
           songFileKey: null,
         });
@@ -304,20 +397,28 @@ export function EditSubmissionForm({
     const toastId = toast.loading("Checking submission...");
     try {
       let metadata: SongLinkMetadata | null = null;
+      let title = values.songTitle;
+      let artist = values.artist;
 
       if (values.submissionType === "link") {
         if (!values.songLink) {
           throw new Error("Link is missing.");
         }
-        metadata = await getSongMetadataFromLink({ link: values.songLink });
+        metadata = await getMetadataForLink(values.songLink);
+        title = values.songTitle?.trim() || metadata.songTitle;
+        artist = values.artist?.trim() || metadata.artist;
+      }
+
+      if (!title || !artist) {
+        throw new Error("Song title and artist are required.");
       }
 
       const duplicates = await convex.query(
         api.submissions.checkForPotentialDuplicates,
         {
           leagueId: submission.leagueId,
-          songTitle: values.songTitle,
-          artist: values.artist,
+          songTitle: title,
+          artist,
           currentSubmissionId: submission._id,
         },
       );
@@ -326,12 +427,18 @@ export function EditSubmissionForm({
         setWarningState({
           isOpen: true,
           data: duplicates,
-          pendingSubmission: { values, metadata },
+          pendingSubmission: {
+            values: { ...values, songTitle: title, artist },
+            metadata,
+          },
         });
         toast.dismiss(toastId);
       } else {
         toast.dismiss(toastId);
-        await continueWithRegionRestrictions({ values, metadata });
+        await continueWithRegionRestrictions({
+          values: { ...values, songTitle: title, artist },
+          metadata,
+        });
       }
     } catch (error) {
       const errorMessage = toErrorMessage(error);
@@ -341,12 +448,36 @@ export function EditSubmissionForm({
 
   const handleTabChange = (value: string) => {
     form.setValue("submissionType", value as "file" | "link");
+    if (value === "file") {
+      setFileMetadataState(
+        hasExistingFileSource || form.getValues("songFile") ? "ready" : "idle",
+      );
+    }
     if (
       value === "link" &&
       !form.getValues("songLink") &&
       submission.songLink
     ) {
       form.setValue("songLink", submission.songLink);
+    }
+    if (value === "link") {
+      const link = (
+        form.getValues("songLink") ||
+        submission.songLink ||
+        ""
+      ).trim();
+      setLinkMetadataState(
+        extractYouTubeVideoId(link)
+          ? initialSubmissionType === "link" && link === submission.songLink
+            ? "ready"
+            : linkMetadataState
+          : "idle",
+      );
+      setLinkAlbumArtPreview(
+        initialSubmissionType === "link" && link === submission.songLink
+          ? submission.albumArtUrl
+          : (linkMetadataRef.current?.albumArtUrl ?? null),
+      );
     }
   };
 
@@ -410,8 +541,6 @@ export function EditSubmissionForm({
       <div className="rounded-lg bg-card p-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <EditBasicsFields form={form} />
-
             <Tabs
               defaultValue={initialSubmissionType}
               className="w-full"
@@ -428,12 +557,23 @@ export function EditSubmissionForm({
                 setAlbumArtPreview={setAlbumArtPreview}
                 songFileName={songFileName}
                 setSongFileName={setSongFileName}
+                detailsUnlocked={fileMetadataState === "ready"}
+                isMetadataReading={fileMetadataState === "reading"}
+                onMetadataReadStart={() => setFileMetadataState("reading")}
+                onMetadataReadComplete={() => setFileMetadataState("ready")}
+                onMetadataReadReset={() =>
+                  setFileMetadataState(hasExistingFileSource ? "ready" : "idle")
+                }
               />
               <EditLinkTab
                 form={form}
+                albumArtPreview={linkAlbumArtPreview}
+                detailsUnlocked={linkMetadataState === "ready"}
                 isFetchingLinkMeta={isFetchingLinkMeta}
               />
             </Tabs>
+
+            <EditBasicsFields form={form} disabled={detailsDisabled} />
 
             <EditCommentField form={form} />
 

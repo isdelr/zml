@@ -4,7 +4,7 @@ import { useAction, useConvex, useMutation } from "convex/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { api } from "@/lib/convex/api";
@@ -20,16 +20,8 @@ import {
   songSubmissionFormSchema,
   type SongSubmissionFormValues,
 } from "@/lib/submission/song-form";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PotentialDuplicateDialog } from "@/components/submission/PotentialDuplicateDialog";
 import {
@@ -38,10 +30,12 @@ import {
 } from "@/components/submission/YouTubeRegionRestrictionDialog";
 import { SongManualTab } from "@/components/submission/song/SongManualTab";
 import { SongLinkTab } from "@/components/submission/song/SongLinkTab";
+import { SongDetailsFields } from "@/components/submission/song/SongDetailsFields";
 import { SongCommentField } from "@/components/submission/song/SongCommentField";
 import { UploadProgressStatus } from "@/components/submission/UploadProgressStatus";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toErrorMessage } from "@/lib/errors";
+import { extractYouTubeVideoId } from "@/lib/youtube";
 
 interface SongSubmissionFormProps {
   round: Doc<"rounds">;
@@ -52,6 +46,8 @@ type PendingSongSubmission = {
   values: SongSubmissionFormValues;
   metadata: SongLinkMetadata | null;
 };
+
+type MetadataReadState = "idle" | "reading" | "ready";
 
 export function SongSubmissionForm({
   round,
@@ -70,6 +66,17 @@ export function SongSubmissionForm({
   const uploadSubmissionSongFile = useUploadSubmissionSongFile();
 
   const [albumArtPreview, setAlbumArtPreview] = useState<string>("");
+  const [manualMetadataState, setManualMetadataState] =
+    useState<MetadataReadState>("idle");
+  const [linkMetadataState, setLinkMetadataState] =
+    useState<MetadataReadState>("idle");
+  const [isFetchingLinkMeta, setIsFetchingLinkMeta] = useState(false);
+  const [linkAlbumArtPreview, setLinkAlbumArtPreview] = useState<string | null>(
+    null,
+  );
+  const fetchLinkDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFetchedLinkRef = useRef<string | null>(null);
+  const linkMetadataRef = useRef<SongLinkMetadata | null>(null);
   const [uploadState, setUploadState] = useState<{
     title: string;
     description?: string;
@@ -94,6 +101,123 @@ export function SongSubmissionForm({
     control: form.control,
     name: "submissionType",
   });
+  const watchedLink = useWatch({
+    control: form.control,
+    name: "songLink",
+  });
+
+  const detailsDisabled =
+    submissionType === "manual"
+      ? manualMetadataState !== "ready"
+      : linkMetadataState !== "ready";
+
+  useEffect(() => {
+    if (submissionType !== "link") {
+      return;
+    }
+
+    const link = watchedLink?.trim() ?? "";
+    const videoId = extractYouTubeVideoId(link);
+
+    if (!videoId) {
+      if (fetchLinkDebounce.current) {
+        clearTimeout(fetchLinkDebounce.current);
+      }
+      linkMetadataRef.current = null;
+      setLinkMetadataState("idle");
+      setLinkAlbumArtPreview(null);
+      setIsFetchingLinkMeta(false);
+      return;
+    }
+
+    if (lastFetchedLinkRef.current === link && linkMetadataRef.current) {
+      setLinkMetadataState("ready");
+      setLinkAlbumArtPreview(linkMetadataRef.current.albumArtUrl ?? null);
+      return;
+    }
+
+    if (fetchLinkDebounce.current) {
+      clearTimeout(fetchLinkDebounce.current);
+    }
+
+    linkMetadataRef.current = null;
+    setLinkAlbumArtPreview(null);
+    setLinkMetadataState("reading");
+
+    fetchLinkDebounce.current = setTimeout(async () => {
+      setIsFetchingLinkMeta(true);
+      try {
+        const metadata = await getSongMetadataFromLink({ link });
+        const currentLink = form.getValues("songLink")?.trim() ?? "";
+        if (
+          currentLink !== link ||
+          form.getValues("submissionType") !== "link"
+        ) {
+          return;
+        }
+
+        linkMetadataRef.current = metadata;
+        lastFetchedLinkRef.current = link;
+        setLinkAlbumArtPreview(metadata.albumArtUrl ?? null);
+        setLinkMetadataState("ready");
+
+        if (metadata.songTitle) {
+          form.setValue("songTitle", metadata.songTitle, {
+            shouldValidate: true,
+          });
+        }
+        if (metadata.artist) {
+          form.setValue("artist", metadata.artist, { shouldValidate: true });
+        }
+        if (typeof metadata.duration === "number") {
+          form.setValue("duration", metadata.duration);
+        }
+      } catch (error) {
+        const currentLink = form.getValues("songLink")?.trim() ?? "";
+        if (currentLink === link) {
+          linkMetadataRef.current = null;
+          setLinkMetadataState("idle");
+          setLinkAlbumArtPreview(null);
+          toast.error("Could not fetch YouTube details from that link.");
+        }
+        console.error("Failed to fetch metadata for link:", error);
+      } finally {
+        setIsFetchingLinkMeta(false);
+      }
+    }, 600);
+
+    return () => {
+      if (fetchLinkDebounce.current) {
+        clearTimeout(fetchLinkDebounce.current);
+      }
+    };
+  }, [watchedLink, submissionType, form, getSongMetadataFromLink]);
+
+  const getMetadataForLink = async (link: string) => {
+    const trimmedLink = link.trim();
+    if (lastFetchedLinkRef.current === trimmedLink && linkMetadataRef.current) {
+      return linkMetadataRef.current;
+    }
+
+    const metadata = await getSongMetadataFromLink({ link: trimmedLink });
+    lastFetchedLinkRef.current = trimmedLink;
+    linkMetadataRef.current = metadata;
+    setLinkAlbumArtPreview(metadata.albumArtUrl ?? null);
+    setLinkMetadataState("ready");
+    return metadata;
+  };
+
+  const resetMetadataState = () => {
+    setManualMetadataState("idle");
+    setLinkMetadataState("idle");
+    setIsFetchingLinkMeta(false);
+    setLinkAlbumArtPreview(null);
+    lastFetchedLinkRef.current = null;
+    linkMetadataRef.current = null;
+    if (fetchLinkDebounce.current) {
+      clearTimeout(fetchLinkDebounce.current);
+    }
+  };
 
   const handleFinalSubmit = async (
     values: SongSubmissionFormValues,
@@ -147,20 +271,19 @@ export function SongSubmissionForm({
         });
       } else if (values.submissionType === "link" && values.songLink) {
         const metadata =
-          metadataOverride ??
-          (await getSongMetadataFromLink({ link: values.songLink }));
+          metadataOverride ?? (await getMetadataForLink(values.songLink));
 
         await submitSong({
           roundId,
           submissionType: metadata.submissionType,
-          songTitle: metadata.songTitle,
-          artist: metadata.artist,
-          albumName: undefined,
+          songTitle: values.songTitle?.trim() || metadata.songTitle,
+          artist: values.artist?.trim() || metadata.artist,
+          albumName: values.albumName?.trim() || undefined,
           year: values.year,
-          songLink: values.songLink,
+          songLink: values.songLink.trim(),
           albumArtUrlValue: metadata.albumArtUrl ?? undefined,
           comment: values.comment,
-          duration: metadata.duration,
+          duration: values.duration ?? metadata.duration,
         });
       }
 
@@ -172,6 +295,7 @@ export function SongSubmissionForm({
       );
       form.reset(defaultSongSubmissionFormValues);
       setAlbumArtPreview("");
+      resetMetadataState();
       setUploadState(null);
     } catch (error) {
       const errorMessage = toErrorMessage(error);
@@ -219,9 +343,9 @@ export function SongSubmissionForm({
         title = values.songTitle || "";
         artist = values.artist || "";
       } else if (values.songLink) {
-        metadata = await getSongMetadataFromLink({ link: values.songLink });
-        title = metadata.songTitle;
-        artist = metadata.artist;
+        metadata = await getMetadataForLink(values.songLink);
+        title = values.songTitle?.trim() || metadata.songTitle;
+        artist = values.artist?.trim() || metadata.artist;
       }
 
       if (!title || !artist) {
@@ -247,12 +371,18 @@ export function SongSubmissionForm({
         setWarningState({
           isOpen: true,
           data: duplicates,
-          pendingSubmission: { values, metadata },
+          pendingSubmission: {
+            values: { ...values, songTitle: title, artist },
+            metadata,
+          },
         });
         toast.dismiss(toastId);
       } else {
         toast.dismiss(toastId);
-        await continueWithRegionRestrictions({ values, metadata });
+        await continueWithRegionRestrictions({
+          values: { ...values, songTitle: title, artist },
+          metadata,
+        });
       }
     } catch (error) {
       const errorMessage = toErrorMessage(error);
@@ -316,7 +446,7 @@ export function SongSubmissionForm({
         }}
       />
 
-      <div className="rounded-lg border bg-card p-6">
+      <div className="mx-auto w-full max-w-xl rounded-lg border bg-card p-6">
         <h2 className="text-2xl font-bold">Submit Your Track</h2>
         <p className="mb-6 text-muted-foreground">
           Choose your submission method.
@@ -339,37 +469,21 @@ export function SongSubmissionForm({
                 form={form}
                 albumArtPreview={albumArtPreview}
                 setAlbumArtPreview={setAlbumArtPreview}
+                detailsUnlocked={manualMetadataState === "ready"}
+                isMetadataReading={manualMetadataState === "reading"}
+                onMetadataReadStart={() => setManualMetadataState("reading")}
+                onMetadataReadComplete={() => setManualMetadataState("ready")}
+                onMetadataReadReset={() => setManualMetadataState("idle")}
               />
-              <SongLinkTab form={form} />
+              <SongLinkTab
+                form={form}
+                albumArtPreview={linkAlbumArtPreview}
+                detailsUnlocked={linkMetadataState === "ready"}
+                isFetchingLinkMeta={isFetchingLinkMeta}
+              />
             </Tabs>
 
-            <FormField
-              control={form.control}
-              name="year"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Release Year</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="e.g., 1997"
-                      name={field.name}
-                      ref={field.ref}
-                      onBlur={field.onBlur}
-                      value={typeof field.value === "number" ? field.value : ""}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === ""
-                            ? undefined
-                            : Number(e.target.value),
-                        )
-                      }
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <SongDetailsFields form={form} disabled={detailsDisabled} />
 
             <SongCommentField form={form} />
 

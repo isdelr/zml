@@ -6,7 +6,7 @@ import {
   MAX_SONG_SIZE_BYTES,
   MAX_SONG_SIZE_MB,
 } from "@/lib/submission/constants";
-import { isYouTubeLink } from "@/lib/youtube";
+import { extractYouTubeVideoId } from "@/lib/youtube";
 
 export const songSubmissionFormSchema = z
   .object({
@@ -33,26 +33,51 @@ export const songSubmissionFormSchema = z
     comment: z.string().optional(),
     duration: z.number().optional(),
   })
-  .refine(
-    (data) => {
-      if (data.submissionType === "manual") {
-        return (
-          data.songTitle &&
-          data.artist &&
-          data.albumArtFile?.size &&
-          data.songFile?.size
-        );
+  .superRefine((data, ctx) => {
+    if (!data.songTitle?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Song title is required.",
+        path: ["songTitle"],
+      });
+    }
+
+    if (!data.artist?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Artist is required.",
+        path: ["artist"],
+      });
+    }
+
+    if (data.submissionType === "manual") {
+      if (!data.songFile?.size) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Song file is required.",
+          path: ["songFile"],
+        });
       }
-      if (data.submissionType === "link") {
-        return isYouTubeLink(data.songLink);
+
+      if (!data.albumArtFile?.size) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Album art is required.",
+          path: ["albumArtFile"],
+        });
       }
-      return false;
-    },
-    {
-      message: "Please complete the required fields for your chosen submission type.",
-      path: ["submissionType"],
-    },
-  );
+    }
+
+    if (data.submissionType === "link") {
+      if (!extractYouTubeVideoId(data.songLink)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please provide a valid YouTube link.",
+          path: ["songLink"],
+        });
+      }
+    }
+  });
 
 export type SongSubmissionFormValues = z.infer<typeof songSubmissionFormSchema>;
 
