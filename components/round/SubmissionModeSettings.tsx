@@ -197,86 +197,89 @@ export function SubmissionModeSettings<
 
   return (
     <div className={cn("space-y-4", className)}>
-      <FormField
-        control={control}
-        name={submissionsPerUserName}
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Songs per Participant</FormLabel>
-            <FormControl>
-              <Input
-                type="number"
-                min={1}
-                max={MAX_SUBMISSIONS_PER_USER}
-                {...field}
-                value={
-                  typeof field.value === "number" ||
-                  typeof field.value === "string"
-                    ? field.value
-                    : ""
-                }
-                disabled={disabled}
-                onChange={(event) => {
-                  const nextValue = event.target.value;
-                  field.onChange(nextValue);
-                  const nextNumber = toNumber(nextValue);
-                  if (!Number.isFinite(nextNumber) || nextNumber < 1) {
-                    return;
+      <div>
+        <FormField
+          control={control}
+          name={submissionsPerUserName}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Songs per Participant</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min={1}
+                  max={MAX_SUBMISSIONS_PER_USER}
+                  {...field}
+                  value={
+                    typeof field.value === "number" ||
+                    typeof field.value === "string"
+                      ? field.value
+                      : ""
                   }
-                  if (nextNumber === 1) {
-                    setSubmissionMode("single");
-                  } else if (selectedMode === "single") {
-                    setSubmissionMode("multi");
-                  }
-                }}
-              />
-            </FormControl>
-            <FormDescription>
-              How many songs each participant can submit
-            </FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={control}
-        name={submissionModeName}
-        render={() => (
-          <FormItem className="w-full">
-            <FormLabel>Submission Mode</FormLabel>
-            <FormControl>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {modeOptions.map(({ value, label, Icon }) => {
-                  const selected = selectedMode === value;
-                  return (
-                    <Button
-                      key={value}
-                      type="button"
-                      variant="outline"
-                      disabled={disabled}
-                      aria-pressed={selected}
-                      className={cn(
-                        "h-auto min-h-28 flex-col items-stretch justify-start gap-0 whitespace-normal p-3 text-left",
-                        selected &&
-                          "border-primary bg-primary/10 text-foreground",
-                      )}
-                      onClick={() => handleModeChange(value)}
-                    >
-                      <span className="flex items-center gap-2 text-sm font-semibold">
-                        <Icon className="size-4" />
-                        {label}
-                      </span>
-                      <ModeIllustration mode={value} selected={selected} />
-                    </Button>
-                  );
-                })}
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+                  disabled={disabled}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    field.onChange(nextValue);
+                    const nextNumber = toNumber(nextValue);
+                    if (!Number.isFinite(nextNumber) || nextNumber < 1) {
+                      return;
+                    }
+                    if (nextNumber === 1) {
+                      setSubmissionMode("single");
+                    } else if (selectedMode === "single") {
+                      setSubmissionMode("multi");
+                    }
+                  }}
+                />
+              </FormControl>
+              <FormDescription>
+                How many songs each participant can submit
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+      <div>
+        <FormField
+          control={control}
+          name={submissionModeName}
+          render={() => (
+            <FormItem>
+              <FormLabel>Submission Mode</FormLabel>
+              <FormControl>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {modeOptions.map(({ value, label, Icon }) => {
+                    const selected = selectedMode === value;
+                    return (
+                      <Button
+                        key={value}
+                        type="button"
+                        variant="outline"
+                        disabled={disabled}
+                        aria-pressed={selected}
+                        className={cn(
+                          "h-auto min-h-28 flex-col items-stretch justify-start gap-0 whitespace-normal p-3 text-left",
+                          selected &&
+                            "border-primary bg-primary/10 text-foreground",
+                        )}
+                        onClick={() => handleModeChange(value)}
+                      >
+                        <span className="flex items-center gap-2 text-sm font-semibold">
+                          <Icon className="size-4" />
+                          {label}
+                        </span>
+                        <ModeIllustration mode={value} selected={selected} />
+                      </Button>
+                    );
+                  })}
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
     </div>
   );
 }
