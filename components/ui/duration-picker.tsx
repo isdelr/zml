@@ -1,20 +1,12 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  DURATION_PRESETS_MINUTES,
   durationMinutesToParts,
   durationPartsToMinutes,
-  formatDurationMinutes,
   type DurationParts,
 } from "@/lib/time/duration";
 import { cn } from "@/lib/utils";
-
-type DurationPickerPreset = {
-  minutes: number;
-  label?: string;
-};
 
 type DurationPickerProps = {
   value: number | null | undefined;
@@ -22,14 +14,9 @@ type DurationPickerProps = {
   disabled?: boolean;
   minMinutes?: number;
   showPresets?: boolean;
-  presets?: readonly DurationPickerPreset[];
   className?: string;
   inputClassName?: string;
 };
-
-const DEFAULT_PRESETS: DurationPickerPreset[] = DURATION_PRESETS_MINUTES.map(
-  (minutes) => ({ minutes }),
-);
 
 function parsePartValue(value: string): number {
   if (!value.trim()) {
@@ -48,9 +35,6 @@ export function DurationPicker({
   value,
   onChange,
   disabled = false,
-  minMinutes,
-  showPresets = true,
-  presets = DEFAULT_PRESETS,
   className,
   inputClassName,
 }: DurationPickerProps) {
@@ -64,11 +48,6 @@ export function DurationPicker({
       }),
     );
   };
-
-  const effectivePresets =
-    minMinutes === undefined
-      ? presets
-      : presets.filter((preset) => preset.minutes >= minMinutes);
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -113,23 +92,6 @@ export function DurationPicker({
           />
         </label>
       </div>
-
-      {showPresets && effectivePresets.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {effectivePresets.map((preset) => (
-            <Button
-              key={preset.minutes}
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={disabled}
-              onClick={() => onChange(preset.minutes)}
-            >
-              {preset.label ?? formatDurationMinutes(preset.minutes)}
-            </Button>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }
