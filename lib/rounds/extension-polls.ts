@@ -2,7 +2,7 @@ import {
   MIN_ROUND_DURATION_MINUTES,
   durationMinutesToMs,
   durationMsToMinutes,
-} from "@/lib/time/duration";
+} from "../../lib/time/duration";
 
 type IdLike = string | { toString(): string };
 
@@ -43,10 +43,14 @@ function formatUnit(value: number, unit: "day" | "hour" | "minute"): string {
   return `${value} ${unit}${value === 1 ? "" : "s"}`;
 }
 
-export function formatExtensionPollRequestWindowLabel(windowMs: number): string {
+export function formatExtensionPollRequestWindowLabel(
+  windowMs: number,
+): string {
   const roundedMinutes = Math.max(1, Math.round(windowMs / MINUTE_MS));
   const days = Math.floor(roundedMinutes / (DAY_MS / MINUTE_MS));
-  const hours = Math.floor((roundedMinutes % (DAY_MS / MINUTE_MS)) / (HOUR_MS / MINUTE_MS));
+  const hours = Math.floor(
+    (roundedMinutes % (DAY_MS / MINUTE_MS)) / (HOUR_MS / MINUTE_MS),
+  );
   const minutes = roundedMinutes % (HOUR_MS / MINUTE_MS);
 
   const parts: string[] = [];
@@ -67,7 +71,10 @@ export function getExtensionPollRequestWindowMs(
   phaseStartsAt: number,
   phaseDeadline: number,
 ): number {
-  return Math.max(0, (phaseDeadline - phaseStartsAt) * EXTENSION_REQUEST_WINDOW_RATIO);
+  return Math.max(
+    0,
+    (phaseDeadline - phaseStartsAt) * EXTENSION_REQUEST_WINDOW_RATIO,
+  );
 }
 
 export function isExtensionPollRequestWindowOpen(
@@ -160,7 +167,9 @@ export function getExtensionPollResolution(args: {
   appliedExtensionMs: number;
 } {
   const totalVotes = args.yesVotes + args.noVotes;
-  if (!hasExtensionPollReachedMinimumTurnout(totalVotes, args.eligibleVoterCount)) {
+  if (
+    !hasExtensionPollReachedMinimumTurnout(totalVotes, args.eligibleVoterCount)
+  ) {
     return {
       result: "insufficient_turnout",
       appliedExtensionMs: 0,
@@ -214,7 +223,9 @@ export function getLockedExtensionPollResult(args: {
   return null;
 }
 
-export function getExtensionPollMinimumTurnout(eligibleVoterCount: number): number {
+export function getExtensionPollMinimumTurnout(
+  eligibleVoterCount: number,
+): number {
   return Math.ceil(eligibleVoterCount * EXTENSION_POLL_MIN_TURNOUT_RATIO);
 }
 

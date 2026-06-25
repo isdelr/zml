@@ -4,7 +4,7 @@ import {
   MINUTE_MS,
   durationMinutesToMs,
   getEffectiveDurationMinutes,
-} from "@/lib/time/duration";
+} from "../../lib/time/duration";
 
 export const ROUND_GAP_MINUTES = 24 * 60;
 export const ROUND_GAP_MS = durationMinutesToMs(ROUND_GAP_MINUTES);
@@ -272,19 +272,17 @@ export function buildNextRoundStartNowPatchesAfterFinish<
   finishedRoundId: string;
   now: number;
   submissionDurationMinutes: number;
-}):
-  | {
-      nextRoundId: string;
-      patches: Array<{
-        roundId: string;
-        patch: {
-          submissionStartsAt?: number;
-          submissionDeadline: number;
-          votingDeadline: number;
-        };
-      }>;
-    }
-  | null {
+}): {
+  nextRoundId: string;
+  patches: Array<{
+    roundId: string;
+    patch: {
+      submissionStartsAt?: number;
+      submissionDeadline: number;
+      votingDeadline: number;
+    };
+  }>;
+} | null {
   const sortedRounds = sortRoundsInLeagueOrder(args.rounds);
   const finishedRoundIndex = sortedRounds.findIndex(
     (round) => round._id.toString() === args.finishedRoundId,
@@ -384,24 +382,26 @@ export function buildRoundScheduleSwapPatches<
     return [];
   }
 
-  const swappedSlots = new Map<string, ReturnType<typeof getRoundScheduleSlot>>([
+  const swappedSlots = new Map<string, ReturnType<typeof getRoundScheduleSlot>>(
     [
-      firstRound._id.toString(),
-      getRoundScheduleSlot(
-        secondRound,
-        secondIndex,
-        args.submissionDurationMinutes,
-      ),
+      [
+        firstRound._id.toString(),
+        getRoundScheduleSlot(
+          secondRound,
+          secondIndex,
+          args.submissionDurationMinutes,
+        ),
+      ],
+      [
+        secondRound._id.toString(),
+        getRoundScheduleSlot(
+          firstRound,
+          firstIndex,
+          args.submissionDurationMinutes,
+        ),
+      ],
     ],
-    [
-      secondRound._id.toString(),
-      getRoundScheduleSlot(
-        firstRound,
-        firstIndex,
-        args.submissionDurationMinutes,
-      ),
-    ],
-  ]);
+  );
 
   const patches: RoundScheduleSwapPatch[] = [];
 
