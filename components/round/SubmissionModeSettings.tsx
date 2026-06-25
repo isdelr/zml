@@ -243,7 +243,7 @@ export function SubmissionModeSettings<
         control={control}
         name={submissionModeName}
         render={() => (
-          <FormItem>
+          <FormItem className="w-full">
             <FormLabel>Submission Mode</FormLabel>
             <FormControl>
               <div className="grid gap-2 sm:grid-cols-3 w-full">
