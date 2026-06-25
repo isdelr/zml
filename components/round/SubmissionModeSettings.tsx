@@ -246,7 +246,7 @@ export function SubmissionModeSettings<
           <FormItem className="w-full">
             <FormLabel>Submission Mode</FormLabel>
             <FormControl>
-              <div className="grid gap-2 sm:grid-cols-3 w-full">
+              <div className="grid gap-2 sm:grid-cols-3">
                 {modeOptions.map(({ value, label, Icon }) => {
                   const selected = selectedMode === value;
                   return (
