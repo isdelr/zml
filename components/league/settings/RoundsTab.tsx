@@ -62,7 +62,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { DurationPicker } from "@/components/ui/duration-picker";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { SubmissionModeSettings } from "@/components/round/SubmissionModeSettings";
@@ -78,9 +84,7 @@ interface RoundsTabProps {
   league: LeagueData;
 }
 
-function getRoundStatusBadge(
-  round: RoundForLeague,
-): {
+function getRoundStatusBadge(round: RoundForLeague): {
   label: string;
   variant: VariantProps<typeof badgeVariants>["variant"];
   icon: typeof Clock3;
@@ -156,8 +160,9 @@ export function RoundsTab({ league }: RoundsTabProps) {
   const swapRoundScheduleSlots = useMutation(api.rounds.swapRoundScheduleSlots);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false);
-  const [swapFirstRoundId, setSwapFirstRoundId] =
-    useState<Id<"rounds"> | null>(null);
+  const [swapFirstRoundId, setSwapFirstRoundId] = useState<Id<"rounds"> | null>(
+    null,
+  );
   const [swapSecondRoundId, setSwapSecondRoundId] =
     useState<Id<"rounds"> | null>(null);
   const [roundPendingDelete, setRoundPendingDelete] =
@@ -166,7 +171,11 @@ export function RoundsTab({ league }: RoundsTabProps) {
     typeof params.roundId === "string" ? params.roundId : null
   ) as Id<"rounds"> | null;
 
-  const { results: rounds, status, loadMore } = usePaginatedQuery(
+  const {
+    results: rounds,
+    status,
+    loadMore,
+  } = usePaginatedQuery(
     api.rounds.getForLeague,
     { leagueId: league._id },
     { initialNumItems: 50 },
@@ -325,10 +334,7 @@ export function RoundsTab({ league }: RoundsTabProps) {
         <div className="space-y-3">
           {status === "LoadingFirstPage"
             ? Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="rounded-lg border p-4"
-                >
+                <div key={index} className="rounded-lg border p-4">
                   <Skeleton className="h-5 w-40" />
                   <Skeleton className="mt-3 h-4 w-64" />
                 </div>
@@ -430,7 +436,9 @@ export function RoundsTab({ league }: RoundsTabProps) {
 
           <Form {...form}>
             <form
-              onSubmit={form.handleSubmit((values) => void handleCreateRound(values))}
+              onSubmit={form.handleSubmit(
+                (values) => void handleCreateRound(values),
+              )}
               className="space-y-6"
             >
               <div className="space-y-4">
@@ -441,7 +449,10 @@ export function RoundsTab({ league }: RoundsTabProps) {
                     <FormItem>
                       <FormLabel>Round Title</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Desert Island Songs" {...field} />
+                        <Input
+                          placeholder="e.g., Desert Island Songs"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -487,10 +498,6 @@ export function RoundsTab({ league }: RoundsTabProps) {
                             minMinutes={MIN_ROUND_DURATION_MINUTES}
                           />
                         </FormControl>
-                        <p className="text-xs text-muted-foreground">
-                          League default:{" "}
-                          {formatDurationMinutes(defaultSubmissionDurationMinutes)}
-                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -511,10 +518,6 @@ export function RoundsTab({ league }: RoundsTabProps) {
                             minMinutes={MIN_ROUND_DURATION_MINUTES}
                           />
                         </FormControl>
-                        <p className="text-xs text-muted-foreground">
-                          League default:{" "}
-                          {formatDurationMinutes(defaultVotingDurationMinutes)}
-                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -536,9 +539,7 @@ export function RoundsTab({ league }: RoundsTabProps) {
                             min={1}
                             {...field}
                             value={
-                              typeof field.value === "number"
-                                ? field.value
-                                : ""
+                              typeof field.value === "number" ? field.value : ""
                             }
                           />
                         </FormControl>
@@ -558,9 +559,7 @@ export function RoundsTab({ league }: RoundsTabProps) {
                             min={1}
                             {...field}
                             value={
-                              typeof field.value === "number"
-                                ? field.value
-                                : ""
+                              typeof field.value === "number" ? field.value : ""
                             }
                           />
                         </FormControl>

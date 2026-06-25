@@ -107,106 +107,97 @@ export function RoundCard({
 
       {isExpanded ? (
         <CardContent className="space-y-4 border-t px-4 pb-4 pt-4 sm:px-5">
-        <div className="flex flex-col-reverse gap-6 md:flex-row">
-          <div className="flex-1 space-y-4">
-            <FormField
-              control={form.control}
-              name={`rounds.${index}.title`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Round Title</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Guilty Pleasures" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name={`rounds.${index}.description`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Describe the theme of this round."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <SubmissionModeSettings
-              form={form}
-              submissionsPerUserName={`rounds.${index}.submissionsPerUser`}
-              submissionModeName={`rounds.${index}.submissionMode`}
-            />
-            <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col-reverse gap-6 md:flex-row">
+            <div className="flex-1 space-y-4">
               <FormField
                 control={form.control}
-                name={`rounds.${index}.submissionDurationMinutes`}
+                name={`rounds.${index}.title`}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Submission Period</FormLabel>
+                    <FormLabel>Round Title</FormLabel>
                     <FormControl>
-                      <DurationPicker
-                        value={
-                          (field.value as number | undefined) ??
-                          defaultSubmissionDurationMinutes
-                        }
-                        onChange={field.onChange}
-                        minMinutes={MIN_ROUND_DURATION_MINUTES}
-                      />
+                      <Input placeholder="e.g., Guilty Pleasures" {...field} />
                     </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      League default:{" "}
-                      {formatDurationMinutes(defaultSubmissionDurationMinutes)}
-                    </p>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <FormField
                 control={form.control}
-                name={`rounds.${index}.votingDurationMinutes`}
+                name={`rounds.${index}.description`}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Voting Period</FormLabel>
+                    <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <DurationPicker
-                        value={
-                          (field.value as number | undefined) ??
-                          defaultVotingDurationMinutes
-                        }
-                        onChange={field.onChange}
-                        minMinutes={MIN_ROUND_DURATION_MINUTES}
+                      <Textarea
+                        placeholder="Describe the theme of this round."
+                        {...field}
                       />
                     </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      League default:{" "}
-                      {formatDurationMinutes(defaultVotingDurationMinutes)}
-                    </p>
                     <FormMessage />
                   </FormItem>
                 )}
+              />
+              <SubmissionModeSettings
+                form={form}
+                submissionsPerUserName={`rounds.${index}.submissionsPerUser`}
+                submissionModeName={`rounds.${index}.submissionMode`}
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name={`rounds.${index}.submissionDurationMinutes`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Submission Period</FormLabel>
+                      <FormControl>
+                        <DurationPicker
+                          value={
+                            (field.value as number | undefined) ??
+                            defaultSubmissionDurationMinutes
+                          }
+                          onChange={field.onChange}
+                          minMinutes={MIN_ROUND_DURATION_MINUTES}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`rounds.${index}.votingDurationMinutes`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Voting Period</FormLabel>
+                      <FormControl>
+                        <DurationPicker
+                          value={
+                            (field.value as number | undefined) ??
+                            defaultVotingDurationMinutes
+                          }
+                          onChange={field.onChange}
+                          minMinutes={MIN_ROUND_DURATION_MINUTES}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="w-full md:w-52">
+              <RoundImagePicker
+                form={form}
+                index={index}
+                previewUrl={previewUrl}
+                setPreviews={setPreviews}
               />
             </div>
           </div>
 
-          <div className="w-full md:w-52">
-            <RoundImagePicker
-              form={form}
-              index={index}
-              previewUrl={previewUrl}
-              setPreviews={setPreviews}
-            />
-          </div>
-        </div>
-
-        {isAlbumMode && <AlbumSettingsFields form={form} index={index} />}
-      </CardContent>
+          {isAlbumMode && <AlbumSettingsFields form={form} index={index} />}
+        </CardContent>
       ) : null}
     </Card>
   );

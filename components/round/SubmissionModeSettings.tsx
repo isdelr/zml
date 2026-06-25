@@ -136,24 +136,30 @@ export function SubmissionModeSettings<
   const submissionsPerUser = toNumber(submissionsPerUserValue);
   const control = form.control as unknown as Control<TFieldValues>;
 
-  const setSubmissionMode = useCallback((
-    nextMode: RoundSubmissionMode,
-    shouldDirty = true,
-  ) => {
-    form.setValue(
-      submissionModeName,
-      nextMode as FieldPathValue<TFieldValues, typeof submissionModeName>,
-      { shouldDirty, shouldValidate: true },
-    );
-  }, [form, submissionModeName]);
+  const setSubmissionMode = useCallback(
+    (nextMode: RoundSubmissionMode, shouldDirty = true) => {
+      form.setValue(
+        submissionModeName,
+        nextMode as FieldPathValue<TFieldValues, typeof submissionModeName>,
+        { shouldDirty, shouldValidate: true },
+      );
+    },
+    [form, submissionModeName],
+  );
 
-  const setSubmissionsPerUser = useCallback((nextValue: number, shouldDirty = true) => {
-    form.setValue(
-      submissionsPerUserName,
-      nextValue as FieldPathValue<TFieldValues, typeof submissionsPerUserName>,
-      { shouldDirty, shouldValidate: true },
-    );
-  }, [form, submissionsPerUserName]);
+  const setSubmissionsPerUser = useCallback(
+    (nextValue: number, shouldDirty = true) => {
+      form.setValue(
+        submissionsPerUserName,
+        nextValue as FieldPathValue<
+          TFieldValues,
+          typeof submissionsPerUserName
+        >,
+        { shouldDirty, shouldValidate: true },
+      );
+    },
+    [form, submissionsPerUserName],
+  );
 
   useEffect(() => {
     if (disabled) {
@@ -240,7 +246,7 @@ export function SubmissionModeSettings<
           <FormItem>
             <FormLabel>Submission Mode</FormLabel>
             <FormControl>
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="grid gap-2">
                 {modeOptions.map(({ value, label, Icon }) => {
                   const selected = selectedMode === value;
                   return (
