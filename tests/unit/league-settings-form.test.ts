@@ -7,8 +7,8 @@ function buildValidLeagueEditInput() {
     name: "Updated League",
     description: "An updated league description that is long enough.",
     isPublic: true,
-    submissionDeadline: 168,
-    votingDeadline: 72,
+    submissionDurationMinutes: 168 * 60,
+    votingDurationMinutes: 72 * 60,
     maxPositiveVotes: 5,
     maxNegativeVotes: 1,
     limitVotesPerSubmission: false,
@@ -19,6 +19,21 @@ describe("leagueEditSchema", () => {
   it("accepts a valid base payload", () => {
     const result = leagueEditSchema.safeParse(buildValidLeagueEditInput());
     expect(result.success).toBe(true);
+  });
+
+  it("rejects phase durations shorter than 10 minutes", () => {
+    const result = leagueEditSchema.safeParse({
+      ...buildValidLeagueEditInput(),
+      submissionDurationMinutes: 9,
+      votingDurationMinutes: 9,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join("."));
+      expect(paths).toContain("submissionDurationMinutes");
+      expect(paths).toContain("votingDurationMinutes");
+    }
   });
 
   it("requires per-submission vote limits when that mode is enabled", () => {

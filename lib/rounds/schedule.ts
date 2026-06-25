@@ -1,8 +1,13 @@
-const MINUTE_MS = 60 * 1000;
-const HOUR_MS = 60 * MINUTE_MS;
+import {
+  DEFAULT_SUBMISSION_DURATION_MINUTES,
+  DEFAULT_VOTING_DURATION_MINUTES,
+  MINUTE_MS,
+  durationMinutesToMs,
+  getEffectiveDurationMinutes,
+} from "@/lib/time/duration";
 
-export const ROUND_GAP_HOURS = 24;
-export const ROUND_GAP_MS = ROUND_GAP_HOURS * HOUR_MS;
+export const ROUND_GAP_MINUTES = 24 * 60;
+export const ROUND_GAP_MS = durationMinutesToMs(ROUND_GAP_MINUTES);
 
 export type RoundLifecycleStatus =
   | "scheduled"
@@ -17,6 +22,20 @@ type RoundScheduleShape = {
   submissionStartsAt?: number;
   submissionDeadline: number;
   votingDeadline: number;
+  submissionDurationMinutes?: number | null;
+  votingDurationMinutes?: number | null;
+};
+
+type LeagueDurationShape = {
+  submissionDeadline: number;
+  votingDeadline: number;
+  submissionDurationMinutes?: number | null;
+  votingDurationMinutes?: number | null;
+};
+
+type RoundDurationShape = {
+  submissionDurationMinutes?: number | null;
+  votingDurationMinutes?: number | null;
 };
 
 export type BuiltRoundSchedule = {
@@ -43,8 +62,45 @@ export type RoundScheduleSwapPatch = {
   };
 };
 
-export function hoursToMs(hours: number): number {
-  return hours * HOUR_MS;
+export function minutesToMs(minutes: number): number {
+  return Number.isFinite(minutes) ? Math.trunc(minutes) * MINUTE_MS : 0;
+}
+
+export function getLeagueSubmissionDurationMinutes(
+  league: LeagueDurationShape,
+): number {
+  return getEffectiveDurationMinutes({
+    durationMinutes: league.submissionDurationMinutes,
+    legacyHours: league.submissionDeadline,
+    fallbackMinutes: DEFAULT_SUBMISSION_DURATION_MINUTES,
+  });
+}
+
+export function getLeagueVotingDurationMinutes(
+  league: LeagueDurationShape,
+): number {
+  return getEffectiveDurationMinutes({
+    durationMinutes: league.votingDurationMinutes,
+    legacyHours: league.votingDeadline,
+    fallbackMinutes: DEFAULT_VOTING_DURATION_MINUTES,
+  });
+}
+
+export function getRoundSubmissionDurationMinutes(
+  round: RoundDurationShape,
+  league: LeagueDurationShape,
+): number {
+  return (
+    round.submissionDurationMinutes ??
+    getLeagueSubmissionDurationMinutes(league)
+  );
+}
+
+export function getRoundVotingDurationMinutes(
+  round: RoundDurationShape,
+  league: LeagueDurationShape,
+): number {
+  return round.votingDurationMinutes ?? getLeagueVotingDurationMinutes(league);
 }
 
 export function getRoundOrderValue(
@@ -63,24 +119,24 @@ export function sortRoundsInLeagueOrder<T extends RoundScheduleShape>(
 
 export function getSubmissionStart(
   round: Pick<RoundScheduleShape, "submissionStartsAt" | "submissionDeadline">,
-  submissionHours: number,
+  submissionDurationMinutes: number,
 ): number {
   return (
     round.submissionStartsAt ??
-    round.submissionDeadline - hoursToMs(submissionHours)
+    round.submissionDeadline - minutesToMs(submissionDurationMinutes)
   );
 }
 
 export function buildLeagueRoundSchedule(args: {
   roundCount: number;
   startsAt: number;
-  submissionHours: number;
-  votingHours: number;
+  submissionDurationMinutes: number;
+  votingDurationMinutes: number;
   gapMs?: number;
 }): BuiltRoundSchedule[] {
   const gapMs = args.gapMs ?? ROUND_GAP_MS;
-  const submissionDurationMs = hoursToMs(args.submissionHours);
-  const votingDurationMs = hoursToMs(args.votingHours);
+  const submissionDurationMs = minutesToMs(args.submissionDurationMinutes);
+  const votingDurationMs = minutesToMs(args.votingDurationMinutes);
   const schedules: BuiltRoundSchedule[] = [];
 
   let submissionStartsAt = args.startsAt;
@@ -174,7 +230,7 @@ export function buildRoundStartNowPatches<
   rounds: TRound[];
   roundId: string;
   now: number;
-  submissionHours: number;
+  submissionDurationMinutes: number;
 }): Array<{
   roundId: string;
   patch: {
@@ -192,7 +248,10 @@ export function buildRoundStartNowPatches<
     return [];
   }
 
-  const scheduledStart = getSubmissionStart(targetRound, args.submissionHours);
+  const scheduledStart = getSubmissionStart(
+    targetRound,
+    targetRound.submissionDurationMinutes ?? args.submissionDurationMinutes,
+  );
   const adjustmentMs = args.now - scheduledStart;
 
   if (adjustmentMs === 0) {
@@ -212,7 +271,7 @@ export function buildNextRoundStartNowPatchesAfterFinish<
   rounds: TRound[];
   finishedRoundId: string;
   now: number;
-  submissionHours: number;
+  submissionDurationMinutes: number;
 }):
   | {
       nextRoundId: string;
@@ -260,7 +319,7 @@ export function buildNextRoundStartNowPatchesAfterFinish<
       rounds: futureRounds,
       roundId: nextRound._id.toString(),
       now: args.now,
-      submissionHours: args.submissionHours,
+      submissionDurationMinutes: args.submissionDurationMinutes,
     }),
   };
 }
@@ -274,12 +333,18 @@ function isSwappableRoundScheduleStatus(
 function getRoundScheduleSlot<TRound extends RoundScheduleShape>(
   round: TRound,
   order: number,
-  submissionHours: number,
+  submissionDurationMinutes: number,
 ) {
+  const effectiveSubmissionDurationMinutes =
+    round.submissionDurationMinutes ?? submissionDurationMinutes;
+
   return {
     order,
     status: round.status as SwappableRoundScheduleStatus,
-    submissionStartsAt: getSubmissionStart(round, submissionHours),
+    submissionStartsAt: getSubmissionStart(
+      round,
+      effectiveSubmissionDurationMinutes,
+    ),
     submissionDeadline: round.submissionDeadline,
     votingDeadline: round.votingDeadline,
   };
@@ -291,7 +356,7 @@ export function buildRoundScheduleSwapPatches<
   rounds: TRound[];
   firstRoundId: string;
   secondRoundId: string;
-  submissionHours: number;
+  submissionDurationMinutes: number;
 }): RoundScheduleSwapPatch[] {
   if (args.firstRoundId === args.secondRoundId) {
     return [];
@@ -325,12 +390,16 @@ export function buildRoundScheduleSwapPatches<
       getRoundScheduleSlot(
         secondRound,
         secondIndex,
-        args.submissionHours,
+        args.submissionDurationMinutes,
       ),
     ],
     [
       secondRound._id.toString(),
-      getRoundScheduleSlot(firstRound, firstIndex, args.submissionHours),
+      getRoundScheduleSlot(
+        firstRound,
+        firstIndex,
+        args.submissionDurationMinutes,
+      ),
     ],
   ]);
 
@@ -363,8 +432,8 @@ export function buildScheduledRoundResequencePatches<
   TRound extends RoundScheduleShape & { _id: string },
 >(args: {
   rounds: TRound[];
-  submissionHours: number;
-  votingHours: number;
+  submissionDurationMinutes: number;
+  votingDurationMinutes: number;
   gapMs?: number;
 }): Array<{
   roundId: string;
@@ -376,8 +445,6 @@ export function buildScheduledRoundResequencePatches<
 }> {
   const sortedRounds = sortRoundsInLeagueOrder(args.rounds);
   const gapMs = args.gapMs ?? ROUND_GAP_MS;
-  const submissionDurationMs = hoursToMs(args.submissionHours);
-  const votingDurationMs = hoursToMs(args.votingHours);
   const patches: Array<{
     roundId: string;
     patch: {
@@ -391,9 +458,18 @@ export function buildScheduledRoundResequencePatches<
 
   for (const round of sortedRounds) {
     if (round.status === "scheduled") {
+      const submissionDurationMs = minutesToMs(
+        round.submissionDurationMinutes ?? args.submissionDurationMinutes,
+      );
+      const votingDurationMs = minutesToMs(
+        round.votingDurationMinutes ?? args.votingDurationMinutes,
+      );
       const submissionStartsAt: number =
         nextSubmissionStartsAt ??
-        getSubmissionStart(round, args.submissionHours);
+        getSubmissionStart(
+          round,
+          round.submissionDurationMinutes ?? args.submissionDurationMinutes,
+        );
       const submissionDeadline: number =
         submissionStartsAt + submissionDurationMs;
       const votingDeadline: number = submissionDeadline + votingDurationMs;

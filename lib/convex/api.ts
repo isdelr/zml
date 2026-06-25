@@ -18,6 +18,8 @@ type CreateRoundReference = FunctionReference<
     description: string;
     submissionsPerUser: number;
     genres: string[];
+    submissionDurationMinutes?: number;
+    votingDurationMinutes?: number;
     submissionMode?: "single" | "multi" | "album";
     submissionInstructions?: string;
     albumConfig?: {

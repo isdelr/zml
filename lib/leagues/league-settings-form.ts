@@ -1,4 +1,16 @@
 import { z } from "zod";
+import {
+  MIN_ROUND_DURATION_MINUTES,
+  formatDurationMinutes,
+} from "@/lib/time/duration";
+
+const durationMinutesSchema = z.coerce
+  .number()
+  .int("Must be a whole number of minutes.")
+  .min(
+    MIN_ROUND_DURATION_MINUTES,
+    `Must be at least ${formatDurationMinutes(MIN_ROUND_DURATION_MINUTES)}.`,
+  );
 
 export const leagueEditSchema = z
   .object({
@@ -7,14 +19,8 @@ export const leagueEditSchema = z
       .string()
       .min(10, "Description must be at least 10 characters."),
     isPublic: z.boolean(),
-    submissionDeadline: z.coerce
-      .number()
-      .min(1, "Must be at least 1 hour.")
-      .max(720, "Max duration is 30 days (720 hours)."),
-    votingDeadline: z.coerce
-      .number()
-      .min(1, "Must be at least 1 hour.")
-      .max(720, "Max duration is 30 days (720 hours)."),
+    submissionDurationMinutes: durationMinutesSchema,
+    votingDurationMinutes: durationMinutesSchema,
     maxPositiveVotes: z.coerce.number().min(1),
     maxNegativeVotes: z.coerce.number().min(0),
     limitVotesPerSubmission: z.boolean(),

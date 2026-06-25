@@ -61,10 +61,18 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { DurationPicker } from "@/components/ui/duration-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { SubmissionModeSettings } from "@/components/round/SubmissionModeSettings";
+import {
+  DEFAULT_SUBMISSION_DURATION_MINUTES,
+  DEFAULT_VOTING_DURATION_MINUTES,
+  MIN_ROUND_DURATION_MINUTES,
+  formatDurationMinutes,
+  getEffectiveDurationMinutes,
+} from "@/lib/time/duration";
 
 interface RoundsTabProps {
   league: LeagueData;
@@ -168,6 +176,16 @@ export function RoundsTab({ league }: RoundsTabProps) {
     resolver: zodResolver(roundManagementSchema),
     defaultValues: createDefaultRoundManagementValues(),
   });
+  const defaultSubmissionDurationMinutes = getEffectiveDurationMinutes({
+    durationMinutes: league.submissionDurationMinutes,
+    legacyHours: league.submissionDeadline,
+    fallbackMinutes: DEFAULT_SUBMISSION_DURATION_MINUTES,
+  });
+  const defaultVotingDurationMinutes = getEffectiveDurationMinutes({
+    durationMinutes: league.votingDurationMinutes,
+    legacyHours: league.votingDeadline,
+    fallbackMinutes: DEFAULT_VOTING_DURATION_MINUTES,
+  });
   const submissionMode = useWatch({
     control: form.control,
     name: "submissionMode",
@@ -204,6 +222,8 @@ export function RoundsTab({ league }: RoundsTabProps) {
       submissionsPerUser: values.submissionsPerUser,
       genres: [],
       submissionMode: values.submissionMode,
+      submissionDurationMinutes: values.submissionDurationMinutes,
+      votingDurationMinutes: values.votingDurationMinutes,
       albumConfig: values.albumConfig,
     });
 
@@ -450,6 +470,56 @@ export function RoundsTab({ league }: RoundsTabProps) {
                   submissionsPerUserName="submissionsPerUser"
                   submissionModeName="submissionMode"
                 />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="submissionDurationMinutes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Submission Period</FormLabel>
+                        <FormControl>
+                          <DurationPicker
+                            value={
+                              (field.value as number | undefined) ??
+                              defaultSubmissionDurationMinutes
+                            }
+                            onChange={field.onChange}
+                            minMinutes={MIN_ROUND_DURATION_MINUTES}
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">
+                          League default:{" "}
+                          {formatDurationMinutes(defaultSubmissionDurationMinutes)}
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="votingDurationMinutes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Voting Period</FormLabel>
+                        <FormControl>
+                          <DurationPicker
+                            value={
+                              (field.value as number | undefined) ??
+                              defaultVotingDurationMinutes
+                            }
+                            onChange={field.onChange}
+                            minMinutes={MIN_ROUND_DURATION_MINUTES}
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">
+                          League default:{" "}
+                          {formatDurationMinutes(defaultVotingDurationMinutes)}
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               {submissionMode === "album" ? (

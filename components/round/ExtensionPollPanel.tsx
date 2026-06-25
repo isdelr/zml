@@ -34,10 +34,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { DurationPicker } from "@/components/ui/duration-picker";
 import {
+  MIN_EXTENSION_REQUEST_MINUTES,
   EXTENSION_REASON_MIN_LENGTH,
   formatExtensionPollRequestWindowLabel,
 } from "@/lib/rounds/extension-polls";
+import {
+  DEFAULT_EXTENSION_DURATION_MINUTES,
+  formatDurationMs,
+} from "@/lib/time/duration";
 import { cn } from "@/lib/utils";
 
 type ExtensionPollState = FunctionReturnType<
@@ -106,11 +112,13 @@ function getPollStatusCopy(
 ) {
   const phaseTitle = getPhaseLabel(pollType, { capitalized: true });
   const deadlineLabel = getDeadlineLabel(pollType);
+  const requestedDurationLabel = formatDurationMs(poll.requestedExtensionMs);
+  const appliedDurationLabel = formatDurationMs(poll.appliedExtensionMs);
 
   if (poll.status === "open") {
     return {
       title: `${phaseTitle} Extension Request`,
-      description: `A ${getPhaseLabel(pollType)} extension poll is currently open for this round.`,
+      description: `A ${getPhaseLabel(pollType)} extension poll requesting ${requestedDurationLabel} is currently open for this round.`,
     };
   }
 
@@ -118,12 +126,12 @@ function getPollStatusCopy(
     case "approved":
       return {
         title: `${phaseTitle} extension approved`,
-        description: `The ${deadlineLabel} was extended by 24 hours.`,
+        description: `The ${deadlineLabel} was extended by ${appliedDurationLabel}.`,
       };
     case "tie":
       return {
         title: `${phaseTitle} extension tied`,
-        description: `The poll tied, so the ${deadlineLabel} was extended by 8 hours.`,
+        description: `The poll tied, so the ${deadlineLabel} was extended by ${appliedDurationLabel}.`,
       };
     case "rejected":
       return {
@@ -161,6 +169,9 @@ export function ExtensionPollPanel({
   const castVote = useMutation(api.extensionPolls.castVote);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [requestedExtensionMinutes, setRequestedExtensionMinutes] = useState(
+    DEFAULT_EXTENSION_DURATION_MINUTES,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVoting, setIsVoting] = useState<"grant" | "deny" | null>(null);
 
@@ -196,12 +207,24 @@ export function ExtensionPollPanel({
       );
       return;
     }
+    if (requestedExtensionMinutes < MIN_EXTENSION_REQUEST_MINUTES) {
+      toast.error(
+        `Please request at least ${MIN_EXTENSION_REQUEST_MINUTES} minutes.`,
+      );
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      await createPoll({ roundId, type: pollType, reason: trimmedReason });
+      await createPoll({
+        roundId,
+        type: pollType,
+        reason: trimmedReason,
+        requestedExtensionMinutes,
+      });
       toast.success(`${phaseTitle} extension poll opened.`);
       setReason("");
+      setRequestedExtensionMinutes(DEFAULT_EXTENSION_DURATION_MINUTES);
       setIsDialogOpen(false);
     } catch (error: unknown) {
       toast.error(
@@ -291,6 +314,20 @@ export function ExtensionPollPanel({
 
             <div className="space-y-3">
               <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Requested extension
+                </label>
+                <DurationPicker
+                  value={requestedExtensionMinutes}
+                  onChange={setRequestedExtensionMinutes}
+                  minMinutes={MIN_EXTENSION_REQUEST_MINUTES}
+                />
+                <p className="text-xs text-muted-foreground">
+                  If the poll ties, half of this duration is granted.
+                </p>
+              </div>
+
+              <div className="space-y-2">
                 <label
                   htmlFor="extension-reason"
                   className="text-sm font-medium text-foreground"
@@ -339,7 +376,8 @@ export function ExtensionPollPanel({
                 onClick={handleCreatePoll}
                 disabled={
                   isSubmitting ||
-                  trimmedReason.length < EXTENSION_REASON_MIN_LENGTH
+                  trimmedReason.length < EXTENSION_REASON_MIN_LENGTH ||
+                  requestedExtensionMinutes < MIN_EXTENSION_REQUEST_MINUTES
                 }
               >
                 Open {phaseTitle} Poll
@@ -371,6 +409,18 @@ export function ExtensionPollPanel({
             Reason
           </div>
           <p className="text-sm leading-6 text-foreground">{poll.reason}</p>
+        </div>
+
+        <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
+          <div className="mb-2 text-sm font-medium text-foreground">
+            Requested extension
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {formatDurationMs(poll.requestedExtensionMs)}
+            {poll.status === "resolved" && poll.appliedExtensionMs > 0
+              ? ` requested, ${formatDurationMs(poll.appliedExtensionMs)} applied`
+              : ""}
+          </p>
         </div>
 
         {showLiveVoteCount ? (
@@ -457,9 +507,9 @@ export function ExtensionPollPanel({
             )}
             <p>
               {poll.result === "approved" &&
-                `The anonymous poll passed and the ${deadlineLabel} moved by 24 hours.`}
+                `The anonymous poll passed and the ${deadlineLabel} moved by ${formatDurationMs(poll.appliedExtensionMs)}.`}
               {poll.result === "tie" &&
-                `The anonymous poll tied, so the ${deadlineLabel} moved by 8 hours.`}
+                `The anonymous poll tied, so the ${deadlineLabel} moved by ${formatDurationMs(poll.appliedExtensionMs)}.`}
               {poll.result === "rejected" &&
                 `The anonymous poll did not pass, so the ${deadlineLabel} stayed the same.`}
               {poll.result === "insufficient_turnout" &&

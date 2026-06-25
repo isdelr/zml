@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { DurationPicker } from "@/components/ui/duration-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Doc } from "@/convex/_generated/dataModel";
@@ -50,6 +51,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { SubmissionModeSettings } from "@/components/round/SubmissionModeSettings";
+import {
+  MIN_ROUND_DURATION_MINUTES,
+  durationMsToMinutes,
+} from "@/lib/time/duration";
 
 const numberOrNull = z.preprocess(
   (val) => {
@@ -63,6 +68,11 @@ const numberOrNull = z.preprocess(
   },
   z.union([z.number().int().min(0), z.null()]),
 );
+
+const durationMinutesSchema = z.coerce
+  .number()
+  .int("Must be a whole number of minutes.")
+  .min(MIN_ROUND_DURATION_MINUTES, "Must be at least 10 minutes.");
 
 const roundEditSchema = z
   .object({
@@ -88,6 +98,8 @@ const roundEditSchema = z
       ),
     maxPositiveVotes: numberOrNull.optional(),
     maxNegativeVotes: numberOrNull.optional(),
+    submissionDurationMinutes: durationMinutesSchema.optional(),
+    votingDurationMinutes: durationMinutesSchema.optional(),
     submissionMode: z.enum(["single", "multi", "album"]).default("single"),
     albumConfig: z
       .object({
@@ -159,6 +171,19 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
       submissionsPerUser: round.submissionsPerUser ?? 1,
       maxPositiveVotes: round.maxPositiveVotes ?? null,
       maxNegativeVotes: round.maxNegativeVotes ?? null,
+      submissionDurationMinutes:
+        round.status === "scheduled"
+          ? round.submissionDurationMinutes ??
+            durationMsToMinutes(
+              round.submissionDeadline -
+                (round.submissionStartsAt ?? round.submissionDeadline),
+            )
+          : undefined,
+      votingDurationMinutes:
+        round.status === "scheduled"
+          ? round.votingDurationMinutes ??
+            durationMsToMinutes(round.votingDeadline - round.submissionDeadline)
+          : undefined,
       submissionMode: round.submissionMode ?? "single",
       albumConfig: round.albumConfig ?? {
         allowPartial: undefined,
@@ -276,6 +301,51 @@ export function EditRoundDialog({ round, onClose }: EditRoundDialogProps) {
               ? "This cannot be changed while a round is in the voting phase."
               : "Changing this for a round with submissions will delete them and notify users to resubmit."}
           </p>
+
+          {round.status === "scheduled" ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="submissionDurationMinutes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Submission Period</FormLabel>
+                    <FormControl>
+                      <DurationPicker
+                        value={field.value as number}
+                        onChange={field.onChange}
+                        minMinutes={MIN_ROUND_DURATION_MINUTES}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Changing this resequences later scheduled rounds.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="votingDurationMinutes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Voting Period</FormLabel>
+                    <FormControl>
+                      <DurationPicker
+                        value={field.value as number}
+                        onChange={field.onChange}
+                        minMinutes={MIN_ROUND_DURATION_MINUTES}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Changing this resequences later scheduled rounds.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          ) : null}
 
           {submissionMode === "album" && (
             <div className="space-y-4 rounded-md border bg-muted/50 p-4">

@@ -63,6 +63,9 @@ export function CreateLeaguePage() {
             genres: [],
             imageKey,
             submissionMode: round.submissionMode,
+            submissionInstructions: round.submissionInstructions,
+            submissionDurationMinutes: round.submissionDurationMinutes,
+            votingDurationMinutes: round.votingDurationMinutes,
             albumConfig: round.albumConfig,
           };
         }),

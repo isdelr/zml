@@ -17,10 +17,17 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { DurationPicker } from "@/components/ui/duration-picker";
 import {
   getDefaultNegativeVotesPerSubmission,
   getDefaultPositiveVotesPerSubmission,
 } from "@/lib/leagues/vote-limits";
+import {
+  DEFAULT_SUBMISSION_DURATION_MINUTES,
+  DEFAULT_VOTING_DURATION_MINUTES,
+  MIN_ROUND_DURATION_MINUTES,
+  formatDurationMinutes,
+} from "@/lib/time/duration";
 import type { CreateLeagueForm } from "./form-types";
 
 function toFiniteNumber(value: unknown, fallback: number) {
@@ -102,28 +109,41 @@ export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <FormField
               control={form.control}
-              name="submissionDeadline"
+              name="submissionDurationMinutes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Submission Period (Hours)</FormLabel>
+                  <FormLabel>Submission Period</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} value={(field.value as number) || ""} />
+                    <DurationPicker
+                      value={field.value as number}
+                      onChange={field.onChange}
+                      minMinutes={MIN_ROUND_DURATION_MINUTES}
+                    />
                   </FormControl>
-                  <FormDescription>Default: 7 days (168 hours)</FormDescription>
+                  <FormDescription>
+                    Default:{" "}
+                    {formatDurationMinutes(DEFAULT_SUBMISSION_DURATION_MINUTES)}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <FormField
               control={form.control}
-              name="votingDeadline"
+              name="votingDurationMinutes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Voting Period (Hours)</FormLabel>
+                  <FormLabel>Voting Period</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} value={(field.value as number) || ""} />
+                    <DurationPicker
+                      value={field.value as number}
+                      onChange={field.onChange}
+                      minMinutes={MIN_ROUND_DURATION_MINUTES}
+                    />
                   </FormControl>
-                  <FormDescription>Default: 3 days (72 hours)</FormDescription>
+                  <FormDescription>
+                    Default: {formatDurationMinutes(DEFAULT_VOTING_DURATION_MINUTES)}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -262,13 +282,12 @@ export function LeagueRulesAccordion({ form }: { form: CreateLeagueForm }) {
                   name="listenTimeLimitMinutes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Protection Time Limit (Minutes)</FormLabel>
+                      <FormLabel>Protection Time Limit</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="e.g., 30"
-                          {...field}
-                          value={(field.value as number) || ""}
+                        <DurationPicker
+                          value={field.value as number}
+                          onChange={field.onChange}
+                          minMinutes={1}
                         />
                       </FormControl>
                       <FormDescription>

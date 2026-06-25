@@ -3,6 +3,8 @@ import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import type { MutationCtx } from "../../../convex/_generated/server";
 import {
   buildNextRoundStartNowPatchesAfterFinish,
+  getLeagueSubmissionDurationMinutes,
+  getRoundSubmissionDurationMinutes,
   getSubmissionStart,
 } from "../../rounds/schedule";
 import { getVoteLimitSnapshotPatch } from "../voteLimits";
@@ -96,7 +98,7 @@ async function maybeStartNextScheduledRoundAfterFinish(
     })),
     finishedRoundId: round._id.toString(),
     now: Date.now(),
-    submissionHours: league.submissionDeadline,
+    submissionDurationMinutes: getLeagueSubmissionDurationMinutes(league),
   });
 
   if (!nextRoundTransition) {
@@ -130,7 +132,10 @@ async function maybeStartNextScheduledRoundAfterFinish(
           ...nextRound,
           submissionStartsAt:
             nextRoundPatch.submissionStartsAt ??
-            getSubmissionStart(nextRound, league.submissionDeadline),
+            getSubmissionStart(
+              nextRound,
+              getRoundSubmissionDurationMinutes(nextRound, league),
+            ),
           submissionDeadline: nextRoundPatch.submissionDeadline,
           votingDeadline: nextRoundPatch.votingDeadline,
         }

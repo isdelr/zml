@@ -3,6 +3,10 @@ import {
   getSubmissionSettingsError,
   MAX_SUBMISSIONS_PER_USER,
 } from "@/lib/rounds/submission-settings";
+import {
+  MIN_ROUND_DURATION_MINUTES,
+  formatDurationMinutes,
+} from "@/lib/time/duration";
 
 const albumConfigSchema = z
   .object({
@@ -12,6 +16,14 @@ const albumConfigSchema = z
     maxTracks: z.coerce.number().min(1, "Must be at least 1 track.").optional(),
   })
   .optional();
+
+const durationMinutesSchema = z.coerce
+  .number()
+  .int("Must be a whole number of minutes.")
+  .min(
+    MIN_ROUND_DURATION_MINUTES,
+    `Must be at least ${formatDurationMinutes(MIN_ROUND_DURATION_MINUTES)}.`,
+  );
 
 export const roundManagementSchema = z
   .object({
@@ -30,6 +42,8 @@ export const roundManagementSchema = z
     genres: z.array(z.string()).default([]),
     submissionMode: z.enum(["single", "multi", "album"]).default("single"),
     submissionInstructions: z.string().optional(),
+    submissionDurationMinutes: durationMinutesSchema.optional(),
+    votingDurationMinutes: durationMinutesSchema.optional(),
     albumConfig: albumConfigSchema,
   })
   .superRefine((data, ctx) => {
@@ -74,6 +88,8 @@ export function createDefaultRoundManagementValues(): RoundManagementValues {
     submissionsPerUser: 1,
     submissionMode: "single",
     submissionInstructions: "",
+    submissionDurationMinutes: undefined,
+    votingDurationMinutes: undefined,
     albumConfig: {
       allowPartial: false,
       requireReleaseYear: true,

@@ -1,3 +1,9 @@
+import {
+  MIN_ROUND_DURATION_MINUTES,
+  durationMinutesToMs,
+  durationMsToMinutes,
+} from "@/lib/time/duration";
+
 type IdLike = string | { toString(): string };
 
 type MemberLike = {
@@ -15,10 +21,9 @@ type VoteLike = {
 
 export const EXTENSION_REASON_MIN_LENGTH = 20;
 export const EXTENSION_REQUEST_WINDOW_RATIO = 0.25;
-export const EXTENSION_POLL_TIE_EXTENSION_MS = 8 * 60 * 60 * 1000;
-export const EXTENSION_POLL_APPROVED_EXTENSION_MS = 24 * 60 * 60 * 1000;
 export const EXTENSION_POLL_MIN_TURNOUT_RATIO = 0.5;
 export const MAX_EXTENSION_REQUESTS_PER_LEAGUE_USER = 2;
+export const MIN_EXTENSION_REQUEST_MINUTES = MIN_ROUND_DURATION_MINUTES;
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
@@ -149,6 +154,7 @@ export function getExtensionPollResolution(args: {
   yesVotes: number;
   noVotes: number;
   eligibleVoterCount: number;
+  requestedExtensionMs: number;
 }): {
   result: ExtensionPollResolutionResult;
   appliedExtensionMs: number;
@@ -161,17 +167,28 @@ export function getExtensionPollResolution(args: {
     };
   }
 
+  const requestedExtensionMs = durationMinutesToMs(
+    Math.max(
+      MIN_EXTENSION_REQUEST_MINUTES,
+      durationMsToMinutes(args.requestedExtensionMs),
+    ),
+  );
+
   if (args.yesVotes > args.noVotes) {
     return {
       result: "approved",
-      appliedExtensionMs: EXTENSION_POLL_APPROVED_EXTENSION_MS,
+      appliedExtensionMs: requestedExtensionMs,
     };
   }
 
   if (args.yesVotes === args.noVotes) {
+    const tieExtensionMinutes = Math.max(
+      MIN_EXTENSION_REQUEST_MINUTES,
+      Math.round(durationMsToMinutes(requestedExtensionMs) / 2),
+    );
     return {
       result: "tie",
-      appliedExtensionMs: EXTENSION_POLL_TIE_EXTENSION_MS,
+      appliedExtensionMs: durationMinutesToMs(tieExtensionMinutes),
     };
   }
 

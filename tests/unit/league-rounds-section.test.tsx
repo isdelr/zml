@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -42,11 +42,12 @@ describe("LeagueRoundsSection", () => {
     const user = userEvent.setup();
     render(<RoundsHarness />);
 
-    await user.type(screen.getByLabelText("Round Title"), "Guilty Pleasures");
-    await user.type(
-      screen.getByLabelText("Description"),
-      "Songs that feel illegal to enjoy.",
-    );
+    fireEvent.change(screen.getByLabelText("Round Title"), {
+      target: { value: "Guilty Pleasures" },
+    });
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "Songs that feel illegal to enjoy." },
+    });
 
     const roundToggle = screen.getByRole("button", {
       name: /Round 1 - Guilty Pleasures/i,

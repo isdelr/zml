@@ -32,14 +32,14 @@ import {
 import { useState, type ComponentProps } from "react";
 import { EditRoundDialog } from "./EditRoundDialog";
 import { getSubmissionFileProcessingStatus } from "@/lib/submission/file-processing";
-import { Input } from "@/components/ui/input";
+import { DurationPicker } from "@/components/ui/duration-picker";
 import { formatShortDateTime } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import {
   DEADLINE_ADJUSTMENT_PRESETS,
   formatDeadlineAdjustment,
   getAdjustedDeadline,
-  getDeadlineAdjustmentHours,
+  getDeadlineAdjustmentMinutes,
   getSignedDeadlineAdjustmentLabel,
   type DeadlineAdjustmentDirection,
   type DeadlineAdjustmentPreset,
@@ -154,10 +154,10 @@ export function RoundAdminControls({
             <DeadlineAdjustmentDialog
               direction="increase"
               round={round}
-              onAdjust={(hours, successMessage) =>
+              onAdjust={(minutes, successMessage) =>
                 handleAction(
                   adjustRoundTime,
-                  { roundId: round._id, hours },
+                  { roundId: round._id, minutes },
                   successMessage,
                 )
               }
@@ -165,10 +165,10 @@ export function RoundAdminControls({
             <DeadlineAdjustmentDialog
               direction="decrease"
               round={round}
-              onAdjust={(hours, successMessage) =>
+              onAdjust={(minutes, successMessage) =>
                 handleAction(
                   adjustRoundTime,
-                  { roundId: round._id, hours },
+                  { roundId: round._id, minutes },
                   successMessage,
                 )
               }
@@ -366,7 +366,7 @@ function InlineAdminButton({
 type DeadlineAdjustmentDialogProps = {
   direction: DeadlineAdjustmentDirection;
   round: Doc<"rounds">;
-  onAdjust: (hours: number, successMessage: string) => Promise<boolean>;
+  onAdjust: (minutes: number, successMessage: string) => Promise<boolean>;
 };
 
 function DeadlineAdjustmentDialog({
@@ -376,8 +376,7 @@ function DeadlineAdjustmentDialog({
 }: DeadlineAdjustmentDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [openedAt, setOpenedAt] = useState<number | null>(null);
-  const [days, setDays] = useState("");
-  const [hours, setHours] = useState("");
+  const [customMinutes, setCustomMinutes] = useState(0);
 
   const currentDeadline =
     round.status === "scheduled"
@@ -402,33 +401,34 @@ function DeadlineAdjustmentDialog({
         : "Decrease deadline";
   const Icon = direction === "increase" ? Plus : Minus;
 
-  const parsedDays = parseAdjustmentValue(days);
-  const parsedHours = parseAdjustmentValue(hours);
-  const customPreset = { days: parsedDays, hours: parsedHours };
-  const totalHours = getDeadlineAdjustmentHours(customPreset);
+  const customPreset = {
+    days: 0,
+    hours: 0,
+    minutes: customMinutes,
+  };
+  const totalMinutes = getDeadlineAdjustmentMinutes(customPreset);
   const nextDeadline = getAdjustedDeadline(
     currentDeadline,
     direction,
     customPreset,
   );
   const comparisonTime = openedAt ?? 0;
-  const wouldBeInPast = totalHours > 0 && nextDeadline < comparisonTime;
-  const canApplyCustom = totalHours > 0 && !wouldBeInPast;
+  const wouldBeInPast = totalMinutes > 0 && nextDeadline < comparisonTime;
+  const canApplyCustom = totalMinutes > 0 && !wouldBeInPast;
 
   const reset = () => {
-    setDays("");
-    setHours("");
+    setCustomMinutes(0);
   };
 
   const runAdjustment = async (preset: DeadlineAdjustmentPreset) => {
-    const absoluteHours = getDeadlineAdjustmentHours(preset);
-    if (absoluteHours <= 0) return;
+    const absoluteMinutes = getDeadlineAdjustmentMinutes(preset);
+    if (absoluteMinutes <= 0) return;
 
-    const signedHours =
-      direction === "increase" ? absoluteHours : -absoluteHours;
+    const signedMinutes =
+      direction === "increase" ? absoluteMinutes : -absoluteMinutes;
     const verb = direction === "increase" ? "extended" : "shortened";
     const success = await onAdjust(
-      signedHours,
+      signedMinutes,
       `${phaseLabel} deadline ${verb} by ${formatDeadlineAdjustment(preset)}.`,
     );
 
@@ -473,7 +473,7 @@ function DeadlineAdjustmentDialog({
                 const disabled =
                   getAdjustedDeadline(currentDeadline, direction, preset) <
                   comparisonTime;
-                const key = `${direction}-${preset.days}-${preset.hours}`;
+                const key = `${direction}-${preset.days}-${preset.hours}-${preset.minutes}`;
                 return (
                   <Button
                     key={key}
@@ -494,42 +494,23 @@ function DeadlineAdjustmentDialog({
             <div className="space-y-1">
               <p className="text-sm font-medium">Custom amount</p>
               <p className="text-sm text-muted-foreground">
-                Choose days, hours, or both.
+                Choose days, hours, minutes, or any combination.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <label className="space-y-2 text-sm">
-                <span className="font-medium">Days</span>
-                <Input
-                  type="number"
-                  min={0}
-                  inputMode="numeric"
-                  placeholder="0"
-                  value={days}
-                  onChange={(event) => setDays(event.target.value)}
-                />
-              </label>
-              <label className="space-y-2 text-sm">
-                <span className="font-medium">Hours</span>
-                <Input
-                  type="number"
-                  min={0}
-                  inputMode="numeric"
-                  placeholder="0"
-                  value={hours}
-                  onChange={(event) => setHours(event.target.value)}
-                />
-              </label>
-            </div>
+            <DurationPicker
+              value={customMinutes}
+              onChange={setCustomMinutes}
+              showPresets={false}
+            />
 
             <div className="space-y-1 text-sm text-muted-foreground">
               <p>
-                {totalHours > 0
+                {totalMinutes > 0
                   ? `${directionLabel} by ${formatDeadlineAdjustment(customPreset)}`
                   : "Enter a custom amount to preview the new deadline."}
               </p>
-              {totalHours > 0 && (
+              {totalMinutes > 0 && (
                 <p>
                   New deadline:{" "}
                   <span className="font-medium text-foreground">
@@ -565,13 +546,4 @@ function DeadlineAdjustmentDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function parseAdjustmentValue(value: string): number {
-  if (!value.trim()) return 0;
-
-  const parsed = Number.parseInt(value, 10);
-  if (Number.isNaN(parsed) || parsed < 0) return 0;
-
-  return parsed;
 }

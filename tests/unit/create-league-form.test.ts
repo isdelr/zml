@@ -18,8 +18,8 @@ function buildValidLeagueInput() {
     name: "My League",
     description: "A league description long enough.",
     isPublic: false,
-    submissionDeadline: 168,
-    votingDeadline: 72,
+    submissionDurationMinutes: 168 * 60,
+    votingDurationMinutes: 72 * 60,
     maxPositiveVotes: 5,
     maxNegativeVotes: 1,
     limitVotesPerSubmission: true,
@@ -35,6 +35,8 @@ function buildValidLeagueInput() {
         genres: ["Rock"],
         submissionMode: "single" as const,
         submissionInstructions: "",
+        submissionDurationMinutes: undefined,
+        votingDurationMinutes: undefined,
         albumConfig: {
           allowPartial: false,
           requireReleaseYear: true,
@@ -55,6 +57,8 @@ describe("createLeagueFormSchema", () => {
       submissionsPerUser: 1,
       submissionMode: "single",
       submissionInstructions: "",
+      submissionDurationMinutes: undefined,
+      votingDurationMinutes: undefined,
       albumConfig: {
         allowPartial: false,
         requireReleaseYear: true,
@@ -70,11 +74,30 @@ describe("createLeagueFormSchema", () => {
     expect(defaultCreateLeagueFormValues.maxNegativeVotesPerSubmission).toBe(1);
     expect(defaultCreateLeagueFormValues.enforceListenPercentage).toBe(true);
     expect(defaultCreateLeagueFormValues.listenTimeLimitMinutes).toBe(15);
+    expect(defaultCreateLeagueFormValues.submissionDurationMinutes).toBe(
+      168 * 60,
+    );
+    expect(defaultCreateLeagueFormValues.votingDurationMinutes).toBe(72 * 60);
   });
 
   it("accepts a valid base league payload", () => {
     const result = createLeagueFormSchema.safeParse(buildValidLeagueInput());
     expect(result.success).toBe(true);
+  });
+
+  it("rejects round phase durations shorter than 10 minutes", () => {
+    const result = createLeagueFormSchema.safeParse({
+      ...buildValidLeagueInput(),
+      submissionDurationMinutes: 9,
+      votingDurationMinutes: 9,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join("."));
+      expect(paths).toContain("submissionDurationMinutes");
+      expect(paths).toContain("votingDurationMinutes");
+    }
   });
 
   it("accepts vote totals up to the configured cap", () => {
@@ -179,6 +202,19 @@ describe("createLeagueFormSchema", () => {
       ...buildValidLeagueInput(),
       enforceListenPercentage: true,
       listenTimeLimitMinutes: undefined,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join("."));
+      expect(paths).toContain("listenTimeLimitMinutes");
+    }
+  });
+
+  it("rejects fractional listen protection caps", () => {
+    const result = createLeagueFormSchema.safeParse({
+      ...buildValidLeagueInput(),
+      listenTimeLimitMinutes: 1.5,
     });
 
     expect(result.success).toBe(false);

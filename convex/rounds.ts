@@ -51,8 +51,12 @@ import {
   buildRoundStartNowPatches,
   buildRoundShiftPatches,
   buildScheduledRoundResequencePatches,
+  getLeagueSubmissionDurationMinutes,
+  getLeagueVotingDurationMinutes,
+  getRoundSubmissionDurationMinutes,
+  getRoundVotingDurationMinutes,
   getSubmissionStart,
-  hoursToMs,
+  minutesToMs,
   ROUND_GAP_MS,
   sortRoundsInLeagueOrder,
 } from "../lib/rounds/schedule";
@@ -65,6 +69,10 @@ import {
   getFinalizedVoterIdSet,
 } from "../lib/rounds/effective-votes";
 import { getSubmissionSettingsError } from "../lib/rounds/submission-settings";
+import {
+  MIN_ROUND_DURATION_MINUTES,
+  isWholeMinutes,
+} from "../lib/time/duration";
 
 const storage = new B2Storage();
 type DeadlineReminderContext = {
@@ -516,7 +524,7 @@ export const manageRoundState = mutation({
           })),
           roundId: round._id.toString(),
           now: Date.now(),
-          submissionHours: league.submissionDeadline,
+          submissionDurationMinutes: getLeagueSubmissionDurationMinutes(league),
         });
         const currentRoundPatch = shiftPatches.find(
           ({ roundId }) => roundId === round._id.toString(),
@@ -537,7 +545,10 @@ export const manageRoundState = mutation({
                 ...round,
                 submissionStartsAt:
                   currentRoundPatch.submissionStartsAt ??
-                  getSubmissionStart(round, league.submissionDeadline),
+                  getSubmissionStart(
+                    round,
+                    getRoundSubmissionDurationMinutes(round, league),
+                  ),
                 submissionDeadline: currentRoundPatch.submissionDeadline,
                 votingDeadline: currentRoundPatch.votingDeadline,
               }
@@ -601,15 +612,21 @@ export const manageRoundState = mutation({
 export const adjustRoundTime = mutation({
   args: {
     roundId: v.id("rounds"),
-    hours: v.number(),
+    minutes: v.number(),
   },
   handler: async (ctx, args) => {
     const round = await ctx.db.get("rounds", args.roundId);
     if (!round) throw new Error("Round not found");
     const { league } = await requireOwnerManagerOrGlobalAdmin(ctx, round.leagueId);
 
+    if (!isWholeMinutes(args.minutes) || args.minutes === 0) {
+      throw new Error(
+        "Deadline adjustment must be a non-zero whole number of minutes.",
+      );
+    }
+
     const now = Date.now();
-    const timeAdjustment = hoursToMs(args.hours);
+    const timeAdjustment = minutesToMs(args.minutes);
     const leagueRounds = await ctx.db
       .query("rounds")
       .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
@@ -921,9 +938,10 @@ export const rollbackRoundToSubmissions = mutation({
 
     // Reopen submissions for 24 hours from now, and shift voting deadline accordingly
     const now = Date.now();
-    const oneDayMs = hoursToMs(24);
+    const oneDayMs = minutesToMs(24 * 60);
     const newSubmissionDeadline = now + oneDayMs;
-    const newVotingDeadline = newSubmissionDeadline + hoursToMs(league.votingDeadline);
+    const newVotingDeadline =
+      newSubmissionDeadline + minutesToMs(getLeagueVotingDurationMinutes(league));
     const downstreamShiftMs = newVotingDeadline - round.votingDeadline;
     const leagueRounds = await ctx.db
       .query("rounds")
@@ -983,6 +1001,8 @@ export const updateRound = mutation({
     submissionsPerUser: v.number(),
     maxPositiveVotes: v.optional(v.union(v.number(), v.null())),
     maxNegativeVotes: v.optional(v.union(v.number(), v.null())),
+    submissionDurationMinutes: v.optional(v.number()),
+    votingDurationMinutes: v.optional(v.number()),
     submissionMode: v.optional(
       v.union(v.literal("single"), v.literal("multi"), v.literal("album")),
     ),
@@ -1025,6 +1045,41 @@ export const updateRound = mutation({
     if (submissionsPerUserChanged && round.status === "voting") {
       throw new Error(
         "Cannot change the number of submissions for a round that is in the voting phase.",
+      );
+    }
+    if (
+      (args.submissionDurationMinutes !== undefined ||
+        args.votingDurationMinutes !== undefined) &&
+      round.status !== "scheduled"
+    ) {
+      throw new Error("Phase durations can only be changed for scheduled rounds.");
+    }
+    if (
+      args.submissionDurationMinutes !== undefined &&
+      !isWholeMinutes(args.submissionDurationMinutes)
+    ) {
+      throw new Error("Submission period must be a whole number of minutes.");
+    }
+    if (
+      args.votingDurationMinutes !== undefined &&
+      !isWholeMinutes(args.votingDurationMinutes)
+    ) {
+      throw new Error("Voting period must be a whole number of minutes.");
+    }
+    if (
+      args.submissionDurationMinutes !== undefined &&
+      args.submissionDurationMinutes < MIN_ROUND_DURATION_MINUTES
+    ) {
+      throw new Error(
+        `Submission period must be at least ${MIN_ROUND_DURATION_MINUTES} minutes.`,
+      );
+    }
+    if (
+      args.votingDurationMinutes !== undefined &&
+      args.votingDurationMinutes < MIN_ROUND_DURATION_MINUTES
+    ) {
+      throw new Error(
+        `Voting period must be at least ${MIN_ROUND_DURATION_MINUTES} minutes.`,
       );
     }
 
@@ -1120,6 +1175,50 @@ export const updateRound = mutation({
       patch.imageKey = nextImageKey;
     }
 
+    if (
+      round.status === "scheduled" &&
+      (args.submissionDurationMinutes !== undefined ||
+        args.votingDurationMinutes !== undefined)
+    ) {
+      const leagueRounds = await ctx.db
+        .query("rounds")
+        .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
+        .collect();
+      const resequencePatches = buildScheduledRoundResequencePatches({
+        rounds: leagueRounds.map((leagueRound) => {
+          const withStringId = {
+            ...leagueRound,
+            _id: leagueRound._id.toString(),
+          };
+          return leagueRound._id === round._id
+            ? {
+                ...withStringId,
+                ...patch,
+              }
+            : withStringId;
+        }),
+        submissionDurationMinutes: getLeagueSubmissionDurationMinutes(league),
+        votingDurationMinutes: getLeagueVotingDurationMinutes(league),
+      });
+      const currentSchedulePatch = resequencePatches.find(
+        (schedulePatch) => schedulePatch.roundId === round._id.toString(),
+      )?.patch;
+      if (currentSchedulePatch) {
+        Object.assign(patch, currentSchedulePatch);
+      }
+      await Promise.all(
+        resequencePatches
+          .filter((schedulePatch) => schedulePatch.roundId !== round._id.toString())
+          .map((schedulePatch) =>
+            ctx.db.patch(
+              "rounds",
+              schedulePatch.roundId as Id<"rounds">,
+              schedulePatch.patch,
+            ),
+          ),
+      );
+    }
+
     await ctx.db.patch("rounds", roundId, patch);
 
     if (imageKey !== undefined && round.imageKey !== nextImageKey) {
@@ -1137,6 +1236,8 @@ export const createRound = mutation({
     description: v.string(),
     submissionsPerUser: v.number(),
     genres: v.array(v.string()),
+    submissionDurationMinutes: v.optional(v.number()),
+    votingDurationMinutes: v.optional(v.number()),
     submissionMode: v.optional(
       v.union(v.literal("single"), v.literal("multi"), v.literal("album")),
     ),
@@ -1168,6 +1269,32 @@ export const createRound = mutation({
     }
     if (description.length < 10) {
       throw new Error("Description must be at least 10 characters.");
+    }
+    const submissionDurationMinutes =
+      args.submissionDurationMinutes ?? getLeagueSubmissionDurationMinutes(league);
+    const votingDurationMinutes =
+      args.votingDurationMinutes ?? getLeagueVotingDurationMinutes(league);
+    if (
+      args.submissionDurationMinutes !== undefined &&
+      !isWholeMinutes(args.submissionDurationMinutes)
+    ) {
+      throw new Error("Submission period must be a whole number of minutes.");
+    }
+    if (
+      args.votingDurationMinutes !== undefined &&
+      !isWholeMinutes(args.votingDurationMinutes)
+    ) {
+      throw new Error("Voting period must be a whole number of minutes.");
+    }
+    if (submissionDurationMinutes < MIN_ROUND_DURATION_MINUTES) {
+      throw new Error(
+        `Submission period must be at least ${MIN_ROUND_DURATION_MINUTES} minutes.`,
+      );
+    }
+    if (votingDurationMinutes < MIN_ROUND_DURATION_MINUTES) {
+      throw new Error(
+        `Voting period must be at least ${MIN_ROUND_DURATION_MINUTES} minutes.`,
+      );
     }
     const submissionSettingsError = getSubmissionSettingsError({
       submissionsPerUser: args.submissionsPerUser,
@@ -1202,18 +1329,18 @@ export const createRound = mutation({
           submissionDeadline:
             existingLastRound.votingDeadline +
             ROUND_GAP_MS +
-            hoursToMs(league.submissionDeadline),
+            minutesToMs(submissionDurationMinutes),
           votingDeadline:
             existingLastRound.votingDeadline +
             ROUND_GAP_MS +
-            hoursToMs(league.submissionDeadline) +
-            hoursToMs(league.votingDeadline),
+            minutesToMs(submissionDurationMinutes) +
+            minutesToMs(votingDurationMinutes),
         }
       : buildLeagueRoundSchedule({
           roundCount: 1,
           startsAt: Date.now(),
-          submissionHours: league.submissionDeadline,
-          votingHours: league.votingDeadline,
+          submissionDurationMinutes,
+          votingDurationMinutes,
         })[0];
 
     const roundId = await ctx.db.insert("rounds", {
@@ -1226,6 +1353,8 @@ export const createRound = mutation({
       submissionStartsAt: schedule.submissionStartsAt,
       submissionDeadline: schedule.submissionDeadline,
       votingDeadline: schedule.votingDeadline,
+      submissionDurationMinutes: args.submissionDurationMinutes,
+      votingDurationMinutes: args.votingDurationMinutes,
       submissionsPerUser: args.submissionsPerUser,
       submissionMode: args.submissionMode ?? "single",
       submissionInstructions,
@@ -1301,8 +1430,8 @@ export const deleteRound = mutation({
         ...leagueRound,
         _id: leagueRound._id.toString(),
       })),
-      submissionHours: league.submissionDeadline,
-      votingHours: league.votingDeadline,
+      submissionDurationMinutes: getLeagueSubmissionDurationMinutes(league),
+      votingDurationMinutes: getLeagueVotingDurationMinutes(league),
     });
     const patchByRoundId = new Map<
       string,
@@ -1422,7 +1551,7 @@ export const swapRoundScheduleSlots = mutation({
       })),
       firstRoundId: firstRound._id.toString(),
       secondRoundId: secondRound._id.toString(),
-      submissionHours: league.submissionDeadline,
+      submissionDurationMinutes: getLeagueSubmissionDurationMinutes(league),
     });
 
     if (schedulePatches.length === 0) {
@@ -2081,7 +2210,10 @@ export const getDeadlineReminderContexts = internalQuery({
           status,
           submissionStartsAt:
             round.submissionStartsAt ??
-            getSubmissionStart(round, league.submissionDeadline),
+            getSubmissionStart(
+              round,
+              getRoundSubmissionDurationMinutes(round, league),
+            ),
           submissionDeadline: round.submissionDeadline,
           votingDeadline: round.votingDeadline,
           hasOpenExtensionPoll:
@@ -2136,7 +2268,8 @@ export const normalizeRoundSchedules = internalMutation({
         const patch: Partial<Doc<"rounds">> = {};
         const defaultSubmissionStartsAt =
           round.submissionStartsAt ??
-          round.submissionDeadline - hoursToMs(league.submissionDeadline);
+          round.submissionDeadline -
+            minutesToMs(getRoundSubmissionDurationMinutes(round, league));
 
         if (round.order !== index) {
           patch.order = index;
@@ -2153,9 +2286,11 @@ export const normalizeRoundSchedules = internalMutation({
           const submissionStartsAt: number =
             nextSubmissionStartsAt ?? defaultSubmissionStartsAt;
           const submissionDeadline: number =
-            submissionStartsAt + hoursToMs(league.submissionDeadline);
+            submissionStartsAt +
+            minutesToMs(getRoundSubmissionDurationMinutes(round, league));
           const votingDeadline: number =
-            submissionDeadline + hoursToMs(league.votingDeadline);
+            submissionDeadline +
+            minutesToMs(getRoundVotingDurationMinutes(round, league));
 
           patch.status = "scheduled";
           patch.submissionStartsAt = submissionStartsAt;

@@ -6,6 +6,7 @@ import { Doc } from "./_generated/dataModel";
 import { unreadNotifications, membershipsByUser, submissionsByUser } from "./aggregates";
 import { recalculateAndStoreRoundResults } from "../lib/convex-server/leagues/results";
 import { getOverflowMultiRoundSubmissionIds } from "../lib/rounds/multi-submission-overflow";
+import { legacyHoursToDurationMinutes } from "../lib/time/duration";
 
 export const migrations: Migrations<DataModel> = new Migrations<DataModel>(components.migrations);
 
@@ -187,6 +188,27 @@ export const deleteOverflowMultiRoundSubmissions = migrations.define({
   batchSize: 1,
   migrateOne: async (ctx, round) => {
     await deleteOverflowMultiRoundSubmissionsForRound(ctx, round);
+  },
+});
+
+export const backfillLeagueDurationMinutes = migrations.define({
+  table: "leagues",
+  migrateOne: async (ctx, league) => {
+    const patch: Partial<Doc<"leagues">> = {};
+    if (league.submissionDurationMinutes === undefined) {
+      patch.submissionDurationMinutes = legacyHoursToDurationMinutes(
+        league.submissionDeadline,
+      );
+    }
+    if (league.votingDurationMinutes === undefined) {
+      patch.votingDurationMinutes = legacyHoursToDurationMinutes(
+        league.votingDeadline,
+      );
+    }
+
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch("leagues", league._id, patch);
+    }
   },
 });
 

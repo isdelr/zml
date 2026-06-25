@@ -23,6 +23,14 @@ export function LeagueRoundsSection({
     name: "rounds",
   });
   const watchedRounds = useWatch({ control: form.control, name: "rounds" });
+  const submissionDurationMinutes = useWatch({
+    control: form.control,
+    name: "submissionDurationMinutes",
+  });
+  const votingDurationMinutes = useWatch({
+    control: form.control,
+    name: "votingDurationMinutes",
+  });
   const [expandedRoundIndex, setExpandedRoundIndex] = useState<number | null>(0);
 
   const handleAddRound = () => {
@@ -98,6 +106,10 @@ export function LeagueRoundsSection({
             }
             title={watchedRounds?.[index]?.title}
             description={watchedRounds?.[index]?.description}
+            defaultSubmissionDurationMinutes={
+              submissionDurationMinutes as number
+            }
+            defaultVotingDurationMinutes={votingDurationMinutes as number}
           />
         ))}
       </div>

@@ -25,6 +25,21 @@ describe("roundManagementSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects phase durations shorter than 10 minutes", () => {
+    const result = roundManagementSchema.safeParse({
+      ...buildValidRoundInput(),
+      submissionDurationMinutes: 9,
+      votingDurationMinutes: 9,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((issue) => issue.path.join("."));
+      expect(paths).toContain("submissionDurationMinutes");
+      expect(paths).toContain("votingDurationMinutes");
+    }
+  });
+
   it("rejects submissions per user above the configured cap", () => {
     const result = roundManagementSchema.safeParse({
       ...buildValidRoundInput(),

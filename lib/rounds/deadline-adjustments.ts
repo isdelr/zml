@@ -1,39 +1,32 @@
+import {
+  durationMinutesToMs,
+  durationPartsToMinutes,
+  formatDurationMinutes,
+  type DurationParts,
+} from "@/lib/time/duration";
+
 export type DeadlineAdjustmentDirection = "increase" | "decrease";
 
-export type DeadlineAdjustmentPreset = {
-  days: number;
-  hours: number;
-};
+export type DeadlineAdjustmentPreset = DurationParts;
 
 export const DEADLINE_ADJUSTMENT_PRESETS: DeadlineAdjustmentPreset[] = [
-  { days: 0, hours: 1 },
-  { days: 0, hours: 6 },
-  { days: 0, hours: 12 },
-  { days: 1, hours: 0 },
-  { days: 1, hours: 1 },
-  { days: 2, hours: 0 },
+  { days: 0, hours: 0, minutes: 15 },
+  { days: 0, hours: 0, minutes: 30 },
+  { days: 0, hours: 1, minutes: 0 },
+  { days: 0, hours: 6, minutes: 0 },
+  { days: 1, hours: 0, minutes: 0 },
 ];
 
-export function getDeadlineAdjustmentHours(
+export function getDeadlineAdjustmentMinutes(
   preset: DeadlineAdjustmentPreset,
 ): number {
-  return preset.days * 24 + preset.hours;
+  return durationPartsToMinutes(preset);
 }
 
 export function formatDeadlineAdjustment(
   preset: DeadlineAdjustmentPreset,
 ): string {
-  const parts: string[] = [];
-
-  if (preset.days > 0) {
-    parts.push(`${preset.days} day${preset.days === 1 ? "" : "s"}`);
-  }
-
-  if (preset.hours > 0) {
-    parts.push(`${preset.hours} hour${preset.hours === 1 ? "" : "s"}`);
-  }
-
-  return parts.join(" ") || "0 hours";
+  return formatDurationMinutes(getDeadlineAdjustmentMinutes(preset));
 }
 
 export function getSignedDeadlineAdjustmentLabel(
@@ -49,7 +42,7 @@ export function getAdjustedDeadline(
   direction: DeadlineAdjustmentDirection,
   preset: DeadlineAdjustmentPreset,
 ): number {
-  const adjustmentMs = getDeadlineAdjustmentHours(preset) * 60 * 60 * 1000;
+  const adjustmentMs = durationMinutesToMs(getDeadlineAdjustmentMinutes(preset));
   return direction === "increase"
     ? deadline + adjustmentMs
     : deadline - adjustmentMs;

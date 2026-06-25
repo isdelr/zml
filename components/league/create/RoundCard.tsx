@@ -10,9 +10,14 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { DurationPicker } from "@/components/ui/duration-picker";
 import { AlbumSettingsFields } from "@/components/league/create/AlbumSettingsFields";
 import { RoundImagePicker } from "@/components/league/create/RoundImagePicker";
 import { SubmissionModeSettings } from "@/components/round/SubmissionModeSettings";
+import {
+  MIN_ROUND_DURATION_MINUTES,
+  formatDurationMinutes,
+} from "@/lib/time/duration";
 import { cn } from "@/lib/utils";
 import type { CreateLeagueForm, PreviewMapSetter } from "./form-types";
 
@@ -28,6 +33,8 @@ type RoundCardProps = {
   onToggle: () => void;
   title?: string;
   description?: string;
+  defaultSubmissionDurationMinutes: number;
+  defaultVotingDurationMinutes: number;
 };
 
 export function RoundCard({
@@ -42,6 +49,8 @@ export function RoundCard({
   onToggle,
   title,
   description,
+  defaultSubmissionDurationMinutes,
+  defaultVotingDurationMinutes,
 }: RoundCardProps) {
   const displayTitle = title?.trim();
   const displayDescription = description?.trim();
@@ -134,6 +143,56 @@ export function RoundCard({
               submissionsPerUserName={`rounds.${index}.submissionsPerUser`}
               submissionModeName={`rounds.${index}.submissionMode`}
             />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name={`rounds.${index}.submissionDurationMinutes`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Submission Period</FormLabel>
+                    <FormControl>
+                      <DurationPicker
+                        value={
+                          (field.value as number | undefined) ??
+                          defaultSubmissionDurationMinutes
+                        }
+                        onChange={field.onChange}
+                        minMinutes={MIN_ROUND_DURATION_MINUTES}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      League default:{" "}
+                      {formatDurationMinutes(defaultSubmissionDurationMinutes)}
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={`rounds.${index}.votingDurationMinutes`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Voting Period</FormLabel>
+                    <FormControl>
+                      <DurationPicker
+                        value={
+                          (field.value as number | undefined) ??
+                          defaultVotingDurationMinutes
+                        }
+                        onChange={field.onChange}
+                        minMinutes={MIN_ROUND_DURATION_MINUTES}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      League default:{" "}
+                      {formatDurationMinutes(defaultVotingDurationMinutes)}
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
 
           <div className="w-full md:w-52">

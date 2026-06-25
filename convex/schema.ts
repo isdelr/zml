@@ -105,6 +105,8 @@ export default defineSchema({
     creatorId: v.id("users"),
     submissionDeadline: v.number(),
     votingDeadline: v.number(),
+    submissionDurationMinutes: v.optional(v.number()),
+    votingDurationMinutes: v.optional(v.number()),
     maxPositiveVotes: v.number(),
     maxNegativeVotes: v.number(),
     inviteCode: v.union(v.string(), v.null()),
@@ -152,6 +154,8 @@ export default defineSchema({
     submissionStartsAt: v.optional(v.number()),
     submissionDeadline: v.number(),
     votingDeadline: v.number(),
+    submissionDurationMinutes: v.optional(v.number()),
+    votingDurationMinutes: v.optional(v.number()),
     submissionsPerUser: v.optional(v.number()),
     // Per-round overrides for vote limits; null/undefined means use league defaults
     maxPositiveVotes: v.optional(v.union(v.number(), v.null())),
@@ -271,6 +275,7 @@ export default defineSchema({
     eligibleVoterCount: v.number(),
     yesVotes: v.number(),
     noVotes: v.number(),
+    requestedExtensionMs: v.optional(v.number()),
     appliedExtensionMs: v.optional(v.number()),
     resolvedAt: v.optional(v.number()),
   })

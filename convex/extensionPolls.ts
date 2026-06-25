@@ -13,13 +13,13 @@ import { internal } from "./_generated/api";
 import { getVoteLimits } from "../lib/convex-server/voteLimits";
 import {
   buildRoundShiftPatches,
+  getRoundSubmissionDurationMinutes,
   getSubmissionStart,
   sortRoundsInLeagueOrder,
 } from "../lib/rounds/schedule";
 import {
-  EXTENSION_POLL_APPROVED_EXTENSION_MS,
-  EXTENSION_POLL_TIE_EXTENSION_MS,
   EXTENSION_REASON_MIN_LENGTH,
+  MIN_EXTENSION_REQUEST_MINUTES,
   formatExtensionPollRequestWindowLabel,
   getExtensionPollMinimumTurnout,
   getLockedExtensionPollResult,
@@ -31,6 +31,12 @@ import {
   isExtensionPollRequestWindowOpen,
   type ExtensionPollType,
 } from "../lib/rounds/extension-polls";
+import {
+  DEFAULT_EXTENSION_DURATION_MINUTES,
+  durationMinutesToMs,
+  formatDurationMs,
+  isWholeMinutes,
+} from "../lib/time/duration";
 import {
   getPendingSubmissionParticipantIds,
   getPendingVotingParticipantIds,
@@ -109,7 +115,10 @@ function getPollPhaseTiming(
     return {
       phaseStart:
         round.submissionStartsAt ??
-        getSubmissionStart(round, league.submissionDeadline),
+        getSubmissionStart(
+          round,
+          getRoundSubmissionDurationMinutes(round, league),
+        ),
       phaseDeadline: round.submissionDeadline,
     };
   }
@@ -238,11 +247,7 @@ async function getRequestContext(
 }
 
 function formatAppliedExtensionDurationLabel(extensionMs: number) {
-  return extensionMs === EXTENSION_POLL_APPROVED_EXTENSION_MS
-    ? "24 hours"
-    : extensionMs === EXTENSION_POLL_TIE_EXTENSION_MS
-      ? "8 hours"
-      : `${Math.round(extensionMs / (60 * 60 * 1000))} hours`;
+  return formatDurationMs(extensionMs);
 }
 
 async function patchResolvedPoll(
@@ -286,6 +291,9 @@ async function resolvePoll(
     yesVotes: poll.yesVotes,
     noVotes: poll.noVotes,
     eligibleVoterCount: poll.eligibleVoterCount,
+    requestedExtensionMs:
+      poll.requestedExtensionMs ??
+      durationMinutesToMs(DEFAULT_EXTENSION_DURATION_MINUTES),
   });
   const league = await ctx.db.get("leagues", poll.leagueId);
   if (!league) {
@@ -395,11 +403,14 @@ async function resolvePoll(
 
   const historyLabel = getPollHistoryLabel(pollType);
   const deadlineLabel = getPollDeadlineLabel(pollType);
+  const appliedDurationLabel = formatAppliedExtensionDurationLabel(
+    resolution.appliedExtensionMs,
+  );
   const resultMessage =
     resolution.result === "approved"
-      ? `The anonymous ${historyLabel} for "${round.title}" in "${league.name}" passed. The ${deadlineLabel} was extended by 24 hours.`
+      ? `The anonymous ${historyLabel} for "${round.title}" in "${league.name}" passed. The ${deadlineLabel} was extended by ${appliedDurationLabel}.`
       : resolution.result === "tie"
-        ? `The anonymous ${historyLabel} for "${round.title}" in "${league.name}" tied. The ${deadlineLabel} was extended by 8 hours.`
+        ? `The anonymous ${historyLabel} for "${round.title}" in "${league.name}" tied. The ${deadlineLabel} was extended by ${appliedDurationLabel}.`
         : resolution.result === "insufficient_turnout"
           ? `The anonymous ${historyLabel} for "${round.title}" in "${league.name}" closed without effect because fewer than 50% of eligible members participated.`
           : `The anonymous ${historyLabel} for "${round.title}" in "${league.name}" was rejected. The ${deadlineLabel} stayed the same.`;
@@ -557,6 +568,9 @@ export const getForRound = query({
             result: poll.result,
             openedAt: poll.openedAt,
             resolvesAt: poll.resolvesAt,
+            requestedExtensionMs:
+              poll.requestedExtensionMs ??
+              durationMinutesToMs(DEFAULT_EXTENSION_DURATION_MINUTES),
             appliedExtensionMs: poll.appliedExtensionMs ?? 0,
             resolvedAt: poll.resolvedAt ?? null,
             totalVotes: poll.yesVotes + poll.noVotes,
@@ -593,6 +607,7 @@ export const create = mutation({
     roundId: v.id("rounds"),
     type: v.union(v.literal("submission"), v.literal("voting")),
     reason: v.string(),
+    requestedExtensionMinutes: v.number(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -606,6 +621,17 @@ export const create = mutation({
         `Extension reasons must be at least ${EXTENSION_REASON_MIN_LENGTH} characters.`,
       );
     }
+    if (!isWholeMinutes(args.requestedExtensionMinutes)) {
+      throw new Error("Extension requests must be a whole number of minutes.");
+    }
+    if (args.requestedExtensionMinutes < MIN_EXTENSION_REQUEST_MINUTES) {
+      throw new Error(
+        `Extension requests must be at least ${MIN_EXTENSION_REQUEST_MINUTES} minutes.`,
+      );
+    }
+    const requestedExtensionMs = durationMinutesToMs(
+      args.requestedExtensionMinutes,
+    );
 
     const round = await ctx.db.get("rounds", args.roundId);
     if (!round) {
@@ -704,10 +730,12 @@ export const create = mutation({
       eligibleVoterCount: eligibleVoterIds.length,
       yesVotes: 0,
       noVotes: 0,
+      requestedExtensionMs,
     });
 
     const phaseLabel = getPollPhaseLabel(args.type);
     const phaseTitle = getPollPhaseLabel(args.type, { capitalized: true });
+    const requestedDurationLabel = formatDurationMs(requestedExtensionMs);
     await ctx.scheduler.runAfter(
       0,
       internal.notifications.createForLeagueAndDispatchDiscord,
@@ -717,7 +745,7 @@ export const create = mutation({
         roundStatus: getPollRoundStatus(args.type),
         notificationType: "round_extension_poll",
         discordNotificationKind: "extension_poll",
-        message: `A ${phaseLabel} extension poll is open for "${round.title}" in "${league.name}". Reason: ${trimmedReason}.`,
+        message: `A ${phaseLabel} extension poll is open for "${round.title}" in "${league.name}" requesting ${requestedDurationLabel}. Reason: ${trimmedReason}.`,
         link: `/leagues/${round.leagueId}/round/${round._id}`,
         deadlineMs: phaseDeadline,
         targetUserIds: eligibleVoterIds.map((voterId) => voterId as Id<"users">),
@@ -726,7 +754,7 @@ export const create = mutation({
         },
         pushNotificationOverride: {
           title: `${phaseTitle} Extension Poll Open`,
-          body: `A ${phaseLabel} extension poll is open for "${round.title}".`,
+          body: `A ${phaseLabel} extension poll is open for "${round.title}" requesting ${requestedDurationLabel}.`,
         },
       },
     );

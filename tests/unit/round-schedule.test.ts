@@ -7,17 +7,22 @@ import {
   buildRoundShiftPatches,
   buildRoundStartNowPatches,
   buildScheduledRoundResequencePatches,
-  hoursToMs,
+  minutesToMs,
 } from "@/lib/rounds/schedule";
 
 describe("round schedule", () => {
+  it("converts signed minute adjustments to milliseconds", () => {
+    expect(minutesToMs(15)).toBe(15 * 60 * 1000);
+    expect(minutesToMs(-15)).toBe(-15 * 60 * 1000);
+  });
+
   it("creates non-overlapping rounds with a 24 hour gap", () => {
     const startsAt = new Date("2026-03-10T00:00:00Z").getTime();
     const schedule = buildLeagueRoundSchedule({
       roundCount: 3,
       startsAt,
-      submissionHours: 72,
-      votingHours: 72,
+      submissionDurationMinutes: 72 * 60,
+      votingDurationMinutes: 72 * 60,
     });
 
     expect(schedule).toEqual([
@@ -69,7 +74,7 @@ describe("round schedule", () => {
       buildRoundShiftPatches({
         rounds,
         roundId: "round-1",
-        adjustmentMs: hoursToMs(12),
+        adjustmentMs: minutesToMs(12 * 60),
       }),
     ).toEqual([
       {
@@ -121,8 +126,8 @@ describe("round schedule", () => {
     expect(
       buildScheduledRoundResequencePatches({
         rounds,
-        submissionHours: 48,
-        votingHours: 24,
+        submissionDurationMinutes: 48 * 60,
+        votingDurationMinutes: 24 * 60,
       }),
     ).toEqual([
       {
@@ -177,7 +182,7 @@ describe("round schedule", () => {
         rounds,
         roundId: "round-2",
         now: new Date("2026-03-15T12:00:00Z").getTime(),
-        submissionHours: 72,
+        submissionDurationMinutes: 72 * 60,
       }),
     ).toEqual([
       {
@@ -240,7 +245,7 @@ describe("round schedule", () => {
         rounds,
         finishedRoundId: "round-2",
         now: new Date("2026-03-21T12:00:00Z").getTime(),
-        submissionHours: 72,
+        submissionDurationMinutes: 72 * 60,
       }),
     ).toEqual({
       nextRoundId: "round-3",
@@ -290,7 +295,7 @@ describe("round schedule", () => {
         rounds,
         firstRoundId: "round-1",
         secondRoundId: "round-2",
-        submissionHours: 72,
+        submissionDurationMinutes: 72 * 60,
       }),
     ).toEqual([
       {
@@ -341,7 +346,7 @@ describe("round schedule", () => {
         rounds,
         firstRoundId: "round-1",
         secondRoundId: "round-2",
-        submissionHours: 72,
+        submissionDurationMinutes: 72 * 60,
       }),
     ).toEqual([
       {
@@ -400,7 +405,7 @@ describe("round schedule", () => {
         rounds,
         firstRoundId: "round-1",
         secondRoundId: "round-3",
-        submissionHours: 72,
+        submissionDurationMinutes: 72 * 60,
       }).map(({ roundId }) => roundId),
     ).toEqual(["round-1", "round-3"]);
   });
@@ -438,7 +443,7 @@ describe("round schedule", () => {
         rounds,
         firstRoundId: "round-1",
         secondRoundId: "round-3",
-        submissionHours: 72,
+        submissionDurationMinutes: 72 * 60,
       }),
     ).toEqual([
       {

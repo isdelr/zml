@@ -9,6 +9,12 @@ import {
   getSubmissionSettingsError,
   MAX_SUBMISSIONS_PER_USER,
 } from "@/lib/rounds/submission-settings";
+import {
+  DEFAULT_SUBMISSION_DURATION_MINUTES,
+  DEFAULT_VOTING_DURATION_MINUTES,
+  MIN_ROUND_DURATION_MINUTES,
+  formatDurationMinutes,
+} from "@/lib/time/duration";
 
 export const MAX_ROUND_IMAGE_SIZE_MB = 5;
 export const MAX_ROUND_IMAGE_SIZE_BYTES = MAX_ROUND_IMAGE_SIZE_MB * 1024 * 1024;
@@ -21,6 +27,14 @@ const albumConfigSchema = z
     maxTracks: z.coerce.number().min(1, "Must be at least 1 track.").optional(),
   })
   .optional();
+
+const durationMinutesSchema = z.coerce
+  .number()
+  .int("Must be a whole number of minutes.")
+  .min(
+    MIN_ROUND_DURATION_MINUTES,
+    `Must be at least ${formatDurationMinutes(MIN_ROUND_DURATION_MINUTES)}.`,
+  );
 
 const roundSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters."),
@@ -43,6 +57,8 @@ const roundSchema = z.object({
     ),
   submissionMode: z.enum(["single", "multi", "album"]).default("single"),
   submissionInstructions: z.string().optional(),
+  submissionDurationMinutes: durationMinutesSchema.optional(),
+  votingDurationMinutes: durationMinutesSchema.optional(),
   albumConfig: albumConfigSchema,
 });
 
@@ -55,14 +71,8 @@ export const createLeagueFormSchema = z
       message: "Description must be at least 10 characters.",
     }),
     isPublic: z.boolean().default(false),
-    submissionDeadline: z.coerce
-      .number()
-      .min(1, "Must be at least 1 hour.")
-      .max(720, "Max duration is 30 days (720 hours)."),
-    votingDeadline: z.coerce
-      .number()
-      .min(1, "Must be at least 1 hour.")
-      .max(720, "Max duration is 30 days (720 hours)."),
+    submissionDurationMinutes: durationMinutesSchema,
+    votingDurationMinutes: durationMinutesSchema,
     maxPositiveVotes: z.coerce
       .number()
       .min(1, "Must be at least 1 vote.")
@@ -81,7 +91,11 @@ export const createLeagueFormSchema = z
     maxPositiveVotesPerSubmission: z.coerce.number().min(1, "Must be at least 1 vote.").optional(),
     maxNegativeVotesPerSubmission: z.coerce.number().min(1, "Must be at least 1 vote.").optional(),
     enforceListenPercentage: z.boolean().default(true),
-    listenTimeLimitMinutes: z.coerce.number().min(1, "Must be at least 1 minute.").optional(),
+    listenTimeLimitMinutes: z.coerce
+      .number()
+      .int("Must be a whole number of minutes.")
+      .min(1, "Must be at least 1 minute.")
+      .optional(),
     rounds: z.array(roundSchema).min(1, "You must add at least one round."),
   })
   .superRefine((data, ctx) => {
@@ -157,6 +171,8 @@ export function createDefaultRound(): CreateLeagueFormValues["rounds"][number] {
     submissionsPerUser: 1,
     submissionMode: "single",
     submissionInstructions: "",
+    submissionDurationMinutes: undefined,
+    votingDurationMinutes: undefined,
     albumConfig: {
       allowPartial: false,
       requireReleaseYear: true,
@@ -170,8 +186,8 @@ export const defaultCreateLeagueFormValues: CreateLeagueFormValues = {
   name: "",
   description: "",
   isPublic: false,
-  submissionDeadline: 168,
-  votingDeadline: 72,
+  submissionDurationMinutes: DEFAULT_SUBMISSION_DURATION_MINUTES,
+  votingDurationMinutes: DEFAULT_VOTING_DURATION_MINUTES,
   maxPositiveVotes: 5,
   maxNegativeVotes: 1,
   limitVotesPerSubmission: true,

@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  EXTENSION_POLL_APPROVED_EXTENSION_MS,
   EXTENSION_POLL_MIN_TURNOUT_RATIO,
-  EXTENSION_POLL_TIE_EXTENSION_MS,
   EXTENSION_REQUEST_WINDOW_RATIO,
   MAX_EXTENSION_REQUESTS_PER_LEAGUE_USER,
   formatExtensionPollRequestWindowLabel,
@@ -17,6 +15,7 @@ import {
   hasExtensionPollReachedMinimumTurnout,
   isExtensionPollRequestWindowOpen,
 } from "@/lib/rounds/extension-polls";
+import { durationMinutesToMs } from "@/lib/time/duration";
 
 describe("extension poll helpers", () => {
   it("accepts only the final 25% of the voting window", () => {
@@ -104,31 +103,36 @@ describe("extension poll helpers", () => {
   });
 
   it("maps poll outcomes to the correct extension length", () => {
+    const requestedExtensionMs = durationMinutesToMs(90);
+
     expect(
       getExtensionPollResolution({
         yesVotes: 4,
         noVotes: 2,
         eligibleVoterCount: 10,
+        requestedExtensionMs,
       }),
     ).toEqual({
       result: "approved",
-      appliedExtensionMs: EXTENSION_POLL_APPROVED_EXTENSION_MS,
+      appliedExtensionMs: requestedExtensionMs,
     });
     expect(
       getExtensionPollResolution({
         yesVotes: 3,
         noVotes: 3,
         eligibleVoterCount: 10,
+        requestedExtensionMs,
       }),
     ).toEqual({
       result: "tie",
-      appliedExtensionMs: EXTENSION_POLL_TIE_EXTENSION_MS,
+      appliedExtensionMs: durationMinutesToMs(45),
     });
     expect(
       getExtensionPollResolution({
         yesVotes: 1,
         noVotes: 5,
         eligibleVoterCount: 10,
+        requestedExtensionMs,
       }),
     ).toEqual({
       result: "rejected",
@@ -179,6 +183,7 @@ describe("extension poll helpers", () => {
         yesVotes: 1,
         noVotes: 0,
         eligibleVoterCount: 4,
+        requestedExtensionMs: durationMinutesToMs(60),
       }),
     ).toEqual({
       result: "insufficient_turnout",
@@ -199,10 +204,11 @@ describe("extension poll helpers", () => {
         yesVotes: 2,
         noVotes: 2,
         eligibleVoterCount: 4,
+        requestedExtensionMs: durationMinutesToMs(60),
       }),
     ).toEqual({
       result: "tie",
-      appliedExtensionMs: EXTENSION_POLL_TIE_EXTENSION_MS,
+      appliedExtensionMs: durationMinutesToMs(30),
     });
 
     expect(
@@ -217,6 +223,7 @@ describe("extension poll helpers", () => {
         yesVotes: 1,
         noVotes: 0,
         eligibleVoterCount: 4,
+        requestedExtensionMs: durationMinutesToMs(60),
       }),
     ).toEqual({
       result: "insufficient_turnout",

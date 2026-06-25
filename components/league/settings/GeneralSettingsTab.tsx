@@ -18,8 +18,15 @@ import {
   getDefaultNegativeVotesPerSubmission,
   getDefaultPositiveVotesPerSubmission,
 } from "@/lib/leagues/vote-limits";
+import {
+  DEFAULT_SUBMISSION_DURATION_MINUTES,
+  DEFAULT_VOTING_DURATION_MINUTES,
+  MIN_ROUND_DURATION_MINUTES,
+  getEffectiveDurationMinutes,
+} from "@/lib/time/duration";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DurationPicker } from "@/components/ui/duration-picker";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -67,8 +74,16 @@ export function GeneralSettingsTab({
       name: league.name,
       description: league.description,
       isPublic: league.isPublic,
-      submissionDeadline: league.submissionDeadline,
-      votingDeadline: league.votingDeadline,
+      submissionDurationMinutes: getEffectiveDurationMinutes({
+        durationMinutes: league.submissionDurationMinutes,
+        legacyHours: league.submissionDeadline,
+        fallbackMinutes: DEFAULT_SUBMISSION_DURATION_MINUTES,
+      }),
+      votingDurationMinutes: getEffectiveDurationMinutes({
+        durationMinutes: league.votingDurationMinutes,
+        legacyHours: league.votingDeadline,
+        fallbackMinutes: DEFAULT_VOTING_DURATION_MINUTES,
+      }),
       maxPositiveVotes: league.maxPositiveVotes,
       maxNegativeVotes: league.maxNegativeVotes,
       limitVotesPerSubmission: league.limitVotesPerSubmission ?? false,
@@ -226,15 +241,15 @@ export function GeneralSettingsTab({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="submissionDeadline"
+                  name="submissionDurationMinutes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Submission Period (Hours)</FormLabel>
+                      <FormLabel>Submission Period</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          {...field}
-                          value={(field.value as number) || ""}
+                        <DurationPicker
+                          value={field.value as number}
+                          onChange={field.onChange}
+                          minMinutes={MIN_ROUND_DURATION_MINUTES}
                         />
                       </FormControl>
                       <FormDescription>
@@ -246,15 +261,15 @@ export function GeneralSettingsTab({
                 />
                 <FormField
                   control={form.control}
-                  name="votingDeadline"
+                  name="votingDurationMinutes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Voting Period (Hours)</FormLabel>
+                      <FormLabel>Voting Period</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          {...field}
-                          value={(field.value as number) || ""}
+                        <DurationPicker
+                          value={field.value as number}
+                          onChange={field.onChange}
+                          minMinutes={MIN_ROUND_DURATION_MINUTES}
                         />
                       </FormControl>
                       <FormDescription>
