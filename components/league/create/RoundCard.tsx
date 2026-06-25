@@ -138,11 +138,6 @@ export function RoundCard({
                   </FormItem>
                 )}
               />
-              <SubmissionModeSettings
-                form={form}
-                submissionsPerUserName={`rounds.${index}.submissionsPerUser`}
-                submissionModeName={`rounds.${index}.submissionMode`}
-              />
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
@@ -195,6 +190,12 @@ export function RoundCard({
               />
             </div>
           </div>
+
+          <SubmissionModeSettings
+            form={form}
+            submissionsPerUserName={`rounds.${index}.submissionsPerUser`}
+            submissionModeName={`rounds.${index}.submissionMode`}
+          />
 
           {isAlbumMode && <AlbumSettingsFields form={form} index={index} />}
         </CardContent>
