@@ -138,47 +138,6 @@ export function RoundCard({
                   </FormItem>
                 )}
               />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name={`rounds.${index}.submissionDurationMinutes`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Submission Period</FormLabel>
-                      <FormControl>
-                        <DurationPicker
-                          value={
-                            (field.value as number | undefined) ??
-                            defaultSubmissionDurationMinutes
-                          }
-                          onChange={field.onChange}
-                          minMinutes={MIN_ROUND_DURATION_MINUTES}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`rounds.${index}.votingDurationMinutes`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Voting Period</FormLabel>
-                      <FormControl>
-                        <DurationPicker
-                          value={
-                            (field.value as number | undefined) ??
-                            defaultVotingDurationMinutes
-                          }
-                          onChange={field.onChange}
-                          minMinutes={MIN_ROUND_DURATION_MINUTES}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
             </div>
 
             <div className="w-full md:w-52">
@@ -196,6 +155,48 @@ export function RoundCard({
             submissionsPerUserName={`rounds.${index}.submissionsPerUser`}
             submissionModeName={`rounds.${index}.submissionMode`}
           />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name={`rounds.${index}.submissionDurationMinutes`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Submission Period</FormLabel>
+                  <FormControl>
+                    <DurationPicker
+                      value={
+                        (field.value as number | undefined) ??
+                        defaultSubmissionDurationMinutes
+                      }
+                      onChange={field.onChange}
+                      minMinutes={MIN_ROUND_DURATION_MINUTES}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`rounds.${index}.votingDurationMinutes`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Voting Period</FormLabel>
+                  <FormControl>
+                    <DurationPicker
+                      value={
+                        (field.value as number | undefined) ??
+                        defaultVotingDurationMinutes
+                      }
+                      onChange={field.onChange}
+                      minMinutes={MIN_ROUND_DURATION_MINUTES}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           {isAlbumMode && <AlbumSettingsFields form={form} index={index} />}
         </CardContent>
