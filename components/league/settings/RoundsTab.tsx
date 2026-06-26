@@ -76,7 +76,6 @@ import {
   DEFAULT_SUBMISSION_DURATION_MINUTES,
   DEFAULT_VOTING_DURATION_MINUTES,
   MIN_ROUND_DURATION_MINUTES,
-  formatDurationMinutes,
   getEffectiveDurationMinutes,
 } from "@/lib/time/duration";
 

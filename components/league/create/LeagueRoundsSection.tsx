@@ -1,7 +1,11 @@
 import { PlusCircle } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFieldArray, useWatch } from "react-hook-form";
 import { createDefaultRound } from "@/lib/leagues/create-league-form";
+import {
+  DEFAULT_SUBMISSION_DURATION_MINUTES,
+  DEFAULT_VOTING_DURATION_MINUTES,
+} from "@/lib/time/duration";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RoundCard } from "@/components/league/create/RoundCard";
@@ -32,6 +36,47 @@ export function LeagueRoundsSection({
     name: "votingDurationMinutes",
   });
   const [expandedRoundIndex, setExpandedRoundIndex] = useState<number | null>(0);
+  const defaultSubmissionDurationMinutes =
+    typeof submissionDurationMinutes === "number"
+      ? submissionDurationMinutes
+      : undefined;
+  const defaultVotingDurationMinutes =
+    typeof votingDurationMinutes === "number"
+      ? votingDurationMinutes
+      : undefined;
+
+  useEffect(() => {
+    const rounds = form.getValues("rounds") ?? [];
+
+    rounds.forEach((round, index) => {
+      if (
+        defaultSubmissionDurationMinutes !== undefined &&
+        round.submissionDurationMinutes === defaultSubmissionDurationMinutes
+      ) {
+        form.setValue(
+          `rounds.${index}.submissionDurationMinutes` as const,
+          undefined,
+          { shouldDirty: false, shouldValidate: false },
+        );
+      }
+
+      if (
+        defaultVotingDurationMinutes !== undefined &&
+        round.votingDurationMinutes === defaultVotingDurationMinutes
+      ) {
+        form.setValue(
+          `rounds.${index}.votingDurationMinutes` as const,
+          undefined,
+          { shouldDirty: false, shouldValidate: false },
+        );
+      }
+    });
+  }, [
+    defaultSubmissionDurationMinutes,
+    defaultVotingDurationMinutes,
+    fields.length,
+    form,
+  ]);
 
   const handleAddRound = () => {
     setExpandedRoundIndex(fields.length);
@@ -107,9 +152,12 @@ export function LeagueRoundsSection({
             title={watchedRounds?.[index]?.title}
             description={watchedRounds?.[index]?.description}
             defaultSubmissionDurationMinutes={
-              submissionDurationMinutes as number
+              defaultSubmissionDurationMinutes ??
+              DEFAULT_SUBMISSION_DURATION_MINUTES
             }
-            defaultVotingDurationMinutes={votingDurationMinutes as number}
+            defaultVotingDurationMinutes={
+              defaultVotingDurationMinutes ?? DEFAULT_VOTING_DURATION_MINUTES
+            }
           />
         ))}
       </div>

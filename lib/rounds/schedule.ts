@@ -62,6 +62,15 @@ export type RoundScheduleSwapPatch = {
   };
 };
 
+type RoundShiftPatch = {
+  roundId: string;
+  patch: {
+    submissionStartsAt?: number;
+    submissionDeadline: number;
+    votingDeadline: number;
+  };
+};
+
 export function minutesToMs(minutes: number): number {
   return Number.isFinite(minutes) ? Math.trunc(minutes) * MINUTE_MS : 0;
 }
@@ -164,15 +173,10 @@ export function buildRoundShiftPatches<
   rounds: TRound[];
   roundId: string;
   adjustmentMs: number;
-}): Array<{
-  roundId: string;
-  patch: {
-    submissionStartsAt?: number;
-    submissionDeadline: number;
-    votingDeadline: number;
-  };
-}> {
+  gapMs?: number;
+}): RoundShiftPatch[] {
   const sortedRounds = sortRoundsInLeagueOrder(args.rounds);
+  const gapMs = args.gapMs ?? ROUND_GAP_MS;
   const targetIndex = sortedRounds.findIndex(
     (round) => round._id.toString() === args.roundId,
   );
@@ -181,26 +185,26 @@ export function buildRoundShiftPatches<
     return [];
   }
 
-  return sortedRounds.slice(targetIndex).map((round, index) => {
+  const patches = new Map<string, RoundShiftPatch["patch"]>();
+
+  sortedRounds.slice(targetIndex).forEach((round, index) => {
+    const roundId = round._id.toString();
+
     if (index === 0) {
       if (round.status === "submissions") {
-        return {
-          roundId: round._id,
-          patch: {
-            submissionDeadline: round.submissionDeadline + args.adjustmentMs,
-            votingDeadline: round.votingDeadline + args.adjustmentMs,
-          },
-        };
+        patches.set(roundId, {
+          submissionDeadline: round.submissionDeadline + args.adjustmentMs,
+          votingDeadline: round.votingDeadline + args.adjustmentMs,
+        });
+        return;
       }
 
       if (round.status === "voting") {
-        return {
-          roundId: round._id,
-          patch: {
-            submissionDeadline: round.submissionDeadline,
-            votingDeadline: round.votingDeadline + args.adjustmentMs,
-          },
-        };
+        patches.set(roundId, {
+          submissionDeadline: round.submissionDeadline,
+          votingDeadline: round.votingDeadline + args.adjustmentMs,
+        });
+        return;
       }
     }
 
@@ -217,11 +221,39 @@ export function buildRoundShiftPatches<
       patch.submissionStartsAt = round.submissionStartsAt + args.adjustmentMs;
     }
 
-    return {
-      roundId: round._id,
-      patch,
-    };
+    patches.set(roundId, patch);
   });
+
+  let nextSubmissionStartsAt: number | null = null;
+
+  for (const round of sortedRounds) {
+    const roundId = round._id.toString();
+    const patch = patches.get(roundId);
+    const submissionStartsAt =
+      patch?.submissionStartsAt ?? round.submissionStartsAt;
+    let votingDeadline = patch?.votingDeadline ?? round.votingDeadline;
+
+    if (
+      patch &&
+      round.status === "scheduled" &&
+      submissionStartsAt !== undefined &&
+      nextSubmissionStartsAt !== null &&
+      submissionStartsAt < nextSubmissionStartsAt
+    ) {
+      const cascadeShiftMs = nextSubmissionStartsAt - submissionStartsAt;
+      patch.submissionStartsAt = submissionStartsAt + cascadeShiftMs;
+      patch.submissionDeadline += cascadeShiftMs;
+      patch.votingDeadline += cascadeShiftMs;
+      votingDeadline = patch.votingDeadline;
+    }
+
+    nextSubmissionStartsAt = votingDeadline + gapMs;
+  }
+
+  return [...patches.entries()].map(([roundId, patch]) => ({
+    roundId,
+    patch,
+  }));
 }
 
 export function buildRoundStartNowPatches<

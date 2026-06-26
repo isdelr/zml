@@ -14,10 +14,7 @@ import { DurationPicker } from "@/components/ui/duration-picker";
 import { AlbumSettingsFields } from "@/components/league/create/AlbumSettingsFields";
 import { RoundImagePicker } from "@/components/league/create/RoundImagePicker";
 import { SubmissionModeSettings } from "@/components/round/SubmissionModeSettings";
-import {
-  MIN_ROUND_DURATION_MINUTES,
-  formatDurationMinutes,
-} from "@/lib/time/duration";
+import { MIN_ROUND_DURATION_MINUTES } from "@/lib/time/duration";
 import { cn } from "@/lib/utils";
 import type { CreateLeagueForm, PreviewMapSetter } from "./form-types";
 
@@ -61,6 +58,13 @@ export function RoundCard({
   ]
     .filter(Boolean)
     .join(" - ");
+  const handleDurationOverrideChange = (
+    value: number,
+    defaultValue: number,
+    onChange: (value: number | undefined) => void,
+  ) => {
+    onChange(value === defaultValue ? undefined : value);
+  };
 
   return (
     <Card className="relative gap-0 py-0">
@@ -169,7 +173,13 @@ export function RoundCard({
                         (field.value as number | undefined) ??
                         defaultSubmissionDurationMinutes
                       }
-                      onChange={field.onChange}
+                      onChange={(value) =>
+                        handleDurationOverrideChange(
+                          value,
+                          defaultSubmissionDurationMinutes,
+                          field.onChange,
+                        )
+                      }
                       minMinutes={MIN_ROUND_DURATION_MINUTES}
                     />
                   </FormControl>
@@ -188,7 +198,13 @@ export function RoundCard({
                         (field.value as number | undefined) ??
                         defaultVotingDurationMinutes
                       }
-                      onChange={field.onChange}
+                      onChange={(value) =>
+                        handleDurationOverrideChange(
+                          value,
+                          defaultVotingDurationMinutes,
+                          field.onChange,
+                        )
+                      }
                       minMinutes={MIN_ROUND_DURATION_MINUTES}
                     />
                   </FormControl>
