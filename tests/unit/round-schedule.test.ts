@@ -6,9 +6,49 @@ import {
   buildRoundScheduleSwapPatches,
   buildRoundShiftPatches,
   buildRoundStartNowPatches,
+  buildScheduledRoundDurationEditPatches,
   buildScheduledRoundResequencePatches,
   minutesToMs,
 } from "@/lib/rounds/schedule";
+
+const at = (value: string) => new Date(value).getTime();
+
+function buildFourScheduledRounds() {
+  return [
+    {
+      _id: "round-1",
+      order: 0,
+      status: "scheduled" as const,
+      submissionStartsAt: at("2026-04-01T00:00:00Z"),
+      submissionDeadline: at("2026-04-04T00:00:00Z"),
+      votingDeadline: at("2026-04-07T00:00:00Z"),
+    },
+    {
+      _id: "round-2",
+      order: 1,
+      status: "scheduled" as const,
+      submissionStartsAt: at("2026-04-08T00:00:00Z"),
+      submissionDeadline: at("2026-04-11T00:00:00Z"),
+      votingDeadline: at("2026-04-14T00:00:00Z"),
+    },
+    {
+      _id: "round-3",
+      order: 2,
+      status: "scheduled" as const,
+      submissionStartsAt: at("2026-04-15T00:00:00Z"),
+      submissionDeadline: at("2026-04-18T00:00:00Z"),
+      votingDeadline: at("2026-04-21T00:00:00Z"),
+    },
+    {
+      _id: "round-4",
+      order: 3,
+      status: "scheduled" as const,
+      submissionStartsAt: at("2026-04-22T00:00:00Z"),
+      submissionDeadline: at("2026-04-25T00:00:00Z"),
+      votingDeadline: at("2026-04-28T00:00:00Z"),
+    },
+  ];
+}
 
 describe("round schedule", () => {
   it("converts signed minute adjustments to milliseconds", () => {
@@ -149,6 +189,57 @@ describe("round schedule", () => {
     ]);
   });
 
+  it("rebuilds a scheduled duration edit from the edited round forward", () => {
+    expect(
+      buildScheduledRoundDurationEditPatches({
+        rounds: buildFourScheduledRounds(),
+        roundId: "round-2",
+        submissionDurationMinutes: 72 * 60,
+        votingDurationMinutes: 72 * 60,
+        nextSubmissionDurationMinutes: 96 * 60,
+        nextVotingDurationMinutes: 72 * 60,
+      }),
+    ).toEqual([
+      {
+        roundId: "round-2",
+        patch: {
+          submissionStartsAt: at("2026-04-08T00:00:00Z"),
+          submissionDeadline: at("2026-04-12T00:00:00Z"),
+          votingDeadline: at("2026-04-15T00:00:00Z"),
+        },
+      },
+      {
+        roundId: "round-3",
+        patch: {
+          submissionStartsAt: at("2026-04-16T00:00:00Z"),
+          submissionDeadline: at("2026-04-19T00:00:00Z"),
+          votingDeadline: at("2026-04-22T00:00:00Z"),
+        },
+      },
+      {
+        roundId: "round-4",
+        patch: {
+          submissionStartsAt: at("2026-04-23T00:00:00Z"),
+          submissionDeadline: at("2026-04-26T00:00:00Z"),
+          votingDeadline: at("2026-04-29T00:00:00Z"),
+        },
+      },
+    ]);
+  });
+
+  it("does not patch rounds before the edited scheduled round", () => {
+    expect(
+      buildScheduledRoundDurationEditPatches({
+        rounds: buildFourScheduledRounds(),
+        roundId: "round-2",
+        submissionDurationMinutes: 72 * 60,
+        votingDurationMinutes: 72 * 60,
+        nextSubmissionDurationMinutes: 96 * 60,
+        nextVotingDurationMinutes: 72 * 60,
+      }).map(({ roundId }) => roundId),
+    ).toEqual(["round-2", "round-3", "round-4"]);
+  });
+
   it("starts a scheduled round immediately and shifts later rounds by the same amount", () => {
     const rounds = [
       {
@@ -202,6 +293,79 @@ describe("round schedule", () => {
         },
       },
     ]);
+  });
+
+  it("delays a scheduled round and every later round without touching earlier rounds", () => {
+    expect(
+      buildRoundShiftPatches({
+        rounds: buildFourScheduledRounds(),
+        roundId: "round-2",
+        adjustmentMs: minutesToMs(12 * 60),
+      }),
+    ).toEqual([
+      {
+        roundId: "round-2",
+        patch: {
+          submissionStartsAt: at("2026-04-08T12:00:00Z"),
+          submissionDeadline: at("2026-04-11T12:00:00Z"),
+          votingDeadline: at("2026-04-14T12:00:00Z"),
+        },
+      },
+      {
+        roundId: "round-3",
+        patch: {
+          submissionStartsAt: at("2026-04-15T12:00:00Z"),
+          submissionDeadline: at("2026-04-18T12:00:00Z"),
+          votingDeadline: at("2026-04-21T12:00:00Z"),
+        },
+      },
+      {
+        roundId: "round-4",
+        patch: {
+          submissionStartsAt: at("2026-04-22T12:00:00Z"),
+          submissionDeadline: at("2026-04-25T12:00:00Z"),
+          votingDeadline: at("2026-04-28T12:00:00Z"),
+        },
+      },
+    ]);
+  });
+
+  it("moves a scheduled round into the next original slot and cascades later rounds", () => {
+    const patches = buildRoundShiftPatches({
+      rounds: buildFourScheduledRounds(),
+      roundId: "round-2",
+      adjustmentMs: minutesToMs(7 * 24 * 60),
+    });
+
+    expect(patches).toEqual([
+      {
+        roundId: "round-2",
+        patch: {
+          submissionStartsAt: at("2026-04-15T00:00:00Z"),
+          submissionDeadline: at("2026-04-18T00:00:00Z"),
+          votingDeadline: at("2026-04-21T00:00:00Z"),
+        },
+      },
+      {
+        roundId: "round-3",
+        patch: {
+          submissionStartsAt: at("2026-04-22T00:00:00Z"),
+          submissionDeadline: at("2026-04-25T00:00:00Z"),
+          votingDeadline: at("2026-04-28T00:00:00Z"),
+        },
+      },
+      {
+        roundId: "round-4",
+        patch: {
+          submissionStartsAt: at("2026-04-29T00:00:00Z"),
+          submissionDeadline: at("2026-05-02T00:00:00Z"),
+          votingDeadline: at("2026-05-05T00:00:00Z"),
+        },
+      },
+    ]);
+    expect(patches[1].patch.submissionStartsAt).toBe(
+      patches[0].patch.votingDeadline + minutesToMs(24 * 60),
+    );
   });
 
   it("starts the following scheduled round immediately after the earlier round finishes", () => {

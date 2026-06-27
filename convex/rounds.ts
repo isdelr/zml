@@ -50,6 +50,7 @@ import {
   buildRoundScheduleSwapPatches,
   buildRoundStartNowPatches,
   buildRoundShiftPatches,
+  buildScheduledRoundDurationEditPatches,
   buildScheduledRoundResequencePatches,
   getLeagueSubmissionDurationMinutes,
   getLeagueVotingDurationMinutes,
@@ -160,6 +161,44 @@ function getNextRoundOrder(rounds: Array<Pick<Doc<"rounds">, "order">>) {
       -1,
     ) + 1
   );
+}
+
+function arePatchValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) {
+    return true;
+  }
+
+  if (
+    (left === undefined && right === null) ||
+    (left === null && right === undefined)
+  ) {
+    return true;
+  }
+
+  if (
+    left !== null &&
+    right !== null &&
+    typeof left === "object" &&
+    typeof right === "object"
+  ) {
+    try {
+      return JSON.stringify(left) === JSON.stringify(right);
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+function hasRoundPatchChanges(
+  round: Doc<"rounds">,
+  patch: Partial<Doc<"rounds">>,
+) {
+  return Object.entries(patch).some(([key, value]) => {
+    const currentValue = round[key as keyof Doc<"rounds">];
+    return !arePatchValuesEqual(currentValue, value);
+  });
 }
 
 async function claimRoundImageUpload(
@@ -1175,51 +1214,109 @@ export const updateRound = mutation({
       patch.imageKey = nextImageKey;
     }
 
+    let schedulePatchesToApply: Array<{
+      roundId: string;
+      patch: {
+        submissionStartsAt: number;
+        submissionDeadline: number;
+        votingDeadline: number;
+      };
+    }> = [];
+
     if (
       round.status === "scheduled" &&
       (args.submissionDurationMinutes !== undefined ||
         args.votingDurationMinutes !== undefined)
     ) {
+      const leagueSubmissionDurationMinutes =
+        getLeagueSubmissionDurationMinutes(league);
+      const leagueVotingDurationMinutes = getLeagueVotingDurationMinutes(league);
+      const currentSubmissionDurationMinutes = getRoundSubmissionDurationMinutes(
+        round,
+        league,
+      );
+      const currentVotingDurationMinutes = getRoundVotingDurationMinutes(
+        round,
+        league,
+      );
+      const nextSubmissionDurationMinutes =
+        args.submissionDurationMinutes ?? currentSubmissionDurationMinutes;
+      const nextVotingDurationMinutes =
+        args.votingDurationMinutes ?? currentVotingDurationMinutes;
       const leagueRounds = await ctx.db
         .query("rounds")
         .withIndex("by_league", (q) => q.eq("leagueId", round.leagueId))
         .collect();
-      const resequencePatches = buildScheduledRoundResequencePatches({
-        rounds: leagueRounds.map((leagueRound) => {
-          const withStringId = {
-            ...leagueRound,
-            _id: leagueRound._id.toString(),
-          };
-          return leagueRound._id === round._id
-            ? {
-                ...withStringId,
-                ...patch,
-              }
-            : withStringId;
-        }),
-        submissionDurationMinutes: getLeagueSubmissionDurationMinutes(league),
-        votingDurationMinutes: getLeagueVotingDurationMinutes(league),
+      const leagueRoundsById = new Map(
+        leagueRounds.map((leagueRound) => [
+          leagueRound._id.toString(),
+          leagueRound,
+        ]),
+      );
+      const resequencePatches = buildScheduledRoundDurationEditPatches({
+        rounds: leagueRounds.map((leagueRound) => ({
+          ...leagueRound,
+          _id: leagueRound._id.toString(),
+        })),
+        roundId: round._id.toString(),
+        submissionDurationMinutes: leagueSubmissionDurationMinutes,
+        votingDurationMinutes: leagueVotingDurationMinutes,
+        nextSubmissionDurationMinutes,
+        nextVotingDurationMinutes,
       });
       const currentSchedulePatch = resequencePatches.find(
         (schedulePatch) => schedulePatch.roundId === round._id.toString(),
       )?.patch;
-      if (currentSchedulePatch) {
+
+      if (!currentSchedulePatch) {
+        throw new Error("Could not determine the updated round schedule.");
+      }
+
+      const changedSchedulePatches = resequencePatches.filter(
+        (schedulePatch) => {
+          const existingRound = leagueRoundsById.get(schedulePatch.roundId);
+          return existingRound
+            ? hasRoundPatchChanges(existingRound, schedulePatch.patch)
+            : true;
+        },
+      );
+      const timingValuesChanged =
+        nextSubmissionDurationMinutes !== currentSubmissionDurationMinutes ||
+        nextVotingDurationMinutes !== currentVotingDurationMinutes;
+
+      delete patch.submissionDurationMinutes;
+      delete patch.votingDurationMinutes;
+
+      if (timingValuesChanged || changedSchedulePatches.length > 0) {
+        patch.submissionDurationMinutes = nextSubmissionDurationMinutes;
+        patch.votingDurationMinutes = nextVotingDurationMinutes;
         Object.assign(patch, currentSchedulePatch);
       }
-      await Promise.all(
-        resequencePatches
-          .filter((schedulePatch) => schedulePatch.roundId !== round._id.toString())
-          .map((schedulePatch) =>
-            ctx.db.patch(
-              "rounds",
-              schedulePatch.roundId as Id<"rounds">,
-              schedulePatch.patch,
-            ),
-          ),
+
+      schedulePatchesToApply = changedSchedulePatches.filter(
+        (schedulePatch) => schedulePatch.roundId !== round._id.toString(),
       );
     }
 
-    await ctx.db.patch("rounds", roundId, patch);
+    const currentPatchHasChanges = hasRoundPatchChanges(round, patch);
+
+    if (!currentPatchHasChanges && schedulePatchesToApply.length === 0) {
+      throw new Error("No round changes to save.");
+    }
+
+    await Promise.all(
+      schedulePatchesToApply.map((schedulePatch) =>
+        ctx.db.patch(
+          "rounds",
+          schedulePatch.roundId as Id<"rounds">,
+          schedulePatch.patch,
+        ),
+      ),
+    );
+
+    if (currentPatchHasChanges) {
+      await ctx.db.patch("rounds", roundId, patch);
+    }
 
     if (imageKey !== undefined && round.imageKey !== nextImageKey) {
       await scheduleRoundImageDeletion(ctx, round.imageKey);

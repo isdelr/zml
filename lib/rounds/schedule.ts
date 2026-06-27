@@ -71,6 +71,15 @@ type RoundShiftPatch = {
   };
 };
 
+type ScheduledRoundSchedulePatch = {
+  roundId: string;
+  patch: {
+    submissionStartsAt: number;
+    submissionDeadline: number;
+    votingDeadline: number;
+  };
+};
+
 export function minutesToMs(minutes: number): number {
   return Number.isFinite(minutes) ? Math.trunc(minutes) * MINUTE_MS : 0;
 }
@@ -226,7 +235,8 @@ export function buildRoundShiftPatches<
 
   let nextSubmissionStartsAt: number | null = null;
 
-  for (const round of sortedRounds) {
+  for (let index = 0; index < sortedRounds.length; index += 1) {
+    const round = sortedRounds[index];
     const roundId = round._id.toString();
     const patch = patches.get(roundId);
     const submissionStartsAt =
@@ -236,6 +246,7 @@ export function buildRoundShiftPatches<
     if (
       patch &&
       round.status === "scheduled" &&
+      index > targetIndex &&
       submissionStartsAt !== undefined &&
       nextSubmissionStartsAt !== null &&
       submissionStartsAt < nextSubmissionStartsAt
@@ -520,6 +531,74 @@ export function buildScheduledRoundResequencePatches<
     }
 
     nextSubmissionStartsAt = round.votingDeadline + gapMs;
+  }
+
+  return patches;
+}
+
+export function buildScheduledRoundDurationEditPatches<
+  TRound extends RoundScheduleShape & { _id: string },
+>(args: {
+  rounds: TRound[];
+  roundId: string;
+  submissionDurationMinutes: number;
+  votingDurationMinutes: number;
+  nextSubmissionDurationMinutes: number;
+  nextVotingDurationMinutes: number;
+  gapMs?: number;
+}): ScheduledRoundSchedulePatch[] {
+  const sortedRounds = sortRoundsInLeagueOrder(args.rounds);
+  const gapMs = args.gapMs ?? ROUND_GAP_MS;
+  const targetIndex = sortedRounds.findIndex(
+    (round) => round._id.toString() === args.roundId,
+  );
+
+  if (targetIndex === -1 || sortedRounds[targetIndex].status !== "scheduled") {
+    return [];
+  }
+
+  const patches: ScheduledRoundSchedulePatch[] = [];
+  let nextSubmissionStartsAt: number | null = null;
+
+  for (let index = targetIndex; index < sortedRounds.length; index += 1) {
+    const round = sortedRounds[index];
+    if (round.status !== "scheduled") {
+      nextSubmissionStartsAt = round.votingDeadline + gapMs;
+      continue;
+    }
+
+    const isTargetRound = round._id.toString() === args.roundId;
+    const submissionDurationMinutes = isTargetRound
+      ? args.nextSubmissionDurationMinutes
+      : (round.submissionDurationMinutes ?? args.submissionDurationMinutes);
+    const votingDurationMinutes = isTargetRound
+      ? args.nextVotingDurationMinutes
+      : (round.votingDurationMinutes ?? args.votingDurationMinutes);
+    const submissionStartsAt: number = isTargetRound
+      ? getSubmissionStart(
+          round,
+          round.submissionDurationMinutes ?? args.submissionDurationMinutes,
+        )
+      : (nextSubmissionStartsAt ??
+        getSubmissionStart(
+          round,
+          round.submissionDurationMinutes ?? args.submissionDurationMinutes,
+        ));
+    const submissionDeadline: number =
+      submissionStartsAt + minutesToMs(submissionDurationMinutes);
+    const votingDeadline: number =
+      submissionDeadline + minutesToMs(votingDurationMinutes);
+
+    patches.push({
+      roundId: round._id.toString(),
+      patch: {
+        submissionStartsAt,
+        submissionDeadline,
+        votingDeadline,
+      },
+    });
+
+    nextSubmissionStartsAt = votingDeadline + gapMs;
   }
 
   return patches;
